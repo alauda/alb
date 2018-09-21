@@ -1,0 +1,14 @@
+version: "0.1.0"
+pre_ci_boot:
+    image: index.alauda.cn/alaudaorg/gobuild
+    tag: 1.10-alpine
+ci:
+    - cp -r . $GOPATH/src/alauda_lb/ && cd $GOPATH/src/
+    - go build -ldflags "-w -s" -v -o $ALAUDACI_DEST_DIR/bin/alb alauda_lb
+    - cp alauda_lb/run.sh $ALAUDACI_DEST_DIR/run.sh
+    - cp alauda_lb/alb-config.toml $ALAUDACI_DEST_DIR/alb-config.toml
+    - mkdir -p $ALAUDACI_DEST_DIR/haproxy
+    - mkdir -p $ALAUDACI_DEST_DIR/nginx
+    - cp alauda_lb/Dockerfile.haproxy $ALAUDACI_DEST_DIR/haproxy/Dockerfile
+    - cp alauda_lb/Dockerfile.nginx $ALAUDACI_DEST_DIR/nginx/Dockerfile
+    - cp -r alauda_lb/template $ALAUDACI_DEST_DIR/template

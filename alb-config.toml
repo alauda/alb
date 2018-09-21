@@ -1,0 +1,16 @@
+[default]
+SCHEDULER = "kubernetes"
+KUBERNETES_TIMEOUT = 30
+INTERVAL = 10
+CERTIFICATE_DIRECTORY = "/alb/certificates"
+RECORD_POST_BODY = false
+USE_ENDPOINT = false
+USE_POD_HOST_IP = true
+NEW_CONFIG_PATH = "haproxy.cfg.new"
+OLD_CONFIG_PATH = "haproxy.cfg"
+
+k8s_v3 = false
+standalone = false
+
+#timeout for http request
+timeout = 30

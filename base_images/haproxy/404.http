@@ -1,0 +1,10 @@
+HTTP/1.0 404 Not Found
+Cache-Control: no-cache
+Connection: close
+Content-Type: text/html
+Server: alb
+
+<html><body><h1>404 Not Found</h1>
+There is no server to handle this request.
+</body></html>
+
