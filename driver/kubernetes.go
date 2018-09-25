@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -310,4 +311,150 @@ func (kd *KubernetesDriver) parseService(service *v1types.Service, backends []*B
 	}
 
 	return serviceEndpoints, nil
+}
+
+// GetNodePortAddr return addresses of a NodePort service by using host ip and nodeport.
+func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Service, error) {
+	service := &Service{
+		ServiceName:   svc.Name,
+		ContainerPort: port,
+		Namespace:     svc.Namespace,
+		Backends:      make([]*Backend, 0),
+	}
+	var nodeport int32
+	for _, p := range svc.Spec.Ports {
+		if p.Port == int32(port) {
+			nodeport = p.NodePort
+			break
+		}
+	}
+	if nodeport == 0 {
+		glog.Error("Service %s.%s NOT have port %d", svc.Name, svc.Namespace, port)
+		return nil, errors.New("Port NOT Found")
+	}
+
+	podList, err := kd.Client.CoreV1().Pods("").List(metav1.ListOptions{
+		LabelSelector: selectorToLabelSelector(svc.Spec.Selector),
+	})
+	if err != nil {
+		glog.Error("Get pods of service %s.%s failed: %s", svc.Name, svc.Namespace, err.Error())
+		return service, nil //return a service with empty backend list
+	}
+	nodeSet := make(map[string]bool)
+	for _, pod := range podList.Items {
+		if pod.Status.HostIP == "" || pod.Status.Phase != v1types.PodRunning {
+			// pod not ready
+			continue
+		}
+		if _, ok := nodeSet[pod.Status.HostIP]; ok {
+			// host has already been added
+			continue
+		}
+		service.Backends = append(
+			service.Backends,
+			&Backend{
+				IP:   pod.Status.HostIP,
+				Port: int(nodeport),
+			},
+		)
+		nodeSet[pod.Status.HostIP] = true
+	}
+	sort.Sort(ByBackend(service.Backends))
+	return service, nil
+}
+
+// GetEndPointAddress return a list of pod ip in the endpoint
+func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int) (*Service, error) {
+	ep, err := kd.Client.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())
+		return nil, err
+	}
+
+	service := &Service{
+		ServiceName:   name,
+		ContainerPort: port,
+		Namespace:     namespace,
+		Backends:      make([]*Backend, 0),
+	}
+
+	for _, subset := range ep.Subsets {
+		for _, addr := range subset.Addresses {
+			service.Backends = append(service.Backends, &Backend{
+				InstanceID: addr.Hostname,
+				IP:         addr.IP,
+				Port:       port,
+			})
+		}
+	}
+	sort.Sort(ByBackend(service.Backends))
+	return service, nil
+}
+
+// GetServiceAddress return ip list of a service base on the type of service
+func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) (*Service, error) {
+	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	if err != nil || svc == nil {
+		glog.Error("Get service %s.%s failed: %s", name, namespace, err)
+		return nil, err
+	}
+	switch svc.Spec.Type {
+	case v1types.ServiceTypeClusterIP:
+		service := &Service{
+			ServiceName:   name,
+			ContainerPort: port,
+			Namespace:     namespace,
+			Backends: []*Backend{
+				&Backend{
+					IP:   svc.Spec.ClusterIP,
+					Port: port,
+				},
+			},
+		}
+		return service, nil
+	case v1types.ServiceTypeNodePort:
+		return kd.GetNodePortAddr(svc, port)
+	case "None": //headless service
+		return kd.GetEndPointAddress(name, namespace, port)
+	default:
+		glog.Error("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
+		return nil, errors.New("Unknown Service Type")
+	}
+}
+
+func (kd *KubernetesDriver) GetServiceByName(namespace, name string, port int) (*Service, error) {
+	if config.GetBool("USE_ENDPOINT") {
+		return kd.GetEndPointAddress(name, namespace, port)
+	}
+	return kd.GetServiceAddress(name, namespace, port)
+}
+
+func (kd *KubernetesDriver) GetServiceByID(serviceID string, port int) (*Service, error) {
+	svcs, err := kd.Client.CoreV1().Services("").List(
+		metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", config.Get("LABEL_SERVICE_ID"), serviceID),
+		},
+	)
+	if err != nil || svcs == nil {
+		glog.Errorf("List service with id %s failed: %s", serviceID, err)
+		return nil, err
+	}
+	var kubeSvc *v1types.Service
+
+svcLoop:
+	for _, svc := range svcs.Items {
+		for _, p := range svc.Spec.Ports {
+			if p.Port == int32(port) {
+				kubeSvc = &svc
+				if kubeSvc.Labels[config.Get("LABEL_CREATOR")] == "" {
+					break svcLoop
+				}
+			}
+		}
+	}
+	if kubeSvc != nil {
+		return kd.GetServiceAddress(kubeSvc.Name, kubeSvc.Namespace, port)
+	}
+	glog.Errorf("No service with id %s and port %d found", serviceID, port)
+	return nil, errors.New("No Service Found")
 }

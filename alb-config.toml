@@ -14,3 +14,7 @@ standalone = false
 
 #timeout for http request
 timeout = 30
+
+[labes]
+name = "alb2.alauda.io/name"
+frontend = "alb2.alauda.io/frontend"

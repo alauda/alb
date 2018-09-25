@@ -28,9 +28,6 @@ var requiredFields = []string{
 }
 
 var optionalFields = []string{
-	"MARATHON_USERNAME",
-	"MARATHON_PASSWORD",
-	"MARATHON_TIMEOUT",
 	"KUBERNETES_TIMEOUT",
 	"INTERVAL",
 	"CERTIFICATE_DIRECTORY",
@@ -144,11 +141,7 @@ func ValidateConfig() error {
 		if len(emptyRequiredEnv) > 0 {
 			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
 		}
-	case Marathon:
-		emptyRequiredEnv := checkEmpty(marathonRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
+
 	default:
 		return fmt.Errorf("Unsuported scheduler %s", Config["SCHEDULER"])
 	}
@@ -190,7 +183,7 @@ func ValidateConfig() error {
 
 // IsStandalone return true if alb is running in stand alone mode
 func IsStandalone() bool {
-	return GetBool("standalone")
+	return true
 }
 
 // Set key to val

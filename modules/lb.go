@@ -14,4 +14,5 @@ type Frontend struct {
 
 type Rule struct {
 	RuleSpec
+	Name string
 }
