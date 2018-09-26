@@ -15,6 +15,10 @@ type Backend struct {
 	Port       int    `json:"port"`
 }
 
+func (b *Backend) String() string {
+	return fmt.Sprintf("%s:%d", b.IP, b.Port)
+}
+
 type ByBackend []*Backend
 
 func (b ByBackend) Len() int {
@@ -49,14 +53,6 @@ type NodePort struct {
 	Ports     []int
 	Selector  map[string]string
 	Namespace string
-}
-
-type Driver interface {
-	GetType() string
-	IsHealthy() bool
-	CreateNodePort(nc *NodePort) error
-	DeleteNodePort(name, namespace string) error
-	ListService() ([]*Service, error)
 }
 
 func GetDriver() (*KubernetesDriver, error) {

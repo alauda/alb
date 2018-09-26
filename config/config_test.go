@@ -32,10 +32,7 @@ func TestEnvConfig(t *testing.T) {
 		"HAPROXY_TEMPLATE_PATH":  "template/haproxy/haproxy.tmpl",
 		"HAPROXY_BIN_PATH":       "haproxy",
 		"NAME":                   "haproxy-test",
-		"JAKIRO_ENDPOINT":        "http://127.0.0.1:8080",
-		"TOKEN":                  "abcdef1234567890",
 		"NAMESPACE":              "default",
-		"REGION_NAME":            "test",
 	}
 	for key, val := range ENV {
 		os.Setenv(key, val)
@@ -63,22 +60,20 @@ func TestStandAlone(t *testing.T) {
 		"OLD_CONFIG_PATH":        "haproxy.cfg",
 		"HAPROXY_TEMPLATE_PATH":  "template/haproxy/haproxy.tmpl",
 		"HAPROXY_BIN_PATH":       "haproxy",
+		"NAMESPACE":              "default",
 		"NAME":                   "haproxy-test",
 	}
 	a := assert.New(t)
-	a.False(IsStandalone())
+	a.True(IsStandalone())
 	for key, val := range ENV {
 		os.Setenv(key, val)
 	}
 	Initialize()
 
-	err := ValidateConfig()
-	a.Error(err)
-
 	os.Setenv("ALB_STANDALONE", "true")
 	Initialize()
 	a.True(IsStandalone())
-	err = ValidateConfig()
+	err := ValidateConfig()
 	a.Nil(err)
 
 	cleanenv(ENV)

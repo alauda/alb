@@ -1,8 +1,7 @@
 package controller
 
 import (
-	"alauda_lb/config"
-	"alauda_lb/driver"
+	"alb2/driver"
 	"encoding/json"
 	"errors"
 	"os"
@@ -32,7 +31,7 @@ type NginxController struct {
 	NewPolicyPath string
 	OldPolicyPath string
 	BinaryPath    string
-	Driver        driver.Driver
+	Driver        *driver.KubernetesDriver
 }
 
 type TrafficRule struct {
@@ -122,10 +121,6 @@ func (nc *NginxController) GenerateConf() error {
 	if err != nil {
 		return err
 	}
-	loadbalancers = filterLoadbalancers(loadbalancers, "nginx", config.Get("NAME"))
-	if len(loadbalancers) == 0 {
-		return errors.New("No loadbalancer config related to this nginx")
-	}
 
 	merge(loadbalancers, services)
 	if err != nil {
@@ -182,6 +177,12 @@ func (nc *NginxController) GenerateConf() error {
 }
 
 func (nc *NginxController) ReloadLoadBalancer() error {
+	if nc.BinaryPath == "" {
+		// set it to empty for local test
+		glog.Errorf("Nginx bin path is empty!!!")
+		return nil
+	}
+
 	var err error
 	defer func() {
 		if err != nil {

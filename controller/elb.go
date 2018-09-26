@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"alauda_lb/config"
-	"alauda_lb/driver"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -16,6 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/golang/glog"
+
+	"alb2/config"
+	"alb2/driver"
 )
 
 func strIn(str *string, container []string) bool {
@@ -33,7 +34,7 @@ type ElbController struct {
 	SecretAccessKey string
 	ElbClient       *elb.ELB
 	Ec2Client       *ec2.EC2
-	Driver          driver.Driver
+	Driver          *driver.KubernetesDriver
 	LoadBalancers   []*LoadBalancer
 }
 

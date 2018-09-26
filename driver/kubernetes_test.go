@@ -19,11 +19,10 @@ func TestCreateDriver(t *testing.T) {
 	config.Set("KUBERNETES_BEARERTOKEN", token)
 	drv, err := GetDriver()
 	a.NoError(err)
-	kdrv, ok := drv.(*KubernetesDriver)
-	a.True(ok)
-	a.Equal(server, kdrv.Endpoint)
-	a.Equal(token, kdrv.BearerToken)
-	a.NotZero(kdrv.Timeout)
+
+	a.Equal(server, drv.Endpoint)
+	a.Equal(token, drv.BearerToken)
+	a.NotZero(drv.Timeout)
 }
 
 func setUp() {
@@ -36,10 +35,8 @@ func getFakeDriver(t *testing.T) *KubernetesDriver {
 	config.Set("KUBERNETES_SERVER", FAKE_ENDPOINT)
 	drv, err := GetDriver()
 	a.NoError(err)
-	kdrv, ok := drv.(*KubernetesDriver)
-	a.True(ok)
-	a.NotNil(kdrv)
-	return kdrv
+
+	return drv
 }
 
 func TestGetEndpoint(t *testing.T) {

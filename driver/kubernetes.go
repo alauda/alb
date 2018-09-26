@@ -185,32 +185,18 @@ func (kd *KubernetesDriver) ListServiceEndpoints() ([]*Service, error) {
 }
 
 func (kd *KubernetesDriver) ListService() ([]*Service, error) {
-	if config.GetBool("USE_ENDPOINT") {
-		return kd.ListServiceEndpoints()
-	}
-	kubernetesServiceList, err := kd.Client.CoreV1().Services("").List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s,%s", config.Get("LABEL_SERVICE_ID"), config.Get("LABEL_CREATOR")),
-	})
+	alb, err := LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		glog.Error(err)
 		return nil, err
 	}
-	kubernetesBackendList, err := kd.fetchKubernetesBackends()
+	services, err := LoadServices(alb)
 	if err != nil {
+		glog.Error(err)
 		return nil, err
 	}
-	serviceEndpoints := make([]*Service, 0, len(kubernetesServiceList.Items))
-	for _, app := range kubernetesServiceList.Items {
-		if string(app.Spec.Type) != "NodePort" {
-			continue
-		}
-		se, err := kd.parseService(&app, kubernetesBackendList)
-		if err == nil {
-			serviceEndpoints = append(serviceEndpoints, se...)
-		}
-	}
-	glog.Infof("Get %d services.", len(serviceEndpoints))
-	return serviceEndpoints, nil
+
+	return services, nil
 }
 
 func (kd *KubernetesDriver) fetchKubernetesBackends() ([]*Backend, error) {
@@ -316,6 +302,7 @@ func (kd *KubernetesDriver) parseService(service *v1types.Service, backends []*B
 // GetNodePortAddr return addresses of a NodePort service by using host ip and nodeport.
 func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Service, error) {
 	service := &Service{
+		ServiceID:     fmt.Sprintf("%s.%s", svc.Name, svc.Namespace),
 		ServiceName:   svc.Name,
 		ContainerPort: port,
 		Namespace:     svc.Namespace,
@@ -372,6 +359,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int)
 	}
 
 	service := &Service{
+		ServiceID:     fmt.Sprintf("%s.%s", name, namespace),
 		ServiceName:   name,
 		ContainerPort: port,
 		Namespace:     namespace,
@@ -388,6 +376,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int)
 		}
 	}
 	sort.Sort(ByBackend(service.Backends))
+	glog.Infof("backends of svc %s: %+v", name, service.Backends)
 	return service, nil
 }
 
@@ -401,6 +390,7 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) 
 	switch svc.Spec.Type {
 	case v1types.ServiceTypeClusterIP:
 		service := &Service{
+			ServiceID:     fmt.Sprintf("%s.%s", name, namespace),
 			ServiceName:   name,
 			ContainerPort: port,
 			Namespace:     namespace,

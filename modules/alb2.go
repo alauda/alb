@@ -84,3 +84,7 @@ type Service struct {
 func (s Service) String() string {
 	return fmt.Sprintf("%s-%s-%d", s.Namespace, s.Name, s.Port)
 }
+
+func (s Service) ServiceID() string {
+	return fmt.Sprintf("%s.%s", s.Name, s.Namespace)
+}

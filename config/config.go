@@ -24,13 +24,18 @@ var Config = map[string]string{}
 
 var requiredFields = []string{
 	"LB_TYPE",
-	"SCHEDULER",
+	"NAME",
+	"NAMESPACE",
+	"KUBERNETES_SERVER",
+	"KUBERNETES_BEARERTOKEN",
 }
 
 var optionalFields = []string{
+	"SCHEDULER",
 	"KUBERNETES_TIMEOUT",
 	"INTERVAL",
 	"CERTIFICATE_DIRECTORY",
+	"HAPROXY_BIN_PATH",
 	//for xiaoying
 	"RECORD_POST_BODY",
 	//USE_ENDPOINT MUST set to "true" if enable session affinity
@@ -39,27 +44,10 @@ var optionalFields = []string{
 	"USE_POD_HOST_IP",
 }
 
-var nonStandAloneRequiredFields = []string{
-	"JAKIRO_ENDPOINT",
-	"TOKEN",
-	"NAMESPACE",
-	"REGION_NAME",
-}
-
-var marathonRequiredFields = []string{
-	"MARATHON_SERVER",
-}
-
-var kubernetesRequiredFields = []string{
-	"KUBERNETES_SERVER",
-	"KUBERNETES_BEARERTOKEN",
-}
-
 var haproxyRequiredFields = []string{
 	"NEW_CONFIG_PATH",
 	"OLD_CONFIG_PATH",
 	"HAPROXY_TEMPLATE_PATH",
-	"HAPROXY_BIN_PATH",
 	"NAME"}
 
 var nginxRequiredFields = []string{
@@ -103,9 +91,6 @@ func Initialize() {
 	setDefault()
 	getEnvs(requiredFields)
 	getEnvs(optionalFields)
-	getEnvs(nonStandAloneRequiredFields)
-	getEnvs(marathonRequiredFields)
-	getEnvs(kubernetesRequiredFields)
 	getEnvs(haproxyRequiredFields)
 	getEnvs(nginxRequiredFields)
 	getEnvs(cloudLBRequiredFields)
@@ -132,18 +117,7 @@ func checkEmpty(requiredFields []string) []string {
 func ValidateConfig() error {
 	emptyRequiredEnv := checkEmpty(requiredFields)
 	if len(emptyRequiredEnv) > 0 {
-		return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-	}
-
-	switch strings.ToLower(Config["SCHEDULER"]) {
-	case Kubernetes:
-		emptyRequiredEnv := checkEmpty(kubernetesRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
-
-	default:
-		return fmt.Errorf("Unsuported scheduler %s", Config["SCHEDULER"])
+		return fmt.Errorf("%s env vars are requied but empty", strings.Join(emptyRequiredEnv, ","))
 	}
 
 	switch strings.ToLower(Config["LB_TYPE"]) {
@@ -172,12 +146,6 @@ func ValidateConfig() error {
 		return fmt.Errorf("Unsuported lb type %s", Config["LB_TYPE"])
 	}
 
-	if !IsStandalone() {
-		emptyRequiredEnv = checkEmpty(nonStandAloneRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
-	}
 	return nil
 }
 

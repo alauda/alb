@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
+	u "net/url"
 
 	"github.com/golang/glog"
 	"github.com/parnurzeal/gorequest"
@@ -26,7 +26,7 @@ func GetK8sHTTPClient(method, url string) *gorequest.SuperAgent {
 }
 
 type HttpClient interface {
-	Do(typ, ns, name, selector string) (http.Response, string, error)
+	Do(typ, ns, name, selector string) (data string, err error)
 }
 
 type defaultClient struct {
@@ -46,8 +46,10 @@ func (c *defaultClient) Do(typ, ns, name, selector string) (string, error) {
 		)
 	}
 	client := GetK8sHTTPClient("GET", url)
+	// client.Debug = true
 	if selector != "" {
-		client = client.Query(fmt.Sprintf("labelSelector=%s", selector))
+		query := u.QueryEscape(selector)
+		client = client.Query(fmt.Sprintf("labelSelector=%s", query))
 	}
 	resp, body, errs := client.End()
 	if len(errs) > 0 {
@@ -55,14 +57,14 @@ func (c *defaultClient) Do(typ, ns, name, selector string) (string, error) {
 		return "", errs[0]
 	}
 	if resp.StatusCode != 200 {
-		glog.Errorf("Request to %s get %d: %s", url, resp.StatusCode, body)
+		glog.Errorf("Request to %s get %d: %s", client.Url, resp.StatusCode, body)
 		return "", errors.New(body)
 	}
 	glog.Infof("Request to kubernetes %s success, get %d bytes.", resp.Request.URL, len(body))
 	return body, nil
 }
 
-var client = &defaultClient{}
+var client HttpClient = &defaultClient{}
 
 func LoadAlbResource(namespace, name string) (*m.Alb2Resource, error) {
 	body, err := client.Do("alaudaloadbalancer2", namespace, name, "")
@@ -155,4 +157,57 @@ func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 		alb2.Frontends = append(alb2.Frontends, ft)
 	}
 	return &alb2, nil
+}
+
+func parseServiceGroup(data map[string]*Service, sg *m.ServicceGroup) (map[string]*Service, error) {
+	if sg == nil {
+		return data, nil
+	}
+
+	kd, err := GetDriver()
+	if err != nil {
+		glog.Error(err)
+		return data, err
+	}
+
+	for _, svc := range sg.Services {
+		key := svc.String()
+		if _, ok := data[key]; !ok {
+			service, err := kd.GetServiceByName(svc.Namespace, svc.Name, svc.Port)
+			glog.Infof("Get serivce %+v", *service)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+			data[key] = service
+		}
+	}
+	return data, nil
+}
+
+func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
+	var err error
+	data := make(map[string]*Service)
+
+	for _, ft := range alb.Frontends {
+		data, err = parseServiceGroup(data, ft.ServiceGroup)
+		if err != nil {
+			glog.Error(err)
+			return nil, err
+		}
+
+		for _, rule := range ft.Rules {
+			data, err = parseServiceGroup(data, rule.ServiceGroup)
+			if err != nil {
+				glog.Error(err)
+				return nil, err
+			}
+		}
+	}
+
+	services := make([]*Service, 0, len(data))
+	for _, svc := range data {
+		services = append(services, svc)
+	}
+	return services, nil
 }

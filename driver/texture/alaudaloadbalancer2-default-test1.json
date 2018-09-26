@@ -1,0 +1,31 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "crd.alauda.io/v1",
+            "kind": "ALB2",
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"crd.alauda.io/v1\",\"kind\":\"ALB2\",\"metadata\":{\"annotations\":{},\"name\":\"test1\",\"namespace\":\"default\"},\"spec\":{\"address\":\"1.2.3.4\",\"type\":\"haproxy\"}}\n"
+                },
+                "clusterName": "",
+                "creationTimestamp": "2018-09-21T09:17:28Z",
+                "generation": 0,
+                "name": "test1",
+                "namespace": "default",
+                "resourceVersion": "35460251",
+                "selfLink": "/apis/crd.alauda.io/v1/namespaces/default/alaudaloadbalancer2/test1",
+                "uid": "296e421b-bd7f-11e8-a84c-5254002939a4"
+            },
+            "spec": {
+                "address": "1.2.3.4",
+                "type": "haproxy"
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": "",
+        "selfLink": ""
+    }
+}

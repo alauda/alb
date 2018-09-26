@@ -1,9 +1,7 @@
 package controller
 
 import (
-	"alauda_lb/config"
-	"alauda_lb/driver"
-	"errors"
+	"alb2/driver"
 	"os"
 	"os/exec"
 	"strings"
@@ -18,7 +16,7 @@ type HaproxyController struct {
 	NewConfigPath string
 	OldConfigPath string
 	BinaryPath    string
-	Driver        driver.Driver
+	Driver        *driver.KubernetesDriver
 }
 
 func (hc *HaproxyController) GetLoadBalancerType() string {
@@ -48,10 +46,6 @@ func (hc *HaproxyController) GenerateConf() error {
 	if err != nil {
 		return err
 	}
-	loadbalancers = filterLoadbalancers(loadbalancers, "haproxy", config.Get("NAME"))
-	if len(loadbalancers) == 0 {
-		return errors.New("No loadbalancer config related to this haproxy")
-	}
 
 	merge(loadbalancers, services)
 	if err != nil {
@@ -73,6 +67,10 @@ func (hc *HaproxyController) GenerateConf() error {
 }
 
 func (hc *HaproxyController) ReloadLoadBalancer() error {
+	if hc.BinaryPath == "" {
+		glog.Info("haproxy bin path is empty!")
+		return nil
+	}
 	var err error
 	if hc.BinaryPath == "test" {
 		// for local test

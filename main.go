@@ -1,8 +1,6 @@
 package main
 
 import (
-	"alauda_lb/config"
-	"alauda_lb/controller"
 	"context"
 	"flag"
 	"os"
@@ -10,6 +8,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+
+	"alb2/config"
+	"alb2/controller"
 )
 
 func main() {
@@ -23,25 +24,13 @@ func main() {
 		return
 	}
 
-	isNewK8s, err := controller.IsNewK8sCluster()
-	if err != nil {
-		glog.Error(err)
-		return
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if isNewK8s {
-		config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
-		config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
-		config.Set("LABEL_CREATOR", "service.alauda.io/createby")
-		go controller.SyncLoop(ctx)
-		go controller.RegisterLoop(ctx)
-	} else {
-		config.Set("LABEL_SERVICE_ID", "alauda_service_id")
-		config.Set("LABEL_SERVICE_NAME", "service_name")
-		config.Set("LABEL_CREATOR", "alauda_owner")
-	}
+	config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
+	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
+	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
+	// go controller.RegisterLoop(ctx)
 
 	if config.Get("LB_TYPE") == config.Haproxy ||
 		config.Get("LB_TYPE") == config.Nginx {
@@ -55,14 +44,6 @@ func main() {
 		ch := make(chan string)
 
 		go func() {
-			err = controller.SyncLoadBalancersAndScheduler()
-			if err != nil {
-				glog.Error(err.Error())
-				ch <- "continue"
-				return
-			}
-			ch <- "wait"
-
 			ctl, err := controller.GetController()
 			if err != nil {
 				glog.Error(err.Error())

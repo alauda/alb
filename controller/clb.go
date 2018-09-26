@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"alauda_lb/config"
-	"alauda_lb/driver"
-	"alauda_lb/util"
+	"alb2/config"
+	"alb2/driver"
+	"alb2/util"
+
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -28,7 +29,7 @@ type ClbController struct {
 	Credential         common.Credential
 	ClbClient          *clb.Client
 	CvmClient          *cvm.Client
-	Driver             driver.Driver
+	Driver             *driver.KubernetesDriver
 	LoadBalancers      []*LoadBalancer
 	ip2InstanceIdCache map[string]string
 }

@@ -8,15 +8,14 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/parnurzeal/gorequest"
 
-	"alauda_lb/config"
-	"alauda_lb/driver"
+	"alb2/config"
+	"alb2/driver"
 )
 
 const (
@@ -223,87 +222,9 @@ var (
 	ErrStandAlone = errors.New("operation is not allowed in stand alone mode")
 )
 
-func LoadRegionInfo() (*RegionInfo, error) {
-	if config.IsStandalone() {
-		glog.Error("can't load region information when run in stand alone mode")
-		return nil, ErrStandAlone
-	}
-	if regionInfo != nil {
-		return regionInfo, nil
-	}
-	defer func(start time.Time) {
-		dur := time.Now().Sub(start)
-		glog.Infof("Fetch region info used %.3f seconds.", float64(dur)/float64(time.Second))
-	}(time.Now())
-	url := fmt.Sprintf("%s/v1/regions/%s/%s",
-		config.Get("JAKIRO_ENDPOINT"),
-		config.Get("NAMESPACE"),
-		config.Get("REGION_NAME"))
-	resp, body, errs := gorequest.New().Get(url).
-		Set("Authorization", fmt.Sprintf("Token %s", config.Get("TOKEN"))).
-		Timeout(time.Second * time.Duration(config.GetInt("timeout"))).
-		End()
-	if len(errs) > 0 {
-		glog.Error(errs[0])
-		return nil, errs[0]
-	}
-	if resp.StatusCode != 200 {
-		glog.Error(body)
-		return nil, errors.New(body)
-	}
-	err := json.Unmarshal([]byte(body), &regionInfo)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-	glog.Info("Get region info: ", body)
-	return regionInfo, nil
-}
-
 //IsNewK8sCluster return true if cluser is new kubernetes cluseter
 func IsNewK8sCluster() (bool, error) {
-	if config.IsStandalone() {
-		return true, nil
-	}
-
-	if config.GetBool("k8s_v3") {
-		//Set env ALB_K8S_v3=true to enable it
-		return true, nil
-	}
-	info, err := LoadRegionInfo()
-	if err == nil {
-		return (strings.EqualFold(info.ContainerManager, "kubernetes") &&
-			strings.EqualFold(info.PlatformVersion, "v3")), nil
-	}
-	return false, err
-}
-
-//FetchLBFromMirana2 get load balancers informations from mirana2 in global.
-func FetchLBFromMirana2() ([]*LoadBalancer, error) {
-	if config.IsStandalone() {
-		return nil, ErrStandAlone
-	}
-	var err error
-	defer printFuncLog("FetchLBFromMirana2", time.Now(), err)
-	url := fmt.Sprintf("%s/v1/load_balancers/%s", config.Get("JAKIRO_ENDPOINT"), config.Get("NAMESPACE"))
-	resp, body, errs := JakiroRequest.Get(url).
-		Query(fmt.Sprintf("region_name=%s&frontend=true", config.Get("REGION_NAME"))).
-		Set("Authorization", fmt.Sprintf("Token %s", config.Get("TOKEN"))).
-		Timeout(time.Second * time.Duration(config.GetInt("timeout"))).
-		End()
-	if len(errs) > 0 {
-		glog.Error(errs[0].Error())
-		return nil, errs[0]
-	}
-	if resp.StatusCode != 200 {
-		glog.Errorf("Request to %s get %d: %s", url, resp.StatusCode, body)
-		return nil, errors.New(body)
-	}
-	glog.Infof("Request to jakiro %s", resp.Request.URL)
-	glog.Infof("Jakiro Response body is %d bytes", len(body))
-	var loadBalancers []*LoadBalancer
-	err = json.Unmarshal([]byte(body), &loadBalancers)
-	return loadBalancers, err
+	return true, nil
 }
 
 var loadBalancersCache []byte
@@ -326,25 +247,19 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 		return lbs, nil
 	}
 
-	newK8s, err := IsNewK8sCluster()
+	alb, err := driver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
+		glog.Error(err)
 		return nil, err
 	}
 
-	var loadBalancers = []*LoadBalancer{}
-	if newK8s {
-		albs, err := FetchALBInfo()
-		if err != nil {
-			return nil, err
-		}
-		for _, alb := range albs {
-			loadBalancers = append(loadBalancers, alb.Spec)
-		}
-	} else {
-		loadBalancers, err = FetchLBFromMirana2()
-		if err != nil {
-			return nil, err
-		}
+	lb, err := MergeNew(alb)
+	if err != nil {
+		glog.Error(err)
+		return nil, err
+	}
+	var loadBalancers = []*LoadBalancer{
+		lb,
 	}
 
 	interval, err := strconv.Atoi(config.Get("INTERVAL"))
@@ -354,6 +269,7 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 	}
 	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
 	loadBalancersCache, _ = json.Marshal(loadBalancers)
+	glog.Infof("Get Loadbalancers: %s", string(loadBalancersCache))
 	return loadBalancers, err
 }
 

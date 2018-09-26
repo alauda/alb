@@ -16,8 +16,8 @@ import (
 	"github.com/golang/glog"
 	set "gopkg.in/fatih/set.v0"
 
-	"alauda_lb/config"
-	"alauda_lb/driver"
+	"alb2/config"
+	"alb2/driver"
 )
 
 const InvalidBackendPort = 1
@@ -28,7 +28,7 @@ type SlbController struct {
 	SecretAccessKey string
 	SlbClient       *slb.Client
 	EcsClient       *ecs.Client
-	Driver          driver.Driver
+	Driver          *driver.KubernetesDriver
 	LoadBalancers   []*LoadBalancer
 
 	ip2ID       map[string]string

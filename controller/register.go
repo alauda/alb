@@ -13,8 +13,8 @@ import (
 	typev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"alauda_lb/config"
-	"alauda_lb/driver"
+	"alb2/config"
+	"alb2/driver"
 )
 
 const (
@@ -50,8 +50,6 @@ type BindRequest struct {
 }
 
 func GetBindingService(kd *driver.KubernetesDriver) (bindMap map[string]map[string][]*Listener, err error) {
-	defer printFuncLog("GetBindingService", time.Now(), err)
-
 	pods, err := kd.Client.CoreV1().Pods("").List(metav1.ListOptions{
 		LabelSelector: config.Get("LABEL_SERVICE_ID"),
 	})
@@ -185,7 +183,6 @@ func NeedUpdate(lb *LoadBalancer, listeners []*Listener) bool {
 }
 
 func BindService(req *BindRequest) {
-	defer printFuncLog("BindService", time.Now(), nil)
 	url := fmt.Sprintf("%s/v1/load_balancers/%s/%s",
 		config.Get("JAKIRO_ENDPOINT"),
 		config.Get("NAMESPACE"),

@@ -10,15 +10,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/golang/glog"
 
-	"alauda_lb/config"
-	"alauda_lb/driver"
-	"reflect"
+	"alb2/config"
+	"alb2/driver"
 )
 
 var (
@@ -37,7 +37,7 @@ func getServiceName(id string, port int) string {
 func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 	serviceMap := make(map[string][]*driver.Backend)
 	for _, svc := range services {
-		name := svc.String()
+		name := getServiceName(svc.ServiceID, svc.ContainerPort)
 		serviceMap[name] = svc.Backends
 	}
 	for _, lb := range loadBalancers {
