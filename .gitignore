@@ -12,3 +12,4 @@ alb
 *.DS_Store
 haproxy.cfg.new
 policy.new
+VERSION
