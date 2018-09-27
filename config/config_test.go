@@ -13,13 +13,6 @@ func cleanenv(keys map[string]string) {
 	}
 }
 
-func TestConfigInit(t *testing.T) {
-	a := assert.New(t)
-	Initialize()
-	err := ValidateConfig()
-	a.Error(err)
-}
-
 func TestEnvConfig(t *testing.T) {
 	a := assert.New(t)
 	ENV := map[string]string{
@@ -48,6 +41,13 @@ func TestEnvConfig(t *testing.T) {
 	a.Nil(err)
 
 	cleanenv(ENV)
+}
+
+func TestLabels(t *testing.T) {
+	a := assert.New(t)
+	Initialize()
+	a.NotEmpty(Get("labels.name"))
+	a.NotEmpty(Get("labels.frontend"))
 }
 
 func TestStandAlone(t *testing.T) {

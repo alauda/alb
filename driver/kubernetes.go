@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
-	"alauda_lb/config"
+	"alb2/config"
 )
 
 type KubernetesDriver struct {

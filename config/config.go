@@ -23,7 +23,6 @@ const (
 var Config = map[string]string{}
 
 var requiredFields = []string{
-	"LB_TYPE",
 	"NAME",
 	"NAMESPACE",
 	"KUBERNETES_SERVER",
@@ -32,10 +31,12 @@ var requiredFields = []string{
 
 var optionalFields = []string{
 	"SCHEDULER",
+	"LB_TYPE",
 	"KUBERNETES_TIMEOUT",
 	"INTERVAL",
 	"CERTIFICATE_DIRECTORY",
 	"HAPROXY_BIN_PATH",
+	"NGINX_BIN_PATH",
 	//for xiaoying
 	"RECORD_POST_BODY",
 	//USE_ENDPOINT MUST set to "true" if enable session affinity
@@ -48,16 +49,15 @@ var haproxyRequiredFields = []string{
 	"NEW_CONFIG_PATH",
 	"OLD_CONFIG_PATH",
 	"HAPROXY_TEMPLATE_PATH",
-	"NAME"}
+}
 
 var nginxRequiredFields = []string{
 	"NEW_CONFIG_PATH",
 	"OLD_CONFIG_PATH",
 	"NGINX_TEMPLATE_PATH",
-	"NGINX_BIN_PATH",
 	"NEW_POLICY_PATH",
 	"OLD_POLICY_PATH",
-	"NAME"}
+}
 
 var cloudLBRequiredFields = []string{
 	"IAAS_REGION",
@@ -73,6 +73,7 @@ func initViper() {
 	viper.SetConfigName("alb-config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("../")
+	viper.AddConfigPath("/alb/")
 
 	viper.SetEnvPrefix("alb")
 }

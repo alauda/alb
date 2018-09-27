@@ -7,7 +7,7 @@ import (
 	typev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"alauda_lb/config"
+	"alb2/config"
 )
 
 func TestCreateDriver(t *testing.T) {

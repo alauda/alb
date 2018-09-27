@@ -6,6 +6,8 @@ metadata:
 spec:
   address: "1.2.3.4"
   type: "haproxy"
+  domains:
+    - *.test1.myalauda.cn
 
 ---
 
@@ -28,6 +30,25 @@ spec:
         port: 80
         weight: 100
 
+---
+apiVersion: crd.alauda.io/v1
+kind: Frontend
+metadata:
+  labels:
+    alb2.alauda.io/name: test1
+  name: test1-443
+  namespace: default
+spec:
+  port: 443
+  protocol: tcp
+  serviceGroup:
+    services:
+    - name: test
+      namespace: default
+      port: 443
+      weight: 100
+    session_affinity_attribute: ""
+    session_affinity_policy: ""
 
 ---
 
@@ -42,7 +63,7 @@ metadata:
 spec:
   priority: 10000
   domain: "test1.example.com"
-  url: "/"
+  url: ""
   dsl: ""
   description: "test1-rule"
   serviceGroup:

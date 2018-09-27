@@ -1,0 +1,180 @@
+user  nginx;
+worker_rlimit_nofile 100000;
+worker_processes     auto;
+worker_cpu_affinity  auto;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+env OLD_POLICY_PATH;
+
+events {
+    multi_accept        on;
+    worker_connections  51200;
+    use                 epoll;
+}
+
+
+http {
+    include       /usr/local/openresty/nginx/conf/mime.types;
+    default_type  application/octet-stream;
+
+    # Disable nginx or openresty symbol
+    server_tokens off;
+    more_set_headers 'Server: alb/2.0.0';
+
+    # Disable checking of client request body size
+    client_max_body_size 0;
+
+    # Lua to load policy and cert
+    lua_code_cache on;
+    lua_package_path '/usr/local/openresty/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_shared_dict http_policy 5m;
+    lua_shared_dict certs_cache 10m;
+
+    log_format  http  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"'
+                      '"$gzip_ratio" $request_time $bytes_sent $request_length';
+    access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
+
+    sendfile        on;
+    aio             threads;
+    tcp_nopush      on;
+    tcp_nodelay     on;
+    log_subrequest  on;
+    reset_timedout_connection on;
+
+    proxy_set_header Host            $host;
+    proxy_set_header X-Real-IP       $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_redirect             off;
+    proxy_connect_timeout      5s;
+    proxy_send_timeout         60s;
+    proxy_read_timeout         60s;
+    proxy_buffer_size          4k;
+    proxy_buffers              4 32k;
+    proxy_busy_buffers_size    64k;
+    proxy_temp_file_write_size 64k;
+
+    # keepalive to improve http performance
+    keepalive_timeout  65;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
+    # Start error if set lower
+    server_names_hash_bucket_size 512;
+
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_prefer_server_ciphers on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:ECDH+AES256:DH+AESGCM:DH+AES256:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
+    ssl_dhparam /etc/ssl/dhparam.pem;
+    ssl_ecdh_curve secp384r1;
+
+    server {
+        listen 1936;
+
+        access_log off;
+        location /admin {
+            stub_status;
+        }
+
+        location /policies {
+            content_by_lua_file /alb/template/nginx/lua/policy.lua;
+			client_body_buffer_size 4m;
+			client_max_body_size 4m;
+        }
+    }
+
+    {{range $port, $ft := .Frontends }}
+    {{if eq $ft.Protocol "http" -}}
+    server {
+        listen      {{$port}} default_server;
+        server_name _;
+
+        set $upstream default;
+
+        rewrite_by_lua_file /alb/template/nginx/lua/redirect.lua;
+
+        location / {
+            proxy_pass http://$upstream;
+        }
+    }
+
+    {{- end -}}
+    {{- end -}}
+
+    {{range $port, $ft := .Frontends -}}
+    {{- if eq $ft.Protocol "https" }}
+    {{- if ne $ft.CertificateID "" }}
+    server {
+        listen      {{$port}} ssl;
+        server_name _;
+
+        ssl on;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        ssl_certificate {{index $ft.CertificateFiles $ft.CertificateID}};
+        ssl_certificate_key {{index $ft.CertificateFiles $ft.CertificateID}};
+
+        set $upstream default;
+        rewrite_by_lua_file /alb/template/nginx/lua/redirect.lua;
+
+        location / {
+            proxy_pass http://$upstream;
+        }
+    }
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+
+    {{- range $idx, $bg := .BackendGroup}}
+    {{- if eq $bg.Mode "http" "https"}}
+
+    upstream {{$bg.Name}} {
+        keepalive 32;
+        {{- if eq $bg.SessionAffinityPolicy "sip-hash" }}
+        ip_hash;
+        {{ end -}}
+        {{- if eq $bg.SessionAffinityPolicy "cookie"}}
+        {{- if $bg.SessionAffinityAttribute }}
+        sticky name={{$bg.SessionAffinityAttribute}};
+        {{ else -}}
+        sticky;
+        {{ end -}}
+        {{- end}}
+        {{- range $j, $be := $bg.Backends }}
+        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
+        {{- end}}
+    }
+    {{- end}}
+    {{- end}}
+}
+
+stream {
+    proxy_connect_timeout      5s;
+    proxy_timeout              60s;
+    tcp_nodelay                on;
+
+    {{- range $port, $ft := .Frontends}}
+    {{- if eq $ft.Protocol "tcp"}}
+    server {
+        listen {{$port}};
+        proxy_pass {{$ft.BackendGroup.Name}};
+    }
+    {{- end}}
+    {{- end}}
+
+    {{- range $idx, $bg := .BackendGroup}}
+    {{- if eq $bg.Mode "tcp"}}
+
+    upstream {{$bg.Name}} {
+        {{- range $j, $be := $bg.Backends }}
+        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
+        {{- end}}
+    }
+    {{- end}}
+    {{- end}}
+}

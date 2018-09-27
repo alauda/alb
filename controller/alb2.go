@@ -2,6 +2,8 @@ package controller
 
 import (
 	m "alb2/modules"
+
+	"github.com/golang/glog"
 )
 
 func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
@@ -12,6 +14,9 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		LoadBalancerID: alb.LoadBalancerID,
 		Frontends:      []*Frontend{},
 	}
+	if lb.BindAddress == "" {
+		lb.BindAddress = "*"
+	}
 	for _, aft := range alb.Frontends {
 		ft := &Frontend{
 			LoadBalancerID:  alb.Name,
@@ -20,6 +25,12 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			CertificateID:   aft.CertificateID,
 			CertificateName: aft.CertificateName,
 			Rules:           RuleList{},
+		}
+		if ft.Protocol == "" {
+			ft.Protocol = ProtocolTCP
+		}
+		if ft.Port <= 0 {
+			glog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
 		}
 		for idx, arl := range aft.Rules {
 			rule := &Rule{

@@ -1,10 +1,9 @@
 FROM index.alauda.cn/alaudaorg/gobuild:1.10-alpine
 WORKDIR $GOPATH
-COPY . src/alauda_lb
-RUN go build -ldflags "-w -s" -v -o /alb alauda_lb
+COPY . src/alb2
+RUN go build -ldflags "-w -s" -v -o /alb alb2
 
-FROM index.alauda.cn/alaudaorg/nginx:1.12.1
-COPY --from=0 alb /alb/alb
+FROM index.alauda.cn/alaudaorg/alb-nginx:v0.0.1
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
@@ -15,12 +14,14 @@ ENV INTERVAL 5
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
 
+CMD ["/run.sh"]
+
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
     mkdir -p /var/log/nginx
 
 COPY run.sh /run.sh
-COPY template/nginx /alb/template/nginx
 RUN chmod +x /run.sh
+COPY alb-config.toml /alb/alb-config.toml
+COPY --from=0 alb /alb/alb
 
-CMD ["/run.sh"]

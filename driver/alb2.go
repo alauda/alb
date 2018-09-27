@@ -10,7 +10,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/parnurzeal/gorequest"
 
-	"alauda_lb/config"
+	"alb2/config"
 	m "alb2/modules"
 )
 
@@ -46,7 +46,6 @@ func (c *defaultClient) Do(typ, ns, name, selector string) (string, error) {
 		)
 	}
 	client := GetK8sHTTPClient("GET", url)
-	// client.Debug = true
 	if selector != "" {
 		query := u.QueryEscape(selector)
 		client = client.Query(fmt.Sprintf("labelSelector=%s", query))
@@ -57,7 +56,7 @@ func (c *defaultClient) Do(typ, ns, name, selector string) (string, error) {
 		return "", errs[0]
 	}
 	if resp.StatusCode != 200 {
-		glog.Errorf("Request to %s get %d: %s", client.Url, resp.StatusCode, body)
+		glog.Errorf("Request to %s %+v get %d: %s", client.Url, client.QueryData, resp.StatusCode, body)
 		return "", errors.New(body)
 	}
 	glog.Infof("Request to kubernetes %s success, get %d bytes.", resp.Request.URL, len(body))
@@ -138,6 +137,7 @@ func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 	}
 	for _, res := range resList {
 		ft := &m.Frontend{
+			Name:         res.Name,
 			FrontendSpec: res.Spec,
 			Rules:        []*m.Rule{},
 		}

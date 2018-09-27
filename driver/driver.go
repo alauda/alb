@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"alauda_lb/config"
+	"alb2/config"
 	"fmt"
 )
 

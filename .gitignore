@@ -10,3 +10,5 @@ gen
 config/haproxy/*
 alb
 *.DS_Store
+haproxy.cfg.new
+policy.new
