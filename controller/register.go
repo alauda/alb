@@ -4,17 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
 
-	typev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"alb2/config"
 	"alb2/driver"
+	m "alb2/modules"
 )
 
 const (
@@ -22,12 +20,27 @@ const (
 	ActionBind = "bind"
 )
 
+const (
+	TypeFrontend = "frontends"
+	TypeRule     = "rules"
+
+	StateReady = "ready"
+	StateError = "error"
+)
+
 // BindInfo [{"container_port": 8080, "protocol": "http", "name": "lb-name", "port": 80}]
 type BindInfo struct {
+	//Name of alb
 	Name          string `json:"name"`
 	Port          int    `json:"port"`
 	ContainerPort int    `json:"container_port"`
 	Protocol      string `json:"protocol"`
+	ResourceType  string `json:"resource_type"`
+	ResourceName  string `json:"resource_name"`
+	State         string `json:"state"`
+	ErrorMsg      string `json:"error_message"`
+	ServiceName   string `json:"service_name"`
+	Namespace     string `json:"namespace"`
 }
 
 type Listener struct {
@@ -49,193 +62,241 @@ type BindRequest struct {
 	loadbalancerID string
 }
 
-func GetBindingService(kd *driver.KubernetesDriver) (bindMap map[string]map[string][]*Listener, err error) {
-	pods, err := kd.Client.CoreV1().Pods("").List(metav1.ListOptions{
-		LabelSelector: config.Get("LABEL_SERVICE_ID"),
-	})
+func UpdateServiceBind(kd *driver.KubernetesDriver, result *BindInfo) error {
+	svc, err := kd.Client.CoreV1().Services(result.Namespace).Get(result.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("Get service %s.%s failed: %s", result.ServiceName, result.Namespace, err)
+		return err
+	}
+	jsonInfo, ok := svc.Annotations[config.Get("labels.bindkey")]
+	if !ok {
+		glog.Error("bind info is not found on service %s.%s", result.ServiceName, result.Namespace)
+		return nil //ingore it
+	}
+	var bindInfos []*BindInfo
+	err = json.Unmarshal([]byte(jsonInfo), &bindInfos)
+	if err != nil {
+		glog.Error(err)
+		return err
+	}
+	found := false
+	for idx, b := range bindInfos {
+		if b.Name == result.Name && b.Port == result.Port &&
+			b.Protocol == result.Protocol && b.ContainerPort == result.ContainerPort {
+			bindInfos[idx] = result
+			found = true
+			break
+		}
+	}
+	if found {
+		js, err := json.Marshal(bindInfos)
+		if err != nil {
+			glog.Error(err)
+		}
+		svc.Annotations[config.Get("labels.bindkey")] = string(js)
+		svc, err = kd.Client.CoreV1().Services(result.Namespace).Update(svc)
+		if err != nil {
+			glog.Errorf("Update service %s.%s failed: %s", result.ServiceName, result.Namespace, err)
+			return err
+		}
+	} else {
+		glog.Info("No matched bind info found for %+v", *result)
+	}
+	return nil
+}
+
+func ListBindRequest(kd *driver.KubernetesDriver) ([]*BindInfo, error) {
+	serviceList, err := kd.Client.CoreV1().Services("").List(metav1.ListOptions{})
 	if err != nil {
 		glog.Error(err)
 		return nil, err
 	}
-	podsMap := make(map[string]bool)
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != typev1.PodRunning {
-			continue
-		}
-		sid := pod.Labels[config.Get("LABEL_SERVICE_ID")]
-		if sid != "" {
-			podsMap[sid] = true
-		}
-	}
-	serviceList, err := kd.Client.CoreV1().Services("").List(metav1.ListOptions{
-		// service should have LABEL_SERVICE_ID and not have LABEL_CREATOR
-		LabelSelector: fmt.Sprintf("%s,!%s", config.Get("LABEL_SERVICE_ID"), config.Get("LABEL_CREATOR")),
-	})
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-	// { lb-name: {service_id: [listeners]}}
-	bindMap = make(map[string]map[string][]*Listener)
+	result := []*BindInfo{}
+
 	for _, svc := range serviceList.Items {
-		jsonInfo, ok := svc.Annotations[BindKey]
+		jsonInfo, ok := svc.Annotations[config.Get("labels.bindkey")]
 		if !ok {
 			continue
 		}
-		serviceID := svc.Labels[config.Get("LABEL_SERVICE_ID")]
-		if serviceID == "" {
-			glog.Errorf("svc %s/%s had empty service id.", svc.Namespace, svc.Name)
-			continue
-		}
-		if _, ok := podsMap[serviceID]; !ok {
-			glog.Infof("service %s has no backend, skip it", serviceID)
-			continue
-		}
-		var bindInfos []BindInfo
+		var bindInfos []*BindInfo
 		err = json.Unmarshal([]byte(jsonInfo), &bindInfos)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
-
-	loop:
-		for _, bindInfo := range bindInfos {
-			if bindInfo.Port <= 0 || bindInfo.Port > 65535 {
+		lbname := config.Get("NAME")
+		for _, b := range bindInfos {
+			if b.Port <= 0 || b.Port > 65535 {
 				continue
 			}
-			svcMap, ok := bindMap[bindInfo.Name]
-			if !ok {
-				svcMap = make(map[string][]*Listener)
-				bindMap[bindInfo.Name] = svcMap
-			}
-
-			domain := fmt.Sprintf("%s.%s.{LB_DOMAINS}", svc.Name, svc.Namespace)
-
-			for _, l := range svcMap[serviceID] {
-				if l.ContainerPort == bindInfo.ContainerPort &&
-					l.ListenerPort == bindInfo.Port &&
-					l.Protocol == bindInfo.Protocol {
-					l.Domains = append(l.Domains, domain)
-					continue loop
-				}
-			}
-			listener := &Listener{
-				ServiceID:     serviceID,
-				ContainerPort: bindInfo.ContainerPort,
-				ListenerPort:  bindInfo.Port,
-				Protocol:      bindInfo.Protocol,
-				Domains: []string{
-					fmt.Sprintf("%s.%s.{LB_DOMAINS}", svc.Name, svc.Namespace),
-				},
-			}
-			svcMap[serviceID] = append(svcMap[serviceID], listener)
-		}
-
-	}
-	return bindMap, nil
-}
-
-func NeedUpdate(lb *LoadBalancer, listeners []*Listener) bool {
-	for _, l := range listeners {
-		var frontend *Frontend
-		for _, ft := range lb.Frontends {
-			if ft.Port == l.ListenerPort {
-				frontend = ft
-				break
-			}
-		}
-		if frontend == nil {
-			glog.Infof("frontend %d doesn't exist yet", l.ListenerPort)
-			return true
-		}
-		switch l.Protocol {
-		case ProtocolHTTP:
-		domainLoop:
-			for _, domain := range l.Domains {
-				prefix := strings.Replace(domain, "{LB_DOMAINS}", "", 1)
-				for _, rule := range frontend.Rules {
-					if rule.Type == "system" &&
-						strings.HasPrefix(rule.Domain, prefix) {
-						continue domainLoop
-					}
-				}
-				glog.Infof("Doamin %s need to bind", domain)
-				return true
-			}
-		case ProtocolTCP:
-			if frontend.ServiceID == "" {
-				return true
-			}
-			if frontend.ServiceID == l.ServiceID &&
-				frontend.ContainerPort != l.ContainerPort {
-				return true
-			}
-			if frontend.ServiceID != l.ServiceID {
-				glog.Infof("Port %d on LB %s is already used by %s.",
-					frontend.Port,
-					lb.Name,
-					frontend.ServiceID,
-				)
+			if b.Name == lbname &&
+				b.State != StateReady {
+				b.ServiceName = svc.Name
+				b.Namespace = svc.Namespace
+				result = append(result, b)
 			}
 		}
 	}
-	return false
+	return result, nil
 }
 
-func BindService(req *BindRequest) {
-	url := fmt.Sprintf("%s/v1/load_balancers/%s/%s",
-		config.Get("JAKIRO_ENDPOINT"),
-		config.Get("NAMESPACE"),
-		req.loadbalancerID,
+func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	result := *req //copy for modify
+	var ft *m.Frontend
+	var err error
+	for _, ft = range alb.Frontends {
+		if ft.Port == result.Port {
+			break
+		}
+	}
+	if ft.Port != result.Port {
+		// no frontend found
+		ft = nil
+	}
+	if ft == nil {
+		ft, err = alb.NewFrontend(result.Port, result.Protocol)
+		if err != nil {
+			glog.Error(err)
+			return nil, err
+		}
+	}
+
+	if ft.ServiceGroup == nil {
+		ft.ServiceGroup = &m.ServicceGroup{
+			Services: []m.Service{},
+		}
+	}
+	glog.Infof("ft %+V has service: %+v", *ft, ft.ServiceGroup.Services)
+	if len(ft.ServiceGroup.Services) > 0 {
+		if ft.ServiceGroup.Services[0].Is(result.Namespace, result.ServiceName, result.ContainerPort) {
+			result.State = StateReady
+			result.ErrorMsg = ""
+		} else {
+			glog.Infof("frontend is used by another service")
+			result.State = StateError
+			result.ErrorMsg = "frontend is used by another service"
+		}
+		return &result, nil
+	}
+
+	ft.ServiceGroup.Services = append(
+		ft.ServiceGroup.Services,
+		m.Service{
+			Namespace: result.Namespace,
+			Name:      result.ServiceName,
+			Port:      result.ContainerPort,
+			Weight:    100,
+		},
 	)
-	data, err := json.Marshal(req)
+	err = driver.UpsertFrontends(alb, ft)
 	if err != nil {
-		glog.Error(err)
-		return
+		glog.Errorf("upsert ft failed: %s", err)
+		return nil, err
 	}
-	glog.Infof("try to send bind request: url = %s, body= %s", url, string(data))
-	resp, body, errs := JakiroRequest.Put(url).Send(string(data)).
-		Set("Authorization", fmt.Sprintf("Token %s", config.Get("TOKEN"))).
-		Timeout(time.Second * 15).
-		End()
-	if len(errs) > 0 {
-		glog.Error(errs[0].Error())
-		return
-	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		glog.Errorf("Request to %s get %d: %s", url, resp.StatusCode, body)
-		return
-	}
-	glog.Info("bind success.")
+	result.ResourceType = "frontends"
+	result.ResourceName = ft.Name
+	result.State = StateReady
+	glog.Infof("bind tcp service %s.%s:%d to %s:%d success",
+		result.Name, result.Namespace, result.ContainerPort,
+		result.Name, result.Port,
+	)
+	return &result, nil
 }
 
-func hasDomainSuffix(lb *LoadBalancer) bool {
-	if lb == nil {
-		return false
-	}
-	for _, domain := range lb.DomainInfo {
-		if !domain.Disabled {
-			return true
+func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	result := *req //copy for modify
+	var ft *m.Frontend
+	var err error
+	for _, ft = range alb.Frontends {
+		if ft.Port == result.Port {
+			break
 		}
 	}
-	return false
+	if ft.Port != result.Port {
+		// no frontend found
+		ft = nil
+	}
+	if ft == nil {
+		ft, err = alb.NewFrontend(result.Port, result.Protocol)
+		if err != nil {
+			glog.Error(err)
+			return nil, err
+		}
+		err := driver.UpsertFrontends(alb, ft)
+		if err != nil {
+			glog.Error(err)
+			return nil, err
+		}
+	}
+	if ft.Protocol != req.Protocol {
+		result.State = StateError
+		result.ErrorMsg = fmt.Sprintf("Frontend has differnet protocol")
+		return &result, nil
+	}
+
+	domains := alb.ListDomains()
+	if len(domains) == 0 {
+		glog.Infof(
+			"Can't handle bind request on %s.%s: no domain suffix on alb %s",
+			result.ServiceName, result.Namespace, alb.Name,
+		)
+		result.State = StateError
+		result.ErrorMsg = "no domain suffix on alb"
+	}
+
+domainLoop:
+	for _, ds := range alb.ListDomains() {
+		domain := fmt.Sprintf("%s.%s.%s", result.ServiceName, result.Namespace, ds)
+
+		for _, rule := range ft.Rules {
+			if rule.Domain == domain && rule.URL == "" {
+				result.ResourceType = TypeRule
+				result.ResourceName = rule.Name
+				result.State = StateReady
+				continue domainLoop
+			}
+		}
+
+		r, _ := ft.NewRule(domain, "", "", m.RuleTypeBind)
+		r.ServiceGroup = &m.ServicceGroup{
+			Services: []m.Service{
+				m.Service{
+					Name:      result.ServiceName,
+					Namespace: result.Namespace,
+					Port:      result.ContainerPort,
+					Weight:    100,
+				},
+			},
+		}
+		err := driver.CreateRule(r)
+		if err != nil {
+			glog.Error(err)
+			continue
+		}
+	}
+	return &result, nil
+}
+
+func Bind(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	switch req.Protocol {
+	case ProtocolTCP:
+		return bindTcp(alb, req)
+	case ProtocolHTTP:
+		return bindHTTP(alb, req)
+	default:
+		glog.Errorf("Find unknown protocol %s from bind request %s.%s",
+			req.Protocol, req.ServiceName, req.Namespace)
+		return nil, fmt.Errorf("unknown protocol %s", req.Protocol)
+	}
 }
 
 func RegisterLoop(ctx context.Context) {
 	glog.Info("RegisterLoop start")
-	timeout, err := strconv.Atoi(config.Get("KUBERNETES_TIMEOUT"))
+	kd, err := driver.GetDriver()
 	if err != nil {
-		timeout = 30
+		glog.Fatal(err)
 	}
-	kd, err := driver.GetKubernetesDriver(
-		config.Get("KUBERNETES_SERVER"),
-		config.Get("KUBERNETES_BEARERTOKEN"), timeout)
-	if err != nil {
-		glog.Error(err)
-		glog.Flush()
-		panic(err)
-	}
-	interval := config.GetInt("INTERVAL") * 3
+	interval := config.GetInt("INTERVAL")*2 + 1
 	for {
 		select {
 		case <-ctx.Done():
@@ -243,64 +304,48 @@ func RegisterLoop(ctx context.Context) {
 			return
 		case <-time.After(time.Duration(interval) * time.Second): //sleep
 		}
-		if config.IsStandalone() {
-			interval = 300
-			glog.Info("Skip because run in stand alone mode.")
-			continue
-		}
-		interval = config.GetInt("INTERVAL") * 3
-		bindMap, err := GetBindingService(kd)
-		if err != nil {
-			glog.Error(err)
-			continue
-		}
-		if len(bindMap) == 0 {
-			continue
-		}
 
-		lbs, err := FetchLoadBalancersInfo()
+		interval = config.GetInt("INTERVAL")*2 + 1
+
+		alb, err := driver.LoadALBbyName(
+			config.Get("NAMESPACE"),
+			config.Get("NAME"),
+		)
 		if err != nil {
 			glog.Error(err)
 			continue
 		}
 
-		lbs = filterLoadbalancers(lbs, config.Get("LB_TYPE"), config.Get("NAME"))
-		if len(lbs) == 0 {
-			glog.Info("No matched LB found.")
+		bindRequest, err := ListBindRequest(kd)
+		if err != nil {
+			glog.Error(err)
 			continue
 		}
+		if len(bindRequest) == 0 {
+			glog.Info("No bind request")
+			continue
+		}
+		glog.Infof("There are %d bind requests need to process.", len(bindRequest))
 
-		requests := []*BindRequest{}
-		for name, svcMap := range bindMap {
-			var loadbalancer *LoadBalancer
-			for _, lb := range lbs {
-				if lb.Name == name {
-					loadbalancer = lb
-					break
-				}
+		for _, req := range bindRequest {
+			// make sure do not call api server too frequently
+			time.Sleep(200 * time.Millisecond)
+			glog.Infof("Try to bind %+v", *req)
+			result, err := Bind(alb, req)
+			if err != nil {
+				glog.Errorf(
+					"bind %%s.%s:%d to %s:%d failed: %s",
+					req.ServiceName, req.Namespace, req.ContainerPort,
+					req.Name, req.Port, err.Error(),
+				)
+			} else {
+				glog.Infof("get bind result %+v", *result)
 			}
-			if loadbalancer == nil {
-				continue
+			if result.State != req.State || result.ErrorMsg != req.ErrorMsg {
+				// Update service
+				glog.Infof("Update bind info of %s.%s", result.ServiceName, result.Namespace)
+				UpdateServiceBind(kd, result)
 			}
-			if !hasDomainSuffix(loadbalancer) {
-				glog.Infof("LB %s doesn't have any domain suffix, skip it.", loadbalancer.Name)
-				continue
-			}
-
-			for _, listeners := range svcMap {
-				if NeedUpdate(loadbalancer, listeners) {
-					req := &BindRequest{
-						Action:         "bind",
-						Listeners:      listeners,
-						loadbalancerID: loadbalancer.LoadBalancerID,
-					}
-					requests = append(requests, req)
-				}
-			}
-		} //for name, svcMap := range bindMap
-
-		for _, req := range requests {
-			BindService(req)
 		}
 	}
 }

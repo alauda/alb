@@ -27,9 +27,20 @@ func (c *fakeClient) loadJson(typ, ns, name string) (string, error) {
 	}
 	return string(data), nil
 }
-func (c *fakeClient) Do(typ, ns, name, selector string) (string, error) {
+func (c *fakeClient) Get(typ, ns, name, selector string) (string, error) {
 	return c.loadJson(typ, ns, name)
 }
+
+func (c *fakeClient) Create(typ, ns, name string, resource interface{}) error {
+	return nil
+}
+func (c *fakeClient) Update(typ, ns, name string, resource interface{}) error {
+	return nil
+}
+func (c *fakeClient) Delete(typ, ns, name string) error {
+	return nil
+}
+
 func TestLoadAlb(t *testing.T) {
 	client = &fakeClient{
 		JsonDir: "texture",

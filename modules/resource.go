@@ -89,3 +89,12 @@ func (s Service) String() string {
 func (s Service) ServiceID() string {
 	return fmt.Sprintf("%s.%s", s.Name, s.Namespace)
 }
+
+func (s Service) Is(ns, name string, port int) bool {
+	if s.Namespace == ns &&
+		s.Name == name &&
+		s.Port == port {
+		return true
+	}
+	return false
+}

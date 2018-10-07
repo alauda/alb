@@ -45,23 +45,26 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
 				rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
-			}
-			for _, svc := range arl.ServiceGroup.Services {
-				if rule.Services == nil {
-					rule.Services = []*BackendService{}
+				for _, svc := range arl.ServiceGroup.Services {
+					if rule.Services == nil {
+						rule.Services = []*BackendService{}
+					}
+					rule.Services = append(rule.Services, &BackendService{
+						ServiceID:     svc.ServiceID(),
+						ContainerPort: svc.Port,
+						Weight:        svc.Weight,
+					})
 				}
-				rule.Services = append(rule.Services, &BackendService{
-					ServiceID:     svc.ServiceID(),
-					ContainerPort: svc.Port,
-					Weight:        svc.Weight,
-				})
 			}
 			ft.Rules = append(ft.Rules, rule)
 		}
-		for _, svc := range aft.ServiceGroup.Services {
-			ft.ServiceID = svc.ServiceID()
-			ft.ContainerPort = svc.Port
+		if aft.ServiceGroup != nil {
+			for _, svc := range aft.ServiceGroup.Services {
+				ft.ServiceID = svc.ServiceID()
+				ft.ContainerPort = svc.Port
+			}
 		}
+
 		lb.Frontends = append(lb.Frontends, ft)
 	}
 	return lb, nil

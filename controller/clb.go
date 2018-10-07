@@ -3,13 +3,13 @@ package controller
 import (
 	"alb2/config"
 	"alb2/driver"
-	"alb2/util"
 
 	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +23,16 @@ import (
 const REGEXRULE = "~* "
 const CLB_POLICY_WRR = "wrr"
 const CLB_POLICY_HASH = "ip_hash"
+
+const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+func RandomStr(pixff string, length int) string {
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
+	}
+	return pixff + "-" + string(result)
+}
 
 type ClbController struct {
 	RegionName         string
@@ -220,7 +230,7 @@ func (cc *ClbController) updateListenerV2(lb *LoadBalancer) error {
 			newListener := clb.CreateFourLayerListenerOpts{
 				LoadBalancerPort: f.Port,
 				Protocol:         cc.getProtocolCode(f.Protocol),
-				ListenerName:     util.RandomStr(f.Protocol, 8),
+				ListenerName:     RandomStr(f.Protocol, 8),
 				SessionExpire:    0,
 				HealthSwitch:     1,
 				TimeOut:          2,
@@ -235,7 +245,7 @@ func (cc *ClbController) updateListenerV2(lb *LoadBalancer) error {
 				LoadBalancerPort: f.Port,
 				Protocol:         cc.getProtocolCode(f.Protocol),
 				CertId:           certificateID,
-				ListenerName:     util.RandomStr(f.Protocol, 8),
+				ListenerName:     RandomStr(f.Protocol, 8),
 			}
 			sevenLayerLbListenerOpts = append(sevenLayerLbListenerOpts, newListener)
 		}

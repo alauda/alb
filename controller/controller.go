@@ -250,7 +250,7 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 	alb, err := driver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		glog.Error(err)
-		return nil, err
+		return []*LoadBalancer{}, nil
 	}
 
 	lb, err := MergeNew(alb)

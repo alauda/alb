@@ -26,3 +26,4 @@ OLD_POLICY_PATH="policy"
 [labels]
 name = "alb2.alauda.io/name"
 frontend = "alb2.alauda.io/frontend"
+bindkey = "loadbalancer.alauda.io/bind"
