@@ -44,6 +44,13 @@ func main() {
 		ch := make(chan string)
 
 		go func() {
+			err := controller.TryLockAlb()
+			if err != nil {
+				//lock is hold by another pod
+				ch <- "continue"
+				return
+			}
+
 			ctl, err := controller.GetController()
 			if err != nil {
 				glog.Error(err.Error())

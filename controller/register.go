@@ -307,6 +307,11 @@ func RegisterLoop(ctx context.Context) {
 
 		interval = config.GetInt("INTERVAL")*2 + 1
 
+		err := TryLockAlb()
+		if err != nil {
+			continue
+		}
+
 		alb, err := driver.LoadALBbyName(
 			config.Get("NAMESPACE"),
 			config.Get("NAME"),

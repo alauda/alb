@@ -154,6 +154,14 @@ func LoadAlbResource(namespace, name string) (*m.Alb2Resource, error) {
 	return &alb2Res, nil
 }
 
+func UpdateAlbResource(alb *m.Alb2Resource) error {
+	err := client.Update(TypeAlb2, alb.Namespace, alb.Name, alb)
+	if err != nil {
+		glog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+	}
+	return err
+}
+
 // UpsertFrontends will create new frontend if it not exist, otherwise update
 func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 	ftdata, err := client.Get(TypeFrontend, alb.Namespace, ft.Name, "")

@@ -7,7 +7,7 @@ spec:
   address: "1.2.3.4"
   type: "haproxy"
   domains:
-    - *.test1.myalauda.cn
+    - "*.test1.myalauda.cn"
 
 ---
 
