@@ -352,6 +352,23 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 
 // GetEndPointAddress return a list of pod ip in the endpoint
 func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int) (*Service, error) {
+	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		glog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
+		return nil, err
+	}
+	for _, svcPort := range svc.Spec.Ports {
+		if port == int(svcPort.Port) {
+			p := svcPort.TargetPort.IntValue()
+			if p == 0 {
+				p = port
+			}
+			// set service port to target port
+			port = p
+			break
+		}
+	}
+
 	ep, err := kd.Client.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		glog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())

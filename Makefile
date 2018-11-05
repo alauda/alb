@@ -9,5 +9,9 @@ images: version test
 push: images
 	docker push index.alauda.cn/alaudaorg/alb2:`cat VERSION`
 
+release: push
+	docker tag index.alauda.cn/alaudaorg/alb2:`cat VERSION` index.alauda.cn/claas/alb2:`cat VERSION`
+	docker push index.alauda.cn/claas/alb2:`cat VERSION`
+
 test:
 	go test -cover=true -v ./...
