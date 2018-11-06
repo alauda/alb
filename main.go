@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	flag.Set("alsologtostderr", "true")
 	flag.Parse()
 	defer glog.Flush()
 	glog.Error("Service start.")

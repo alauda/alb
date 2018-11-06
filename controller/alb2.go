@@ -109,6 +109,20 @@ func locked(lockString, ownerID string) bool {
 	return false
 }
 
+func needRelock(lockString string) bool {
+	var lock Lock
+	err := json.Unmarshal([]byte(lockString), &lock)
+	if err != nil {
+		glog.Error(err)
+		return true
+	}
+	if lock.LockUntil.Sub(time.Now()) < 30*time.Second {
+		return true
+	}
+
+	return false
+}
+
 var myself string
 
 func TryLockAlb() error {
@@ -130,7 +144,13 @@ func TryLockAlb() error {
 		// used by another pod of alb2
 		return errors.New("alb is in use")
 	}
-	albRes.Annotations[config.Get("labels.lock")] = newLock(myself, 30*time.Second)
+
+	if !needRelock(lockString) {
+		glog.Info("Hold lock, no need to relock")
+		return nil
+	}
+
+	albRes.Annotations[config.Get("labels.lock")] = newLock(myself, 90*time.Second)
 	err = driver.UpdateAlbResource(albRes)
 	if err != nil {
 		glog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())
