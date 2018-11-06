@@ -37,6 +37,7 @@ type Service struct {
 	ServiceID     string     `json:"service_id"`
 	ServiceName   string     `json:"service_name"`
 	NetworkMode   string     `json:"network_mode"`
+	ServicePort   int        `json:"service_port"`
 	ContainerPort int        `json:"container_port"`
 	Backends      []*Backend `json:"backends"`
 	Namespace     string     `json:"namespace"`

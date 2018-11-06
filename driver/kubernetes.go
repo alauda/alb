@@ -351,17 +351,18 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 }
 
 // GetEndPointAddress return a list of pod ip in the endpoint
-func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int) (*Service, error) {
+func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePort int) (*Service, error) {
 	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		glog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
 	}
+	var port int
 	for _, svcPort := range svc.Spec.Ports {
-		if port == int(svcPort.Port) {
+		if servicePort == int(svcPort.Port) {
 			p := svcPort.TargetPort.IntValue()
 			if p == 0 {
-				p = port
+				p = servicePort
 			}
 			// set service port to target port
 			port = p
@@ -378,6 +379,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, port int)
 	service := &Service{
 		ServiceID:     fmt.Sprintf("%s.%s", name, namespace),
 		ServiceName:   name,
+		ServicePort:   servicePort,
 		ContainerPort: port,
 		Namespace:     namespace,
 		Backends:      make([]*Backend, 0),

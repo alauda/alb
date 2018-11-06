@@ -37,7 +37,10 @@ func getServiceName(id string, port int) string {
 func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 	serviceMap := make(map[string][]*driver.Backend)
 	for _, svc := range services {
-		name := getServiceName(svc.ServiceID, svc.ContainerPort)
+		if svc.ServicePort == 0 {
+			svc.ServicePort = svc.ContainerPort
+		}
+		name := getServiceName(svc.ServiceID, svc.ServicePort)
 		serviceMap[name] = svc.Backends
 	}
 	for _, lb := range loadBalancers {
