@@ -2,11 +2,13 @@ package controller
 
 import (
 	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -456,4 +458,22 @@ func jsonEqual(a, b []byte) bool {
 		return false
 	}
 	return reflect.DeepEqual(j2, j)
+}
+
+const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+func GetMD5Hash(text string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+func RandomStr(pixff string, length int) string {
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
+	}
+	if pixff != "" {
+		return pixff + "-" + string(result)
+	}
+	return string(result)
 }

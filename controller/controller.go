@@ -298,18 +298,6 @@ func GetController() (Controller, error) {
 			BackendType:   d.GetType(),
 			BinaryPath:    config.Get("NGINX_BIN_PATH"),
 			Driver:        d}, nil
-	case config.ELB:
-		elbController := &ElbController{Driver: d}
-		elbController.init()
-		return elbController, nil
-	case config.SLB:
-		slbController := &SlbController{Driver: d}
-		slbController.init()
-		return slbController, nil
-	case config.CLB:
-		clbController := &ClbController{Driver: d}
-		clbController.init()
-		return clbController, nil
 	default:
 		return nil, fmt.Errorf("Unsupport lb type %s only support elb, slb,clb and haproxy", config.Get("LB_TYPE"))
 	}

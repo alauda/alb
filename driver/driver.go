@@ -3,6 +3,8 @@ package driver
 import (
 	"alb2/config"
 	"fmt"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -60,4 +62,11 @@ func GetDriver() (*KubernetesDriver, error) {
 	timeout := config.GetInt("KUBERNETES_TIMEOUT")
 	return GetKubernetesDriver(config.Get("KUBERNETES_SERVER"),
 		config.Get("KUBERNETES_BEARERTOKEN"), timeout)
+}
+
+// SetDebug enable debug mode. GetDriver() will return a driver with fake client
+func SetDebug() {
+	glog.Info("Set Debug")
+	config.Set("KUBERNETES_SERVER", FAKE_ENDPOINT)
+	config.Set("KUBERNETES_BEARERTOKEN", "fakepasswd")
 }

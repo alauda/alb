@@ -7,11 +7,26 @@ import (
 )
 
 const (
+	//ProtoHTTP is the protocol of http frontend
 	ProtoHTTP  = "http"
 	ProtoHTTPS = "https"
 	ProtoTCP   = "tcp"
 	ProtoUDP   = "udp"
 )
+
+const (
+	TypeBind    = "bind"
+	TypeIngress = "ingress"
+)
+
+// SourceInfo is where the frontend or rule came from.
+// It's type can be "bind" for those created for service annotations.
+// And be "ingress" for those created for ingress resource
+type SourceInfo struct {
+	Type      string `json:"type"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
 
 type Alb2Resource struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -45,6 +60,7 @@ type FrontendSpec struct {
 	CertificateID   string         `json:"certificate_id"`
 	CertificateName string         `json:"certificate_name"`
 	ServiceGroup    *ServicceGroup `json:"serviceGroup,omitempty"`
+	Source          *SourceInfo    `json:"source,omitempty"`
 }
 
 type RuleList struct {
@@ -67,6 +83,7 @@ type RuleSpec struct {
 	DSL          string         `json:"dsl"`
 	Description  string         `json:"description"`
 	ServiceGroup *ServicceGroup `json:"serviceGroup,omitempty"`
+	Source       *SourceInfo    `json:"source,omitempty"`
 }
 
 type ServicceGroup struct {

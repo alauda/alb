@@ -149,7 +149,7 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			break
 		}
 	}
-	if ft.Port != result.Port {
+	if ft == nil || ft.Port != result.Port {
 		// no frontend found
 		ft = nil
 	}
@@ -177,6 +177,12 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			result.ErrorMsg = "frontend is used by another service"
 		}
 		return &result, nil
+	}
+
+	ft.Source = &m.SourceInfo{
+		Type:      m.TypeBind,
+		Name:      result.ServiceName,
+		Namespace: result.Namespace,
 	}
 
 	ft.ServiceGroup.Services = append(
@@ -212,7 +218,7 @@ func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			break
 		}
 	}
-	if ft.Port != result.Port {
+	if ft == nil || ft.Port != result.Port {
 		// no frontend found
 		ft = nil
 	}
@@ -257,7 +263,12 @@ domainLoop:
 			}
 		}
 
-		r, _ := ft.NewRule(domain, "", "", m.RuleTypeBind)
+		r, _ := ft.NewRule(domain, "", "")
+		r.Source = &m.SourceInfo{
+			Type:      m.TypeBind,
+			Name:      result.ServiceName,
+			Namespace: result.Namespace,
+		}
 		r.ServiceGroup = &m.ServicceGroup{
 			Services: []m.Service{
 				m.Service{
