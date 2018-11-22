@@ -116,18 +116,37 @@ func needRelock(lockString string) bool {
 		glog.Error(err)
 		return true
 	}
-	if lock.LockUntil.Sub(time.Now()) < 30*time.Second {
+	if lock.LockUntil.Sub(time.Now()) <= 30*time.Second {
 		return true
 	}
 
 	return false
 }
 
+func retryUntil(lockString string) time.Time {
+	var lock Lock
+	err := json.Unmarshal([]byte(lockString), &lock)
+	if err != nil {
+		glog.Error(err)
+		return time.Now()
+	}
+	return lock.LockUntil.Add(-30 * time.Second)
+}
+
 var myself string
+var holdUntil time.Time
+var waitUntil time.Time
 
 func TryLockAlb() error {
 	if myself == "" {
 		myself = RandomStr("", 8)
+	}
+	now := time.Now()
+	if now.Before(holdUntil) {
+		return nil
+	}
+	if now.Before(waitUntil) {
+		return ErrAlbInUse
 	}
 	name := config.Get("NAME")
 	namespace := config.Get("NAMESPACE")
@@ -142,7 +161,9 @@ func TryLockAlb() error {
 	lockString, ok := albRes.Annotations[config.Get("labels.lock")]
 	if ok && locked(lockString, myself) {
 		// used by another pod of alb2
-		return errors.New("alb is in use")
+		waitUntil = retryUntil(lockString)
+		glog.Info(ErrAlbInUse)
+		return ErrAlbInUse
 	}
 
 	if !needRelock(lockString) {
@@ -150,11 +171,14 @@ func TryLockAlb() error {
 		return nil
 	}
 
-	albRes.Annotations[config.Get("labels.lock")] = newLock(myself, 90*time.Second)
+	lockString = newLock(myself, 90*time.Second)
+	albRes.Annotations[config.Get("labels.lock")] = lockString
 	err = driver.UpdateAlbResource(albRes)
 	if err != nil {
 		glog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
+	glog.Infof("I locked alb.")
+	holdUntil = retryUntil(lockString)
 	return nil
 }

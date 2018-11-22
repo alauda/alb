@@ -59,7 +59,7 @@ func RandomStr(pixff string, length int) string {
 	return pixff + "-" + string(result)
 }
 
-func (ft *Frontend) NewRule(domain, url, dsl, typ string) (*Rule, error) {
+func (ft *Frontend) NewRule(domain, url, dsl string) (*Rule, error) {
 	if domain != "" || url != "" {
 		dsl = GetDSL(domain, url)
 	}
@@ -69,17 +69,12 @@ func (ft *Frontend) NewRule(domain, url, dsl, typ string) (*Rule, error) {
 			Domain: domain,
 			URL:    url,
 			DSL:    dsl,
-			Type:   typ,
 		},
 		FT: ft,
 	}
 	ft.Rules = append(ft.Rules, &r)
 	return &r, nil
 }
-
-const (
-	RuleTypeBind = "bind"
-)
 
 type Rule struct {
 	RuleSpec

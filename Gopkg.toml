@@ -1,19 +1,7 @@
 
-[[constraint]]
-  branch = "master"
-  name = "bitbucket.org/mathildetech/qcloud-sdk-go"
-
-[[constraint]]
-  name = "github.com/aws/aws-sdk-go"
-  version = "1.13.8"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/denverdino/aliyungo"
-
-[[constraint]]
-  name = "github.com/gambol99/go-marathon"
-  version = "0.7.1"
+[prune]
+  go-tests = true
+  unused-packages = true
 
 [[constraint]]
   branch = "master"
@@ -36,9 +24,6 @@
   branch = "release-1.9"
   name = "k8s.io/apimachinery"
 
-[prune]
-  go-tests = true
-  unused-packages = true
 
 [[constraint]]
   name = "github.com/stretchr/testify"

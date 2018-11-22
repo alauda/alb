@@ -162,6 +162,14 @@ func UpdateAlbResource(alb *m.Alb2Resource) error {
 	return err
 }
 
+func UpdateSourceLabels(labels map[string]string, source *m.SourceInfo) {
+	if source == nil {
+		return
+	}
+	labels[config.Get("labels.source_type")] = source.Type
+	labels[config.Get("labels.source_name")] = fmt.Sprintf("%s.%s", source.Name, source.Namespace)
+}
+
 // UpsertFrontends will create new frontend if it not exist, otherwise update
 func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 	ftdata, err := client.Get(TypeFrontend, alb.Namespace, ft.Name, "")
@@ -189,6 +197,7 @@ func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 	}
 
 	ftRes.Labels[config.Get("labels.name")] = alb.Name
+	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
 
 	if err != nil {
@@ -219,7 +228,16 @@ func CreateRule(rule *m.Rule) error {
 		},
 		Spec: rule.RuleSpec,
 	}
+	UpdateSourceLabels(ruleRes.Labels, rule.Source)
 	err := client.Create(TypeRule, ruleRes.Namespace, ruleRes.Name, ruleRes)
+	if err != nil {
+		glog.Error(err)
+	}
+	return err
+}
+
+func DeleteRule(rule *m.Rule) error {
+	err := client.Delete(TypeRule, rule.FT.LB.Namespace, rule.Name)
 	if err != nil {
 		glog.Error(err)
 	}

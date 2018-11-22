@@ -11,6 +11,7 @@ import (
 
 	"alb2/config"
 	"alb2/controller"
+	"alb2/ingress"
 )
 
 func main() {
@@ -32,6 +33,7 @@ func main() {
 	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
 	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
 	go controller.RegisterLoop(ctx)
+	go ingress.MainLoop(ctx)
 
 	if config.Get("LB_TYPE") == config.Haproxy ||
 		config.Get("LB_TYPE") == config.Nginx {
