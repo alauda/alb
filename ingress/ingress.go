@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"alb2/config"
+	ctl "alb2/controller"
 	"alb2/driver"
 	m "alb2/modules"
 )
@@ -194,6 +195,14 @@ func (c *Controller) enqueue(obj interface{}) {
 // It then enqueues that Foo resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
 func (c *Controller) handleObject(obj interface{}) {
+	err := ctl.TryLockAlb()
+	if err != nil {
+		if err == ctl.ErrAlbInUse {
+			// I'm not master, ignore event
+			return
+		}
+		glog.Error("Lock alb failed: %s", err.Error())
+	}
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -213,8 +222,8 @@ func (c *Controller) handleObject(obj interface{}) {
 	}
 	glog.Infof("Processing object: %s", object.GetName())
 	annotations := object.GetAnnotations()
-	if annotations["kubernetes.io/ingress.clas"] == "" ||
-		annotations["kubernetes.io/ingress.clas"] == config.Get("NAME") {
+	if annotations["kubernetes.io/ingress.class"] == "" ||
+		annotations["kubernetes.io/ingress.class"] == config.Get("NAME") {
 		c.enqueue(object)
 	}
 }
@@ -321,6 +330,7 @@ func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) 
 					Namespace: ingress.Namespace,
 					Name:      ingress.Spec.Backend.ServiceName,
 					Port:      int(ingress.Spec.Backend.ServicePort.IntVal),
+					Weight:    100,
 				},
 			},
 		}
@@ -375,6 +385,7 @@ func (c *Controller) updateRule(
 				Namespace: ingress.Namespace,
 				Name:      ingresPath.Backend.ServiceName,
 				Port:      int(ingresPath.Backend.ServicePort.IntVal),
+				Weight:    100,
 			},
 		},
 	}
@@ -395,6 +406,10 @@ func (c *Controller) updateRule(
 }
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error {
+	// Detele old rule if it exist
+	c.onIngressDelete(ingress.Name, ingress.Namespace)
+
+	// then create new one
 	alb, err := driver.LoadALBbyName(
 		config.Get("NAMESPACE"),
 		config.Get("NAME"),
@@ -404,12 +419,13 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		return err
 	}
 	var ft *m.Frontend
-	for _, ft = range alb.Frontends {
-		if ft.Port == 80 {
+	for _, f := range alb.Frontends {
+		if f.Port == 80 {
+			ft = f
 			break
 		}
 	}
-	if ft != nil && ft.Port != 80 && ft.Protocol != m.ProtoHTTP {
+	if ft != nil && ft.Protocol != m.ProtoHTTP {
 		err = fmt.Errorf("Port 80 is not an HTTP port")
 		glog.Error(err)
 		return err
@@ -470,12 +486,13 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 		return err
 	}
 	var ft *m.Frontend
-	for _, ft = range alb.Frontends {
-		if ft.Port == 80 {
+	for _, f := range alb.Frontends {
+		if f.Port == 80 {
+			ft = f
 			break
 		}
 	}
-	if ft == nil || ft.Port != 80 {
+	if ft == nil {
 		// No frontend found
 		return nil
 	}
