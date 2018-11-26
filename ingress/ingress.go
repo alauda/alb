@@ -201,7 +201,7 @@ func (c *Controller) handleObject(obj interface{}) {
 			// I'm not master, ignore event
 			return
 		}
-		glog.Error("Lock alb failed: %s", err.Error())
+		glog.Errorf("Lock alb failed: %s", err.Error())
 	}
 	var object metav1.Object
 	var ok bool

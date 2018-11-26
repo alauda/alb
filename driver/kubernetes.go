@@ -266,7 +266,7 @@ func (kd *KubernetesDriver) parseService(service *v1types.Service, backends []*B
 			serviceBackends = make([]*Backend, 0, len(podList.Items))
 			for _, pod := range podList.Items {
 				if pod.Status.HostIP == "" || pod.Status.Phase != v1types.PodRunning {
-					glog.Info("pod %s is not ready.", pod.Name)
+					glog.Infof("pod %s is not ready.", pod.Name)
 					continue
 				}
 				if _, ok := nodeSet[pod.Status.HostIP]; ok {
@@ -316,7 +316,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 		}
 	}
 	if nodeport == 0 {
-		glog.Error("Service %s.%s NOT have port %d", svc.Name, svc.Namespace, port)
+		glog.Errorf("Service %s.%s NOT have port %d", svc.Name, svc.Namespace, port)
 		return nil, errors.New("Port NOT Found")
 	}
 
@@ -324,7 +324,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 		LabelSelector: selectorToLabelSelector(svc.Spec.Selector),
 	})
 	if err != nil {
-		glog.Error("Get pods of service %s.%s failed: %s", svc.Name, svc.Namespace, err.Error())
+		glog.Errorf("Get pods of service %s.%s failed: %s", svc.Name, svc.Namespace, err.Error())
 		return service, nil //return a service with empty backend list
 	}
 	nodeSet := make(map[string]bool)
@@ -403,7 +403,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) (*Service, error) {
 	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil || svc == nil {
-		glog.Error("Get service %s.%s failed: %s", name, namespace, err)
+		glog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
 		return nil, err
 	}
 	switch svc.Spec.Type {
@@ -426,7 +426,7 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) 
 	case "None": //headless service
 		return kd.GetEndPointAddress(name, namespace, port)
 	default:
-		glog.Error("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
+		glog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
 		return nil, errors.New("Unknown Service Type")
 	}
 }
