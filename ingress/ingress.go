@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -113,9 +114,10 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")},
 	)
+	hostname, _ := os.Hostname()
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		corev1.EventSource{Component: "alb2", Host: config.Get("NAME")},
+		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.Get("NAME")), Host: hostname},
 	)
 
 	controller := &Controller{
