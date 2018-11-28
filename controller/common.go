@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -28,6 +29,10 @@ var (
 	FAILED               = "failed"
 	StatusFileParentPath = "/var/run/alb/last_status"
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 func getServiceName(id string, port int) string {
 	if port != 0 {
@@ -55,8 +60,8 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 					continue
 				}
 				rule.BackendGroup = &BackendGroup{
-					Name: rule.RuleID,
-					Mode: ModeHTTP,
+					Name:                     rule.RuleID,
+					Mode:                     ModeHTTP,
 					SessionAffinityPolicy:    rule.SessionAffinityPolicy,
 					SessionAffinityAttribute: rule.SessionAffinityAttr,
 				}

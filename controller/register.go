@@ -70,7 +70,7 @@ func UpdateServiceBind(kd *driver.KubernetesDriver, result *BindInfo) error {
 	}
 	jsonInfo, ok := svc.Annotations[config.Get("labels.bindkey")]
 	if !ok {
-		glog.Error("bind info is not found on service %s.%s", result.ServiceName, result.Namespace)
+		glog.Errorf("bind info is not found on service %s.%s", result.ServiceName, result.Namespace)
 		return nil //ingore it
 	}
 	var bindInfos []*BindInfo
@@ -100,7 +100,7 @@ func UpdateServiceBind(kd *driver.KubernetesDriver, result *BindInfo) error {
 			return err
 		}
 	} else {
-		glog.Info("No matched bind info found for %+v", *result)
+		glog.Infof("No matched bind info found for %+v", *result)
 	}
 	return nil
 }
@@ -166,7 +166,7 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			Services: []m.Service{},
 		}
 	}
-	glog.Infof("ft %+V has service: %+v", *ft, ft.ServiceGroup.Services)
+	glog.Infof("ft %+v has service: %+v", *ft, ft.ServiceGroup.Services)
 	if len(ft.ServiceGroup.Services) > 0 {
 		if ft.ServiceGroup.Services[0].Is(result.Namespace, result.ServiceName, result.ContainerPort) {
 			result.State = StateReady
@@ -350,7 +350,7 @@ func RegisterLoop(ctx context.Context) {
 			result, err := Bind(alb, req)
 			if err != nil {
 				glog.Errorf(
-					"bind %%s.%s:%d to %s:%d failed: %s",
+					"bind %s.%s:%d to %s:%d failed: %s",
 					req.ServiceName, req.Namespace, req.ContainerPort,
 					req.Name, req.Port, err.Error(),
 				)
