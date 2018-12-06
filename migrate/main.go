@@ -12,15 +12,17 @@ import (
 	crdV1 "alb2/pkg/apis/alauda/v1"
 
 	"github.com/golang/glog"
+	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
+	// Name is alb1 name
 	Name string
 	// NewNamespace is the namespace to hold alb2 related resource, default to alauda-system
-	Namespace = "alauda-system"
-	dryRun    = flag.Bool("dry-run", true, "dry run flag")
+	NewNamespace = "alauda-system"
+	dryRun       = flag.Bool("dry-run", true, "dry run flag")
 )
 
 func main() {
@@ -32,15 +34,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	k8sClient, err := driver.GetDriver()
+	k8sDriver, err := driver.GetDriver()
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = k8sClient.Client.CoreV1().Namespaces().Get(Namespace, metav1.GetOptions{})
+	_, err = k8sDriver.Client.CoreV1().Namespaces().Get(NewNamespace, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			glog.Errorf("your specific namespace %s is not exist", Namespace)
+			glog.Errorf("your specific namespace %s is not exist, to hold alb2 related resource the namespace must exist", NewNamespace)
 		}
 		panic(err)
 	}
@@ -55,12 +57,12 @@ func main() {
 	for _, domain := range alb1Resource.Spec.Domains {
 		domains = append(domains, domain.Domain)
 	}
-	alb2Resource := &crdV1.AlaudaLoadBalancer2{
+	alb2Resource := &crdV1.ALB2{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      alb1Resource.Name,
-			Namespace: Namespace,
+			Namespace: NewNamespace,
 		},
-		Spec: crdV1.AlaudaLoadBalancer2Spec{
+		Spec: crdV1.ALB2Spec{
 			Address:     alb1Resource.Spec.Address,
 			BindAddress: alb1Resource.Spec.BindAddress,
 			Domains:     domains,
@@ -70,7 +72,7 @@ func main() {
 	}
 	glog.Infof("will create resource alb2, %+v", alb2Resource)
 	if *dryRun == false {
-		_, err := albClient.CrdV1().AlaudaLoadBalancer2s(Namespace).Create(alb2Resource)
+		_, err := albClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
 		if err != nil {
 			glog.Errorf("create alb2 resource failed, %+v", err)
 		}
@@ -79,54 +81,100 @@ func main() {
 	for _, alb1ft := range alb1Resource.Spec.Frontends {
 		// ref modules/alb2.go + 18
 		ftName := fmt.Sprintf("%s-%d-%s", Name, alb1ft.Port, alb1ft.Protocol)
-		// TODO:
-		var ftsg []crdV1.Service
 		ftResource := &crdV1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      ftName,
-				Namespace: Namespace,
+				Namespace: NewNamespace,
+				Labels: map[string]string{
+					config.Get("labels.name"): Name,
+				},
 			},
 			Spec: crdV1.FrontendSpec{
 				CertificateID:   alb1ft.CertificateID,
 				CertificateName: alb1ft.CertificateName,
 				Port:            alb1ft.Port,
 				Protocol:        alb1ft.Protocol,
-				ServiceGroup: &crdV1.ServiceGroup{
-					Services: ftsg,
-				},
 			},
+		}
+		// frontend have default service
+		if alb1ft.ServiceID != "" {
+			var ftsg []crdV1.Service
+
+			kubeSvc, err := getServiceByServiceID(k8sDriver, alb1ft.ServiceID, alb1ft.ContainerPort)
+			if err != nil {
+				glog.Errorf("get service by serviceID %s failed, %+v", alb1ft.ServiceID, err)
+			} else if kubeSvc == nil {
+				glog.Warningf("get no service by serviceID %s", alb1ft.ServiceID)
+			} else {
+				glog.Infof("get services %+v with serviceID %s", kubeSvc, alb1ft.ServiceID)
+				ftsg = append(ftsg, crdV1.Service{
+					Name:      kubeSvc.Name,
+					Namespace: kubeSvc.Namespace,
+					Port:      alb1ft.ContainerPort,
+					Weight:    100,
+				})
+				ftResource.Spec.ServiceGroup = &crdV1.ServiceGroup{Services: ftsg}
+			}
 		}
 		glog.Infof("will create resource frontend, %+v", ftResource)
 		if *dryRun == false {
-			_, err := albClient.CrdV1().Frontends(Namespace).Create(ftResource)
+			_, err := albClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
 			if err != nil {
 				glog.Errorf("create frontend resource failed, %+v", err)
 			}
 		}
 		for _, alb1rule := range alb1ft.Rules {
-			// TODO:
-			var rulesg []crdV1.Service
+			dsl := alb1rule.DSL
+			if dsl == "" {
+				dsl = modules.GetDSL(alb1rule.Domain, alb1rule.URL)
+
+			}
 			ruleResource := &crdV1.Rule{
 				ObjectMeta: metav1.ObjectMeta{
 					// ref modules/alb2.go + 67
 					Name:      modules.RandomStr(ftName, 4),
-					Namespace: Namespace,
+					Namespace: NewNamespace,
+					Labels: map[string]string{
+						config.Get("labels.name"):     Name,
+						config.Get("labels.frontend"): ftName,
+					},
 				},
 				Spec: crdV1.RuleSpec{
 					Description: alb1rule.Description,
 					Domain:      alb1rule.Domain,
-					DSL:         alb1rule.DSL,
+					DSL:         dsl,
 					Priority:    alb1rule.Priority,
-					ServiceGroup: &crdV1.ServiceGroup{
-						Services: rulesg,
-					},
-					Type: alb1rule.Type,
-					URL:  alb1rule.URL,
+					Type:        alb1rule.Type,
+					URL:         alb1rule.URL,
 				},
+			}
+			if alb1rule.Services != nil {
+				var rulesg []crdV1.Service
+				for _, service := range alb1rule.Services {
+					kubeSvc, err := getServiceByServiceID(k8sDriver, service.ServiceID, service.ContainerPort)
+					if err != nil {
+						glog.Errorf("get service by serviceID %s failed, %+v", service.ServiceID, err)
+					} else if kubeSvc == nil {
+						glog.Warningf("get no service by serviceID %s", service.ServiceID)
+					} else {
+						glog.Infof("get services %+v with serviceID %s", kubeSvc, service.ServiceID)
+						rulesg = append(rulesg, crdV1.Service{
+							Name:      kubeSvc.Name,
+							Namespace: kubeSvc.Namespace,
+							Port:      service.ContainerPort,
+							Weight:    service.Weight,
+						})
+					}
+				}
+				ruleResource.Spec.ServiceGroup = &crdV1.ServiceGroup{
+					Services:                 rulesg,
+					SessionAffinityAttribute: alb1rule.SessionAffinityAttribute,
+					SessionAffinityPolicy:    alb1rule.SessionAffinityPolicy,
+				}
 			}
 			glog.Infof("will create resource rule, %+v", ruleResource)
 			if *dryRun == false {
-				_, err := albClient.CrdV1().Rules(Namespace).Create(ruleResource)
+				_, err := albClient.CrdV1().Rules(NewNamespace).Create(ruleResource)
 				if err != nil {
 					glog.Errorf("create rule resource failed, %+v", err)
 				}
@@ -138,10 +186,40 @@ func main() {
 func ensureK8sEnv() {
 	if strings.TrimSpace(config.Get("KUBERNETES_SERVER")) == "" ||
 		strings.TrimSpace(config.Get("KUBERNETES_BEARERTOKEN")) == "" ||
-		strings.TrimSpace(config.Get("NAME")) == "" ||
-		strings.TrimSpace(config.Get("NAMESPACE")) == "" {
-		panic("you must set KUBERNETES_SERVER and KUBERNETES_BEARERTOKEN and NAME and NAMESPACE env")
+		strings.TrimSpace(config.Get("NAME")) == "" {
+		panic("you must set KUBERNETES_SERVER and KUBERNETES_BEARERTOKEN and NAME env")
+	}
+
+	if strings.TrimSpace(config.Get("NEW_NAMESPACE")) != "" {
+		NewNamespace = config.Get("NEW_NAMESPACE")
 	}
 	Name = config.Get("NAME")
-	Namespace = config.Get("NAMESPACE")
+
+	config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
+	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
+	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
+
+}
+
+func getServiceByServiceID(k8sDriver *driver.KubernetesDriver, serviceID string, servicePort int) (*v1types.Service, error) {
+	labelSelector := fmt.Sprintf("%s=%s", config.Get("LABEL_SERVICE_ID"), serviceID)
+	services, err := k8sDriver.Client.CoreV1().Services("").List(metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var kubeSvc *v1types.Service
+svcLoop:
+	for _, service := range services.Items {
+		for _, port := range service.Spec.Ports {
+			if servicePort == int(port.Port) {
+				kubeSvc = &service
+				if service.Labels[config.Get("LABEL_CREATOR")] == "" {
+					break svcLoop
+				}
+			}
+		}
+	}
+	return kubeSvc, nil
 }
