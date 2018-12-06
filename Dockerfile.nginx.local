@@ -2,6 +2,7 @@ FROM index.alauda.cn/alaudaorg/gobuild:1.10-alpine
 WORKDIR $GOPATH
 COPY . src/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alb2
+RUN go build -ldflags "-w -s" -v -o /migrate alb2/migrate
 
 FROM index.alauda.cn/alaudaorg/alb-nginx:v0.0.1
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
@@ -24,4 +25,4 @@ COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY --from=0 alb /alb/alb
-
+COPY --from=0 migrate /alb/migrate

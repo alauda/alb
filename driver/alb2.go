@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	u "net/url"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/parnurzeal/gorequest"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"alb2/config"
 	m "alb2/modules"
+	albclient "alb2/pkg/client/clientset/versioned"
 )
 
 const (
@@ -379,4 +382,18 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 		services = append(services, svc)
 	}
 	return services, nil
+}
+
+func GetALBClient() (*albclient.Clientset, error) {
+	conf := &rest.Config{
+		Host:        config.Get("KUBERNETES_SERVER"),
+		BearerToken: config.Get("KUBERNETES_BEARERTOKEN"),
+		Timeout:     time.Second * time.Duration(config.GetInt("KUBERNETES_TIMEOUT")),
+	}
+	conf.Insecure = true
+	albClient, err := albclient.NewForConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+	return albClient, nil
 }
