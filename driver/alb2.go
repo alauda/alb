@@ -15,6 +15,7 @@ import (
 
 	"alb2/config"
 	m "alb2/modules"
+	alb2v1 "alb2/pkg/apis/alauda/v1"
 	albclient "alb2/pkg/client/clientset/versioned"
 )
 
@@ -143,13 +144,13 @@ func (c *defaultClient) Delete(typ, ns, name string) error {
 
 var client HttpClient = &defaultClient{}
 
-func LoadAlbResource(namespace, name string) (*m.Alb2Resource, error) {
+func LoadAlbResource(namespace, name string) (*alb2v1.ALB2, error) {
 	body, err := client.Get(TypeAlb2, namespace, name, "")
 	if err != nil {
 		glog.Error(err)
 		return nil, err
 	}
-	var alb2Res m.Alb2Resource
+	var alb2Res alb2v1.ALB2
 	err = json.Unmarshal([]byte(body), &alb2Res)
 	if err != nil {
 		return nil, err
@@ -157,7 +158,7 @@ func LoadAlbResource(namespace, name string) (*m.Alb2Resource, error) {
 	return &alb2Res, nil
 }
 
-func UpdateAlbResource(alb *m.Alb2Resource) error {
+func UpdateAlbResource(alb *alb2v1.ALB2) error {
 	err := client.Update(TypeAlb2, alb.Namespace, alb.Name, alb)
 	if err != nil {
 		glog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
@@ -165,7 +166,7 @@ func UpdateAlbResource(alb *m.Alb2Resource) error {
 	return err
 }
 
-func UpdateSourceLabels(labels map[string]string, source *m.SourceInfo) {
+func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 	if source == nil {
 		return
 	}
@@ -180,7 +181,7 @@ func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 		glog.Error(err)
 		return err
 	}
-	ftRes := m.FrontendResource{
+	ftRes := alb2v1.Frontend{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Frontend",
 			APIVersion: "crd.alauda.io/v1",
@@ -216,7 +217,7 @@ func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 }
 
 func CreateRule(rule *m.Rule) error {
-	ruleRes := m.RuleResource{
+	ruleRes := alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rule.Name,
 			Namespace: rule.FT.LB.Namespace,
@@ -247,7 +248,7 @@ func DeleteRule(rule *m.Rule) error {
 	return err
 }
 
-func LoadFrontends(namespace, lbname string) ([]*m.FrontendResource, error) {
+func LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
 	selector := fmt.Sprintf("%s=%s", config.Get("labels.name"), lbname)
 	body, err := client.Get(TypeFrontend, namespace, "", selector)
 	if err != nil {
@@ -255,7 +256,7 @@ func LoadFrontends(namespace, lbname string) ([]*m.FrontendResource, error) {
 		return nil, err
 	}
 
-	var resList m.FrontendList
+	var resList alb2v1.FrontendList
 	err = json.Unmarshal([]byte(body), &resList)
 	if err != nil {
 		glog.Error(err)
@@ -264,7 +265,7 @@ func LoadFrontends(namespace, lbname string) ([]*m.FrontendResource, error) {
 	return resList.Items, nil
 }
 
-func LoadRules(namespace, lbname, ftname string) ([]*m.RuleResource, error) {
+func LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
 	selector := fmt.Sprintf(
 		"%s=%s,%s=%s",
 		config.Get("labels.name"), lbname,
@@ -276,7 +277,7 @@ func LoadRules(namespace, lbname, ftname string) ([]*m.RuleResource, error) {
 		return nil, err
 	}
 
-	var resList m.RuleList
+	var resList alb2v1.RuleList
 	err = json.Unmarshal([]byte(body), &resList)
 	if err != nil {
 		glog.Error(err)
@@ -296,7 +297,7 @@ func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 		glog.Error(err)
 		return nil, err
 	}
-	alb2.Alb2Spec = alb2Res.Spec
+	alb2.Spec = alb2Res.Spec
 
 	resList, err := LoadFrontends(namespace, name)
 	if err != nil {
@@ -329,7 +330,7 @@ func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 	return &alb2, nil
 }
 
-func parseServiceGroup(data map[string]*Service, sg *m.ServicceGroup) (map[string]*Service, error) {
+func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup) (map[string]*Service, error) {
 	if sg == nil {
 		return data, nil
 	}

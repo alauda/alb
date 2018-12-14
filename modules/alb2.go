@@ -1,13 +1,14 @@
 package modules
 
 import (
+	alb2v1 "alb2/pkg/apis/alauda/v1"
 	"fmt"
 	"math/rand"
 	"strings"
 )
 
 type AlaudaLoadBalancer struct {
-	Alb2Spec
+	Spec      alb2v1.ALB2Spec
 	Name      string
 	Namespace string
 	Frontends []*Frontend
@@ -16,7 +17,7 @@ type AlaudaLoadBalancer struct {
 func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend, error) {
 	ft := &Frontend{
 		Name: fmt.Sprintf("%s-%d-%s", alb.Name, port, protocol),
-		FrontendSpec: FrontendSpec{
+		FrontendSpec: alb2v1.FrontendSpec{
 			Port:     port,
 			Protocol: protocol,
 		},
@@ -27,8 +28,8 @@ func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend
 }
 
 func (alb *AlaudaLoadBalancer) ListDomains() []string {
-	domains := make([]string, 0, len(alb.Domains))
-	for _, d := range alb.Domains {
+	domains := make([]string, 0, len(alb.Spec.Domains))
+	for _, d := range alb.Spec.Domains {
 		offset := 0
 		for idx, c := range d {
 			if c != '*' && c != '.' && c != ' ' {
@@ -43,7 +44,7 @@ func (alb *AlaudaLoadBalancer) ListDomains() []string {
 
 type Frontend struct {
 	Name string
-	FrontendSpec
+	alb2v1.FrontendSpec
 	Rules []*Rule
 
 	LB *AlaudaLoadBalancer
@@ -65,7 +66,7 @@ func (ft *Frontend) NewRule(domain, url, dsl string) (*Rule, error) {
 	}
 	r := Rule{
 		Name: RandomStr(ft.Name, 4),
-		RuleSpec: RuleSpec{
+		RuleSpec: alb2v1.RuleSpec{
 			Domain: domain,
 			URL:    url,
 			DSL:    dsl,
@@ -77,7 +78,7 @@ func (ft *Frontend) NewRule(domain, url, dsl string) (*Rule, error) {
 }
 
 type Rule struct {
-	RuleSpec
+	alb2v1.RuleSpec
 	Name string
 
 	FT *Frontend

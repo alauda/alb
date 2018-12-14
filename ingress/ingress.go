@@ -44,6 +44,7 @@ import (
 	ctl "alb2/controller"
 	"alb2/driver"
 	m "alb2/modules"
+	alb2v1 "alb2/pkg/apis/alauda/v1"
 )
 
 const (
@@ -326,9 +327,9 @@ func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) 
 	needSave := false
 	if ft.ServiceGroup == nil ||
 		len(ft.ServiceGroup.Services) == 0 {
-		ft.ServiceGroup = &m.ServicceGroup{
-			Services: []m.Service{
-				m.Service{
+		ft.ServiceGroup = &alb2v1.ServiceGroup{
+			Services: []alb2v1.Service{
+				alb2v1.Service{
 					Namespace: ingress.Namespace,
 					Name:      ingress.Spec.Backend.ServiceName,
 					Port:      int(ingress.Spec.Backend.ServicePort.IntVal),
@@ -336,7 +337,7 @@ func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) 
 				},
 			},
 		}
-		ft.Source = &m.SourceInfo{
+		ft.Source = &alb2v1.Source{
 			Type:      m.TypeIngress,
 			Name:      ingress.Name,
 			Namespace: ingress.Namespace,
@@ -381,9 +382,9 @@ func (c *Controller) updateRule(
 		glog.Error(err)
 		return err
 	}
-	rule.ServiceGroup = &m.ServicceGroup{
-		Services: []m.Service{
-			m.Service{
+	rule.ServiceGroup = &alb2v1.ServiceGroup{
+		Services: []alb2v1.Service{
+			alb2v1.Service{
 				Namespace: ingress.Namespace,
 				Name:      ingresPath.Backend.ServiceName,
 				Port:      int(ingresPath.Backend.ServicePort.IntVal),
@@ -391,7 +392,7 @@ func (c *Controller) updateRule(
 			},
 		},
 	}
-	rule.Source = &m.SourceInfo{
+	rule.Source = &alb2v1.Source{
 		Type:      m.TypeIngress,
 		Namespace: ingress.Namespace,
 		Name:      ingress.Name,
