@@ -9,6 +9,7 @@ out
 gen
 config/haproxy/*
 alb
+alb2
 *.DS_Store
 haproxy.cfg.new
 policy.new

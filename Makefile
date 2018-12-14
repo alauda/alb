@@ -24,6 +24,9 @@ test:
 gen-code:
 	rm -rf pkg/client
 	./hack/update-codegen.sh
+	# fix code-generator wrong pluralize
+	# for osx, brew install gnu-sed --with-default-names
+	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs sed 's/"alb2s"/"alaudaloadbalancer2"/g' -i
 
 lint:
 	@gofmt -d ${GOFILES_NOVENDOR} 

@@ -1,52 +1,62 @@
 package driver
 
 import (
-	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/golang/glog"
 	"github.com/stretchr/testify/assert"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	albfakeclient "alb2/pkg/client/clientset/versioned/fake"
+	alb2scheme "alb2/pkg/client/clientset/versioned/scheme"
+
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
-type fakeClient struct {
-	JsonDir string
+func init() {
+	alb2scheme.AddToScheme(scheme.Scheme)
 }
 
-func (c *fakeClient) loadJson(typ, ns, name string) (string, error) {
-	path := fmt.Sprintf("%s/%s-%s", c.JsonDir, typ, ns)
-	if name != "" {
-		path = path + "-" + name
-	}
-	path += ".json"
-
-	data, err := ioutil.ReadFile(path)
+func loadData(dir string) ([]runtime.Object, error) {
+	var rv []runtime.Object
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
+		if f.IsDir() || !strings.HasSuffix(path, ".json") {
+			return nil
+		}
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+		obj, _, err := decode(data, nil, nil)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+		rv = append(rv, obj)
+		return nil
+	})
 	if err != nil {
-		glog.Error(err)
-		return "", err
+		return nil, err
 	}
-	return string(data), nil
-}
-func (c *fakeClient) Get(typ, ns, name, selector string) (string, error) {
-	return c.loadJson(typ, ns, name)
-}
 
-func (c *fakeClient) Create(typ, ns, name string, resource interface{}) error {
-	return nil
-}
-func (c *fakeClient) Update(typ, ns, name string, resource interface{}) error {
-	return nil
-}
-func (c *fakeClient) Delete(typ, ns, name string) error {
-	return nil
+	return rv, nil
 }
 
 func TestLoadAlb(t *testing.T) {
-	client = &fakeClient{
-		JsonDir: "texture",
-	}
 	a := assert.New(t)
-	alb, err := LoadALBbyName("default", "test1")
+	driver, err := GetKubernetesDriver(true, 0)
+	a.NoError(err)
+	dataset, err := loadData("./texture")
+	a.NoError(err)
+	driver.ALBClient = albfakeclient.NewSimpleClientset(dataset...)
+	alb, err := driver.LoadALBbyName("default", "test1")
 	a.NoError(err)
 	a.NotNil(alb)
 }

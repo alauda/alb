@@ -12,7 +12,7 @@ import (
 )
 
 func GetTestDriver() *driver.KubernetesDriver {
-	kd, _ := driver.GetKubernetesDriver(driver.FAKE_ENDPOINT, "", 0)
+	kd, _ := driver.GetKubernetesDriver(true, 0)
 	return kd
 }
 

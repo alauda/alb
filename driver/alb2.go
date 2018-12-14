@@ -1,15 +1,11 @@
 package driver
 
 import (
-	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"fmt"
-	u "net/url"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/parnurzeal/gorequest"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
@@ -25,141 +21,16 @@ const (
 	TypeRule     = "rules"
 )
 
-func GetK8sHTTPClient(method, url string) *gorequest.SuperAgent {
-	client := gorequest.New().
-		TLSClientConfig(&tls.Config{InsecureSkipVerify: true}).
-		Type("json").
-		Set("Authorization", fmt.Sprintf("Bearer %s", config.Get("KUBERNETES_BEARERTOKEN"))).
-		Set("Accept", "application/json")
-	client.Method = method
-	client.Url = url
-	return client
-}
-
-func GetUrl(typ, ns, name string) string {
-	var url string
-	url = fmt.Sprintf("%s/apis/crd.alauda.io/v1/namespaces/%s/%s",
-		config.Get("KUBERNETES_SERVER"),
-		ns, typ,
-	)
-	if name != "" {
-		url = fmt.Sprintf("%s/%s", url, name)
-	}
-	return url
-}
-
-type HttpClient interface {
-	Get(typ, ns, name, selector string) (data string, err error)
-	Create(typ, ns, name string, resource interface{}) error
-	Update(typ, ns, name string, resource interface{}) error
-	Delete(typ, ns, name string) error
-}
-
-type defaultClient struct {
-}
-
-var ErrNotFount = errors.New("resource not found")
-
-func (c *defaultClient) Get(typ, ns, name, selector string) (string, error) {
-	url := GetUrl(typ, ns, name)
-	client := GetK8sHTTPClient("GET", url)
-	if selector != "" {
-		query := u.QueryEscape(selector)
-		client = client.Query(fmt.Sprintf("labelSelector=%s", query))
-	}
-	resp, body, errs := client.End()
-	if len(errs) > 0 {
-		glog.Error(errs[0])
-		return "", errs[0]
-	}
-	if resp.StatusCode != 200 {
-		glog.Errorf("Get %s with query %+v get %d: %s", client.Url, client.QueryData, resp.StatusCode, body)
-		if resp.StatusCode == 404 {
-			return "", ErrNotFount
-		}
-		return "", errors.New(body)
-	}
-	glog.Infof("Request to kubernetes %s success, get %d bytes.", resp.Request.URL, len(body))
-	return body, nil
-}
-
-func (c *defaultClient) Create(typ, ns, name string, resource interface{}) error {
-	url := GetUrl(typ, ns, "")
-	client := GetK8sHTTPClient("POST", url)
-	data, err := json.Marshal(resource)
-	if err != nil {
-		glog.Error(err)
-		return err
-	}
-	resp, body, errs := client.Send(string(data)).End()
-	if len(errs) > 0 {
-		glog.Error(errs[0])
-		return errs[0]
-	}
-	// POST will return 201
-	if resp.StatusCode >= 400 {
-		glog.Errorf("POST %s get %d: %s", url, resp.StatusCode, body)
-		return errors.New(body)
-	}
-	return nil
-}
-
-func (c *defaultClient) Update(typ, ns, name string, resource interface{}) error {
-	url := GetUrl(typ, ns, name)
-	client := GetK8sHTTPClient("PUT", url)
-	data, err := json.Marshal(resource)
-	if err != nil {
-		glog.Error(err)
-		return err
-	}
-
-	resp, body, errs := client.Send(string(data)).End()
-	if len(errs) > 0 {
-		glog.Error(errs[0])
-		return errs[0]
-	}
-
-	if resp.StatusCode >= 400 {
-		glog.Errorf("Request to %s get %d: %s", url, resp.StatusCode, body)
-		return errors.New(body)
-	}
-	return nil
-}
-
-func (c *defaultClient) Delete(typ, ns, name string) error {
-	url := GetUrl(typ, ns, name)
-	client := GetK8sHTTPClient("DELETE", url)
-	resp, body, errs := client.End()
-	if len(errs) > 0 {
-		glog.Error(errs[0])
-		return errs[0]
-	}
-
-	if resp.StatusCode >= 400 {
-		glog.Errorf("Request to %s get %d: %s", url, resp.StatusCode, body)
-		return errors.New(body)
-	}
-	return nil
-}
-
-var client HttpClient = &defaultClient{}
-
-func LoadAlbResource(namespace, name string) (*alb2v1.ALB2, error) {
-	body, err := client.Get(TypeAlb2, namespace, name, "")
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-	var alb2Res alb2v1.ALB2
-	err = json.Unmarshal([]byte(body), &alb2Res)
+func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB2, error) {
+	alb, err := kd.ALBClient.CrdV1().ALB2s(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return &alb2Res, nil
+	return alb, nil
 }
 
-func UpdateAlbResource(alb *alb2v1.ALB2) error {
-	err := client.Update(TypeAlb2, alb.Namespace, alb.Name, alb)
+func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
+	_, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
 	if err != nil {
 		glog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 	}
@@ -175,39 +46,20 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 }
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
-func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
-	ftdata, err := client.Get(TypeFrontend, alb.Namespace, ft.Name, "")
-	if err != nil && err != ErrNotFount {
+func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
+	ftRes, err := kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
 		glog.Error(err)
 		return err
 	}
-	ftRes := alb2v1.Frontend{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Frontend",
-			APIVersion: "crd.alauda.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: alb.Namespace,
-			Name:      ft.Name,
-			Labels:    map[string]string{},
-		},
-	}
-	if len(ftdata) > 0 {
-		err := json.Unmarshal([]byte(ftdata), &ftRes)
-		if err != nil {
-			glog.Error(err)
-			return err
-		}
-	}
-
 	ftRes.Labels[config.Get("labels.name")] = alb.Name
 	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
 
 	if err != nil {
-		err = client.Create(TypeFrontend, alb.Namespace, ft.Name, ftRes)
+		_, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
 	} else {
-		err = client.Update(TypeFrontend, alb.Namespace, ft.Name, ftRes)
+		_, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
 	}
 	if err != nil {
 		glog.Error(err)
@@ -216,8 +68,8 @@ func UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
 	return nil
 }
 
-func CreateRule(rule *m.Rule) error {
-	ruleRes := alb2v1.Rule{
+func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
+	ruleRes := &alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rule.Name,
 			Namespace: rule.FT.LB.Namespace,
@@ -226,38 +78,29 @@ func CreateRule(rule *m.Rule) error {
 				config.Get("labels.frontend"): rule.FT.Name,
 			},
 		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Rule",
-			APIVersion: "crd.alauda.io/v1",
-		},
 		Spec: rule.RuleSpec,
 	}
 	UpdateSourceLabels(ruleRes.Labels, rule.Source)
-	err := client.Create(TypeRule, ruleRes.Namespace, ruleRes.Name, ruleRes)
+	_, err := kd.ALBClient.CrdV1().Rules(ruleRes.Namespace).Create(ruleRes)
 	if err != nil {
 		glog.Error(err)
 	}
 	return err
 }
 
-func DeleteRule(rule *m.Rule) error {
-	err := client.Delete(TypeRule, rule.FT.LB.Namespace, rule.Name)
+func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
+	err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Delete(rule.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		glog.Error(err)
 	}
 	return err
 }
 
-func LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
+func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
 	selector := fmt.Sprintf("%s=%s", config.Get("labels.name"), lbname)
-	body, err := client.Get(TypeFrontend, namespace, "", selector)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-
-	var resList alb2v1.FrontendList
-	err = json.Unmarshal([]byte(body), &resList)
+	resList, err := kd.ALBClient.CrdV1().Frontends(namespace).List(metav1.ListOptions{
+		LabelSelector: selector,
+	})
 	if err != nil {
 		glog.Error(err)
 		return nil, err
@@ -265,20 +108,15 @@ func LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
 	return resList.Items, nil
 }
 
-func LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
+func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
 	selector := fmt.Sprintf(
 		"%s=%s,%s=%s",
 		config.Get("labels.name"), lbname,
 		config.Get("labels.frontend"), ftname,
 	)
-	body, err := client.Get(TypeRule, namespace, "", selector)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-
-	var resList alb2v1.RuleList
-	err = json.Unmarshal([]byte(body), &resList)
+	resList, err := kd.ALBClient.CrdV1().Rules(namespace).List(metav1.ListOptions{
+		LabelSelector: selector,
+	})
 	if err != nil {
 		glog.Error(err)
 		return nil, err
@@ -286,20 +124,20 @@ func LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
 	return resList.Items, nil
 }
 
-func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
+func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 	alb2 := m.AlaudaLoadBalancer{
 		Name:      name,
 		Namespace: namespace,
 		Frontends: []*m.Frontend{},
 	}
-	alb2Res, err := LoadAlbResource(namespace, name)
+	alb2Res, err := kd.LoadAlbResource(namespace, name)
 	if err != nil {
 		glog.Error(err)
 		return nil, err
 	}
 	alb2.Spec = alb2Res.Spec
 
-	resList, err := LoadFrontends(namespace, name)
+	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
 		glog.Error(err)
 		return nil, err
@@ -311,7 +149,7 @@ func LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 			Rules:        []*m.Rule{},
 			LB:           &alb2,
 		}
-		ruleList, err := LoadRules(namespace, name, res.Name)
+		ruleList, err := kd.LoadRules(namespace, name, res.Name)
 		if err != nil {
 			glog.Error(err)
 			return nil, err
@@ -386,11 +224,11 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 }
 
 func GetALBClient() (*albclient.Clientset, error) {
-	conf := &rest.Config{
-		Host:        config.Get("KUBERNETES_SERVER"),
-		BearerToken: config.Get("KUBERNETES_BEARERTOKEN"),
-		Timeout:     time.Second * time.Duration(config.GetInt("KUBERNETES_TIMEOUT")),
+	conf, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
 	}
+	conf.Timeout = time.Second * time.Duration(config.GetInt("KUBERNETES_TIMEOUT"))
 	conf.Insecure = true
 	albClient, err := albclient.NewForConfig(conf)
 	if err != nil {

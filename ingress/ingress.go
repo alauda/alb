@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	extsinformers "k8s.io/client-go/informers/extensions/v1beta1"
-	"k8s.io/client-go/kubernetes"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	extslisters "k8s.io/client-go/listers/extensions/v1beta1"
@@ -71,7 +70,7 @@ func MainLoop(ctx context.Context) {
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
 	controller := NewController(
-		drv.Client,
+		drv,
 		kubeInformerFactory.Extensions().V1beta1().Ingresses(),
 	)
 
@@ -85,7 +84,7 @@ func MainLoop(ctx context.Context) {
 // Controller is the controller implementation for Foo resources
 type Controller struct {
 	// kubeclientset is a standard kubernetes clientset
-	kubeclientset kubernetes.Interface
+	// kubeclientset kubernetes.Interface
 
 	ingressLister extslisters.IngressLister
 	ingressSynced cache.InformerSynced
@@ -99,11 +98,13 @@ type Controller struct {
 	// recorder is an event recorder for recording Event resources to the
 	// Kubernetes API.
 	recorder record.EventRecorder
+
+	KubernetesDriver *driver.KubernetesDriver
 }
 
 // NewController returns a new sample controller
 func NewController(
-	kubeclientset kubernetes.Interface,
+	d *driver.KubernetesDriver,
 	ingressInformer extsinformers.IngressInformer) *Controller {
 
 	// Create event broadcaster
@@ -113,7 +114,7 @@ func NewController(
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	eventBroadcaster.StartRecordingToSink(
-		&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")},
+		&typedcorev1.EventSinkImpl{Interface: d.Client.CoreV1().Events("")},
 	)
 	hostname, _ := os.Hostname()
 	recorder := eventBroadcaster.NewRecorder(
@@ -122,14 +123,14 @@ func NewController(
 	)
 
 	controller := &Controller{
-		kubeclientset: kubeclientset,
 		ingressLister: ingressInformer.Lister(),
 		ingressSynced: ingressInformer.Informer().HasSynced,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"Ingresses",
 		),
-		recorder: recorder,
+		recorder:         recorder,
+		KubernetesDriver: d,
 	}
 
 	glog.Info("Setting up event handlers")
@@ -397,7 +398,7 @@ func (c *Controller) updateRule(
 		Namespace: ingress.Namespace,
 		Name:      ingress.Name,
 	}
-	err = driver.CreateRule(rule)
+	err = c.KubernetesDriver.CreateRule(rule)
 	if err != nil {
 		glog.Errorf(
 			"Create rule %+v for ingress %s.%s failed: %s",
@@ -413,7 +414,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
 	// then create new one
-	alb, err := driver.LoadALBbyName(
+	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
 		config.Get("NAME"),
 	)
@@ -445,7 +446,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	}
 	needSave := c.setFtDefault(ingress, ft)
 	if newFrontend || needSave {
-		err = driver.UpsertFrontends(alb, ft)
+		err = c.KubernetesDriver.UpsertFrontends(alb, ft)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)
 			return err
@@ -480,7 +481,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 }
 
 func (c *Controller) onIngressDelete(name, namespace string) error {
-	alb, err := driver.LoadALBbyName(
+	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
 		config.Get("NAME"),
 	)
@@ -505,7 +506,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 		ft.Source.Name == name {
 		ft.ServiceGroup = nil
 		ft.Source = nil
-		err = driver.UpsertFrontends(alb, ft)
+		err = c.KubernetesDriver.UpsertFrontends(alb, ft)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)
 			return err
@@ -518,7 +519,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 			rule.Source.Namespace == namespace &&
 			rule.Source.Name == name {
 
-			err = driver.DeleteRule(rule)
+			err = c.KubernetesDriver.DeleteRule(rule)
 			if err != nil {
 				glog.Errorf("upsert ft failed: %s", err)
 				return err

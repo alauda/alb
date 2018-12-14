@@ -142,9 +142,12 @@ func ListBindRequest(kd *driver.KubernetesDriver) ([]*BindInfo, error) {
 }
 
 func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	d, err := driver.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	result := *req //copy for modify
 	var ft *m.Frontend
-	var err error
 	for _, ft = range alb.Frontends {
 		if ft.Port == result.Port {
 			break
@@ -195,7 +198,7 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			Weight:    100,
 		},
 	)
-	err = driver.UpsertFrontends(alb, ft)
+	err = d.UpsertFrontends(alb, ft)
 	if err != nil {
 		glog.Errorf("upsert ft failed: %s", err)
 		return nil, err
@@ -211,9 +214,12 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 }
 
 func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	d, err := driver.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	result := *req //copy for modify
 	var ft *m.Frontend
-	var err error
 	for _, ft = range alb.Frontends {
 		if ft.Port == result.Port {
 			break
@@ -229,7 +235,7 @@ func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			glog.Error(err)
 			return nil, err
 		}
-		err := driver.UpsertFrontends(alb, ft)
+		err := d.UpsertFrontends(alb, ft)
 		if err != nil {
 			glog.Error(err)
 			return nil, err
@@ -280,7 +286,7 @@ domainLoop:
 				},
 			},
 		}
-		err := driver.CreateRule(r)
+		err := d.CreateRule(r)
 		if err != nil {
 			glog.Error(err)
 			continue
@@ -324,7 +330,7 @@ func RegisterLoop(ctx context.Context) {
 			continue
 		}
 
-		alb, err := driver.LoadALBbyName(
+		alb, err := kd.LoadALBbyName(
 			config.Get("NAMESPACE"),
 			config.Get("NAME"),
 		)

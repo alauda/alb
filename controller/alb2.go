@@ -150,6 +150,10 @@ func TryLockAlb() error {
 	}
 	name := config.Get("NAME")
 	namespace := config.Get("NAMESPACE")
+	driver, err := driver.GetDriver()
+	if err != nil {
+		return err
+	}
 	albRes, err := driver.LoadAlbResource(namespace, name)
 	if err != nil {
 		glog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())

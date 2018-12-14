@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	typev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"alb2/config"
 )
@@ -13,16 +14,11 @@ import (
 func TestCreateDriver(t *testing.T) {
 	a := assert.New(t)
 
-	server := "http://127.0.0.1:6443"
-	token := "test-token"
-	config.Set("KUBERNETES_SERVER", server)
-	config.Set("KUBERNETES_BEARERTOKEN", token)
+	config.Set("TEST", "true")
 	drv, err := GetDriver()
 	a.NoError(err)
 
-	a.Equal(server, drv.Endpoint)
-	a.Equal(token, drv.BearerToken)
-	a.NotZero(drv.Timeout)
+	a.NotNil(drv.Client)
 }
 
 func setUp() {
@@ -32,7 +28,7 @@ func setUp() {
 
 func getFakeDriver(t *testing.T) *KubernetesDriver {
 	a := assert.New(t)
-	config.Set("KUBERNETES_SERVER", FAKE_ENDPOINT)
+	config.Set("TEST", "true")
 	drv, err := GetDriver()
 	a.NoError(err)
 
@@ -43,8 +39,7 @@ func TestGetEndpoint(t *testing.T) {
 	setUp()
 	a := assert.New(t)
 	kdrv := getFakeDriver(t)
-	client := kdrv.Client
-	ep := typev1.Endpoints{
+	ep := &typev1.Endpoints{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Endpoints",
@@ -58,10 +53,9 @@ func TestGetEndpoint(t *testing.T) {
 		},
 		Subsets: []typev1.EndpointSubset{},
 	}
-	_, err := client.CoreV1().Endpoints("default").Create(&ep)
-	a.NoError(err)
+	kdrv.Client = fake.NewSimpleClientset(ep)
 
 	services, err := kdrv.ListServiceEndpoints()
 	a.NoError(err)
-	a.NotEmpty(services)
+	a.Len(services, 1)
 }

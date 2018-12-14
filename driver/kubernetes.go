@@ -11,54 +11,43 @@ import (
 	"github.com/golang/glog"
 	v1types "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
 	"alb2/config"
+	albclient "alb2/pkg/client/clientset/versioned"
+	albfakeclient "alb2/pkg/client/clientset/versioned/fake"
 )
 
 type KubernetesDriver struct {
-	Endpoint    string
-	BearerToken string
-	Timeout     int
-	Client      kubernetes.Interface
+	Client    kubernetes.Interface
+	ALBClient albclient.Interface
 }
 
-var FAKE_ENDPOINT = "fake-endpoint"
-
-func GetKubernetesDriver(endpoint string, bearerToken string, timeout int) (*KubernetesDriver, error) {
-	cf := &rest.Config{
-		Host:        endpoint,
-		BearerToken: bearerToken,
-		Timeout:     time.Duration(timeout) * time.Second,
-	}
-	cf.ContentType = "application/vnd.kubernetes.protobuf"
-	cf.Insecure = true
-	if cf.APIPath == "" {
-		cf.APIPath = "/api"
-	}
-	if cf.GroupVersion == nil {
-		cf.GroupVersion = &schema.GroupVersion{}
-	}
-
+func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 	var client kubernetes.Interface
-	var err error
-	if endpoint != FAKE_ENDPOINT {
-		client, err = kubernetes.NewForConfig(cf)
-	} else {
+	var albClient albclient.Interface
+	if isFake {
+		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
+		albClient = albfakeclient.NewSimpleClientset()
+	} else {
+		cf, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+		cf.Timeout = time.Duration(timeout) * time.Second
+		client, err = kubernetes.NewForConfig(cf)
+		if err != nil {
+			return nil, err
+		}
+		albClient, err = albclient.NewForConfig(cf)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	if err == nil {
-		return &KubernetesDriver{
-			Endpoint:    endpoint,
-			BearerToken: bearerToken,
-			Timeout:     timeout,
-			Client:      client}, nil
-	}
-	return nil, err
+	return &KubernetesDriver{Client: client, ALBClient: albClient}, nil
 }
 
 func (kd *KubernetesDriver) GetType() string {
@@ -185,7 +174,7 @@ func (kd *KubernetesDriver) ListServiceEndpoints() ([]*Service, error) {
 }
 
 func (kd *KubernetesDriver) ListService() ([]*Service, error) {
-	alb, err := LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
+	alb, err := kd.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		glog.Error(err)
 		return nil, err
