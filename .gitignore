@@ -13,3 +13,5 @@ alb
 haproxy.cfg.new
 policy.new
 VERSION
+test.json
+coverage-all.out
