@@ -18,12 +18,14 @@ release: push
 	docker push index.alauda.cn/claas/alb2:`cat VERSION`
 
 test:
-	go test -cover=true -v ./...
+	go test -cover -v ./... -json > test.json
+	go test -v -coverprofile=coverage-all.out ./...
 
 gen-code:
 	rm -rf pkg/client
 	./hack/update-codegen.sh
 
 lint:
+	@gofmt -d ${GOFILES_NOVENDOR} 
 	@gofmt -l ${GOFILES_NOVENDOR} | read && echo "Code differs from gofmt's style" 1>&2 && exit 1 || true
 	@go tool vet ${GOFILES_NOVENDOR}
