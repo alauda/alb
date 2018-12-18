@@ -11,6 +11,7 @@ import (
 
 	"alb2/config"
 	"alb2/controller"
+	"alb2/driver"
 	"alb2/ingress"
 )
 
@@ -32,6 +33,17 @@ func main() {
 	config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
 	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
 	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
+
+	d, err := driver.GetDriver()
+	if err != nil {
+		panic(err)
+	}
+	// install necessary crd on start
+	if err := d.RegisterCustomDefinedResources(); err != nil {
+		// install crd failed, abort
+		panic(err)
+	}
+
 	go controller.RegisterLoop(ctx)
 	go ingress.MainLoop(ctx)
 

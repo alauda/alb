@@ -9,6 +9,8 @@ import (
 
 	"github.com/golang/glog"
 	v1types "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsfakeclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -22,15 +24,18 @@ import (
 type KubernetesDriver struct {
 	Client    kubernetes.Interface
 	ALBClient albclient.Interface
+	ExtClient apiextensionsclient.Interface
 }
 
 func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 	var client kubernetes.Interface
 	var albClient albclient.Interface
+	var extClient apiextensionsclient.Interface
 	if isFake {
 		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
 		albClient = albfakeclient.NewSimpleClientset()
+		extClient = apiextensionsfakeclient.NewSimpleClientset()
 	} else {
 		cf, err := rest.InClusterConfig()
 		if err != nil {
@@ -45,8 +50,12 @@ func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 		if err != nil {
 			return nil, err
 		}
+		extClient, err = apiextensionsclient.NewForConfig(cf)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &KubernetesDriver{Client: client, ALBClient: albClient}, nil
+	return &KubernetesDriver{Client: client, ALBClient: albClient, ExtClient: extClient}, nil
 }
 
 func (kd *KubernetesDriver) GetType() string {

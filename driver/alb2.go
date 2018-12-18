@@ -2,17 +2,14 @@ package driver
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/golang/glog"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 
 	"alb2/config"
 	m "alb2/modules"
 	alb2v1 "alb2/pkg/apis/alauda/v1"
-	albclient "alb2/pkg/client/clientset/versioned"
 )
 
 const (
@@ -221,18 +218,4 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 		services = append(services, svc)
 	}
 	return services, nil
-}
-
-func GetALBClient() (*albclient.Clientset, error) {
-	conf, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	conf.Timeout = time.Second * time.Duration(config.GetInt("KUBERNETES_TIMEOUT"))
-	conf.Insecure = true
-	albClient, err := albclient.NewForConfig(conf)
-	if err != nil {
-		return nil, err
-	}
-	return albClient, nil
 }
