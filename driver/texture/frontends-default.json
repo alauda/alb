@@ -1,7 +1,6 @@
 {
-    "apiVersion": "v1",
-    "items": [
-        {
+    "apiVersion": "crd.alauda.io/v1",
+    "items": [{
             "apiVersion": "crd.alauda.io/v1",
             "kind": "Frontend",
             "metadata": {
@@ -23,14 +22,12 @@
                 "port": 443,
                 "protocol": "tcp",
                 "serviceGroup": {
-                    "services": [
-                        {
-                            "name": "test",
-                            "namespace": "default",
-                            "port": 443,
-                            "weight": 100
-                        }
-                    ],
+                    "services": [{
+                        "name": "test",
+                        "namespace": "default",
+                        "port": 443,
+                        "weight": 100
+                    }],
                     "session_affinity_attribute": "",
                     "session_affinity_policy": ""
                 }
@@ -59,21 +56,19 @@
                 "port": 80,
                 "protocol": "http",
                 "serviceGroup": {
-                    "services": [
-                        {
-                            "name": "test",
-                            "namespace": "default",
-                            "port": 80,
-                            "weight": 100
-                        }
-                    ],
+                    "services": [{
+                        "name": "test",
+                        "namespace": "default",
+                        "port": 80,
+                        "weight": 100
+                    }],
                     "session_affinity_attribute": "",
                     "session_affinity_policy": ""
                 }
             }
         }
     ],
-    "kind": "List",
+    "kind": "FrontendList",
     "metadata": {
         "resourceVersion": "",
         "selfLink": ""

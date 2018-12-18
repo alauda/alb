@@ -14,9 +14,9 @@ import (
 func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 	lb := &LoadBalancer{
 		Name:           alb.Name,
-		Address:        alb.Address,
-		BindAddress:    alb.BindAddress,
-		LoadBalancerID: alb.LoadBalancerID,
+		Address:        alb.Spec.Address,
+		BindAddress:    alb.Spec.BindAddress,
+		LoadBalancerID: alb.Spec.IaasID,
 		Frontends:      []*Frontend{},
 	}
 	if lb.BindAddress == "" {
@@ -40,7 +40,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		for idx, arl := range aft.Rules {
 			rule := &Rule{
 				RuleID:      arl.Name,
-				Priority:    arl.Priority * int64(idx+1),
+				Priority:    int64(arl.Priority) * int64(idx+1),
 				Type:        arl.Type,
 				Domain:      arl.Domain,
 				URL:         arl.URL,
@@ -150,6 +150,10 @@ func TryLockAlb() error {
 	}
 	name := config.Get("NAME")
 	namespace := config.Get("NAMESPACE")
+	driver, err := driver.GetDriver()
+	if err != nil {
+		return err
+	}
 	albRes, err := driver.LoadAlbResource(namespace, name)
 	if err != nil {
 		glog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())

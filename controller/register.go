@@ -13,6 +13,7 @@ import (
 	"alb2/config"
 	"alb2/driver"
 	m "alb2/modules"
+	alb2v1 "alb2/pkg/apis/alauda/v1"
 )
 
 const (
@@ -53,13 +54,6 @@ type Listener struct {
 
 func (l *Listener) String() string {
 	return fmt.Sprintf("%d/%s-%s:%d-%v", l.ListenerPort, l.Protocol, l.ServiceID, l.ContainerPort, l.Domains)
-}
-
-type BindRequest struct {
-	Action    string      `json:"action"`
-	Listeners []*Listener `json:"listeners"`
-
-	loadbalancerID string
 }
 
 func UpdateServiceBind(kd *driver.KubernetesDriver, result *BindInfo) error {
@@ -141,9 +135,12 @@ func ListBindRequest(kd *driver.KubernetesDriver) ([]*BindInfo, error) {
 }
 
 func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	d, err := driver.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	result := *req //copy for modify
 	var ft *m.Frontend
-	var err error
 	for _, ft = range alb.Frontends {
 		if ft.Port == result.Port {
 			break
@@ -162,8 +159,8 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 	}
 
 	if ft.ServiceGroup == nil {
-		ft.ServiceGroup = &m.ServicceGroup{
-			Services: []m.Service{},
+		ft.ServiceGroup = &alb2v1.ServiceGroup{
+			Services: []alb2v1.Service{},
 		}
 	}
 	glog.Infof("ft %+v has service: %+v", *ft, ft.ServiceGroup.Services)
@@ -179,7 +176,7 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 		return &result, nil
 	}
 
-	ft.Source = &m.SourceInfo{
+	ft.Source = &alb2v1.Source{
 		Type:      m.TypeBind,
 		Name:      result.ServiceName,
 		Namespace: result.Namespace,
@@ -187,14 +184,14 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 
 	ft.ServiceGroup.Services = append(
 		ft.ServiceGroup.Services,
-		m.Service{
+		alb2v1.Service{
 			Namespace: result.Namespace,
 			Name:      result.ServiceName,
 			Port:      result.ContainerPort,
 			Weight:    100,
 		},
 	)
-	err = driver.UpsertFrontends(alb, ft)
+	err = d.UpsertFrontends(alb, ft)
 	if err != nil {
 		glog.Errorf("upsert ft failed: %s", err)
 		return nil, err
@@ -210,9 +207,12 @@ func bindTcp(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 }
 
 func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
+	d, err := driver.GetDriver()
+	if err != nil {
+		return nil, err
+	}
 	result := *req //copy for modify
 	var ft *m.Frontend
-	var err error
 	for _, ft = range alb.Frontends {
 		if ft.Port == result.Port {
 			break
@@ -228,7 +228,7 @@ func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 			glog.Error(err)
 			return nil, err
 		}
-		err := driver.UpsertFrontends(alb, ft)
+		err := d.UpsertFrontends(alb, ft)
 		if err != nil {
 			glog.Error(err)
 			return nil, err
@@ -264,14 +264,14 @@ domainLoop:
 		}
 
 		r, _ := ft.NewRule(domain, "", "")
-		r.Source = &m.SourceInfo{
+		r.Source = &alb2v1.Source{
 			Type:      m.TypeBind,
 			Name:      result.ServiceName,
 			Namespace: result.Namespace,
 		}
-		r.ServiceGroup = &m.ServicceGroup{
-			Services: []m.Service{
-				m.Service{
+		r.ServiceGroup = &alb2v1.ServiceGroup{
+			Services: []alb2v1.Service{
+				alb2v1.Service{
 					Name:      result.ServiceName,
 					Namespace: result.Namespace,
 					Port:      result.ContainerPort,
@@ -279,7 +279,7 @@ domainLoop:
 				},
 			},
 		}
-		err := driver.CreateRule(r)
+		err := d.CreateRule(r)
 		if err != nil {
 			glog.Error(err)
 			continue
@@ -323,7 +323,7 @@ func RegisterLoop(ctx context.Context) {
 			continue
 		}
 
-		alb, err := driver.LoadALBbyName(
+		alb, err := kd.LoadALBbyName(
 			config.Get("NAMESPACE"),
 			config.Get("NAME"),
 		)

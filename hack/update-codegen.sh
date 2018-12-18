@@ -34,7 +34,3 @@ ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client" \
 
 # To use your own boilerplate text append:
 #   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
-
-# fix code-generator wrong pluralize
-# for osx, brew install gnu-sed --with-default-names
-find ./pkg/client -name '*.go' -exec grep -l "alb2s" {} \; | xargs sed 's/"alb2s"/"alaudaloadbalancer2"/g' -i

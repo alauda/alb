@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -83,6 +85,10 @@ type ServiceGroup struct {
 	SessionAffinityAttribute string    `json:"session_affinity_attribute,omitempty"`
 	Services                 []Service `json:"services"`
 }
+
+// Source is where the frontend or rule came from.
+// It's type can be "bind" for those created for service annotations.
+// And be "ingress" for those created for ingress resource
 type Source struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
@@ -107,4 +113,21 @@ type RuleList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Rule `json:"items"`
+}
+
+func (s Service) String() string {
+	return fmt.Sprintf("%s-%s-%d", s.Namespace, s.Name, s.Port)
+}
+
+func (s Service) ServiceID() string {
+	return fmt.Sprintf("%s.%s", s.Name, s.Namespace)
+}
+
+func (s Service) Is(ns, name string, port int) bool {
+	if s.Namespace == ns &&
+		s.Name == name &&
+		s.Port == port {
+		return true
+	}
+	return false
 }

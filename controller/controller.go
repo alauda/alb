@@ -34,7 +34,6 @@ var (
 
 var LastConfig = ""
 var LastFailure = false
-var lastCheckTime time.Time
 
 type Controller interface {
 	GetLoadBalancerType() string
@@ -91,7 +90,6 @@ type Frontend struct {
 
 	BackendGroup     *BackendGroup     `json:"-"`
 	CertificateFiles map[string]string `json:"-"`
-	ready            bool
 }
 
 func (ft *Frontend) String() string {
@@ -215,8 +213,6 @@ type RegionInfo struct {
 	PlatformVersion  string `json:"platform_version"`
 }
 
-var regionInfo *RegionInfo
-
 var (
 	//ErrStandAlone will be return if do something that not allowed in stand mode
 	ErrStandAlone = errors.New("operation is not allowed in stand alone mode")
@@ -247,7 +243,11 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 		return lbs, nil
 	}
 
-	alb, err := driver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
+	d, err := driver.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	alb, err := d.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		glog.Error(err)
 		return []*LoadBalancer{}, nil

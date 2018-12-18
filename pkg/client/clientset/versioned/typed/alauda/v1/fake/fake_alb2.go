@@ -35,7 +35,7 @@ type FakeALB2s struct {
 	ns   string
 }
 
-var alb2sResource = schema.GroupVersionResource{Group: "crd.alauda.io", Version: "v1", Resource: "alaudaloadbalancer2"}
+var alb2sResource = schema.GroupVersionResource{Group: "crd.alauda.io", Version: "v1", Resource: "alb2s"}
 
 var alb2sKind = schema.GroupVersionKind{Group: "crd.alauda.io", Version: "v1", Kind: "ALB2"}
 

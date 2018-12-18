@@ -1,48 +1,44 @@
 {
-    "apiVersion": "v1",
-    "items": [
-        {
-            "apiVersion": "crd.alauda.io/v1",
-            "kind": "Rule",
-            "metadata": {
-                "annotations": {
-                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"crd.alauda.io/v1\",\"kind\":\"Rule\",\"metadata\":{\"annotations\":{},\"labels\":{\"alb2.alauda.io/frontend\":\"test1-80\",\"alb2.alauda.io/name\":\"test1\"},\"name\":\"test1-80\",\"namespace\":\"default\"},\"spec\":{\"description\":\"test1-rule\",\"domain\":\"test1.example.com\",\"dsl\":\"\",\"priority\":10000,\"serviceGroup\":{\"services\":[{\"name\":\"test\",\"namespace\":\"default\",\"port\":80,\"weight\":100}],\"session_affinity_attribute\":\"\",\"session_affinity_policy\":\"\"},\"url\":\"/\"}}\n"
-                },
-                "clusterName": "",
-                "creationTimestamp": "2018-09-21T09:17:28Z",
-                "generation": 0,
-                "labels": {
-                    "alb2.alauda.io/frontend": "test1-80",
-                    "alb2.alauda.io/name": "test1"
-                },
-                "name": "test1-80",
-                "namespace": "default",
-                "resourceVersion": "35460253",
-                "selfLink": "/apis/crd.alauda.io/v1/namespaces/default/rules/test1-80",
-                "uid": "2971c8b5-bd7f-11e8-a84c-5254002939a4"
+    "apiVersion": "crd.alauda.io/v1",
+    "items": [{
+        "apiVersion": "crd.alauda.io/v1",
+        "kind": "Rule",
+        "metadata": {
+            "annotations": {
+                "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"crd.alauda.io/v1\",\"kind\":\"Rule\",\"metadata\":{\"annotations\":{},\"labels\":{\"alb2.alauda.io/frontend\":\"test1-80\",\"alb2.alauda.io/name\":\"test1\"},\"name\":\"test1-80\",\"namespace\":\"default\"},\"spec\":{\"description\":\"test1-rule\",\"domain\":\"test1.example.com\",\"dsl\":\"\",\"priority\":10000,\"serviceGroup\":{\"services\":[{\"name\":\"test\",\"namespace\":\"default\",\"port\":80,\"weight\":100}],\"session_affinity_attribute\":\"\",\"session_affinity_policy\":\"\"},\"url\":\"/\"}}\n"
             },
-            "spec": {
-                "description": "test1-rule",
-                "domain": "test1.example.com",
-                "dsl": "",
-                "priority": 10000,
-                "serviceGroup": {
-                    "services": [
-                        {
-                            "name": "test",
-                            "namespace": "default",
-                            "port": 80,
-                            "weight": 100
-                        }
-                    ],
-                    "session_affinity_attribute": "",
-                    "session_affinity_policy": ""
-                },
-                "url": "/"
-            }
+            "clusterName": "",
+            "creationTimestamp": "2018-09-21T09:17:28Z",
+            "generation": 0,
+            "labels": {
+                "alb2.alauda.io/frontend": "test1-80",
+                "alb2.alauda.io/name": "test1"
+            },
+            "name": "test1-80",
+            "namespace": "default",
+            "resourceVersion": "35460253",
+            "selfLink": "/apis/crd.alauda.io/v1/namespaces/default/rules/test1-80",
+            "uid": "2971c8b5-bd7f-11e8-a84c-5254002939a4"
+        },
+        "spec": {
+            "description": "test1-rule",
+            "domain": "test1.example.com",
+            "dsl": "",
+            "priority": 10000,
+            "serviceGroup": {
+                "services": [{
+                    "name": "test",
+                    "namespace": "default",
+                    "port": 80,
+                    "weight": 100
+                }],
+                "session_affinity_attribute": "",
+                "session_affinity_policy": ""
+            },
+            "url": "/"
         }
-    ],
-    "kind": "List",
+    }],
+    "kind": "RuleList",
     "metadata": {
         "resourceVersion": "",
         "selfLink": ""
