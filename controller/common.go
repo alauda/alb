@@ -153,30 +153,6 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 	}
 }
 
-func lbMatch(lb *LoadBalancer, typ, name string) bool {
-	if lb.Type == typ {
-		switch lb.Type {
-		case config.Haproxy, config.Nginx:
-			if lb.Name == name {
-				return true
-			}
-		case config.ELB, config.SLB, config.CLB:
-			return true
-		}
-	}
-	return false
-}
-
-func filterLoadbalancers(loadBalancers []*LoadBalancer, loadBalancerType, name string) []*LoadBalancer {
-	res := make([]*LoadBalancer, 0, len(loadBalancers))
-	for _, l := range loadBalancers {
-		if lbMatch(l, loadBalancerType, name) {
-			res = append(res, l)
-		}
-	}
-	return res
-}
-
 func generateRegexp(ft *Frontend, rule *Rule) string {
 	domain := "[^/]+"
 	if rule.Domain != "" {

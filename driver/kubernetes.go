@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -59,23 +58,6 @@ func (kd *KubernetesDriver) IsHealthy() bool {
 	return err == nil
 }
 
-func nodePortToService(namespace string, np *NodePort) *v1types.Service {
-	ports := make([]v1types.ServicePort, 0, len(np.Ports))
-	for _, port := range np.Ports {
-		ports = append(ports, v1types.ServicePort{Port: int32(port), Name: "port-" + strconv.Itoa(port)})
-	}
-	service := &v1types.Service{
-		TypeMeta:   metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: np.Name, Labels: np.Labels, Namespace: namespace},
-		Spec: v1types.ServiceSpec{
-			Type:     v1types.ServiceTypeNodePort,
-			Ports:    ports,
-			Selector: np.Selector,
-		},
-	}
-	return service
-}
-
 func selectorToLabelSelector(selector map[string]string) string {
 	if len(selector) == 0 {
 		return ""
@@ -92,87 +74,6 @@ func selectorToLabelSelector(selector map[string]string) string {
 	return strings.Join(labels, ",")
 }
 
-func (kd *KubernetesDriver) CreateNodePort(np *NodePort) error {
-	ls := selectorToLabelSelector(np.Selector)
-	if ls == "" {
-		return fmt.Errorf("no selector")
-	}
-	podList, err := kd.Client.CoreV1().Pods("").List(metav1.ListOptions{
-		LabelSelector: ls,
-	})
-	if len(podList.Items) == 0 {
-		return fmt.Errorf("no pod found for nodePoint %v", np)
-	}
-	namespace := podList.Items[0].Namespace
-	_, err = kd.Client.CoreV1().Services(namespace).Create(nodePortToService(namespace, np))
-	if err != nil {
-		glog.Errorf("Failed to create nodeport for kubernetes, error: %s", err.Error())
-	} else {
-		glog.Infof("create nodeport %v", *np)
-	}
-	return err
-}
-
-func (kd *KubernetesDriver) DeleteNodePort(name string, namespace string) error {
-	err := kd.Client.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
-	if err != nil {
-		glog.Errorf("Failed to delete nodeport %s %s for kubernetes, error: %s", name, namespace, err)
-		return err
-	}
-	glog.Infof("delete nodeport %s %s", namespace, name)
-	return nil
-}
-
-//ListServiceEndpoints List service's backend address by using Pod ip
-func (kd *KubernetesDriver) ListServiceEndpoints() ([]*Service, error) {
-	endpoints, err := kd.Client.CoreV1().Endpoints("").List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s", config.Get("LABEL_SERVICE_ID")),
-	})
-	if err != nil {
-		glog.Errorf("Failed to get pods, error is %s.", err)
-		return nil, err
-	}
-	servicesMap := make(map[string]*Service)
-	for _, ep := range endpoints.Items {
-		serviceID, ok := ep.Labels[config.Get("LABEL_SERVICE_ID")]
-		if !ok || serviceID == "" {
-			continue
-		}
-		service, ok := servicesMap[serviceID]
-		if ok {
-			continue
-		}
-		owner, ok := ep.Labels[config.Get("LABEL_CREATOR")]
-		if !ok {
-			owner = OwnerUnknown
-		}
-		service = &Service{
-			ServiceID:     serviceID,
-			ServiceName:   ep.Name,
-			ContainerPort: 0,
-			Namespace:     ep.Namespace,
-			Backends:      make([]*Backend, 0),
-			Owner:         owner,
-		}
-		servicesMap[serviceID] = service
-		for _, subset := range ep.Subsets {
-			for _, addr := range subset.Addresses {
-				service.Backends = append(service.Backends, &Backend{
-					InstanceID: addr.Hostname,
-					IP:         addr.IP,
-					Port:       0,
-				})
-			}
-		}
-		sort.Sort(ByBackend(service.Backends))
-	}
-	services := make([]*Service, 0, len(servicesMap))
-	for _, service := range servicesMap {
-		services = append(services, service)
-	}
-	return services, nil
-}
-
 func (kd *KubernetesDriver) ListService() ([]*Service, error) {
 	alb, err := kd.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
@@ -186,106 +87,6 @@ func (kd *KubernetesDriver) ListService() ([]*Service, error) {
 	}
 
 	return services, nil
-}
-
-func (kd *KubernetesDriver) fetchKubernetesBackends() ([]*Backend, error) {
-	backends := []*Backend{}
-	nodeList, err := kd.Client.CoreV1().Nodes().List(metav1.ListOptions{})
-	if err != nil {
-		glog.Errorf("Failed to get nodes list for kubernetes, error: %s", err)
-		return nil, err
-	}
-nodeLoop:
-	for _, node := range nodeList.Items {
-		for _, condition := range node.Status.Conditions {
-			if condition.Type == v1types.NodeReady &&
-				condition.Status != v1types.ConditionTrue {
-				glog.Infof("node %s is not ready", node.Name)
-				continue nodeLoop
-			}
-		}
-		internalIP := ""
-		for _, ip := range node.Status.Addresses {
-			if ip.Type == v1types.NodeInternalIP {
-				internalIP = ip.Address
-				break
-			}
-		}
-		if internalIP == "" {
-			glog.Errorf("Failed to get external ip for node %s", node.UID)
-			continue
-		}
-		backends = append(backends, &Backend{InstanceID: string(node.UID), IP: internalIP})
-	}
-	sort.Sort(ByBackend(backends))
-	return backends, nil
-}
-
-func (kd *KubernetesDriver) parseService(service *v1types.Service, backends []*Backend) ([]*Service, error) {
-	serviceEndpoints := []*Service{}
-	serviceID, ok := service.Labels[config.Get("LABEL_SERVICE_ID")]
-	if !ok {
-		return nil, fmt.Errorf("Service %s has no %s label", service.Name, config.Get("LABEL_SERVICE_ID"))
-	}
-	owner, ok := service.Labels[config.Get("LABEL_CREATOR")]
-	if !ok {
-		owner = OwnerUnknown
-	}
-
-	usePodHostIP := strings.EqualFold(config.Get("USE_POD_HOST_IP"), "true")
-	var podList *v1types.PodList
-	var err error
-	if usePodHostIP {
-		podList, err = kd.Client.CoreV1().Pods("").List(metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", config.Get("LABEL_SERVICE_ID"), serviceID),
-		})
-		if err != nil {
-			glog.Error(err)
-			return nil, err
-		}
-		if len(podList.Items) == 0 {
-			return nil, fmt.Errorf("no pod found for service %s", serviceID)
-		}
-	}
-
-	for _, port := range service.Spec.Ports {
-		var serviceBackends []*Backend
-		if usePodHostIP {
-			nodeSet := make(map[string]bool)
-			serviceBackends = make([]*Backend, 0, len(podList.Items))
-			for _, pod := range podList.Items {
-				if pod.Status.HostIP == "" || pod.Status.Phase != v1types.PodRunning {
-					glog.Infof("pod %s is not ready.", pod.Name)
-					continue
-				}
-				if _, ok := nodeSet[pod.Status.HostIP]; ok {
-					// host has already been added
-					continue
-				}
-				serviceBackends = append(serviceBackends, &Backend{
-					IP: pod.Status.HostIP, Port: int(port.NodePort)})
-				nodeSet[pod.Status.HostIP] = true
-			}
-		} else {
-			serviceBackends = make([]*Backend, 0, len(backends))
-			for _, backend := range backends {
-				serviceBackends = append(serviceBackends, &Backend{
-					InstanceID: backend.InstanceID, IP: backend.IP, Port: int(port.NodePort)})
-			}
-		}
-
-		serviceEndpoint := &Service{
-			ServiceID:     serviceID,
-			ServiceName:   service.Name,
-			ContainerPort: int(port.Port),
-			Backends:      serviceBackends,
-			Namespace:     service.Namespace,
-			Owner:         owner,
-		}
-		serviceEndpoints = append(serviceEndpoints, serviceEndpoint)
-	}
-
-	return serviceEndpoints, nil
 }
 
 // GetNodePortAddr return addresses of a NodePort service by using host ip and nodeport.
@@ -425,34 +226,4 @@ func (kd *KubernetesDriver) GetServiceByName(namespace, name string, port int) (
 		return kd.GetEndPointAddress(name, namespace, port)
 	}
 	return kd.GetServiceAddress(name, namespace, port)
-}
-
-func (kd *KubernetesDriver) GetServiceByID(serviceID string, port int) (*Service, error) {
-	svcs, err := kd.Client.CoreV1().Services("").List(
-		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", config.Get("LABEL_SERVICE_ID"), serviceID),
-		},
-	)
-	if err != nil || svcs == nil {
-		glog.Errorf("List service with id %s failed: %s", serviceID, err)
-		return nil, err
-	}
-	var kubeSvc *v1types.Service
-
-svcLoop:
-	for _, svc := range svcs.Items {
-		for _, p := range svc.Spec.Ports {
-			if p.Port == int32(port) {
-				kubeSvc = &svc
-				if kubeSvc.Labels[config.Get("LABEL_CREATOR")] == "" {
-					break svcLoop
-				}
-			}
-		}
-	}
-	if kubeSvc != nil {
-		return kd.GetServiceAddress(kubeSvc.Name, kubeSvc.Namespace, port)
-	}
-	glog.Errorf("No service with id %s and port %d found", serviceID, port)
-	return nil, errors.New("No Service Found")
 }

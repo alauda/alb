@@ -83,9 +83,6 @@ func MainLoop(ctx context.Context) {
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	// kubeclientset is a standard kubernetes clientset
-	// kubeclientset kubernetes.Interface
-
 	ingressLister extslisters.IngressLister
 	ingressSynced cache.InformerSynced
 

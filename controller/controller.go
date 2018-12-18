@@ -34,7 +34,6 @@ var (
 
 var LastConfig = ""
 var LastFailure = false
-var lastCheckTime time.Time
 
 type Controller interface {
 	GetLoadBalancerType() string
@@ -91,7 +90,6 @@ type Frontend struct {
 
 	BackendGroup     *BackendGroup     `json:"-"`
 	CertificateFiles map[string]string `json:"-"`
-	ready            bool
 }
 
 func (ft *Frontend) String() string {
@@ -214,8 +212,6 @@ type RegionInfo struct {
 	ContainerManager string `json:"container_manager"`
 	PlatformVersion  string `json:"platform_version"`
 }
-
-var regionInfo *RegionInfo
 
 var (
 	//ErrStandAlone will be return if do something that not allowed in stand mode

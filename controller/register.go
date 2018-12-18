@@ -56,13 +56,6 @@ func (l *Listener) String() string {
 	return fmt.Sprintf("%d/%s-%s:%d-%v", l.ListenerPort, l.Protocol, l.ServiceID, l.ContainerPort, l.Domains)
 }
 
-type BindRequest struct {
-	Action    string      `json:"action"`
-	Listeners []*Listener `json:"listeners"`
-
-	loadbalancerID string
-}
-
 func UpdateServiceBind(kd *driver.KubernetesDriver, result *BindInfo) error {
 	svc, err := kd.Client.CoreV1().Services(result.Namespace).Get(result.ServiceName, metav1.GetOptions{})
 	if err != nil {
