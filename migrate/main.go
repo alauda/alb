@@ -30,12 +30,12 @@ func main() {
 	flag.Parse()
 	defer glog.Flush()
 	ensureK8sEnv()
-	albClient, err := driver.GetALBClient()
+	k8sDriver, err := driver.GetDriver()
 	if err != nil {
 		panic(err)
 	}
-	k8sDriver, err := driver.GetDriver()
-	if err != nil {
+	// install necessary crd for alb2
+	if err := k8sDriver.RegisterCustomDefinedResources(); err != nil {
 		panic(err)
 	}
 
@@ -47,7 +47,7 @@ func main() {
 		panic(err)
 	}
 
-	alb1Resource, err := albClient.CrdV3().AlaudaLoadBalancers().Get(Name, metav1.GetOptions{})
+	alb1Resource, err := k8sDriver.ALBClient.CrdV3().AlaudaLoadBalancers().Get(Name, metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +72,7 @@ func main() {
 	}
 	glog.Infof("will create resource alb2, %+v", alb2Resource)
 	if *dryRun == false {
-		_, err := albClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
+		_, err := k8sDriver.ALBClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
 		if err != nil {
 			glog.Errorf("create alb2 resource failed, %+v", err)
 		}
@@ -118,7 +118,7 @@ func main() {
 		}
 		glog.Infof("will create resource frontend, %+v", ftResource)
 		if *dryRun == false {
-			_, err := albClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
+			_, err := k8sDriver.ALBClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
 			if err != nil {
 				glog.Errorf("create frontend resource failed, %+v", err)
 			}
@@ -174,7 +174,7 @@ func main() {
 			}
 			glog.Infof("will create resource rule, %+v", ruleResource)
 			if *dryRun == false {
-				_, err := albClient.CrdV1().Rules(NewNamespace).Create(ruleResource)
+				_, err := k8sDriver.ALBClient.CrdV1().Rules(NewNamespace).Create(ruleResource)
 				if err != nil {
 					glog.Errorf("create rule resource failed, %+v", err)
 				}
