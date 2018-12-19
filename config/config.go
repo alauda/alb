@@ -25,11 +25,12 @@ var Config = map[string]string{}
 var requiredFields = []string{
 	"NAME",
 	"NAMESPACE",
-	"KUBERNETES_SERVER",
-	"KUBERNETES_BEARERTOKEN",
 }
 
 var optionalFields = []string{
+	"NEW_NAMESPACE",
+	"KUBERNETES_SERVER",
+	"KUBERNETES_BEARERTOKEN",
 	"SCHEDULER",
 	"LB_TYPE",
 	"KUBERNETES_TIMEOUT",

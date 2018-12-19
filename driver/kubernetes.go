@@ -37,9 +37,21 @@ func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 		albClient = albfakeclient.NewSimpleClientset()
 		extClient = apiextensionsfakeclient.NewSimpleClientset()
 	} else {
-		cf, err := rest.InClusterConfig()
+		var cf *rest.Config
+		var err error
+		cf, err = rest.InClusterConfig()
 		if err != nil {
-			return nil, err
+			if config.Get("KUBERNETES_SERVER") != "" && config.Get("KUBERNETES_BEARERTOKEN") != "" {
+				// maybe run by docker directly, such as migrate
+				tlsClientConfig := rest.TLSClientConfig{Insecure: true}
+				cf = &rest.Config{
+					Host:            config.Get("KUBERNETES_SERVER"),
+					BearerToken:     config.Get("KUBERNETES_BEARERTOKEN"),
+					TLSClientConfig: tlsClientConfig,
+				}
+			} else {
+				return nil, err
+			}
 		}
 		cf.Timeout = time.Duration(timeout) * time.Second
 		client, err = kubernetes.NewForConfig(cf)

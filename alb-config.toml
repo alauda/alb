@@ -16,12 +16,12 @@ timeout = 30
 # for test
 KUBERNETES_SERVER = "https://127.0.0.1:6443"
 KUBERNETES_BEARERTOKEN = "dbf41d.ae570f0cc2527039"
-NAME="test1"
-NAMESPACE="default"
-HAPROXY_TEMPLATE_PATH="template/haproxy/haproxy.tmpl"
-NGINX_TEMPLATE_PATH="template/nginx/nginx.tmpl"
-NEW_POLICY_PATH="policy.new"
-OLD_POLICY_PATH="policy"
+NAME = "test1"
+NAMESPACE = "default"
+HAPROXY_TEMPLATE_PATH = "template/haproxy/haproxy.tmpl"
+NGINX_TEMPLATE_PATH = "template/nginx/nginx.tmpl"
+NEW_POLICY_PATH = "policy.new"
+OLD_POLICY_PATH = "policy"
 
 [labels]
 bindkey = "loadbalancer.alauda.io/bind"

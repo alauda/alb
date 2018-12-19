@@ -184,6 +184,9 @@ func main() {
 }
 
 func ensureK8sEnv() {
+	glog.Info("KUBERNETES_SERVER: ", config.Get("KUBERNETES_SERVER"))
+	glog.Info("KUBERNETES_BEARERTOKEN: ", config.Get("KUBERNETES_BEARERTOKEN"))
+	glog.Info("NAME: ", config.Get("NAME"))
 	if strings.TrimSpace(config.Get("KUBERNETES_SERVER")) == "" ||
 		strings.TrimSpace(config.Get("KUBERNETES_BEARERTOKEN")) == "" ||
 		strings.TrimSpace(config.Get("NAME")) == "" {
