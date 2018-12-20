@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type AlaudaLoadBalancer struct {
+	UID       types.UID
 	Spec      alb2v1.ALB2Spec
 	Name      string
 	Namespace string
@@ -43,6 +46,7 @@ func (alb *AlaudaLoadBalancer) ListDomains() []string {
 }
 
 type Frontend struct {
+	UID  types.UID
 	Name string
 	alb2v1.FrontendSpec
 	Rules []*Rule
