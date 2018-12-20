@@ -6,6 +6,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ALB2Kind     = "ALB2"
+	FrontendKind = "Frontend"
+	RuleKind     = "Rule"
+)
+
 // +genclient
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

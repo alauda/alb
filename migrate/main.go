@@ -11,6 +11,8 @@ import (
 
 	crdV1 "alb2/pkg/apis/alauda/v1"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/golang/glog"
 	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,14 +73,17 @@ func main() {
 		},
 	}
 	glog.Infof("will create resource alb2, %+v", alb2Resource)
+	var alb2UID types.UID
 	if *dryRun == false {
-		_, err := k8sDriver.ALBClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
+		albRes, err := k8sDriver.ALBClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
 		if err != nil {
 			glog.Errorf("create alb2 resource failed, %+v", err)
 		}
+		alb2UID = albRes.GetUID()
 	}
 
 	for _, alb1ft := range alb1Resource.Spec.Frontends {
+		var ftUID types.UID
 		// ref modules/alb2.go + 18
 		ftName := fmt.Sprintf("%s-%d-%s", Name, alb1ft.Port, alb1ft.Protocol)
 		ftResource := &crdV1.Frontend{
@@ -87,6 +92,14 @@ func main() {
 				Namespace: NewNamespace,
 				Labels: map[string]string{
 					config.Get("labels.name"): Name,
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					metav1.OwnerReference{
+						APIVersion: crdV1.SchemeGroupVersion.String(),
+						Kind:       crdV1.ALB2Kind,
+						Name:       Name,
+						UID:        alb2UID,
+					},
 				},
 			},
 			Spec: crdV1.FrontendSpec{
@@ -118,10 +131,11 @@ func main() {
 		}
 		glog.Infof("will create resource frontend, %+v", ftResource)
 		if *dryRun == false {
-			_, err := k8sDriver.ALBClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
+			ftRes, err := k8sDriver.ALBClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
 			if err != nil {
 				glog.Errorf("create frontend resource failed, %+v", err)
 			}
+			ftUID = ftRes.UID
 		}
 		for _, alb1rule := range alb1ft.Rules {
 			dsl := alb1rule.DSL
@@ -137,6 +151,14 @@ func main() {
 					Labels: map[string]string{
 						config.Get("labels.name"):     Name,
 						config.Get("labels.frontend"): ftName,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						metav1.OwnerReference{
+							APIVersion: crdV1.SchemeGroupVersion.String(),
+							Kind:       crdV1.FrontendKind,
+							Name:       ftName,
+							UID:        ftUID,
+						},
 					},
 				},
 				Spec: crdV1.RuleSpec{
