@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/exec"
 	"time"
@@ -46,6 +48,10 @@ func main() {
 
 	go controller.RegisterLoop(ctx)
 	go ingress.MainLoop(ctx)
+	go func() {
+		// for profiling
+		http.ListenAndServe(":1937", nil)
+	}()
 
 	if config.Get("LB_TYPE") == config.Haproxy ||
 		config.Get("LB_TYPE") == config.Nginx {
@@ -54,7 +60,6 @@ func main() {
 
 	interval := config.GetInt("INTERVAL")
 	for {
-		glog.Flush()
 		time.Sleep(time.Duration(interval) * time.Second)
 		ch := make(chan string)
 
@@ -96,7 +101,7 @@ func main() {
 			case msg := <-ch:
 				if msg == "continue" {
 					glog.Info("continue")
-					timer.Stop()
+					timer.Reset(0)
 					break watchdog
 				}
 				timer.Reset(300 * time.Second)

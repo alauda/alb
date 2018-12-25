@@ -134,10 +134,14 @@ http {
     {{- if eq $bg.Mode "http" "https"}}
 
     upstream {{$bg.Name}} {
-        keepalive 32;
         {{- if eq $bg.SessionAffinityPolicy "sip-hash" }}
         ip_hash;
         {{ end -}}
+
+        {{- range $j, $be := $bg.Backends }}
+        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
+        {{- end}}
+
         {{- if eq $bg.SessionAffinityPolicy "cookie"}}
         {{- if $bg.SessionAffinityAttribute }}
         sticky name={{$bg.SessionAffinityAttribute}};
@@ -145,9 +149,8 @@ http {
         sticky;
         {{ end -}}
         {{- end}}
-        {{- range $j, $be := $bg.Backends }}
-        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
-        {{- end}}
+
+        keepalive 32;
     }
     {{- end}}
     {{- end}}
