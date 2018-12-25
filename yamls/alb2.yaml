@@ -43,6 +43,20 @@ spec:
             requests:
               cpu: '200m'
               memory: 128M
+          volumeMounts:
+          - name: tweak-conf
+            mountPath: /alb/tweak/
+      volumes:
+      - name: tweak-conf
+        configMap:
+          name: alb2-tweak
+          items:
+          - key: http
+            path: http.conf
+          - key: upstream
+            path: upstream.conf
+          - key: stream
+            path: stream.conf
     metadata:
       labels:
         alb2.alauda.io/type: local
