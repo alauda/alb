@@ -19,6 +19,7 @@ CMD ["/run.sh"]
 
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
+    mkdir -p /alb/tweak && \
     mkdir -p /var/log/nginx
 
 COPY run.sh /run.sh

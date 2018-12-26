@@ -1,0 +1,61 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: alb2-tweak
+  namespace: alauda-system
+data:
+  http: |
+    # Disable nginx or openresty symbol
+    server_tokens off;
+    more_set_headers 'Server: alb/2.0.0';
+
+    # Disable checking of client request body size
+    client_max_body_size 0;
+
+    # Lua to load policy and cert
+    lua_code_cache on;
+    lua_package_path '/usr/local/openresty/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_shared_dict http_policy 5m;
+    lua_shared_dict certs_cache 10m;
+
+    proxy_connect_timeout      5s;
+    proxy_send_timeout         60s;
+    proxy_read_timeout         60s;
+    proxy_buffer_size          4k;
+    proxy_buffers              4 32k;
+    proxy_busy_buffers_size    64k;
+    proxy_temp_file_write_size 64k;
+    # keepalive to improve http performance
+    keepalive_timeout  65;
+
+    sendfile        on;
+    aio             threads;
+    tcp_nopush      on;
+    tcp_nodelay     on;
+    log_subrequest  on;
+    reset_timedout_connection on;
+
+    proxy_set_header Host            $host;
+    proxy_set_header X-Real-IP       $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_redirect   off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
+    # Start error if set lower
+    server_names_hash_bucket_size 512;
+
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_prefer_server_ciphers on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:ECDH+AES256:DH+AESGCM:DH+AES256:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
+    ssl_dhparam /etc/ssl/dhparam.pem;
+    ssl_ecdh_curve secp384r1;
+  stream: |
+    proxy_connect_timeout      5s;
+    proxy_timeout              60s;
+    tcp_nodelay                on;
+  upstream: |
+    keepalive 32;
