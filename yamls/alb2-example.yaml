@@ -5,7 +5,7 @@ metadata:
   namespace: default
 spec:
   address: "1.2.3.4"
-  type: "haproxy"
+  type: "nginx"
   domains:
     - "*.test1.myalauda.cn"
 

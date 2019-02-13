@@ -27,9 +27,8 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			LoadBalancerID:  alb.Name,
 			Port:            aft.Port,
 			Protocol:        aft.Protocol,
-			CertificateID:   aft.CertificateID,
-			CertificateName: aft.CertificateName,
 			Rules:           RuleList{},
+			CertificateName: aft.CertificateName,
 		}
 		if ft.Protocol == "" {
 			ft.Protocol = ProtocolTCP
@@ -39,13 +38,15 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		}
 		for idx, arl := range aft.Rules {
 			rule := &Rule{
-				RuleID:      arl.Name,
-				Priority:    int64(arl.Priority) * int64(idx+1),
-				Type:        arl.Type,
-				Domain:      arl.Domain,
-				URL:         arl.URL,
-				DSL:         arl.DSL,
-				Description: arl.Description,
+				RuleID:          arl.Name,
+				Priority:        int64(arl.Priority) * int64(idx+1),
+				Type:            arl.Type,
+				Domain:          arl.Domain,
+				URL:             arl.URL,
+				DSL:             arl.DSL,
+				Description:     arl.Description,
+				CertificateName: arl.CertificateName,
+				RewriteTarget:   arl.RewriteTarget,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy

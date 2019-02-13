@@ -2,6 +2,7 @@ package controller
 
 import (
 	"crypto/md5"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,14 +12,16 @@ import (
 	"math/rand"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"alb2/config"
 	"alb2/driver"
@@ -178,7 +181,7 @@ func generateRegexp(ft *Frontend, rule *Rule) string {
 
 var cfgLocker sync.Mutex
 
-func generateConfig(loadbalancer *LoadBalancer) Config {
+func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver) Config {
 	cfgLocker.Lock()
 	defer cfgLocker.Unlock()
 	result := Config{
@@ -188,12 +191,45 @@ func generateConfig(loadbalancer *LoadBalancer) Config {
 		LoadBalancerID: loadbalancer.LoadBalancerID,
 		Frontends:      make(map[int]*Frontend),
 		BackendGroup:   []*BackendGroup{},
+		CertificateMap: make(map[string]Certificate),
 	}
 
 	for _, ft := range loadbalancer.Frontends {
+		glog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
 		isValid := false
-		if ft.Protocol == ProtocolHTTP || ft.Protocol == ProtocolHTTPS {
+		isHTTP := ft.Protocol == ProtocolHTTP
+		isHTTPS := ft.Protocol == ProtocolHTTPS
+		if isHTTP || isHTTPS {
+			if isHTTPS && ft.CertificateName != "" {
+				slice := strings.Split(ft.CertificateName, "_")
+				secretNs := slice[0]
+				secretName := slice[1]
+				cert, err := getCertificate(driver, secretNs, secretName)
+				if err != nil {
+					glog.Warningf("get cert failed, %+v", err)
+					continue
+				}
+				// default cert for port ft.Port
+				result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
+			}
 			for _, rule := range ft.Rules {
+				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
+					slice := strings.Split(rule.CertificateName, "_")
+					secretNs := slice[0]
+					secretName := slice[1]
+					cert, err := getCertificate(driver, secretNs, secretName)
+					if err != nil {
+						glog.Warningf("get cert failed, %+v", err)
+						continue
+					}
+					if existCert, ok := result.CertificateMap[strings.ToLower(rule.Domain)]; ok {
+						if existCert.Cert != cert.Cert || existCert.Key != cert.Key {
+							glog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
+							continue
+						}
+					}
+					result.CertificateMap[strings.ToLower(rule.Domain)] = *cert
+				}
 				rule.Domain = strings.ToLower(rule.Domain)
 				rule.URL = strings.ToLower(rule.URL)
 				rule.Regexp = generateRegexp(ft, rule)
@@ -206,38 +242,6 @@ func generateConfig(loadbalancer *LoadBalancer) Config {
 			isValid = true
 		}
 
-		if ft.Protocol == ProtocolHTTPS {
-			ft.CertificateFiles = make(map[string]string)
-			if ft.CertificateID != "" {
-				if config.Get("NAME") != "alb-xlb" {
-					path, err := downloadCertificate(ft.CertificateID)
-					if err == nil {
-						ft.CertificateFiles[ft.CertificateID] = path
-					}
-				} else {
-					ft.CertificateFiles[ft.CertificateID] = ft.CertificateName
-				}
-
-			}
-			for _, rule := range ft.Rules {
-				if rule.CertificateID != "" {
-					if config.Get("NAME") != "alb-xlb" {
-						path, err := downloadCertificate(rule.CertificateID)
-						if err == nil {
-							ft.CertificateFiles[rule.CertificateID] = path
-						} else {
-							glog.Errorf(err.Error())
-						}
-					} else {
-						ft.CertificateFiles[ft.CertificateID] = ft.CertificateName
-					}
-				}
-			}
-			if len(ft.CertificateFiles) == 0 {
-				isValid = false
-			}
-		}
-
 		if isValid {
 			result.Frontends[ft.Port] = ft
 		} else {
@@ -246,6 +250,7 @@ func generateConfig(loadbalancer *LoadBalancer) Config {
 	} // end of  _, ft := range loadbalancer.Frontends
 
 	if config.Get("RECORD_POST_BODY") == "true" {
+		// nginx not support record request body alb2.x
 		result.RecordPostBody = true
 	}
 	return result
@@ -314,122 +319,6 @@ func getLastReloadStatus(statusFileParentPath string) string {
 	return FAILED
 }
 
-func isDownloaded(filename string) bool {
-	_, err := os.Stat(filename)
-	if err == nil || os.IsExist(err) {
-		return true
-	}
-	return false
-}
-
-type Project struct {
-	UUID string `json:"uuid"`
-	Name string `json:"name"`
-}
-
-func getProjectNames() ([]string, error) {
-	url := fmt.Sprintf("%s/v1/projects/%s", config.Get("JAKIRO_ENDPOINT"), config.Get("NAMESPACE"))
-	resp, body, errs := JakiroRequest.Get(url).Set("Authorization", fmt.Sprintf("Token %s", config.Get("TOKEN"))).End()
-	if len(errs) != 0 {
-		return nil, errs[0]
-	}
-	if resp.StatusCode == 403 {
-		// project not enabled add empty project name
-		return []string{""}, nil
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("request project names failed %d with %s", resp.StatusCode, body)
-	}
-	var projects []*Project
-	if err := json.Unmarshal([]byte(body), &projects); err != nil {
-		return nil, err
-	}
-	projectNames := []string{}
-	for _, project := range projects {
-		projectNames = append(projectNames, project.Name)
-	}
-	// add default empty project name
-	projectNames = append(projectNames, "")
-	glog.Infof("Get projects %v", projectNames)
-	return projectNames, nil
-}
-
-func downloadCertificate(certificateID string) (string, error) {
-	certificatePath := filepath.Join(config.Get("CERTIFICATE_DIRECTORY"), certificateID)
-	certificatePathTemp := certificatePath + ".temp"
-
-	if !isDownloaded(certificatePath) {
-		glog.Info("Certificate file does not exist, start loading...")
-		url := fmt.Sprintf(
-			"%s/v1/certificates/%s/%s?project_name=default",
-			config.Get("JAKIRO_ENDPOINT"),
-			config.Get("NAMESPACE"),
-			certificateID,
-		)
-		certificate := Certificate{}
-		projectNames, err := getProjectNames()
-		if err != nil {
-			glog.Error(err)
-			return "", err
-		}
-		for _, name := range projectNames {
-			resp, body, errs := JakiroRequest.Get(url).
-				Query("with_content=true").
-				Query(fmt.Sprintf("project_name=%s", name)).
-				Set("Authorization", fmt.Sprintf("Token %s", config.Get("TOKEN"))).
-				End()
-			if len(errs) > 0 {
-				glog.Error(errs[0].Error())
-				return "", errs[0]
-			}
-
-			if resp.StatusCode == 404 {
-				continue
-			}
-
-			if resp.StatusCode != 200 {
-				glog.Error(body)
-				return "", errors.New(body)
-			}
-			if err := json.Unmarshal([]byte(body), &certificate); err != nil {
-				glog.Error(err.Error())
-				return "", err
-			} else {
-				break
-			}
-		}
-
-		if certificate.Name == "" {
-			return "", fmt.Errorf("certificate %s not found", certificateID)
-		}
-
-		if certificate.Status != "Normal" {
-			return "", fmt.Errorf("certificate %s is invalid", certificateID)
-		}
-		f, err := os.Create(certificatePathTemp)
-		if err != nil {
-			glog.Error(err.Error())
-			return "", err
-		}
-		defer f.Close()
-		if _, err = f.WriteString(certificate.PublicCert + "\n"); err != nil {
-			glog.Error(err.Error())
-			return "", err
-		}
-		if _, err = f.WriteString(certificate.PrivateKey); err != nil {
-			glog.Error(err.Error())
-			return "", err
-		}
-		f.Sync()
-		if err = os.Rename(certificatePathTemp, certificatePath); err != nil {
-			glog.Errorf("failed to replace certificate %s. | %s", certificateID, err.Error())
-			return "", err
-		}
-	}
-
-	return certificatePath, nil
-}
-
 func jsonEqual(a, b []byte) bool {
 	var j, j2 interface{}
 	if err := json.Unmarshal(a, &j); err != nil {
@@ -457,4 +346,22 @@ func RandomStr(pixff string, length int) string {
 		return pixff + "-" + string(result)
 	}
 	return string(result)
+}
+
+func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, error) {
+	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if len(secret.Data[apiv1.TLSCertKey]) == 0 || len(secret.Data[apiv1.TLSPrivateKeyKey]) == 0 {
+		return nil, errors.New("invalid secret")
+	}
+	_, err = tls.X509KeyPair(secret.Data[apiv1.TLSCertKey], secret.Data[apiv1.TLSPrivateKeyKey])
+	if err != nil {
+		return nil, err
+	}
+	return &Certificate{
+		Cert: string(secret.Data[apiv1.TLSCertKey]),
+		Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
+	}, nil
 }

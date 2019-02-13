@@ -53,8 +53,7 @@ func main() {
 		http.ListenAndServe(":1937", nil)
 	}()
 
-	if config.Get("LB_TYPE") == config.Haproxy ||
-		config.Get("LB_TYPE") == config.Nginx {
+	if config.Get("LB_TYPE") == config.Nginx {
 		go rotateLog(ctx)
 	}
 

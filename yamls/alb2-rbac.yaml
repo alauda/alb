@@ -33,6 +33,13 @@ rules:
       - get
       - list
   - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+  - apiGroups:
       - "extensions"
     resources:
       - ingresses

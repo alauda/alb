@@ -44,7 +44,9 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
 func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
-	ftRes, err := kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
+	var ftRes *alb2v1.Frontend
+	var err error
+	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			ftRes = &alb2v1.Frontend{
@@ -65,10 +67,10 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 			}
 			ftRes.Labels[config.Get("labels.name")] = alb.Name
 			UpdateSourceLabels(ftRes.Labels, ft.Source)
-			_, err1 := kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
-			if err1 != nil {
-				glog.Error(err1)
-				return err1
+			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
+			if err != nil {
+				glog.Error(err)
+				return err
 			}
 		} else {
 			glog.Error(err)
