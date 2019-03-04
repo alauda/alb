@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -59,6 +60,9 @@ const (
 	// MessageResourceSynced is the message used for an Event fired when a Ingress
 	// is synced successfully
 	MessageResourceSynced = "Ingress synced successfully"
+
+	// ALBRewriteTargetAnnotation is the ingress annotation to define rewrite rule for alb
+	ALBRewriteTargetAnnotation = "alb.ingress.kubernetes.io/rewrite-target"
 )
 
 // MainLoop is the entrypoint of this controller
@@ -308,7 +312,7 @@ func (c *Controller) syncHandler(key string) error {
 		glog.Errorf("Handle %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
-	glog.Infof("Process ingress %s.%s", ingress.Name, ingress.Namespace)
+	glog.Infof("Process ingress %s.%s, %+v", ingress.Name, ingress.Namespace, ingress)
 	err = c.onIngressCreateOrUpdate(ingress)
 	if err != nil {
 		return err
@@ -360,6 +364,16 @@ func (c *Controller) updateRule(
 	host string,
 	ingresPath extsv1beta1.HTTPIngressPath,
 ) error {
+	annotations := ingress.GetAnnotations()
+	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
+	certs := make(map[string]string)
+
+	for _, tls := range ingress.Spec.TLS {
+		for _, host := range tls.Hosts {
+			certs[host] = fmt.Sprintf("%s_%s", ingress.GetNamespace(), tls.SecretName)
+		}
+	}
+
 	url := ingresPath.Path
 	for _, rule := range ft.Rules {
 		if rule.Source == nil {
@@ -369,13 +383,15 @@ func (c *Controller) updateRule(
 		if rule.Source.Type == m.TypeIngress &&
 			rule.Source.Name == ingress.Name &&
 			rule.Source.Namespace == ingress.Namespace &&
-			rule.Domain == host &&
-			rule.URL == url {
+			strings.ToLower(rule.Domain) == host &&
+			rule.URL == url &&
+			rule.RewriteTarget == rewriteTarget &&
+			rule.CertificateName == certs[host] {
 			// already have
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, "")
+	rule, err := ft.NewRule(host, url, "", rewriteTarget, certs[host])
 	if err != nil {
 		glog.Error(err)
 		return err
@@ -420,24 +436,37 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		return err
 	}
 	var ft *m.Frontend
+	ftType := m.ProtoHTTP
+	if len(ingress.Spec.TLS) > 0 {
+		ftType = m.ProtoHTTPS
+	}
 	for _, f := range alb.Frontends {
-		if f.Port == 80 {
+		if (ftType == m.ProtoHTTP && f.Port == 80) || (ftType == m.ProtoHTTPS && f.Port == 443) {
 			ft = f
 			break
 		}
 	}
-	if ft != nil && ft.Protocol != m.ProtoHTTP {
-		err = fmt.Errorf("Port 80 is not an HTTP port")
+	if ft != nil && !(ft.Protocol == m.ProtoHTTP || ft.Protocol == m.ProtoHTTPS) {
+		err = fmt.Errorf("Port %d is not an HTTP/HTTPS port, protocol: %s", ft.Port, ft.Protocol)
 		glog.Error(err)
 		return err
 	}
 
 	newFrontend := false
+
 	if ft == nil {
-		ft, err = alb.NewFrontend(80, m.ProtoHTTP)
-		if err != nil {
-			glog.Error(err)
-			return err
+		if ftType == m.ProtoHTTP {
+			ft, err = alb.NewFrontend(80, m.ProtoHTTP)
+			if err != nil {
+				glog.Error(err)
+				return err
+			}
+		} else if ftType == m.ProtoHTTPS {
+			ft, err = alb.NewFrontend(443, m.ProtoHTTPS)
+			if err != nil {
+				glog.Error(err)
+				return err
+			}
 		}
 		newFrontend = true
 	}
@@ -451,7 +480,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	}
 
 	for _, r := range ingress.Spec.Rules {
-		host := r.Host
+		host := strings.ToLower(r.Host)
 		httpRules := r.IngressRuleValue.HTTP
 		if httpRules == nil {
 			glog.Infof("No http rule found on ingress %s/%s under host %s.",
@@ -488,38 +517,33 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 	}
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {
-		if f.Port == 80 {
+		if f.Port == 80 || f.Port == 443 {
 			ft = f
-			break
-		}
-	}
-	if ft == nil {
-		// No frontend found
-		return nil
-	}
-	if ft.Source != nil &&
-		ft.Source.Type == m.TypeIngress &&
-		ft.Source.Namespace == namespace &&
-		ft.Source.Name == name {
-		ft.ServiceGroup = nil
-		ft.Source = nil
-		err = c.KubernetesDriver.UpsertFrontends(alb, ft)
-		if err != nil {
-			glog.Errorf("upsert ft failed: %s", err)
-			return err
-		}
-	}
+			if ft.Source != nil &&
+				ft.Source.Type == m.TypeIngress &&
+				ft.Source.Namespace == namespace &&
+				ft.Source.Name == name {
+				ft.ServiceGroup = nil
+				ft.Source = nil
+				err = c.KubernetesDriver.UpsertFrontends(alb, ft)
+				if err != nil {
+					glog.Errorf("upsert ft failed: %s", err)
+					return err
+				}
+			}
 
-	for _, rule := range ft.Rules {
-		if rule.Source != nil &&
-			rule.Source.Type == m.TypeIngress &&
-			rule.Source.Namespace == namespace &&
-			rule.Source.Name == name {
+			for _, rule := range ft.Rules {
+				if rule.Source != nil &&
+					rule.Source.Type == m.TypeIngress &&
+					rule.Source.Namespace == namespace &&
+					rule.Source.Name == name {
 
-			err = c.KubernetesDriver.DeleteRule(rule)
-			if err != nil {
-				glog.Errorf("upsert ft failed: %s", err)
-				return err
+					err = c.KubernetesDriver.DeleteRule(rule)
+					if err != nil {
+						glog.Errorf("upsert ft failed: %s", err)
+						return err
+					}
+				}
 			}
 		}
 	}

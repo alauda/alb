@@ -103,10 +103,8 @@ func main() {
 				},
 			},
 			Spec: crdV1.FrontendSpec{
-				CertificateID:   alb1ft.CertificateID,
-				CertificateName: alb1ft.CertificateName,
-				Port:            alb1ft.Port,
-				Protocol:        alb1ft.Protocol,
+				Port:     alb1ft.Port,
+				Protocol: alb1ft.Protocol,
 			},
 		}
 		// frontend have default service

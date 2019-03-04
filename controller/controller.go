@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/parnurzeal/gorequest"
 
 	"alb2/config"
 	"alb2/driver"
@@ -26,10 +25,6 @@ const (
 
 	PolicySIPHash = "sip-hash"
 	PolicyCookie  = "cookie"
-)
-
-var (
-	JakiroRequest = gorequest.New().Timeout(30 * time.Second)
 )
 
 var LastConfig = ""
@@ -72,24 +67,21 @@ func (lb *LoadBalancer) String() string {
 	return string(r)
 }
 
-type CertificateInfo struct {
-	CertificateID   string
-	CertificateName string
-	CertificatePath string
+type Certificate struct {
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
 }
 
 type Frontend struct {
-	LoadBalancerID  string   `json:"load_balancer_id"`
-	Port            int      `json:"port"`
-	Protocol        string   `json:"protocol"`
-	Rules           RuleList `json:"rules"`
-	ServiceID       string   `json:"service_id"`
-	ContainerPort   int      `json:"container_port"`
-	CertificateID   string   `json:"certificate_id"`
-	CertificateName string   `json:"certificate_name"`
+	LoadBalancerID string   `json:"load_balancer_id"`
+	Port           int      `json:"port"`
+	Protocol       string   `json:"protocol"`
+	Rules          RuleList `json:"rules"`
+	ServiceID      string   `json:"service_id"`
+	ContainerPort  int      `json:"container_port"`
 
-	BackendGroup     *BackendGroup     `json:"-"`
-	CertificateFiles map[string]string `json:"-"`
+	BackendGroup    *BackendGroup `json:"-"`
+	CertificateName string        `json:"certificate_name"`
 }
 
 func (ft *Frontend) String() string {
@@ -152,14 +144,15 @@ type BackendService struct {
 }
 
 type Rule struct {
-	RuleID                string            `json:"rule_id"`
-	Priority              int64             `json:"priority"`
-	Type                  string            `json:"type"`
-	Domain                string            `json:"domain"`
-	URL                   string            `json:"url"`
-	DSL                   string            `json:"dsl"`
-	CertificateID         string            `json:"certificate_id"`
+	RuleID   string `json:"rule_id"`
+	Priority int64  `json:"priority"`
+	Type     string `json:"type"`
+	Domain   string `json:"domain"`
+	URL      string `json:"url"`
+	DSL      string `json:"dsl"`
+	// CertificateName = namespace_secretname
 	CertificateName       string            `json:"certificate_name"`
+	RewriteTarget         string            `json:"rewrite_target"`
 	Description           string            `json:"description"`
 	SessionAffinityPolicy string            `json:"session_affinity_policy"`
 	SessionAffinityAttr   string            `json:"session_affinity_attribute"`
@@ -191,19 +184,7 @@ type Config struct {
 	Frontends      map[int]*Frontend
 	BackendGroup   []*BackendGroup
 	RecordPostBody bool
-}
-
-type Certificate struct {
-	UUID         string    `json:"uuid"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	PrivateKey   string    `json:"private_key"`
-	PublicCert   string    `json:"public_cert"`
-	IsUsed       bool      `json:"is_used"`
-	Status       string    `json:"status"`
-	ServiceCount int       `json:"service_count"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CertificateMap map[string]Certificate
 }
 
 type RegionInfo struct {
@@ -280,14 +261,6 @@ func GetController() (Controller, error) {
 	}
 
 	switch config.Get("LB_TYPE") {
-	case config.Haproxy:
-		return &HaproxyController{
-			TemplatePath:  config.Get("HAPROXY_TEMPLATE_PATH"),
-			NewConfigPath: config.Get("NEW_CONFIG_PATH"),
-			OldConfigPath: config.Get("OLD_CONFIG_PATH"),
-			BackendType:   d.GetType(),
-			BinaryPath:    config.Get("HAPROXY_BIN_PATH"),
-			Driver:        d}, nil
 	case config.Nginx:
 		return &NginxController{
 			TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
@@ -299,6 +272,6 @@ func GetController() (Controller, error) {
 			BinaryPath:    config.Get("NGINX_BIN_PATH"),
 			Driver:        d}, nil
 	default:
-		return nil, fmt.Errorf("Unsupport lb type %s only support elb, slb,clb and haproxy", config.Get("LB_TYPE"))
+		return nil, fmt.Errorf("Unsupport lb type %s only support nginx. Will support elb, slb, clb in the future", config.Get("LB_TYPE"))
 	}
 }
