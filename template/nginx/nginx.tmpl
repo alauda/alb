@@ -125,6 +125,9 @@ stream {
     {{- if eq $bg.Mode "tcp"}}
 
     upstream {{$bg.Name}} {
+        {{- if eq $bg.SessionAffinityPolicy "sip-hash" }}
+        hash $remote_addr consistent;
+        {{ end -}}
         {{- range $j, $be := $bg.Backends }}
         server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
         {{- end}}
