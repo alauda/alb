@@ -1,11 +1,9 @@
 package controller
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os/exec"
 	"strconv"
 	"sync"
@@ -94,22 +92,6 @@ type Backend struct {
 	Weight  int
 }
 
-func (be *Backend) Name() string {
-	var addrStr string
-	if ip := net.ParseIP(be.Address); ip != nil {
-		var ipnum uint32
-		if len(ip) == 16 { //ipv6
-			ipnum = binary.BigEndian.Uint32(ip[12:16])
-		} else {
-			ipnum = binary.BigEndian.Uint32(ip)
-		}
-		addrStr = strconv.Itoa(int(ipnum))
-	} else {
-		addrStr = be.Address
-	}
-	return fmt.Sprintf("%s_%d", addrStr, be.Port)
-}
-
 const (
 	ModeTCP  = "tcp"
 	ModeHTTP = "http"
@@ -121,20 +103,6 @@ type BackendGroup struct {
 	SessionAffinityAttribute string
 	Mode                     string
 	Backends                 []*Backend
-}
-
-type ByBackendGroup []*BackendGroup
-
-func (b ByBackendGroup) Len() int {
-	return len(b)
-}
-
-func (b ByBackendGroup) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
-func (b ByBackendGroup) Less(i, j int) bool {
-	return b[i].Name < b[j].Name
 }
 
 type BackendService struct {
@@ -185,13 +153,6 @@ type Config struct {
 	BackendGroup   []*BackendGroup
 	RecordPostBody bool
 	CertificateMap map[string]Certificate
-}
-
-type RegionInfo struct {
-	Name             string `json:"name"`
-	ID               string `json:"id"`
-	ContainerManager string `json:"container_manager"`
-	PlatformVersion  string `json:"platform_version"`
 }
 
 var (
