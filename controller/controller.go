@@ -32,6 +32,7 @@ type Controller interface {
 	GetLoadBalancerType() string
 	GenerateConf() error
 	ReloadLoadBalancer() error
+	GC() error
 }
 
 func CheckProcessAlive(process string) (string, error) {
