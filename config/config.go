@@ -41,6 +41,7 @@ var optionalFields = []string{
 	"USE_ENDPOINT",
 	// set to "true" if want to use nodes which pods run on them
 	"USE_POD_HOST_IP",
+	"MY_POD_NAME",
 }
 
 var nginxRequiredFields = []string{

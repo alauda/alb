@@ -6,6 +6,7 @@ import (
 	m "alb2/modules"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -135,12 +136,19 @@ func retryUntil(lockString string) time.Time {
 }
 
 var myself string
+var mutexLock sync.Mutex
 var holdUntil time.Time
 var waitUntil time.Time
 
 func TryLockAlb() error {
+	mutexLock.Lock()
+	defer mutexLock.Unlock()
 	if myself == "" {
-		myself = RandomStr("", 8)
+		if config.Get("MY_POD_NAME") != "" {
+			myself = config.Get("MY_POD_NAME")
+		} else {
+			myself = RandomStr("", 8)
+		}
 	}
 	now := time.Now()
 	if now.Before(holdUntil) {
