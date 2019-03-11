@@ -10,6 +10,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:db3a07f18bf612eb17eeeb4657688a348de2b57b575a876e4dd6443ef26f02f1"
+  name = "github.com/fatih/set"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "2c768e3c5489976167bfc42b5c7c92ca783f4389"
+  version = "v0.2.1"
+
+[[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -698,6 +706,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/fatih/set",
     "github.com/golang/glog",
     "github.com/parnurzeal/gorequest",
     "github.com/spf13/viper",
