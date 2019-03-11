@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/glog"
 
+	"github.com/fatih/set"
 	corev1 "k8s.io/api/core/v1"
 	extsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -435,44 +436,75 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		glog.Error(err)
 		return err
 	}
-	var ft *m.Frontend
-	ftType := m.ProtoHTTP
-	if len(ingress.Spec.TLS) > 0 {
-		ftType = m.ProtoHTTPS
-	}
-	for _, f := range alb.Frontends {
-		if (ftType == m.ProtoHTTP && f.Port == 80) || (ftType == m.ProtoHTTPS && f.Port == 443) {
-			ft = f
-			break
+	var httpFt *m.Frontend
+	var httpsFt *m.Frontend
+	hostCertMap := make(map[string]string)
+	ftTypes := set.New(set.NonThreadSafe)
+	for _, r := range ingress.Spec.Rules {
+		foundTLS := false
+		for _, tls := range ingress.Spec.TLS {
+			for _, host := range tls.Hosts {
+				if strings.ToLower(r.Host) == strings.ToLower(host) {
+					ftTypes.Add(m.ProtoHTTPS)
+					hostCertMap[strings.ToLower(host)] = tls.SecretName
+					foundTLS = true
+				}
+			}
+		}
+		if foundTLS == false {
+			ftTypes.Add(m.ProtoHTTP)
 		}
 	}
-	if ft != nil && !(ft.Protocol == m.ProtoHTTP || ft.Protocol == m.ProtoHTTPS) {
-		err = fmt.Errorf("Port %d is not an HTTP/HTTPS port, protocol: %s", ft.Port, ft.Protocol)
+	for _, f := range alb.Frontends {
+		if ftTypes.Has(m.ProtoHTTP) && f.Port == 80 {
+			httpFt = f
+		}
+		if ftTypes.Has(m.ProtoHTTPS) && f.Port == 443 {
+			httpsFt = f
+		}
+	}
+	if httpFt != nil && httpFt.Protocol != m.ProtoHTTP {
+		err = fmt.Errorf("Port 80 is not an HTTP port, protocol: %s", httpFt.Protocol)
+		glog.Error(err)
+		return err
+	}
+	if httpsFt != nil && httpsFt.Protocol != m.ProtoHTTPS {
+		err = fmt.Errorf("Port 443 is not an HTTPS port, protocol: %s", httpsFt.Protocol)
 		glog.Error(err)
 		return err
 	}
 
-	newFrontend := false
+	newHTTPFrontend := false
+	newHTTPSFrontend := false
 
-	if ft == nil {
-		if ftType == m.ProtoHTTP {
-			ft, err = alb.NewFrontend(80, m.ProtoHTTP)
-			if err != nil {
-				glog.Error(err)
-				return err
-			}
-		} else if ftType == m.ProtoHTTPS {
-			ft, err = alb.NewFrontend(443, m.ProtoHTTPS)
-			if err != nil {
-				glog.Error(err)
-				return err
-			}
+	if httpFt == nil {
+		httpFt, err = alb.NewFrontend(80, m.ProtoHTTP)
+		if err != nil {
+			glog.Error(err)
+			return err
 		}
-		newFrontend = true
+		newHTTPFrontend = true
 	}
-	needSave := c.setFtDefault(ingress, ft)
-	if newFrontend || needSave {
-		err = c.KubernetesDriver.UpsertFrontends(alb, ft)
+	if httpsFt == nil {
+		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS)
+		if err != nil {
+			glog.Error(err)
+			return err
+		}
+		newHTTPSFrontend = true
+	}
+
+	needSaveHTTP := c.setFtDefault(ingress, httpFt)
+	needSaveHTTPS := c.setFtDefault(ingress, httpsFt)
+	if newHTTPFrontend || needSaveHTTP {
+		err = c.KubernetesDriver.UpsertFrontends(alb, httpFt)
+		if err != nil {
+			glog.Errorf("upsert ft failed: %s", err)
+			return err
+		}
+	}
+	if newHTTPSFrontend || needSaveHTTPS {
+		err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)
 			return err
@@ -491,7 +523,11 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			continue
 		}
 		for _, p := range httpRules.Paths {
-			err = c.updateRule(ingress, ft, host, p)
+			if hostCertMap[host] != "" {
+				err = c.updateRule(ingress, httpsFt, host, p)
+			} else {
+				err = c.updateRule(ingress, httpFt, host, p)
+			}
 			if err != nil {
 				glog.Errorf(
 					"Update rule failed for ingress %s/%s with host=%s, path=%s",
