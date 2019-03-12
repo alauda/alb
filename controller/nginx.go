@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"alb2/config"
 	"alb2/driver"
 	"encoding/json"
 	"errors"
@@ -136,9 +137,6 @@ func (nc *NginxController) GenerateConf() error {
 	}
 
 	merge(loadbalancers, services)
-	if err != nil {
-		return err
-	}
 
 	if len(loadbalancers[0].Frontends) == 0 {
 		glog.Info("No service bind to this nginx now")
@@ -297,4 +295,12 @@ func (nc *NginxController) updatePolicy() error {
 		glog.Info("Nginx policy not change.")
 	}
 	return nil
+}
+
+func (nc *NginxController) GC() error {
+	if config.Get("ENABLE_GC") != "true" {
+		return nil
+	}
+	glog.Info("begin gc rule")
+	return GCRule(nc.Driver)
 }

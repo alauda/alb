@@ -71,6 +71,7 @@ func main() {
 			}
 			ch <- "wait"
 
+			ctl.GC()
 			err = ctl.GenerateConf()
 			if err != nil {
 				glog.Error(err.Error())
