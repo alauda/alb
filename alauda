@@ -9,17 +9,3 @@
   rotate 1
   size 25M
 }
-
-/var/log/mathilde/alb.*.log* {
-  copytruncate
-  rotate 0
-  size 50M
-  notifempty
-  missingok
-  postrotate
-    rm *.1
-  endscript
-  prerotate
-    rm *.1
-  endscript
-}

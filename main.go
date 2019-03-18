@@ -15,11 +15,13 @@ import (
 	"alb2/controller"
 	"alb2/driver"
 	"alb2/ingress"
+	"alb2/utils"
 )
 
 func main() {
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
+	utils.InitLog()
 	defer glog.Flush()
 	glog.Error("Service start.")
 
@@ -116,7 +118,11 @@ func rotateLog(ctx context.Context) {
 		case <-ctx.Done():
 			glog.Info("rotateLog exit")
 			return
-		case <-time.After(time.Minute):
+		case <-time.After(30 * time.Minute):
+			err := utils.RotateGlog(time.Now().Add(-time.Duration(12 * time.Hour)))
+			if err != nil {
+				glog.Errorf("rotate glog failed, %+v", err)
+			}
 			// Do nothin
 		}
 		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()
