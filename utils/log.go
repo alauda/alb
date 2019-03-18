@@ -38,7 +38,7 @@ func RotateGlog(before time.Time) error {
 			if len(fields) != 7 {
 				continue
 			}
-			d, err := time.Parse("20060102", strings.SplitN(fields[len(fields)-2], "-", 2)[0])
+			d, err := time.ParseInLocation("20060102-150405", fields[len(fields)-2], time.Local)
 			if err != nil {
 				continue
 			}
