@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -43,7 +44,7 @@ func RotateGlog(before time.Time) error {
 				continue
 			}
 			if d.Before(before) {
-				err := os.Remove(f.Name())
+				err := os.Remove(filepath.Join(logDir, f.Name()))
 				if err != nil {
 					return err
 				}

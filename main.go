@@ -119,7 +119,7 @@ func rotateLog(ctx context.Context) {
 			glog.Info("rotateLog exit")
 			return
 		case <-time.After(30 * time.Minute):
-			err := utils.RotateGlog(time.Now().Add(-time.Duration(12 * time.Hour)))
+			err := utils.RotateGlog(time.Now().Add(-time.Duration(30 * time.Minute)))
 			if err != nil {
 				glog.Errorf("rotate glog failed, %+v", err)
 			}
