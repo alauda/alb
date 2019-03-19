@@ -44,6 +44,53 @@ func getServiceName(id string, port int) string {
 	return id
 }
 
+func generateBackend(serviceMap map[string][]*driver.Backend, services []*BackendService) []*Backend {
+	totalWeight := 0
+	for _, svc := range services {
+		if svc.Weight > 100 {
+			svc.Weight = 100
+		}
+		if svc.Weight < 0 {
+			svc.Weight = 0
+		}
+		totalWeight += svc.Weight
+	}
+	if totalWeight == 0 {
+		// all service has zero weight
+		totalWeight = 100
+	}
+	bes := []*Backend{}
+	for _, svc := range services {
+		name := getServiceName(svc.ServiceID, svc.ContainerPort)
+		backends, ok := serviceMap[name]
+		if !ok || len(backends) == 0 {
+			name = getServiceName(svc.ServiceID, 0)
+			backends, ok = serviceMap[name]
+			if !ok || len(backends) == 0 {
+				continue
+			}
+		}
+		//100 is the max weigh in SLB
+		weight := int(math.Floor(float64(svc.Weight*100)/float64(totalWeight*len(backends)) + 0.5))
+		if weight == 0 && svc.Weight != 0 {
+			weight = 1
+		}
+		for _, be := range backends {
+			port := be.Port
+			if port == 0 {
+				port = svc.ContainerPort
+			}
+			bes = append(bes,
+				&Backend{
+					Address: be.IP,
+					Port:    port,
+					Weight:  weight,
+				})
+		}
+	}
+	return bes
+}
+
 func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 	serviceMap := make(map[string][]*driver.Backend)
 	for _, svc := range services {
@@ -63,53 +110,13 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 					continue
 				}
 				rule.BackendGroup = &BackendGroup{
-					Name:                     rule.RuleID,
+					Name: rule.RuleID,
+					// bg.mode dont care whether http or https
 					Mode:                     ModeHTTP,
 					SessionAffinityPolicy:    rule.SessionAffinityPolicy,
 					SessionAffinityAttribute: rule.SessionAffinityAttr,
 				}
-				totalWeight := 0
-				for _, svc := range rule.Services {
-					if svc.Weight > 100 {
-						svc.Weight = 100
-					}
-					if svc.Weight < 0 {
-						svc.Weight = 0
-					}
-					totalWeight += svc.Weight
-				}
-				if totalWeight == 0 {
-					// all service has zero weight
-					totalWeight = 100
-				}
-				for _, svc := range rule.Services {
-					name := getServiceName(svc.ServiceID, svc.ContainerPort)
-					backends, ok := serviceMap[name]
-					if !ok || len(backends) == 0 {
-						name = getServiceName(svc.ServiceID, 0)
-						backends, ok = serviceMap[name]
-						if !ok || len(backends) == 0 {
-							continue
-						}
-					}
-					//100 is the max weigh in SLB
-					weight := int(math.Floor(float64(svc.Weight*100)/float64(totalWeight*len(backends)) + 0.5))
-					if weight == 0 && svc.Weight != 0 {
-						weight = 1
-					}
-					for _, be := range backends {
-						port := be.Port
-						if port == 0 {
-							port = svc.ContainerPort
-						}
-						rule.BackendGroup.Backends = append(rule.BackendGroup.Backends,
-							&Backend{
-								Address: be.IP,
-								Port:    port,
-								Weight:  weight,
-							})
-					}
-				}
+				rule.BackendGroup.Backends = generateBackend(serviceMap, rule.Services)
 				if len(rule.BackendGroup.Backends) > 0 {
 					rules = append(rules, rule)
 				}
@@ -121,36 +128,17 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 				ft.Rules = RuleList{}
 			}
 
-			if ft.ServiceID != "" {
-				backends, ok := serviceMap[getServiceName(ft.ServiceID, ft.ContainerPort)]
-				if !ok || len(backends) == 0 {
-					backends, ok = serviceMap[getServiceName(ft.ServiceID, 0)]
-					if !ok || len(backends) == 0 {
-						glog.Infof("skip frontend %s because no backend found.",
-							ft.String())
-						continue
-					}
-				}
-				ft.BackendGroup = &BackendGroup{
-					Name: ft.String(),
-				}
-				if ft.Protocol == ProtocolTCP {
-					ft.BackendGroup.Mode = ModeTCP
-				} else {
-					ft.BackendGroup.Mode = ModeHTTP
-				}
-				for _, be := range backends {
-					port := be.Port
-					if port == 0 {
-						port = ft.ContainerPort
-					}
-					ft.BackendGroup.Backends = append(ft.BackendGroup.Backends,
-						&Backend{
-							Address: be.IP,
-							Port:    port,
-							Weight:  100,
-						})
-				}
+			if len(ft.Services) == 0 {
+				glog.Infof("skip frontend %s because no backend found.",
+					ft.String())
+				continue
+			}
+			ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
+
+			if ft.Protocol == ProtocolTCP {
+				ft.BackendGroup.Mode = ModeTCP
+			} else {
+				ft.BackendGroup.Mode = ModeHTTP
 			}
 		}
 	}
@@ -237,7 +225,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 				isValid = true
 			}
 		}
-		if ft.BackendGroup != nil {
+		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
 			result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
 			isValid = true
 		}
