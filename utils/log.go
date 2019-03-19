@@ -25,7 +25,7 @@ func RotateGlog(before time.Time) error {
 		}
 		skips := map[string]struct{}{}
 		for _, f := range files {
-			if dst, err := os.Readlink(f.Name()); err == nil {
+			if dst, err := os.Readlink(filepath.Join(logDir, f.Name())); err == nil {
 				skips[f.Name()] = struct{}{}
 				skips[dst] = struct{}{}
 			}
