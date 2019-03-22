@@ -25,6 +25,7 @@ http {
                       '"$gzip_ratio" $request_time $bytes_sent $request_length';
     access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
     rewrite_log on;
+    vhost_traffic_status_zone;
 
     init_by_lua_block {
             require "resty.core"
@@ -36,6 +37,10 @@ http {
         access_log off;
         location /admin {
             stub_status;
+        }
+        location /status {
+            vhost_traffic_status_display;
+            vhost_traffic_status_display_format html;
         }
 
         location /policies {

@@ -4,7 +4,7 @@ COPY . src/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alb2
 RUN go build -ldflags "-w -s" -v -o /migrate alb2/migrate
 
-FROM index.alauda.cn/alaudaorg/alb-nginx:8b7dea5eaf701f51ba727398e1d2d9e791cd28df
+FROM index.alauda.cn/alaudaorg/alb-nginx:9def340c31c04b76903b896b665891294c171095
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
