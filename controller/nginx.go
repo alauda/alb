@@ -143,8 +143,8 @@ func (nc *NginxController) GenerateConf() error {
 	}
 
 	nginxConfig, ngxPolicies := nc.generateNginxConfig(loadbalancers[0])
-	glog.Infof("nginxConfig is %+v", nginxConfig)
-	glog.Infof("policy is %+v", ngxPolicies)
+	glog.Infof("nginxConfig is %v", nginxConfig)
+	glog.Infof("policy is %v", ngxPolicies)
 
 	policyBytes, err := json.Marshal(ngxPolicies)
 	if err != nil {
