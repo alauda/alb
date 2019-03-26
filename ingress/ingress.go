@@ -352,7 +352,7 @@ func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) 
 			ingress.Namespace,
 			ingress.Spec.Backend.ServiceName,
 			int(ingress.Spec.Backend.ServicePort.IntVal)) {
-
+			glog.Warning("frontend already has default service, conflict")
 			//TODO Add event here
 		}
 	}
@@ -424,6 +424,7 @@ func (c *Controller) updateRule(
 }
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error {
+	glog.Infof("on ingress create or update, %s/%s", ingress.Namespace, ingress.Name)
 	// Detele old rule if it exist
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
@@ -455,6 +456,8 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			ftTypes.Add(m.ProtoHTTP)
 		}
 	}
+	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
+	glog.Infof("is default backend: %t", isDefaultBackend)
 	for _, f := range alb.Frontends {
 		if ftTypes.Has(m.ProtoHTTP) && f.Port == 80 {
 			httpFt = f
@@ -485,7 +488,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		}
 		newHTTPFrontend = true
 	}
-	if httpsFt == nil {
+	if httpsFt == nil && !isDefaultBackend {
 		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS)
 		if err != nil {
 			glog.Error(err)
@@ -495,7 +498,6 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	}
 
 	needSaveHTTP := c.setFtDefault(ingress, httpFt)
-	needSaveHTTPS := c.setFtDefault(ingress, httpsFt)
 	if newHTTPFrontend || needSaveHTTP {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpFt)
 		if err != nil {
@@ -503,7 +505,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			return err
 		}
 	}
-	if newHTTPSFrontend || needSaveHTTPS {
+	if newHTTPSFrontend {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)
@@ -543,6 +545,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 }
 
 func (c *Controller) onIngressDelete(name, namespace string) error {
+	glog.Infof("on ingress delete, %s/%s", namespace, name)
 	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
 		config.Get("NAME"),
