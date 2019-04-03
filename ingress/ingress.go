@@ -389,6 +389,42 @@ func (c *Controller) updateRule(
 			rule.RewriteTarget == rewriteTarget &&
 			rule.CertificateName == certs[host] {
 			// already have
+
+			// FIX: http://jira.alaudatech.com/browse/DEV-16951
+			if rule.ServiceGroup != nil {
+				found := false
+				for _, svc := range rule.ServiceGroup.Services {
+					if svc.Name == ingresPath.Backend.ServiceName {
+						found = true
+						break
+					}
+				}
+				if !found {
+					// when add a new service to service group we need to re calculate weight
+					newsvc := alb2v1.Service{
+						Namespace: ingress.Namespace,
+						Name:      ingresPath.Backend.ServiceName,
+						Port:      int(ingresPath.Backend.ServicePort.IntVal),
+						Weight:    100,
+					}
+					rule.ServiceGroup.Services = append(rule.ServiceGroup.Services, newsvc)
+					weight := 100 / len(rule.ServiceGroup.Services)
+					newServices := []alb2v1.Service{}
+					for _, svc := range rule.ServiceGroup.Services {
+						svc.Weight = weight
+						newServices = append(newServices, svc)
+					}
+					rule.ServiceGroup.Services = newServices
+				}
+				err := c.KubernetesDriver.UpdateRule(rule)
+				if err != nil {
+					glog.Errorf(
+						"update rule %+v for ingress %s.%s failed: %s",
+						*rule, ingress.Namespace, ingress.Name, err.Error(),
+					)
+					return err
+				}
+			}
 			return nil
 		}
 	}

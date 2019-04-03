@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/thoas/go-funk"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -226,7 +227,11 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			}
 		}
 		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
-			result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
+			// FIX: http://jira.alaudatech.com/browse/DEV-16954
+			// remove duplicate upstream
+			if !funk.Contains(result.BackendGroup, ft.BackendGroup) {
+				result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
+			}
 			isValid = true
 		}
 
