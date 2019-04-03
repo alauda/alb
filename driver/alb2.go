@@ -124,6 +124,20 @@ func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
 	return err
 }
 
+func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
+	oldRule, err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Get(rule.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	oldRule.Spec = rule.RuleSpec
+	_, err = kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Update(oldRule)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
 	selector := fmt.Sprintf("%s=%s", config.Get("labels.name"), lbname)
 	resList, err := kd.ALBClient.CrdV1().Frontends(namespace).List(metav1.ListOptions{
