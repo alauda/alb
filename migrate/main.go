@@ -109,7 +109,7 @@ func main() {
 		}
 		// frontend have default service
 		if alb1ft.ServiceID != "" {
-			var ftsg []crdV1.Service
+			ftsg := []crdV1.Service{}
 
 			kubeSvc, err := getServiceByServiceID(k8sDriver, alb1ft.ServiceID, alb1ft.ContainerPort)
 			if err != nil {
@@ -169,7 +169,7 @@ func main() {
 				},
 			}
 			if alb1rule.Services != nil {
-				var rulesg []crdV1.Service
+				rulesg := []crdV1.Service{}
 				for _, service := range alb1rule.Services {
 					kubeSvc, err := getServiceByServiceID(k8sDriver, service.ServiceID, service.ContainerPort)
 					if err != nil {
