@@ -138,6 +138,9 @@ func (nc *NginxController) GenerateConf() error {
 
 	merge(loadbalancers, services)
 
+	if len(loadbalancers) == 0 {
+		return errors.New("no lb found")
+	}
 	if len(loadbalancers[0].Frontends) == 0 {
 		glog.Info("No service bind to this nginx now")
 	}
