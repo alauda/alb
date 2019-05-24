@@ -1,4 +1,4 @@
-FROM index.alauda.cn/alaudaorg/gobuild:1.11-alpine
+FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.12.4-alpine3.9.3
 WORKDIR $GOPATH
 COPY . src/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alb2
