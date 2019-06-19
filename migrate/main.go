@@ -37,8 +37,10 @@ func main() {
 		panic(err)
 	}
 	// install necessary crd for alb2
-	if err := k8sDriver.RegisterCustomDefinedResources(); err != nil {
-		panic(err)
+	if config.GetBool("INSTALL_CRD") {
+		if err := k8sDriver.RegisterCustomDefinedResources(); err != nil {
+			panic(err)
+		}
 	}
 
 	_, err = k8sDriver.Client.CoreV1().Namespaces().Get(NewNamespace, metav1.GetOptions{})

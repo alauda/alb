@@ -43,9 +43,11 @@ func main() {
 		panic(err)
 	}
 	// install necessary crd on start
-	if err := d.RegisterCustomDefinedResources(); err != nil {
-		// install crd failed, abort
-		panic(err)
+	if config.GetBool("INSTALL_CRD") {
+		if err := d.RegisterCustomDefinedResources(); err != nil {
+			// install crd failed, abort
+			panic(err)
+		}
 	}
 
 	go controller.RegisterLoop(ctx)
