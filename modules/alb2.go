@@ -19,7 +19,7 @@ type AlaudaLoadBalancer struct {
 
 func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend, error) {
 	ft := &Frontend{
-		Name: fmt.Sprintf("%s-%d-%s", alb.Name, port, protocol),
+		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
 		FrontendSpec: alb2v1.FrontendSpec{
 			Port:     port,
 			Protocol: protocol,
