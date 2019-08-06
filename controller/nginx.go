@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"alb2/config"
 	"alb2/driver"
 	"encoding/json"
 	"errors"
@@ -40,26 +41,36 @@ type TrafficRule struct {
 }
 
 type Policy struct {
-	Rule     string `json:"rule"`
-	Upstream string `json:"upstream"`
+	Rule          string `json:"rule"`
+	Upstream      string `json:"upstream"`
+	URL           string `json:"url"`
+	RewriteTarget string `json:"rewrite_target"`
+}
+
+type NgxPolicy struct {
+	CertificateMap map[string]Certificate `json:"certificate_map"`
+	PortMap        map[int][]*Policy      `json:"port_map"`
 }
 
 func (nc *NginxController) GetLoadBalancerType() string {
 	return "Nginx"
 }
 
-func generateNginxConfig(loadbalancer *LoadBalancer) (Config, map[int][]*Policy) {
-	config := generateConfig(loadbalancer)
-	httpPortPolicies := map[int][]*Policy{}
+func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Config, NgxPolicy) {
+	config := generateConfig(loadbalancer, nc.Driver)
+	ngxPolicy := NgxPolicy{
+		CertificateMap: config.CertificateMap,
+		PortMap:        make(map[int][]*Policy),
+	}
 	for port, frontend := range config.Frontends {
 		if frontend.Protocol == ProtocolTCP {
 			continue
 		}
-		glog.Infof("Frontend is %v", frontend)
-		if _, ok := httpPortPolicies[port]; !ok {
-			httpPortPolicies[port] = []*Policy{}
+		glog.Infof("Frontend is %+v", frontend)
+		if _, ok := ngxPolicy.PortMap[port]; !ok {
+			ngxPolicy.PortMap[port] = []*Policy{}
 		}
-		glog.Infof("Rules are %v", frontend.Rules)
+		glog.Infof("Rules are %+v", frontend.Rules)
 		for _, rule := range frontend.Rules {
 			if rule.BackendGroup == nil {
 				continue
@@ -96,7 +107,10 @@ func generateNginxConfig(loadbalancer *LoadBalancer) (Config, map[int][]*Policy)
 			// it's using id as the name of certificate file now..
 			policy.Rule = rule.DSL
 			policy.Upstream = rule.BackendGroup.Name
-			httpPortPolicies[port] = append(httpPortPolicies[port], &policy)
+			// for rewrite
+			policy.URL = rule.URL
+			policy.RewriteTarget = rule.RewriteTarget
+			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 
 		// set default rule if exists
@@ -105,11 +119,11 @@ func generateNginxConfig(loadbalancer *LoadBalancer) (Config, map[int][]*Policy)
 			policy := Policy{}
 			policy.Rule = DEFAULT_RULE
 			policy.Upstream = frontend.BackendGroup.Name
-			httpPortPolicies[port] = append(httpPortPolicies[port], &policy)
+			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 
 	}
-	return config, httpPortPolicies
+	return config, ngxPolicy
 }
 
 func (nc *NginxController) GenerateConf() error {
@@ -123,19 +137,19 @@ func (nc *NginxController) GenerateConf() error {
 	}
 
 	merge(loadbalancers, services)
-	if err != nil {
-		return err
-	}
 
+	if len(loadbalancers) == 0 {
+		return errors.New("no lb found")
+	}
 	if len(loadbalancers[0].Frontends) == 0 {
 		glog.Info("No service bind to this nginx now")
 	}
 
-	nginxConfig, httpPortPolicies := generateNginxConfig(loadbalancers[0])
-	glog.Infof("nginxConfig is %v", nginxConfig)
-	glog.Infof("policy is %v", httpPortPolicies)
+	nginxConfig, ngxPolicies := nc.generateNginxConfig(loadbalancers[0])
+	// glog.Infof("nginxConfig is %v", nginxConfig)
+	// glog.Infof("policy is %v", ngxPolicies)
 
-	policyBytes, err := json.Marshal(httpPortPolicies)
+	policyBytes, err := json.Marshal(ngxPolicies)
 	if err != nil {
 		glog.Error()
 		return err
@@ -284,4 +298,12 @@ func (nc *NginxController) updatePolicy() error {
 		glog.Info("Nginx policy not change.")
 	}
 	return nil
+}
+
+func (nc *NginxController) GC() error {
+	if config.Get("ENABLE_GC") != "true" {
+		return nil
+	}
+	glog.Info("begin gc rule")
+	return GCRule(nc.Driver)
 }

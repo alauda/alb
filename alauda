@@ -1,10 +1,10 @@
-/var/log/access.log {
+/var/log/nginx/access.log {
   copytruncate
   rotate 4
   size 50M
 }
 
-/var/log/error.log {
+/var/log/nginx/error.log {
   copytruncate
   rotate 1
   size 25M

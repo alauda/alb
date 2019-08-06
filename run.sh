@@ -5,7 +5,9 @@ sync
 mkdir -p /var/run/alb/last_status
 chmod +x /alb/alb
 
-if [ "$LB_TYPE" = "haproxy" ] || [ "$LB_TYPE" = "nginx" ]; then
+LB_TYPE=${LB_TYPE:-"nginx"}
+
+if [ "$LB_TYPE" = "nginx" ]; then
     # each connection will consume one entry of nf conntrack table if iptables enabled.
     # If set too small will see nf_conntrack: table full, dropping packet in dmesg.
     sysctl -w net.nf_conntrack_max=655360
@@ -27,9 +29,6 @@ if [ "$LB_TYPE" = "haproxy" ] || [ "$LB_TYPE" = "nginx" ]; then
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0
 fi
 
-if [ "$LB_TYPE" = "haproxy" ]; then
-    rsyslogd
-fi
 
 if [ "$LB_TYPE" = "nginx" ]; then
     dhparam_file="/etc/ssl/dhparam.pem"
@@ -38,8 +37,4 @@ if [ "$LB_TYPE" = "nginx" ]; then
     fi
 fi
 
-while :
-do
 /alb/alb -log_dir=/var/log/mathilde/ -stderrthreshold=ERROR
-sleep ${INTERVAL}
-done

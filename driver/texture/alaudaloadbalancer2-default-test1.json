@@ -5,7 +5,7 @@
         "kind": "ALB2",
         "metadata": {
             "annotations": {
-                "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"crd.alauda.io/v1\",\"kind\":\"ALB2\",\"metadata\":{\"annotations\":{},\"name\":\"test1\",\"namespace\":\"default\"},\"spec\":{\"address\":\"1.2.3.4\",\"type\":\"haproxy\"}}\n"
+                "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"crd.alauda.io/v1\",\"kind\":\"ALB2\",\"metadata\":{\"annotations\":{},\"name\":\"test1\",\"namespace\":\"default\"},\"spec\":{\"address\":\"1.2.3.4\",\"type\":\"nginx\"}}\n"
             },
             "clusterName": "",
             "creationTimestamp": "2018-09-21T09:17:28Z",
@@ -18,7 +18,7 @@
         },
         "spec": {
             "address": "1.2.3.4",
-            "type": "haproxy"
+            "type": "nginx"
         }
     }],
     "kind": "ALB2List",

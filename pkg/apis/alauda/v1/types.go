@@ -52,12 +52,11 @@ type Frontend struct {
 }
 
 type FrontendSpec struct {
-	CertificateID   string        `json:"certificate_id"`
-	CertificateName string        `json:"certificate_name"`
 	Port            int           `json:"port"`
 	Protocol        string        `json:"protocol"`
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`
+	CertificateName string        `json:"certificate_name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -86,6 +85,7 @@ type Service struct {
 	Port      int    `json:"port"`
 	Weight    int    `json:"weight"`
 }
+
 type ServiceGroup struct {
 	SessionAffinityPolicy    string    `json:"session_affinity_policy,omitempty"`
 	SessionAffinityAttribute string    `json:"session_affinity_attribute,omitempty"`
@@ -102,14 +102,17 @@ type Source struct {
 }
 
 type RuleSpec struct {
-	Description  string        `json:"description"`
-	Domain       string        `json:"domain"`
-	DSL          string        `json:"dsl"`
-	Priority     int           `json:"priority"`
-	ServiceGroup *ServiceGroup `json:"serviceGroup,omitempty"`
-	Source       *Source       `json:"source,omitempty"`
-	Type         string        `json:"type"`
-	URL          string        `json:"url"`
+	Description     string        `json:"description"`
+	Domain          string        `json:"domain"`
+	DSL             string        `json:"dsl"`
+	Priority        int           `json:"priority"`
+	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
+	Source          *Source       `json:"source,omitempty"`
+	Type            string        `json:"type"`
+	URL             string        `json:"url"`
+	CertificateName string        `json:"certificate_name"`
+	// +optional
+	RewriteTarget string `json:"rewrite_target,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

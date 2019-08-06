@@ -8,16 +8,14 @@ import (
 )
 
 const (
-	Marathon   = "marathon"
 	Kubernetes = "kubernetes"
 )
 
 const (
-	SLB     = "slb"
-	ELB     = "elb"
-	CLB     = "clb"
-	Haproxy = "haproxy"
-	Nginx   = "nginx"
+	SLB   = "slb"
+	ELB   = "elb"
+	CLB   = "clb"
+	Nginx = "nginx"
 )
 
 var Config = map[string]string{}
@@ -36,7 +34,6 @@ var optionalFields = []string{
 	"KUBERNETES_TIMEOUT",
 	"INTERVAL",
 	"CERTIFICATE_DIRECTORY",
-	"HAPROXY_BIN_PATH",
 	"NGINX_BIN_PATH",
 	//for xiaoying
 	"RECORD_POST_BODY",
@@ -44,12 +41,8 @@ var optionalFields = []string{
 	"USE_ENDPOINT",
 	// set to "true" if want to use nodes which pods run on them
 	"USE_POD_HOST_IP",
-}
-
-var haproxyRequiredFields = []string{
-	"NEW_CONFIG_PATH",
-	"OLD_CONFIG_PATH",
-	"HAPROXY_TEMPLATE_PATH",
+	"MY_POD_NAME",
+	"ENABLE_GC",
 }
 
 var nginxRequiredFields = []string{
@@ -93,7 +86,6 @@ func Initialize() {
 	setDefault()
 	getEnvs(requiredFields)
 	getEnvs(optionalFields)
-	getEnvs(haproxyRequiredFields)
 	getEnvs(nginxRequiredFields)
 	getEnvs(cloudLBRequiredFields)
 	viper.AutomaticEnv()
@@ -123,11 +115,6 @@ func ValidateConfig() error {
 	}
 
 	switch strings.ToLower(Config["LB_TYPE"]) {
-	case Haproxy:
-		emptyRequiredEnv = checkEmpty(haproxyRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
 	case Nginx:
 		emptyRequiredEnv = checkEmpty(nginxRequiredFields)
 		if len(emptyRequiredEnv) > 0 {
@@ -175,27 +162,4 @@ func GetBool(key string) bool {
 //GetInt reuturn int value of the key
 func GetInt(key string) int {
 	return viper.GetInt(key)
-}
-
-//InitLabels setup labels base on the type of cluster
-func InitLabels() {
-	oldStyleLabels := map[string]string{
-		"LABEL_SERVICE_ID":   "alauda_service_id",
-		"LABEL_SERVICE_NAME": "service_name",
-		"LABEL_CREATOR":      "alauda_owner",
-	}
-	newStyleLabels := map[string]string{
-		"LABEL_SERVICE_ID":   "service.alauda.io/uuid",
-		"LABEL_SERVICE_NAME": "service.alauda.io/name",
-		"LABEL_CREATOR":      "service.alauda.io/createby",
-	}
-	var labelConfig map[string]string
-	if IsStandalone() || GetBool("k8s_v3") {
-		labelConfig = newStyleLabels
-	} else {
-		labelConfig = oldStyleLabels
-	}
-	for key, val := range labelConfig {
-		Set(key, val)
-	}
 }

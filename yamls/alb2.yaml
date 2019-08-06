@@ -38,6 +38,10 @@ spec:
               value: default
             - name: NAMESPACE
               value: alauda-system
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           imagePullPolicy: IfNotPresent
           resources:
             requests:

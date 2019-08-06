@@ -251,7 +251,7 @@ func bindHTTP(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 	}
 
 domainLoop:
-	for _, ds := range alb.ListDomains() {
+	for _, ds := range domains {
 		domain := fmt.Sprintf("%s.%s.%s", result.ServiceName, result.Namespace, ds)
 
 		for _, rule := range ft.Rules {
@@ -263,7 +263,7 @@ domainLoop:
 			}
 		}
 
-		r, _ := ft.NewRule(domain, "", "")
+		r, _ := ft.NewRule(domain, "", "", "", "")
 		r.Source = &alb2v1.Source{
 			Type:      m.TypeBind,
 			Name:      result.ServiceName,
@@ -294,6 +294,9 @@ func Bind(alb *m.AlaudaLoadBalancer, req *BindInfo) (*BindInfo, error) {
 		return bindTcp(alb, req)
 	case ProtocolHTTP:
 		return bindHTTP(alb, req)
+	case ProtocolHTTPS:
+		// TOOD: support https
+		return nil, fmt.Errorf("unknown protocol %s", req.Protocol)
 	default:
 		glog.Errorf("Find unknown protocol %s from bind request %s.%s",
 			req.Protocol, req.ServiceName, req.Namespace)
@@ -315,8 +318,6 @@ func RegisterLoop(ctx context.Context) {
 			return
 		case <-time.After(time.Duration(interval) * time.Second): //sleep
 		}
-
-		interval = config.GetInt("INTERVAL")*2 + 1
 
 		err := TryLockAlb()
 		if err != nil {
@@ -344,8 +345,6 @@ func RegisterLoop(ctx context.Context) {
 		glog.Infof("There are %d bind requests need to process.", len(bindRequest))
 
 		for _, req := range bindRequest {
-			// make sure do not call api server too frequently
-			time.Sleep(200 * time.Millisecond)
 			glog.Infof("Try to bind %+v", *req)
 			result, err := Bind(alb, req)
 			if err != nil {
@@ -356,11 +355,11 @@ func RegisterLoop(ctx context.Context) {
 				)
 			} else {
 				glog.Infof("get bind result %+v", *result)
-			}
-			if result.State != req.State || result.ErrorMsg != req.ErrorMsg {
-				// Update service
-				glog.Infof("Update bind info of %s.%s", result.ServiceName, result.Namespace)
-				UpdateServiceBind(kd, result)
+				if result.State != req.State || result.ErrorMsg != req.ErrorMsg {
+					// Update service
+					glog.Infof("Update bind info of %s.%s", result.ServiceName, result.Namespace)
+					UpdateServiceBind(kd, result)
+				}
 			}
 		}
 	}

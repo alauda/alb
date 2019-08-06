@@ -15,11 +15,13 @@ import (
 	"alb2/controller"
 	"alb2/driver"
 	"alb2/ingress"
+	"alb2/utils"
 )
 
 func main() {
 	flag.Set("alsologtostderr", "true")
 	flag.Parse()
+	utils.InitLog()
 	defer glog.Flush()
 	glog.Error("Service start.")
 
@@ -41,9 +43,11 @@ func main() {
 		panic(err)
 	}
 	// install necessary crd on start
-	if err := d.RegisterCustomDefinedResources(); err != nil {
-		// install crd failed, abort
-		panic(err)
+	if config.GetBool("INSTALL_CRD") {
+		if err := d.RegisterCustomDefinedResources(); err != nil {
+			// install crd failed, abort
+			panic(err)
+		}
 	}
 
 	go controller.RegisterLoop(ctx)
@@ -53,12 +57,12 @@ func main() {
 		http.ListenAndServe(":1937", nil)
 	}()
 
-	if config.Get("LB_TYPE") == config.Haproxy ||
-		config.Get("LB_TYPE") == config.Nginx {
+	if config.Get("LB_TYPE") == config.Nginx {
 		go rotateLog(ctx)
 	}
 
 	interval := config.GetInt("INTERVAL")
+	tmo := time.Duration(config.GetInt("RELOAD_TIMEOUT")) * time.Second
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
 		ch := make(chan string)
@@ -72,6 +76,7 @@ func main() {
 			}
 			ch <- "wait"
 
+			ctl.GC()
 			err = ctl.GenerateConf()
 			if err != nil {
 				glog.Error(err.Error())
@@ -86,7 +91,7 @@ func main() {
 			ch <- "continue"
 			return
 		}()
-		timer := time.NewTimer(300 * time.Second)
+		timer := time.NewTimer(tmo)
 
 	watchdog:
 		for {
@@ -97,7 +102,7 @@ func main() {
 					timer.Reset(0)
 					break watchdog
 				}
-				timer.Reset(300 * time.Second)
+				timer.Reset(tmo)
 				continue
 			case <-timer.C:
 				glog.Error("reload timeout")
@@ -116,7 +121,11 @@ func rotateLog(ctx context.Context) {
 		case <-ctx.Done():
 			glog.Info("rotateLog exit")
 			return
-		case <-time.After(time.Minute):
+		case <-time.After(30 * time.Minute):
+			err := utils.RotateGlog(time.Now().Add(-time.Duration(30 * time.Minute)))
+			if err != nil {
+				glog.Errorf("rotate glog failed, %+v", err)
+			}
 			// Do nothin
 		}
 		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()

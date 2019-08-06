@@ -31,4 +31,4 @@ gen-code:
 lint:
 	@gofmt -d ${GOFILES_NOVENDOR} 
 	@gofmt -l ${GOFILES_NOVENDOR} | read && echo "Code differs from gofmt's style" 1>&2 && exit 1 || true
-	@go tool vet ${GOFILES_NOVENDOR}
+	@go vet .../..

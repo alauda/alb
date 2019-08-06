@@ -37,8 +37,10 @@ func main() {
 		panic(err)
 	}
 	// install necessary crd for alb2
-	if err := k8sDriver.RegisterCustomDefinedResources(); err != nil {
-		panic(err)
+	if config.GetBool("INSTALL_CRD") {
+		if err := k8sDriver.RegisterCustomDefinedResources(); err != nil {
+			panic(err)
+		}
 	}
 
 	_, err = k8sDriver.Client.CoreV1().Namespaces().Get(NewNamespace, metav1.GetOptions{})
@@ -103,15 +105,13 @@ func main() {
 				},
 			},
 			Spec: crdV1.FrontendSpec{
-				CertificateID:   alb1ft.CertificateID,
-				CertificateName: alb1ft.CertificateName,
-				Port:            alb1ft.Port,
-				Protocol:        alb1ft.Protocol,
+				Port:     alb1ft.Port,
+				Protocol: alb1ft.Protocol,
 			},
 		}
 		// frontend have default service
 		if alb1ft.ServiceID != "" {
-			var ftsg []crdV1.Service
+			ftsg := []crdV1.Service{}
 
 			kubeSvc, err := getServiceByServiceID(k8sDriver, alb1ft.ServiceID, alb1ft.ContainerPort)
 			if err != nil {
@@ -171,7 +171,7 @@ func main() {
 				},
 			}
 			if alb1rule.Services != nil {
-				var rulesg []crdV1.Service
+				rulesg := []crdV1.Service{}
 				for _, service := range alb1rule.Services {
 					kubeSvc, err := getServiceByServiceID(k8sDriver, service.ServiceID, service.ContainerPort)
 					if err != nil {

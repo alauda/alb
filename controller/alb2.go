@@ -6,6 +6,7 @@ import (
 	m "alb2/modules"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -27,9 +28,8 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			LoadBalancerID:  alb.Name,
 			Port:            aft.Port,
 			Protocol:        aft.Protocol,
-			CertificateID:   aft.CertificateID,
-			CertificateName: aft.CertificateName,
 			Rules:           RuleList{},
+			CertificateName: aft.CertificateName,
 		}
 		if ft.Protocol == "" {
 			ft.Protocol = ProtocolTCP
@@ -39,13 +39,15 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		}
 		for idx, arl := range aft.Rules {
 			rule := &Rule{
-				RuleID:      arl.Name,
-				Priority:    int64(arl.Priority) * int64(idx+1),
-				Type:        arl.Type,
-				Domain:      arl.Domain,
-				URL:         arl.URL,
-				DSL:         arl.DSL,
-				Description: arl.Description,
+				RuleID:          arl.Name,
+				Priority:        int64(arl.Priority) * int64(idx+1),
+				Type:            arl.Type,
+				Domain:          arl.Domain,
+				URL:             arl.URL,
+				DSL:             arl.DSL,
+				Description:     arl.Description,
+				CertificateName: arl.CertificateName,
+				RewriteTarget:   arl.RewriteTarget,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
@@ -64,9 +66,18 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			ft.Rules = append(ft.Rules, rule)
 		}
 		if aft.ServiceGroup != nil {
+			ft.Services = []*BackendService{}
+			ft.BackendGroup = &BackendGroup{
+				Name:                     ft.String(),
+				SessionAffinityAttribute: aft.ServiceGroup.SessionAffinityAttribute,
+				SessionAffinityPolicy:    aft.ServiceGroup.SessionAffinityPolicy,
+			}
 			for _, svc := range aft.ServiceGroup.Services {
-				ft.ServiceID = svc.ServiceID()
-				ft.ContainerPort = svc.Port
+				ft.Services = append(ft.Services, &BackendService{
+					ServiceID:     svc.ServiceID(),
+					ContainerPort: svc.Port,
+					Weight:        svc.Weight,
+				})
 			}
 		}
 
@@ -134,12 +145,19 @@ func retryUntil(lockString string) time.Time {
 }
 
 var myself string
+var mutexLock sync.Mutex
 var holdUntil time.Time
 var waitUntil time.Time
 
 func TryLockAlb() error {
+	mutexLock.Lock()
+	defer mutexLock.Unlock()
 	if myself == "" {
-		myself = RandomStr("", 8)
+		if config.Get("MY_POD_NAME") != "" {
+			myself = config.Get("MY_POD_NAME")
+		} else {
+			myself = RandomStr("", 8)
+		}
 	}
 	now := time.Now()
 	if now.Before(holdUntil) {

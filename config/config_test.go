@@ -16,14 +16,15 @@ func cleanenv(keys map[string]string) {
 func TestEnvConfig(t *testing.T) {
 	a := assert.New(t)
 	ENV := map[string]string{
-		"LB_TYPE":               Haproxy,
-		"SCHEDULER":             Kubernetes,
-		"NEW_CONFIG_PATH":       "haproxy.cfg.new",
-		"OLD_CONFIG_PATH":       "haproxy.cfg",
-		"HAPROXY_TEMPLATE_PATH": "template/haproxy/haproxy.tmpl",
-		"HAPROXY_BIN_PATH":      "haproxy",
-		"NAME":                  "haproxy-test",
-		"NAMESPACE":             "default",
+		"LB_TYPE":             Nginx,
+		"SCHEDULER":           Kubernetes,
+		"NEW_CONFIG_PATH":     "new",
+		"OLD_CONFIG_PATH":     "old",
+		"NGINX_TEMPLATE_PATH": "tpl",
+		"NEW_POLICY_PATH":     "new",
+		"OLD_POLICY_PATH":     "old",
+		"NAMESPACE":           "default",
+		"NAME":                "ngx-test",
 	}
 	for key, val := range ENV {
 		os.Setenv(key, val)
@@ -50,14 +51,15 @@ func TestLabels(t *testing.T) {
 
 func TestStandAlone(t *testing.T) {
 	ENV := map[string]string{
-		"LB_TYPE":               Haproxy,
-		"SCHEDULER":             Kubernetes,
-		"NEW_CONFIG_PATH":       "haproxy.cfg.new",
-		"OLD_CONFIG_PATH":       "haproxy.cfg",
-		"HAPROXY_TEMPLATE_PATH": "template/haproxy/haproxy.tmpl",
-		"HAPROXY_BIN_PATH":      "haproxy",
-		"NAMESPACE":             "default",
-		"NAME":                  "haproxy-test",
+		"LB_TYPE":             Nginx,
+		"SCHEDULER":           Kubernetes,
+		"NEW_CONFIG_PATH":     "new",
+		"OLD_CONFIG_PATH":     "old",
+		"NGINX_TEMPLATE_PATH": "tpl",
+		"NEW_POLICY_PATH":     "new",
+		"OLD_POLICY_PATH":     "old",
+		"NAMESPACE":           "default",
+		"NAME":                "ngx-test",
 	}
 	a := assert.New(t)
 	a.True(IsStandalone())

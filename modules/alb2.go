@@ -19,7 +19,7 @@ type AlaudaLoadBalancer struct {
 
 func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend, error) {
 	ft := &Frontend{
-		Name: fmt.Sprintf("%s-%d-%s", alb.Name, port, protocol),
+		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
 		FrontendSpec: alb2v1.FrontendSpec{
 			Port:     port,
 			Protocol: protocol,
@@ -64,16 +64,18 @@ func RandomStr(pixff string, length int) string {
 	return pixff + "-" + string(result)
 }
 
-func (ft *Frontend) NewRule(domain, url, dsl string) (*Rule, error) {
+func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, certificateName string) (*Rule, error) {
 	if domain != "" || url != "" {
 		dsl = GetDSL(domain, url)
 	}
 	r := Rule{
 		Name: RandomStr(ft.Name, 4),
 		RuleSpec: alb2v1.RuleSpec{
-			Domain: domain,
-			URL:    url,
-			DSL:    dsl,
+			Domain:          domain,
+			URL:             url,
+			DSL:             dsl,
+			RewriteTarget:   rewriteTarget,
+			CertificateName: certificateName,
 		},
 		FT: ft,
 	}
