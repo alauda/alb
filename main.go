@@ -62,7 +62,7 @@ func main() {
 	}
 
 	interval := config.GetInt("INTERVAL")
-	tmo := config.GetInt("RELOAD_TIMEOUT") * time.Second
+	tmo := time.Duration(config.GetInt("RELOAD_TIMEOUT")) * time.Second
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
 		ch := make(chan string)
