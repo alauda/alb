@@ -62,6 +62,7 @@ func main() {
 	}
 
 	interval := config.GetInt("INTERVAL")
+	tmo := config.GetInt("RELOAD_TIMEOUT") * time.Second
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
 		ch := make(chan string)
@@ -90,7 +91,7 @@ func main() {
 			ch <- "continue"
 			return
 		}()
-		timer := time.NewTimer(300 * time.Second)
+		timer := time.NewTimer(tmo)
 
 	watchdog:
 		for {
@@ -101,7 +102,7 @@ func main() {
 					timer.Reset(0)
 					break watchdog
 				}
-				timer.Reset(300 * time.Second)
+				timer.Reset(tmo)
 				continue
 			case <-timer.C:
 				glog.Error("reload timeout")
