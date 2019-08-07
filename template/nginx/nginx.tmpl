@@ -33,6 +33,7 @@ http {
 
     server {
         listen 1936;
+        listen [::]:1936;
 
         access_log off;
         location /admin {
@@ -67,6 +68,7 @@ http {
     {{range $port, $ft := .Frontends }}
     {{if eq $ft.Protocol "http" -}}
     server {
+        listen      {{$port}} default_server;
         listen      [::]:{{$port}} default_server;
         server_name _;
 
@@ -84,6 +86,7 @@ http {
     {{range $port, $ft := .Frontends -}}
     {{- if eq $ft.Protocol "https" }}
     server {
+        listen      {{$port}} ssl;
         listen      [::]:{{$port}} ssl;
         server_name _;
 
@@ -135,6 +138,7 @@ stream {
     {{- range $port, $ft := .Frontends}}
     {{- if eq $ft.Protocol "tcp"}}
     server {
+        listen {{$port}};
         listen [::]:{{$port}};
         proxy_pass {{$ft.BackendGroup.Name}};
     }
