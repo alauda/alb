@@ -33,6 +33,7 @@ http {
 
     server {
         listen 1936;
+        listen [::]:1936;
 
         access_log off;
         location /admin {
@@ -48,7 +49,7 @@ http {
             client_body_buffer_size 5m;
             client_max_body_size 5m;
         }
-        
+
         location /certs {
             content_by_lua_block {
                 ngx.header["content-type"] = "application/json"
@@ -58,7 +59,7 @@ http {
                 else
                     ngx.print("{}")
                 end
-            } 
+            }
             client_body_buffer_size 5m;
             client_max_body_size 5m;
         }
@@ -68,6 +69,7 @@ http {
     {{if eq $ft.Protocol "http" -}}
     server {
         listen      {{$port}} default_server;
+        listen      [::]:{{$port}} default_server;
         server_name _;
 
         set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
@@ -85,6 +87,7 @@ http {
     {{- if eq $ft.Protocol "https" }}
     server {
         listen      {{$port}} ssl;
+        listen      [::]:{{$port}} ssl;
         server_name _;
 
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -136,6 +139,7 @@ stream {
     {{- if eq $ft.Protocol "tcp"}}
     server {
         listen {{$port}};
+        listen [::]:{{$port}};
         proxy_pass {{$ft.BackendGroup.Name}};
     }
     {{- end}}
