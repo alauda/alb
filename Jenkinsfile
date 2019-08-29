@@ -22,7 +22,7 @@ AlaudaPipeline {
     ],
     ]
     env = [
-    GOPATH: env.WORKSPACE,
+    // GOPATH: env.WORKSPACE,
     GOPROXY: "https://athens.acp.alauda.cn",
     ]
     steps = [
