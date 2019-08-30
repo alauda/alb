@@ -6,7 +6,7 @@ AlaudaPipeline {
     folder: 'src/alb2',
     chart: [
     chart: "alauda-alb2",
-    component: "alb2",
+    component: "alauda-alb2",
     ],
     scm: [
     credentials: 'global-credentials-acp-bitbucket'
