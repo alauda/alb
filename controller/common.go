@@ -26,6 +26,7 @@ import (
 
 	"alb2/config"
 	"alb2/driver"
+	"alb2/utils"
 )
 
 var (
@@ -182,8 +183,25 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		BackendGroup:   []*BackendGroup{},
 		CertificateMap: make(map[string]Certificate),
 	}
-
+	listenTCPPorts, err := utils.GetListenTCPPorts()
+	if err != nil {
+		glog.Error(err)
+	}
 	for _, ft := range loadbalancer.Frontends {
+		conflict := false
+		for _, port := range listenTCPPorts {
+			if ft.Port == int(port) {
+				conflict = true
+				break
+			}
+		}
+		if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
+			glog.Error(err)
+		}
+		if conflict {
+			// skip conflict port
+			continue
+		}
 		glog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
 		isValid := false
 		isHTTP := ft.Protocol == ProtocolHTTP

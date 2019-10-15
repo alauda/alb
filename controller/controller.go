@@ -72,6 +72,7 @@ type Certificate struct {
 }
 
 type Frontend struct {
+	RawName        string            `json:"-"`
 	LoadBalancerID string            `json:"load_balancer_id"`
 	Port           int               `json:"port"`
 	Protocol       string            `json:"protocol"`

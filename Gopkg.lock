@@ -2,12 +2,29 @@
 
 
 [[projects]]
+  branch = "feat/expose-process-info"
+  digest = "1:ce5b1723cf0f416bb826d92a17946dbe69fd026a8436ed3c99c2d5e943cc9483"
+  name = "github.com/cakturk/go-netstat"
+  packages = ["netstat"]
+  pruneopts = "NUT"
+  revision = "379c22cf48414fdac5a621941427775278b8bd78"
+  source = "github.com/halfcrazy/go-netstat"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "NUT"
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:4304cca260ab815326ca42d9c28fb843342748267034c51963e13f5e54e727d1"
+  name = "github.com/evanphx/json-patch"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "026c730a0dcc5d11f93f1cf1cc65b01247ea7b6f"
+  version = "v4.5.0"
 
 [[projects]]
   digest = "1:db3a07f18bf612eb17eeeb4657688a348de2b57b575a876e4dd6443ef26f02f1"
@@ -714,6 +731,8 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/cakturk/go-netstat/netstat",
+    "github.com/evanphx/json-patch",
     "github.com/fatih/set",
     "github.com/golang/glog",
     "github.com/parnurzeal/gorequest",
@@ -753,6 +772,7 @@
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
     "k8s.io/code-generator/cmd/defaulter-gen",
+    "k8s.io/klog",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

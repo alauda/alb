@@ -101,6 +101,18 @@ func (c *FakeFrontends) Update(frontend *alaudav1.Frontend) (result *alaudav1.Fr
 	return obj.(*alaudav1.Frontend), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeFrontends) UpdateStatus(frontend *alaudav1.Frontend) (*alaudav1.Frontend, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(frontendsResource, "status", c.ns, frontend), &alaudav1.Frontend{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*alaudav1.Frontend), err
+}
+
 // Delete takes name of the frontend and deletes it. Returns an error if one occurs.
 func (c *FakeFrontends) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

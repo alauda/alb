@@ -1,15 +1,20 @@
 package driver
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/golang/glog"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"time"
 
 	"alb2/config"
 	m "alb2/modules"
 	alb2v1 "alb2/pkg/apis/alauda/v1"
+
+	"github.com/evanphx/json-patch"
+	"github.com/golang/glog"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -27,9 +32,14 @@ func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB
 }
 
 func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
-	_, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
+	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
 	if err != nil {
 		glog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+	}
+	newAlb.Status = alb.Status
+	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(newAlb)
+	if err != nil {
+		glog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 	}
 	return err
 }
@@ -265,4 +275,43 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 		services = append(services, svc)
 	}
 	return services, nil
+}
+
+func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) error {
+	ft, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Get(ftName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	origin := ft.DeepCopy()
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	if ft.Status.Instances == nil {
+		ft.Status.Instances = make(map[string]alb2v1.Instance)
+	}
+	ft.Status.Instances[hostname] = alb2v1.Instance{
+		Conflict:  conflict,
+		ProbeTime: time.Now().Unix(),
+	}
+	bytesOrigin, err := json.Marshal(origin)
+	if err != nil {
+		return err
+	}
+	bytesModified, err := json.Marshal(ft)
+	if err != nil {
+		return err
+	}
+	patch, err := jsonpatch.CreateMergePatch(bytesOrigin, bytesModified)
+	if err != nil {
+		return err
+	}
+	if string(patch) == "{}" {
+		return nil
+	}
+	if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ft.Name, types.MergePatchType, patch, "status"); err != nil {
+		return err
+	}
+
+	return nil
 }
