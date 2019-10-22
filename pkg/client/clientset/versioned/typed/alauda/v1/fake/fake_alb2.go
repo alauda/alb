@@ -101,6 +101,18 @@ func (c *FakeALB2s) Update(aLB2 *alaudav1.ALB2) (result *alaudav1.ALB2, err erro
 	return obj.(*alaudav1.ALB2), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeALB2s) UpdateStatus(aLB2 *alaudav1.ALB2) (*alaudav1.ALB2, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(alb2sResource, "status", c.ns, aLB2), &alaudav1.ALB2{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*alaudav1.ALB2), err
+}
+
 // Delete takes name of the aLB2 and deletes it. Returns an error if one occurs.
 func (c *FakeALB2s) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

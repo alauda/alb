@@ -38,6 +38,7 @@ type FrontendsGetter interface {
 type FrontendInterface interface {
 	Create(*v1.Frontend) (*v1.Frontend, error)
 	Update(*v1.Frontend) (*v1.Frontend, error)
+	UpdateStatus(*v1.Frontend) (*v1.Frontend, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.Frontend, error)
@@ -115,6 +116,22 @@ func (c *frontends) Update(frontend *v1.Frontend) (result *v1.Frontend, err erro
 		Namespace(c.ns).
 		Resource("frontends").
 		Name(frontend.Name).
+		Body(frontend).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *frontends) UpdateStatus(frontend *v1.Frontend) (result *v1.Frontend, err error) {
+	result = &v1.Frontend{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("frontends").
+		Name(frontend.Name).
+		SubResource("status").
 		Body(frontend).
 		Do().
 		Into(result)

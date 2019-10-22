@@ -2,7 +2,6 @@ package v1
 
 import (
 	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,14 +12,14 @@ const (
 )
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ALB2 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ALB2Spec `json:"spec"`
+	Spec   ALB2Spec   `json:"spec"`
+	Status ALB2Status `json:"status"`
 }
 
 type ALB2Spec struct {
@@ -29,6 +28,12 @@ type ALB2Spec struct {
 	Domains     []string `json:"domains"`
 	IaasID      string   `json:"iaas_id"`
 	Type        string   `json:"type"`
+}
+
+type ALB2Status struct {
+	State     string `json:"state"`
+	Reason    string `json:"reason"`
+	ProbeTime int64  `json:"probeTime"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -41,14 +46,14 @@ type ALB2List struct {
 }
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Frontend struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec FrontendSpec `json:"spec"`
+	Spec   FrontendSpec   `json:"spec"`
+	Status FrontendStatus `json:"status"`
 }
 
 type FrontendSpec struct {
@@ -57,6 +62,15 @@ type FrontendSpec struct {
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`
 	CertificateName string        `json:"certificate_name"`
+}
+
+type FrontendStatus struct {
+	Instances map[string]Instance `json:"instances"`
+}
+
+type Instance struct {
+	Conflict  bool  `json:"conflict"`
+	ProbeTime int64 `json:"probeTime"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

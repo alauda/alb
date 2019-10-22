@@ -25,6 +25,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 	}
 	for _, aft := range alb.Frontends {
 		ft := &Frontend{
+			RawName:         aft.Name,
 			LoadBalancerID:  alb.Name,
 			Port:            aft.Port,
 			Protocol:        aft.Protocol,
@@ -195,6 +196,26 @@ func TryLockAlb() error {
 
 	lockString = newLock(myself, 90*time.Second)
 	albRes.Annotations[config.Get("labels.lock")] = lockString
+	fts, err := driver.LoadFrontends(namespace, name)
+	if err != nil {
+		return err
+	}
+	state := "ready"
+	reason := ""
+	for _, ft := range fts {
+		if ft.Status.Instances != nil {
+			for _, v := range ft.Status.Instances {
+				if v.Conflict == true {
+					state = "warning"
+					reason = "port conflict"
+					break
+				}
+			}
+		}
+	}
+	albRes.Status.State = state
+	albRes.Status.Reason = reason
+	albRes.Status.ProbeTime = time.Now().Unix()
 	err = driver.UpdateAlbResource(albRes)
 	if err != nil {
 		glog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())

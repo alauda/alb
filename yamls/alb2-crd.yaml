@@ -10,6 +10,8 @@ spec:
       served: true
       storage: true
   scope: Namespaced
+  subresources:
+    status: {}
   names:
     plural: alaudaloadbalancer2
     singular: alaudaloadbalancer2
@@ -29,6 +31,8 @@ spec:
       served: true
       storage: true
   scope: Namespaced
+  subresources:
+    status: {}
   names:
     plural: frontends
     singular: frontend
