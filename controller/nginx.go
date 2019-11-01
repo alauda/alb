@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -45,12 +46,19 @@ type Policy struct {
 	Upstream      string `json:"upstream"`
 	URL           string `json:"url"`
 	RewriteTarget string `json:"rewrite_target"`
+	Priority      int    `json:"priority"`
 }
 
 type NgxPolicy struct {
 	CertificateMap map[string]Certificate `json:"certificate_map"`
-	PortMap        map[int][]*Policy      `json:"port_map"`
+	PortMap        map[int]Policies       `json:"port_map"`
 }
+
+type Policies []*Policy
+
+func (p Policies) Len() int           { return len(p) }
+func (p Policies) Less(i, j int) bool { return p[i].Priority > p[j].Priority }
+func (p Policies) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (nc *NginxController) GetLoadBalancerType() string {
 	return "Nginx"
@@ -60,7 +68,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 	config := generateConfig(loadbalancer, nc.Driver)
 	ngxPolicy := NgxPolicy{
 		CertificateMap: config.CertificateMap,
-		PortMap:        make(map[int][]*Policy),
+		PortMap:        make(map[int]Policies),
 	}
 	for port, frontend := range config.Frontends {
 		if frontend.Protocol == ProtocolTCP {
@@ -68,7 +76,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		}
 		glog.Infof("Frontend is %+v", frontend)
 		if _, ok := ngxPolicy.PortMap[port]; !ok {
-			ngxPolicy.PortMap[port] = []*Policy{}
+			ngxPolicy.PortMap[port] = Policies{}
 		}
 		glog.Infof("Rules are %+v", frontend.Rules)
 		for _, rule := range frontend.Rules {
@@ -106,6 +114,11 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy := Policy{}
 			// it's using id as the name of certificate file now..
 			policy.Rule = rule.DSL
+			if rule.Priority != 0 {
+				policy.Priority = int(rule.Priority)
+			} else {
+				policy.Priority = len(rule.DSL)
+			}
 			policy.Upstream = rule.BackendGroup.Name
 			// for rewrite
 			policy.URL = rule.URL
@@ -121,7 +134,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.Upstream = frontend.BackendGroup.Name
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
-
+		sort.Sort(ngxPolicy.PortMap[port])
 	}
 	return config, ngxPolicy
 }

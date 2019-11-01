@@ -38,10 +38,10 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		if ft.Port <= 0 {
 			glog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
 		}
-		for idx, arl := range aft.Rules {
+		for _, arl := range aft.Rules {
 			rule := &Rule{
 				RuleID:          arl.Name,
-				Priority:        int64(arl.Priority) * int64(idx+1),
+				Priority:        int64(arl.Priority),
 				Type:            arl.Type,
 				Domain:          arl.Domain,
 				URL:             arl.URL,
