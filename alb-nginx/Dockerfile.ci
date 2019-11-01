@@ -1,0 +1,9 @@
+FROM openresty/openresty:alpine-fat
+RUN luarocks install busted && \
+    luarocks install luacheck && \
+    luarocks install luacov && \
+    luarocks install lua-resty-http
+
+COPY busted /usr/local/bin/busted
+RUN chmod +x /usr/local/bin/busted
+WORKDIR /alb-nginx

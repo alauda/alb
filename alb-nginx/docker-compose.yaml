@@ -1,0 +1,36 @@
+version: '3'
+services:
+  echoserver1:
+    image: "index.alauda.cn/alaudaorg/alb-nginx-base:v0.0.1"
+    ports:
+      - "8088:8080"
+    volumes:
+      - "${PWD}/echoserver/echoserver.lua:/lua/echoserver.lua:ro"
+      - "${PWD}/echoserver/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro"
+    environment:
+      - VERSION=v1
+    entrypoint: /usr/local/openresty/nginx/sbin/nginx
+
+  echoserver2:
+    image: "index.alauda.cn/alaudaorg/alb-nginx-base:v0.0.1"
+    ports:
+      - "8089:8080"
+    volumes:
+      - "${PWD}/echoserver/echoserver.lua:/lua/echoserver.lua:ro"
+      - "${PWD}/echoserver/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro"
+    environment:
+      - VERSION=v2
+    entrypoint: /usr/local/openresty/nginx/sbin/nginx
+
+  alb:
+    image: "index.alauda.cn/alaudaorg/alb-nginx-base:v0.0.1"
+    ports:
+      - "8080:8080"
+      - "1936:1936"
+    volumes:
+      - "${PWD}/template:/alb/template:ro"
+      - "${PWD}/conf:/alb/conf:ro"
+    entrypoint:
+      - /usr/local/openresty/nginx/sbin/nginx
+      - -c
+      - /alb/conf/dev.conf
