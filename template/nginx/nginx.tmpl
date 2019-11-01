@@ -72,11 +72,12 @@ http {
         listen      [::]:{{$port}} default_server;
         server_name _;
 
-        set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
+        # FIXME: 这部分逻辑需要放到balancer_by_lua里面
+        # set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
 
         location / {
             rewrite_by_lua_file /alb/template/nginx/lua/rewrite.lua;
-            proxy_pass http://$upstream;
+            proxy_pass http://http_backend;
         }
     }
 
@@ -96,40 +97,26 @@ http {
         ssl_certificate_key /alb/template/nginx/placeholder.key;
 
         ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
-        set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
+        # FIXME: 这部分逻辑需要放到balancer_by_lua里面
+        # set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
 
         location / {
             rewrite_by_lua_file /alb/template/nginx/lua/rewrite.lua;
-            proxy_pass http://$upstream;
+            proxy_pass http://http_backend;
         }
     }
     {{- end -}}
     {{- end -}}
 
-    {{- range $idx, $bg := .BackendGroup}}
-    {{- if eq $bg.Mode "http" "https"}}
+    upstream http_backend {
+        server 0.0.0.1;   # just an invalid address as a place holder
 
-    upstream {{$bg.Name}} {
-        {{- if eq $bg.SessionAffinityPolicy "sip-hash" }}
-        ip_hash;
-        {{ end -}}
-
-        {{- if eq $bg.SessionAffinityPolicy "cookie"}}
-        {{- if $bg.SessionAffinityAttribute }}
-        sticky name={{$bg.SessionAffinityAttribute}};
-        {{ else -}}
-        sticky;
-        {{ end -}}
-        {{- end}}
-
-        {{- range $j, $be := $bg.Backends }}
-        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
-        {{- end}}
+        # TODO: 完成动态upstream逻辑
+        balancer_by_lua_file /alb/template/nginx/lua/l7_balancer.lua;
 
         include       /alb/tweak/upstream.conf;
     }
-    {{- end}}
-    {{- end}}
+
 }
 
 stream {
@@ -140,22 +127,17 @@ stream {
     server {
         listen {{$port}};
         listen [::]:{{$port}};
-        proxy_pass {{$ft.BackendGroup.Name}};
+        proxy_pass tcp_backend;
     }
     {{- end}}
     {{- end}}
 
-    {{- range $idx, $bg := .BackendGroup}}
-    {{- if eq $bg.Mode "tcp"}}
+    upstream tcp_backend {
+        server 0.0.0.1;   # just an invalid address as a place holder
 
-    upstream {{$bg.Name}} {
-        {{- if eq $bg.SessionAffinityPolicy "sip-hash" }}
-        hash $remote_addr consistent;
-        {{ end -}}
-        {{- range $j, $be := $bg.Backends }}
-        server {{$be.Address}}:{{$be.Port}} weight={{$be.Weight}};
-        {{- end}}
+        # TODO: 完成动态upstream逻辑
+        balancer_by_lua_file /alb/template/nginx/lua/l4_balancer.lua;
+
+        include       /alb/tweak/upstream.conf;
     }
-    {{- end}}
-    {{- end}}
 }
