@@ -4,6 +4,7 @@ COPY . src/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alb2
 RUN go build -ldflags "-w -s" -v -o /migrate alb2/migrate
 
+# TODO: 需要更新下镜像
 FROM index.alauda.cn/alaudaorg/alb-nginx:e8c28e64d0a7674224b3fb1496514233df04e0e5
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
@@ -26,7 +27,6 @@ RUN mkdir -p /var/log/mathilde && \
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
-COPY ./template/nginx/nginx.tmpl /alb/template/nginx/nginx.tmpl
 COPY --from=0 alb /alb/alb
 COPY --from=0 migrate /alb/migrate
 COPY alauda /etc/logrotate.d/alauda

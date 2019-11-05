@@ -1,3 +1,4 @@
+# TODO: 换成新镜像
 ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_IMAGE_TAG="3.9"
 
@@ -118,7 +119,8 @@ RUN \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
-    && git clone https://github.com/alauda/nginx-sticky-module-ng.git --depth=1 \
+# TODO: remove
+#    && git clone https://github.com/alauda/nginx-sticky-module-ng.git --depth=1 \
     && git clone https://github.com/vozlt/nginx-module-vts.git --depth=1 \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
@@ -131,7 +133,9 @@ RUN \
         && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/nginx-1.15.8-ssl_sess_cb_yield.patch | patch -p1 \
         && cd ../.. ; \
     fi \
-    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} --add-module=/tmp/nginx-module-vts --add-module=/tmp/nginx-sticky-module-ng \
+# TODO: change
+#    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} --add-module=/tmp/nginx-module-vts --add-module=/tmp/nginx-sticky-module-ng \
+    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} --add-module=/tmp/nginx-module-vts \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \

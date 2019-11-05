@@ -52,6 +52,7 @@ type Policy struct {
 type NgxPolicy struct {
 	CertificateMap map[string]Certificate `json:"certificate_map"`
 	PortMap        map[int]Policies       `json:"port_map"`
+	BackendGroup   []*BackendGroup        `json:"backend_group"`
 }
 
 type Policies []*Policy
@@ -65,10 +66,12 @@ func (nc *NginxController) GetLoadBalancerType() string {
 }
 
 func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Config, NgxPolicy) {
+	// TODO: 需要新的ngxpolicy，包含upstream信息的
 	config := generateConfig(loadbalancer, nc.Driver)
 	ngxPolicy := NgxPolicy{
 		CertificateMap: config.CertificateMap,
 		PortMap:        make(map[int]Policies),
+		BackendGroup:   config.BackendGroup,
 	}
 	for port, frontend := range config.Frontends {
 		if frontend.Protocol == ProtocolTCP {
