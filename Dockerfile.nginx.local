@@ -27,6 +27,7 @@ RUN mkdir -p /var/log/mathilde && \
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
+COPY ./template/nginx.tmpl /alb/template/nginx/nginx.tmpl
 COPY --from=0 alb /alb/alb
 COPY --from=0 migrate /alb/migrate
 COPY alauda /etc/logrotate.d/alauda
