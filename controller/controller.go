@@ -212,7 +212,7 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 	}
 	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
 	loadBalancersCache, _ = json.Marshal(loadBalancers)
-	glog.Infof("Get Loadbalancers: %s", string(loadBalancersCache))
+	glog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
 	return loadBalancers, err
 }
 

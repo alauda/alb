@@ -238,12 +238,12 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup) (map[s
 		if _, ok := data[key]; !ok {
 			service, err := kd.GetServiceByName(svc.Namespace, svc.Name, svc.Port)
 			if err != nil {
-				glog.Infof("Get service address for %s.%s:%d failed:%s",
+				glog.Errorf("Get service address for %s.%s:%d failed:%s",
 					svc.Namespace, svc.Name, svc.Port, err.Error(),
 				)
 				continue
 			}
-			glog.Infof("Get serivce %+v", *service)
+			glog.V(4).Infof("Get serivce %+v", *service)
 			data[key] = service
 		}
 	}

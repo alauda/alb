@@ -77,11 +77,11 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		if frontend.Protocol == ProtocolTCP {
 			continue
 		}
-		glog.Infof("Frontend is %+v", frontend)
+		glog.V(3).Infof("Frontend is %+v", frontend)
 		if _, ok := ngxPolicy.PortMap[port]; !ok {
 			ngxPolicy.PortMap[port] = Policies{}
 		}
-		glog.Infof("Rules are %+v", frontend.Rules)
+		glog.V(4).Infof("Rules are %+v", frontend.Rules)
 		for _, rule := range frontend.Rules {
 			if rule.BackendGroup == nil {
 				continue
@@ -113,7 +113,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				continue
 			}
 
-			glog.Infof("Rule is %v", rule)
+			glog.V(3).Infof("Rule is %v", rule)
 			policy := Policy{}
 			// it's using id as the name of certificate file now..
 			policy.Rule = rule.DSL
@@ -131,7 +131,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 
 		// set default rule if exists
 		if frontend.BackendGroup != nil {
-			glog.Infof("Default rule is %v", frontend.BackendGroup)
+			glog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
 			policy := Policy{}
 			policy.Rule = DEFAULT_RULE
 			policy.Upstream = frontend.BackendGroup.Name
