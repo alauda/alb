@@ -238,7 +238,6 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 					result.CertificateMap[strings.ToLower(rule.Domain)] = *cert
 				}
 				rule.Domain = strings.ToLower(rule.Domain)
-				rule.URL = rule.URL
 				rule.Regexp = generateRegexp(ft, rule)
 				result.BackendGroup = append(result.BackendGroup, rule.BackendGroup)
 				isValid = true
