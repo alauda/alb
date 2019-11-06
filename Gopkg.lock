@@ -192,22 +192,6 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:af70f88d68d35881112c13fa94ae3fcb53cfe14c4b8fb3d87a345bbf442d2747"
-  name = "github.com/moul/http2curl"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "9ac6cf4d929b2fa8fd2d2e6dec5bb0feb4f4911d"
-  version = "v1.0.0"
-
-[[projects]]
-  digest = "1:aa236b5778f70fb400809f622813a2feb01142ea32b95f4ab23f98c5ad3cee18"
-  name = "github.com/parnurzeal/gorequest"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "a578a48e8d6ca8b01a3b18314c43c6716bb5f5a3"
-  version = "v0.2.15"
-
-[[projects]]
   digest = "1:51ea800cff51752ff68e12e04106f5887b4daec6f9356721238c28019f0b42db"
   name = "github.com/pelletier/go-toml"
   packages = ["."]
@@ -316,14 +300,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:93bab9f16eccb9aaaab985eb08edb622a75ee455c7f4ca7c645a35246d2e35d4"
+  digest = "1:e44fa0101bdbb14eb87a9c5d13c594911117e7695e54b3474615231a012bb2c3"
   name = "golang.org/x/net"
   packages = [
     "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
-    "publicsuffix",
   ]
   pruneopts = "NUT"
   revision = "fae4c4e3ad76c295c3d6d259f898136b4bf833a8"
@@ -725,7 +708,6 @@
     "github.com/evanphx/json-patch",
     "github.com/fatih/set",
     "github.com/golang/glog",
-    "github.com/parnurzeal/gorequest",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/thoas/go-funk",

@@ -2,7 +2,17 @@
 --- Created by oilbeater.
 --- DateTime: 17/9/15 上午11:59
 ---
-
+local ipairs = ipairs
+local type = type
+local tonumber = tonumber
+local string_find = string.find
+local string_sub = string.sub
+local table_remove = table.remove
+local table_insert = table.insert
+local string_format = string.format
+local ngx_re = ngx.re
+local ngx_var = ngx.var
+local ngx_req = ngx.req
 local _M = {}
 
 local bool_op = {
@@ -18,11 +28,11 @@ local single_matcher = {
 
 local function parse_single_matcher(matcher)
     if(matcher == "HOST") then
-        return ngx.var.host
+        return ngx_var.host
     elseif(matcher == "URL") then
-        return ngx.var.uri
+        return ngx_var.uri
     elseif(matcher == "SRC_IP") then
-        local h = ngx.req.get_headers()
+        local h = ngx_req.get_headers()
         local x_real_ip = h['x-real-ip']
         if x_real_ip then
           return x_real_ip
@@ -30,14 +40,14 @@ local function parse_single_matcher(matcher)
         local x_forwarded_for = h['x-forwarded-for']
         if x_forwarded_for then
           -- X-Forwarded-For: client, proxy1, proxy2
-          local idx = string.find(x_forwarded_for, ",", 1, true)
+          local idx = string_find(x_forwarded_for, ",", 1, true)
           if idx then
-            return string.sub(x_forwarded_for, 1, idx - 1)
+            return string_sub(x_forwarded_for, 1, idx - 1)
           else
             return x_forwarded_for
           end
         end
-        return ngx.var.remote_addr
+        return ngx_var.remote_addr
     else
         return nil
     end
@@ -50,9 +60,9 @@ local dual_matcher = {
 }
 
 local function transform_hyphen(key)
-    if string.find(key, "-") then
+    if string_find(key, "-", 1, true) then
         -- string.gsub cannot be JIT, use ngx.re.gsub
-        local newstr, _, _ = ngx.re.gsub(key, "-", "_")
+        local newstr, _, _ = ngx_re.gsub(key, "-", "_")
         return newstr
     else
         return key
@@ -62,12 +72,12 @@ end
 
 local function parse_dual_matcher(matcher, key)
     if(matcher == "HEADER") then
-        return ngx.var["http_" .. transform_hyphen(key)]
+        return ngx_var["http_" .. transform_hyphen(key)]
     elseif(matcher == "PARAM") then
-        return ngx.req.get_uri_args()[key]
+        return ngx_req.get_uri_args()[key]
     elseif(matcher == "COOKIE") then
         local cookie_name = "cookie_" .. key
-        return ngx.var[cookie_name]
+        return ngx_var[cookie_name]
     else
         return nil
     end
@@ -78,14 +88,14 @@ end
 -- example: ["HOST", "www.baidu.com", "baidu.com"] -> req.host, ["www.baidu.com", "baidu.com"], nil
 --          ["HEADER", "UID", "1000"]              -> req.header["UID"], ["1000"], nil
 local function split_matcher_args(args)
-    local matcher = table.remove(args, 1)
+    local matcher = table_remove(args, 1)
     if(single_matcher[matcher]) then
         return parse_single_matcher(matcher), args, nil
     elseif(dual_matcher[matcher]) then
-        local key = table.remove(args, 1)
+        local key = table_remove(args, 1)
         return parse_dual_matcher(matcher, key), args, nil
     else
-        return nil, nil, string.format("unaccepted matcher %s", matcher)
+        return nil, nil, string_format("unaccepted matcher %s", matcher)
     end
 end
 
@@ -101,14 +111,14 @@ end
 
 local function ip_split(str)
     local parts = {}
-    local index = str:find("%.", 1)
+    local index = string_find(str, "%.", 1)
     while(index ~= nil) do
-        local part = str:sub(1, index-1)
-        table.insert(parts, part)
-        str = str:sub(index+1)
-        index = str:find("%.", 1)
+        local part = string_sub(str, 1, index - 1)
+        table_insert(parts, part)
+        str = string_sub(str, index + 1)
+        index = string_find(str, "%.", 1)
     end
-    table.insert(parts, str)
+    table_insert(parts, str)
     return parts
 end
 
@@ -176,7 +186,7 @@ end
 
 function _M.EQ(matcher, args)
     if(#args ~= 1) then
-        return false, string.format("EQ except 1 arg, get %d: %s", #args, args)
+        return false, string_format("EQ except 1 arg, get %d: %s", #args, args)
     end
     return (matcher == args[1]), nil
 end
@@ -186,12 +196,12 @@ function _M.STARTS_WITH(matcher, args)
         return false, nil
     end
     if(#args ~= 1) then
-        return false, string.format("STARTS_WITH except 1 arg, get %d: %s", #args, args)
+        return false, string_format("STARTS_WITH except 1 arg, get %d: %s", #args, args)
     end
     if(#matcher < #args[1]) then
         return false, nil
     else
-        return string.sub(matcher, 1, #args[1]) == args[1], nil
+        return string_sub(matcher, 1, #args[1]) == args[1], nil
     end
 end
 
@@ -200,11 +210,11 @@ function _M.REGEX(matcher, args)
         return false, nil
     end
     if(#args ~= 1) then
-        return false, string.format("REGEX except 1 arg, get %d: %s", #args, args)
+        return false, string_format("REGEX except 1 arg, get %d: %s", #args, args)
     end
 
     -- enable jit and cache to improve performance https://github.com/openresty/lua-nginx-module#ngxrematch
-    local found, _ = ngx.re.match(matcher, args[1], "jo")
+    local found, _ = ngx_re.match(matcher, args[1], "jo")
     return toboolean(found), nil
 end
 
@@ -213,7 +223,7 @@ function _M.EXIST(matcher, args)
         return false, nil
     end
     if(#args ~= 0) then
-        return false, string.format("EXIST except 0 arg, get %d: %s", #args, args)
+        return false, string_format("EXIST except 0 arg, get %d: %s", #args, args)
     end
     return toboolean(matcher), nil
 end
@@ -233,7 +243,7 @@ function _M.RANGE(matcher, args)
         return false, nil
     end
     if(#args ~= 2) then
-        return false, string.format("RANGE except 2 arg, get %d: %s", #args, args)
+        return false, string_format("RANGE except 2 arg, get %d: %s", #args, args)
     end
 
     return range(matcher, args[1], args[2])

@@ -19,6 +19,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		BindAddress:    alb.Spec.BindAddress,
 		LoadBalancerID: alb.Spec.IaasID,
 		Frontends:      []*Frontend{},
+		TweakHash:      alb.TweakHash,
 	}
 	if lb.BindAddress == "" {
 		lb.BindAddress = "*"

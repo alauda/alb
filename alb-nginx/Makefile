@@ -1,4 +1,4 @@
-.PHONY: clean run lint unitest test build-ci build-nginx-base build-nginx build push bundle version
+.PHONY: clean run lint unitest test build-ci build-nginx build push bundle version
 
 version:
 	git diff --quiet HEAD --
@@ -26,16 +26,12 @@ test: lint unit-test int-test coverage
 build-ci:
 	docker build -t luaci -f Dockerfile.ci .
 
-build-nginx-base:
-	docker build -t index.alauda.cn/alaudaorg/alb-nginx-base:`cat BASE_VERSION` -f Dockerfile.nginx .
-
 build-nginx: version
-	docker build -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile .
+	docker build -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile.nginx .
 
-build: build-nginx-base build-nginx
+build: build-nginx
 
 push:
-	docker push index.alauda.cn/alaudaorg/alb-nginx-base:`cat BASE_VERSION`
 	docker push index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION`
 
 bundle: test build push

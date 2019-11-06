@@ -6,13 +6,17 @@ worker_cpu_affinity  auto;
 error_log  /var/log/nginx/error.log notice;
 pid        /var/run/nginx.pid;
 
-env OLD_POLICY_PATH;
+env SYNC_POLICY_INTERVAL;
+env SYNC_BACKEND_INTERVAL;
+env NEW_POLICY_PATH;
 
 events {
     multi_accept        on;
     worker_connections  51200;
 }
 
+# Name: {{.Name}}
+# Hash: {{.TweakHash}}
 
 http {
     include       /usr/local/openresty/nginx/conf/mime.types;
@@ -20,7 +24,7 @@ http {
     default_type  application/octet-stream;
 
     log_format  http  '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
+                      '$status $upstream_status $upstream_addr $body_bytes_sent "$http_referer" '
                       '"$http_user_agent" "$http_x_forwarded_for"'
                       '"$gzip_ratio" $request_time $bytes_sent $request_length';
     access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
@@ -29,7 +33,15 @@ http {
 
     init_by_lua_block {
             require "resty.core"
+            require "init_l7"
+            ok, res = pcall(require, "balancer")
+            if not ok then
+              error("require failed: " .. tostring(res))
+            else
+              balancer = res
+            end
     }
+    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
     server {
         listen 1936;
@@ -47,21 +59,7 @@ http {
         location /policies {
             content_by_lua_file /alb/template/nginx/lua/policy.lua;
             client_body_buffer_size 5m;
-            client_max_body_size 5m;
-        }
-
-        location /certs {
-            content_by_lua_block {
-                ngx.header["content-type"] = "application/json"
-                local certificate_map = ngx.shared.certs_cache:get("certificate_map")
-                if(certificate_map) then
-                    ngx.print(certificate_map)
-                else
-                    ngx.print("{}")
-                end
-            }
-            client_body_buffer_size 5m;
-            client_max_body_size 5m;
+            client_max_body_size 10m;
         }
     }
 
@@ -72,11 +70,9 @@ http {
         listen      [::]:{{$port}} default_server;
         server_name _;
 
-        # FIXME: 这部分逻辑需要放到balancer_by_lua里面
-        # set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
-
         location / {
-            rewrite_by_lua_file /alb/template/nginx/lua/rewrite.lua;
+            set $upstream default;
+            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass http://http_backend;
         }
     }
@@ -97,11 +93,10 @@ http {
         ssl_certificate_key /alb/template/nginx/placeholder.key;
 
         ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
-        # FIXME: 这部分逻辑需要放到balancer_by_lua里面
-        # set_by_lua_file $upstream /alb/template/nginx/lua/set_upstream.lua;
 
         location / {
-            rewrite_by_lua_file /alb/template/nginx/lua/rewrite.lua;
+            set $upstream default;
+            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass http://http_backend;
         }
     }
@@ -111,8 +106,10 @@ http {
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
-        # TODO: 完成动态upstream逻辑
-        balancer_by_lua_file /alb/template/nginx/lua/l7_balancer.lua;
+        balancer_by_lua_block {
+            balancer.balance()
+        }
+        include       /alb/tweak/upstream.conf;
     }
 
 }
@@ -120,11 +117,27 @@ http {
 stream {
     include       /alb/tweak/stream.conf;
 
+    lua_add_variable $upstream;
+
+    init_by_lua_block {
+            require "resty.core"
+            require "init_l4"
+            ok, res = pcall(require, "balancer")
+            if not ok then
+              error("require failed: " .. tostring(res))
+            else
+              balancer = res
+            end
+    }
+    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
+
     {{- range $port, $ft := .Frontends}}
     {{- if eq $ft.Protocol "tcp"}}
     server {
         listen {{$port}};
         listen [::]:{{$port}};
+
+        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
         proxy_pass tcp_backend;
     }
     {{- end}}
@@ -133,7 +146,8 @@ stream {
     upstream tcp_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
-        # TODO: 完成动态upstream逻辑
-        balancer_by_lua_file /alb/template/nginx/lua/l4_balancer.lua;
+        balancer_by_lua_block {
+            balancer.balance()
+        }
     }
 }

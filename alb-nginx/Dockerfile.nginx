@@ -1,4 +1,3 @@
-# TODO: 换成新镜像
 ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_IMAGE_TAG="3.9"
 
@@ -8,6 +7,7 @@ LABEL maintainer="Evan Wies <evan@neomantra.net>"
 
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
 
+ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_IMAGE_TAG="3.9"
 ARG RESTY_VERSION="1.15.8.1"
@@ -44,13 +44,19 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-threads \
     "
 
-ARG RESTY_CONFIG_OPTIONS_MORE=""
+ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/nginx-module-vts"
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
 ARG RESTY_ADD_PACKAGE_RUNDEPS=""
 ARG RESTY_EVAL_PRE_CONFIGURE=""
-ARG RESTY_EVAL_POST_MAKE=""
+ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm \
+    && ln -s /usr/local/openresty/bin/resty /usr/local/bin/resty \
+    && opm install thibaultcha/lua-resty-mlcache \
+    && curl -fSL https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz -o lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
+    && tar xzf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz && rm -rf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
+    && cd lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION} \
+    && make && make install && cd -"
 
 # These are not intended to be user-specified
 ARG _RESTY_CONFIG_DEPS="--with-openssl=/tmp/openssl-${RESTY_OPENSSL_VERSION} --with-pcre \
@@ -69,7 +75,7 @@ LABEL resty_config_deps="${_RESTY_CONFIG_DEPS}"
 LABEL resty_add_package_builddeps="${RESTY_ADD_PACKAGE_BUILDDEPS}"
 LABEL resty_add_package_rundeps="${RESTY_ADD_PACKAGE_RUNDEPS}"
 LABEL resty_eval_pre_configure="${RESTY_EVAL_PRE_CONFIGURE}"
-LABEL resty_eval_post_make="${RESTY_EVAL_POST_MAKE}"<Paste>
+LABEL resty_eval_post_make="${RESTY_EVAL_POST_MAKE}"
 
 
 COPY patch/ssl_server_port.patch /tmp/patch/ssl_server_port.patch
@@ -119,8 +125,6 @@ RUN \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
-# TODO: remove
-#    && git clone https://github.com/alauda/nginx-sticky-module-ng.git --depth=1 \
     && git clone https://github.com/vozlt/nginx-module-vts.git --depth=1 \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
@@ -133,9 +137,7 @@ RUN \
         && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/nginx-1.15.8-ssl_sess_cb_yield.patch | patch -p1 \
         && cd ../.. ; \
     fi \
-# TODO: change
-#    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} --add-module=/tmp/nginx-module-vts --add-module=/tmp/nginx-sticky-module-ng \
-    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} --add-module=/tmp/nginx-module-vts \
+    && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
@@ -158,7 +160,6 @@ ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
 ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
 ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
-ENV OLD_POLICY_PATH /usr/local/openresty/nginx/conf/policy
 
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \

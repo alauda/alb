@@ -50,7 +50,6 @@ var nginxRequiredFields = []string{
 	"OLD_CONFIG_PATH",
 	"NGINX_TEMPLATE_PATH",
 	"NEW_POLICY_PATH",
-	"OLD_POLICY_PATH",
 }
 
 var cloudLBRequiredFields = []string{

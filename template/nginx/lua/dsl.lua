@@ -3,28 +3,40 @@
 --- DateTime: 17/9/13 下午3:28
 --- A sample DSL to evaluate
 ---（AND (IN HOST www.baidu.com baidu.com) (EQ URL /search) (EQ SRC-IP 114.114.114.114))
----
+local operation = require "operation"
+local type = type
+local string_char = string.char
+local string_byte = string.byte
+local string_sub = string.sub
+local table_insert = table.insert
+local table_remove = table.remove
+
 local _M = {}
 
 local function tokenizer(raw_dsl)
     local tokens = {}
     local next_token_beg = 1
+    local insert_idx = 1
     for i = 1, #raw_dsl do
-        if(string.char(raw_dsl:byte(i)) == "(") then
-            table.insert(tokens, "(")
+        if(string_char(string_byte(raw_dsl, i)) == "(") then
+            tokens[insert_idx] = "("
+            insert_idx = insert_idx + 1
             next_token_beg = i + 1
-        elseif(string.char(raw_dsl:byte(i)) == " ") then
-            local token = raw_dsl:sub(next_token_beg, i - 1)
+        elseif(string_char(string_byte(raw_dsl, i)) == " ") then
+            local token = string_sub(raw_dsl, next_token_beg, i - 1)
             if(#token ~= 0 and token ~= " " and token ~= ")") then
-                table.insert(tokens, token)
+                tokens[insert_idx] = token
+                insert_idx = insert_idx + 1
             end
             next_token_beg = i + 1
-        elseif (string.char(raw_dsl:byte(i)) == ")") then
-            local token = raw_dsl:sub(next_token_beg, i - 1)
+        elseif (string_char(string_byte(raw_dsl, i)) == ")") then
+            local token = string_sub(raw_dsl, next_token_beg, i - 1)
             if(#token ~= 0 and token ~= " " and token ~= ")") then
-                table.insert(tokens, token)
+                tokens[insert_idx] = token
+                insert_idx = insert_idx + 1
             end
-            table.insert(tokens, ")")
+            tokens[insert_idx] = ")"
+            insert_idx = insert_idx + 1
             next_token_beg = i + 1
         end
     end
@@ -36,34 +48,41 @@ local function parse(tokens)
         return nil, "unexpected EOF while parsing"
     end
 
-    local token = table.remove(tokens, 1)
+    local token = table_remove(tokens, 1)
     if(token == "(") then
         local exp = {}
         while tokens[1] ~= ")" do
-            table.insert(exp, parse(tokens))
+            local t, err = parse(tokens)
+            if err then
+                return nil, err
+            end
+            table_insert(exp, t)
         end
-        table.remove(tokens, 1)
-        return exp
+        table_remove(tokens, 1)
+        return exp, nil
     else
-        return token
+        return token, nil
     end
 end
 
 local function eval(ast)
     local op = ast[1]
     local args = {}
+    local insert_idx = 1
     for i = 2, #ast do
         local token = ast[i]
         local token_type = type(token)
         if(token_type == "string") then
-            table.insert(args, ast[i])
+            args[insert_idx]  = ast[i]
+            insert_idx = insert_idx + 1
         elseif(token_type == "boolean") then
             if(op == "AND" and token == false) then
                 return false, nil
             elseif(op == "OR" and token == true) then
                 return true, nil
             else
-                table.insert(args, ast[i])
+                args[insert_idx]  = ast[i]
+                insert_idx = insert_idx + 1
             end
         elseif(token_type == "table") then
             local result, err = eval(ast[i])
@@ -75,13 +94,13 @@ local function eval(ast)
                         return true, nil
                     end
                 end
-                table.insert(args, result)
+                args[insert_idx]  = result
+                insert_idx = insert_idx + 1
             else
                 return false, err
             end
         end
     end
-    local operation = require("operation")
     return operation.eval(op, args)
 end
 

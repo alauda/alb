@@ -12,11 +12,14 @@ data:
     # Disable checking of client request body size
     client_max_body_size 0;
 
-    # Lua to load policy and cert
+    # Lua shared dict
     lua_code_cache on;
-    lua_package_path '/usr/local/openresty/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
-    lua_shared_dict http_policy 5m;
-    lua_shared_dict certs_cache 10m;
+    lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_package_cpath '/usr/local/lib/lua/?.so;;';
+    lua_shared_dict http_policy   10m;
+    lua_shared_dict http_certs_cache   10m;
+    lua_shared_dict http_backend_cache 5m;
+    lua_shared_dict http_alb_cache     25m;
 
     proxy_connect_timeout      5s;
     proxy_send_timeout         60s;
@@ -55,6 +58,16 @@ data:
     ssl_dhparam /etc/ssl/dhparam.pem;
     ssl_ecdh_curve secp384r1;
   stream: |
+    # Lua shared dict
+    lua_code_cache on;
+    lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_package_cpath '/usr/local/lib/lua/?.so;;';
+    lua_shared_dict stream_policy   10m;
+    lua_shared_dict stream_backend_cache 5m;
+    lua_shared_dict stream_alb_cache     25m;
+
     proxy_connect_timeout      5s;
     proxy_timeout              60s;
     tcp_nodelay                on;
+  upstream: |
+    keepalive 320;

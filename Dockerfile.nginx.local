@@ -4,18 +4,20 @@ COPY . src/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alb2
 RUN go build -ldflags "-w -s" -v -o /migrate alb2/migrate
 
-# TODO: 需要更新下镜像
-FROM index.alauda.cn/alaudaorg/alb-nginx:e8c28e64d0a7674224b3fb1496514233df04e0e5
+FROM index.alauda.cn/alaudaorg/alb-nginx:87d46ecaacffcfca6bb4b644a4ce5c4801c7e68e
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
 ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
 ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
-ENV OLD_POLICY_PATH /usr/local/openresty/nginx/conf/policy
 ENV INTERVAL 5
+ENV SYNC_POLICY_INTERVAL 5
+ENV SYNC_BACKEND_INTERVAL 1
 ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
+
+RUN apk add jq
 
 CMD ["/run.sh"]
 
@@ -27,7 +29,7 @@ RUN mkdir -p /var/log/mathilde && \
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
-COPY ./template/nginx.tmpl /alb/template/nginx/nginx.tmpl
+COPY ./template/nginx /alb/template/nginx
 COPY --from=0 alb /alb/alb
 COPY --from=0 migrate /alb/migrate
 COPY alauda /etc/logrotate.d/alauda

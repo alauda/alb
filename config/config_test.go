@@ -22,7 +22,6 @@ func TestEnvConfig(t *testing.T) {
 		"OLD_CONFIG_PATH":     "old",
 		"NGINX_TEMPLATE_PATH": "tpl",
 		"NEW_POLICY_PATH":     "new",
-		"OLD_POLICY_PATH":     "old",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
 	}
@@ -57,7 +56,6 @@ func TestStandAlone(t *testing.T) {
 		"OLD_CONFIG_PATH":     "old",
 		"NGINX_TEMPLATE_PATH": "tpl",
 		"NEW_POLICY_PATH":     "new",
-		"OLD_POLICY_PATH":     "old",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
 	}
