@@ -130,7 +130,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		}
 
 		// set default rule if exists
-		if frontend.BackendGroup != nil {
+		if frontend.BackendGroup != nil  && frontend.BackendGroup.Backends!=nil{
 			glog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
 			policy := Policy{}
 			policy.Rule = DEFAULT_RULE
