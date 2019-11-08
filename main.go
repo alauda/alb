@@ -115,24 +115,26 @@ func main() {
 }
 
 func rotateLog(ctx context.Context) {
-	glog.Info("rotateLog start")
+	rotateInterval := config.GetInt("ROTATE_INTERVAL")
+	glog.Info("rotateLog start, rotate interval ", rotateInterval)
 	for {
 		select {
 		case <-ctx.Done():
 			glog.Info("rotateLog exit")
 			return
-		case <-time.After(30 * time.Minute):
-			err := utils.RotateGlog(time.Now().Add(-time.Duration(30 * time.Minute)))
+		case <-time.After(time.Duration(rotateInterval) * time.Minute):
+			err := utils.RotateGlog(time.Now().Add(-time.Duration(rotateInterval) * time.Minute))
 			if err != nil {
 				glog.Errorf("rotate glog failed, %+v", err)
 			}
 			// Do nothin
 		}
+		glog.Info("start rorate log")
 		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()
 		if err != nil {
-			glog.Errorf("Rotate log failed %s %v", output, err)
+			glog.Errorf("rotate log failed %s %v", output, err)
 		} else {
-			glog.Info("Rotate log success")
+			glog.Info("rotate log success")
 		}
 	}
 }

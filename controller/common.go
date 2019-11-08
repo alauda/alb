@@ -108,7 +108,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			var rules RuleList
 			for _, rule := range ft.Rules {
 				if len(rule.Services) == 0 {
-					glog.Infof("skip rule %s.", rule.RuleID)
+					glog.Warningf("skip rule %s.", rule.RuleID)
 					continue
 				}
 				rule.BackendGroup = &BackendGroup{
@@ -131,7 +131,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			}
 
 			if len(ft.Services) == 0 {
-				glog.Infof("skip frontend %s because no backend found.",
+				glog.Warningf("skip frontend %s because no default service found.",
 					ft.String())
 				continue
 			}
@@ -190,7 +190,8 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 	for _, ft := range loadbalancer.Frontends {
 		conflict := false
 		for _, port := range listenTCPPorts {
-			if ft.Port == int(port) {
+			if ft.Port == port {
+				glog.Warningf("skip port: %d due to conflict", ft.Port)
 				conflict = true
 				break
 			}
@@ -255,7 +256,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		if isValid {
 			result.Frontends[ft.Port] = ft
 		} else {
-			glog.Infof("Skip invalid frontend %s.", ft.String())
+			glog.Warningf("Skip invalid frontend %s.", ft.String())
 		}
 	} // end of  _, ft := range loadbalancer.Frontends
 

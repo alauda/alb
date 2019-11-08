@@ -7,7 +7,7 @@ version:
 	git diff --quiet HEAD --
 	git describe --long > VERSION
 
-images: gen-code lint version
+images: gen-code lint test version
 	docker build -t index.alauda.cn/alaudaorg/alb2:`cat VERSION` -f Dockerfile.nginx.local .
 	docker image prune -f
 
