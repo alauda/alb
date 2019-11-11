@@ -1,7 +1,6 @@
 FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.12.9-alpine3.9.4
 WORKDIR $GOPATH
 COPY . src/alb2
-RUN cd src/alb2 && make test && cd $GOPATH
 RUN go build -ldflags "-w -s" -v -o /alb alb2
 RUN go build -ldflags "-w -s" -v -o /migrate alb2/migrate
 
@@ -13,6 +12,7 @@ ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
 ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
 ENV OLD_POLICY_PATH /usr/local/openresty/nginx/conf/policy
 ENV INTERVAL 5
+ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
 

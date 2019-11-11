@@ -2,9 +2,8 @@ package config
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/spf13/viper"
+	"strings"
 )
 
 const (
@@ -43,6 +42,7 @@ var optionalFields = []string{
 	"USE_POD_HOST_IP",
 	"MY_POD_NAME",
 	"ENABLE_GC",
+	"ROTATE_INTERVAL",
 }
 
 var nginxRequiredFields = []string{

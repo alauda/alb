@@ -45,11 +45,6 @@ required = [
   version = "0.4"
 
 [[constraint]]
-  name = "github.com/cakturk/go-netstat"
-  source = "github.com/halfcrazy/go-netstat"
-  branch = "feat/expose-process-info"
-
-[[constraint]]
   name = "github.com/evanphx/json-patch"
   version = "v4.5.0"
 
