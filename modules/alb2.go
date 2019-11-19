@@ -15,6 +15,7 @@ type AlaudaLoadBalancer struct {
 	Name      string
 	Namespace string
 	Frontends []*Frontend
+	TweakHash string
 }
 
 func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend, error) {

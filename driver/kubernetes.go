@@ -206,7 +206,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 		}
 	}
 	sort.Sort(ByBackend(service.Backends))
-	glog.Infof("backends of svc %s: %+v", name, service.Backends)
+	glog.V(3).Infof("backends of svc %s: %+v", name, service.Backends)
 	if len(service.Backends) == 0 {
 		glog.Warningf("service %s has 0 backends, means has no health pods", name)
 	}

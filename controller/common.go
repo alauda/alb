@@ -182,6 +182,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		Frontends:      make(map[int]*Frontend),
 		BackendGroup:   []*BackendGroup{},
 		CertificateMap: make(map[string]Certificate),
+		TweakHash:      loadbalancer.TweakHash,
 	}
 	listenTCPPorts, err := utils.GetListenTCPPorts()
 	if err != nil {
@@ -193,6 +194,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			if ft.Port == port {
 				glog.Warningf("skip port: %d due to conflict", ft.Port)
 				conflict = true
+				glog.Errorf("skip port: %d has conflict", ft.Port)
 				break
 			}
 		}
@@ -325,8 +327,10 @@ func setLastReloadStatus(status, statusFileParentPath string) error {
 func getLastReloadStatus(statusFileParentPath string) string {
 	successStatusFilePath := path.Join(statusFileParentPath, SUCCESS)
 	if _, err := os.Stat(successStatusFilePath); err == nil {
+		glog.Info("last reload status", SUCCESS)
 		return SUCCESS
 	}
+	glog.Info("last reload status", FAILED)
 	return FAILED
 }
 

@@ -19,7 +19,6 @@ NAME = "test1"
 NAMESPACE = "default"
 NGINX_TEMPLATE_PATH = "template/nginx/nginx.tmpl"
 NEW_POLICY_PATH = "policy.new"
-OLD_POLICY_PATH = "policy"
 
 [labels]
 bindkey = "loadbalancer.alauda.io/bind"

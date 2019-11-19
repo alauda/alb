@@ -50,7 +50,6 @@ func main() {
 		}
 	}
 
-	go controller.RegisterLoop(ctx)
 	go ingress.MainLoop(ctx)
 	go func() {
 		// for profiling

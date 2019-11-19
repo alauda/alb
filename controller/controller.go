@@ -21,6 +21,10 @@ const (
 	ProtocolTCP   = "tcp"
 	ProtocolUDP   = "udp"
 
+	SubsystemHTTP   = "http"
+	SubsystemStream = "stream"
+	SubsystemDgram  = "dgram"
+
 	PolicySIPHash = "sip-hash"
 	PolicyCookie  = "cookie"
 )
@@ -55,6 +59,7 @@ type LoadBalancer struct {
 	Version        int         `json:"version"`
 	Frontends      []*Frontend `json:"frontends"`
 	DomainInfo     []Domain    `json:"domain_info"`
+	TweakHash      string      `json:"-"`
 }
 
 func (lb *LoadBalancer) String() string {
@@ -88,9 +93,9 @@ func (ft *Frontend) String() string {
 }
 
 type Backend struct {
-	Address string
-	Port    int
-	Weight  int
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	Weight  int    `json:"weight"`
 }
 
 const (
@@ -99,11 +104,11 @@ const (
 )
 
 type BackendGroup struct {
-	Name                     string
-	SessionAffinityPolicy    string
-	SessionAffinityAttribute string
-	Mode                     string
-	Backends                 []*Backend
+	Name                     string     `json:"name"`
+	SessionAffinityPolicy    string     `json:"session_affinity_policy"`
+	SessionAffinityAttribute string     `json:"session_affinity_attribute"`
+	Mode                     string     `json:"mode"`
+	Backends                 []*Backend `json:"backends"`
 }
 
 type BackendService struct {
@@ -154,6 +159,7 @@ type Config struct {
 	BackendGroup   []*BackendGroup
 	RecordPostBody bool
 	CertificateMap map[string]Certificate
+	TweakHash      string
 }
 
 var (
@@ -212,7 +218,7 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 	}
 	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
 	loadBalancersCache, _ = json.Marshal(loadBalancers)
-	glog.Infof("Get Loadbalancers: %s", string(loadBalancersCache))
+	glog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
 	return loadBalancers, err
 }
 
@@ -229,7 +235,6 @@ func GetController() (Controller, error) {
 			NewConfigPath: config.Get("NEW_CONFIG_PATH"),
 			OldConfigPath: config.Get("OLD_CONFIG_PATH"),
 			NewPolicyPath: config.Get("NEW_POLICY_PATH"),
-			OldPolicyPath: config.Get("OLD_POLICY_PATH"),
 			BackendType:   d.GetType(),
 			BinaryPath:    config.Get("NGINX_BIN_PATH"),
 			Driver:        d}, nil

@@ -12,6 +12,7 @@ import (
 
 	"github.com/evanphx/json-patch"
 	"github.com/golang/glog"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -189,6 +190,12 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	}
 	alb2.UID = alb2Res.UID
 	alb2.Spec = alb2Res.Spec
+	cm, err := kd.LoadConfigmap(namespace, name)
+	if err != nil {
+		glog.Error(err)
+		return nil, err
+	}
+	alb2.TweakHash = cm.ResourceVersion
 
 	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
@@ -238,12 +245,12 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup) (map[s
 		if _, ok := data[key]; !ok {
 			service, err := kd.GetServiceByName(svc.Namespace, svc.Name, svc.Port)
 			if err != nil {
-				glog.Infof("Get service address for %s.%s:%d failed:%s",
+				glog.Errorf("Get service address for %s.%s:%d failed:%s",
 					svc.Namespace, svc.Name, svc.Port, err.Error(),
 				)
 				continue
 			}
-			glog.Infof("Get serivce %+v", *service)
+			glog.V(4).Infof("Get serivce %+v", *service)
 			data[key] = service
 		}
 	}
@@ -314,4 +321,13 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) e
 	}
 
 	return nil
+}
+
+func (kd *KubernetesDriver) LoadConfigmap(namespace, lbname string) (*corev1.ConfigMap, error) {
+	cm, err := kd.Client.CoreV1().ConfigMaps(namespace).Get(lbname, metav1.GetOptions{})
+	if err != nil {
+		glog.Error(err)
+		return nil, err
+	}
+	return cm, nil
 }

@@ -1,26 +1,19 @@
 package controller
 
 import (
-	"alb2/config"
-	"alb2/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
 	"text/template"
-	"time"
 
-	"fmt"
-	"io/ioutil"
+	"alb2/config"
+	"alb2/driver"
 
 	"github.com/golang/glog"
-	"github.com/parnurzeal/gorequest"
-)
-
-var (
-	NginxRequest = gorequest.New().Timeout(5 * time.Second)
 )
 
 const DEFAULT_RULE = "(STARTS_WITH URL /)"
@@ -31,14 +24,8 @@ type NginxController struct {
 	NewConfigPath string
 	OldConfigPath string
 	NewPolicyPath string
-	OldPolicyPath string
 	BinaryPath    string
 	Driver        *driver.KubernetesDriver
-}
-
-type TrafficRule struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
 }
 
 type Policy struct {
@@ -47,11 +34,13 @@ type Policy struct {
 	URL           string `json:"url"`
 	RewriteTarget string `json:"rewrite_target"`
 	Priority      int    `json:"priority"`
+	Subsystem     string `json:"subsystem"`
 }
 
 type NgxPolicy struct {
 	CertificateMap map[string]Certificate `json:"certificate_map"`
 	PortMap        map[int]Policies       `json:"port_map"`
+	BackendGroup   []*BackendGroup        `json:"backend_group"`
 }
 
 type Policies []*Policy
@@ -69,16 +58,14 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 	ngxPolicy := NgxPolicy{
 		CertificateMap: config.CertificateMap,
 		PortMap:        make(map[int]Policies),
+		BackendGroup:   config.BackendGroup,
 	}
 	for port, frontend := range config.Frontends {
-		if frontend.Protocol == ProtocolTCP {
-			continue
-		}
-		glog.Infof("Frontend is %+v", frontend)
+		glog.V(3).Infof("Frontend is %+v", frontend)
 		if _, ok := ngxPolicy.PortMap[port]; !ok {
 			ngxPolicy.PortMap[port] = Policies{}
 		}
-		glog.Infof("Rules are %+v", frontend.Rules)
+		glog.V(4).Infof("Rules are %+v", frontend.Rules)
 		for _, rule := range frontend.Rules {
 			if rule.BackendGroup == nil {
 				continue
@@ -110,8 +97,13 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				continue
 			}
 
-			glog.Infof("Rule is %v", rule)
+			glog.V(3).Infof("Rule is %v", rule)
 			policy := Policy{}
+			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
+				policy.Subsystem = SubsystemHTTP
+			} else if frontend.Protocol == ProtocolTCP {
+				policy.Subsystem = SubsystemStream
+			}
 			// it's using id as the name of certificate file now..
 			policy.Rule = rule.DSL
 			if rule.Priority != 0 {
@@ -127,10 +119,17 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		}
 
 		// set default rule if exists
-		if frontend.BackendGroup != nil {
-			glog.Infof("Default rule is %v", frontend.BackendGroup)
+		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
+			glog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
 			policy := Policy{}
-			policy.Rule = DEFAULT_RULE
+			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
+				policy.Subsystem = SubsystemHTTP
+			} else if frontend.Protocol == ProtocolTCP {
+				policy.Subsystem = SubsystemStream
+			}
+			if frontend.Protocol != ProtocolTCP {
+				policy.Rule = DEFAULT_RULE
+			}
 			policy.Upstream = frontend.BackendGroup.Name
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
@@ -219,10 +218,6 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 		}
 	}()
 
-	// As updatePolicyAndCerts is a cheap operation,
-	// always update policy to avoid some failure.
-	defer nc.updatePolicy()
-
 	pids, err := CheckProcessAlive(nc.BinaryPath)
 	if err != nil && err.Error() != "exit status 1" {
 		glog.Errorf("failed to check nginx aliveness: %s", err.Error())
@@ -277,40 +272,6 @@ func (nc *NginxController) reload() error {
 		glog.Errorf("start nginx failed: %s %v", output, err)
 	}
 	return err
-}
-
-func (nc *NginxController) updatePolicy() error {
-	policyUrl := "http://127.0.0.1:1936/policies"
-	resp, body, errs := NginxRequest.Get(policyUrl).End()
-	if len(errs) > 0 {
-		glog.Errorf("Get nginx policy failed %v", errs)
-		return errs[0]
-	}
-	if resp.StatusCode != 200 {
-		glog.Errorf("Get nginx policy failed %s", body)
-		return errors.New(body)
-	}
-	oldPolicy := []byte(body)
-	newPolicy, err := ioutil.ReadFile(nc.NewPolicyPath)
-	if err != nil {
-		glog.Errorf("failed to open policy file %v", err)
-	}
-	if len(newPolicy) > 0 && !jsonEqual(oldPolicy, newPolicy) {
-		glog.Infof("Policy changed, old policy is: \n %s", oldPolicy)
-		glog.Infof("Policy changed, new policy is: \n %s", newPolicy)
-		resp, body, errs = NginxRequest.Put(policyUrl).Send(string(newPolicy)).End()
-		if len(errs) > 0 {
-			glog.Errorf("Update nginx policy failed %v", errs)
-			return errs[0]
-		}
-		if resp.StatusCode != 200 {
-			glog.Errorf("update nginx policy failed %s", body)
-			return errors.New(body)
-		}
-	} else {
-		glog.Info("Nginx policy not change.")
-	}
-	return nil
 }
 
 func (nc *NginxController) GC() error {
