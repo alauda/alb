@@ -4,6 +4,5 @@ RUN luarocks install busted && \
     luarocks install luacov && \
     luarocks install lua-resty-http
 
-COPY busted /usr/local/bin/busted
-RUN chmod +x /usr/local/bin/busted
+ENV LUA_PATH $LUA_PATH;/alb-nginx/lua/?.lua
 WORKDIR /alb-nginx

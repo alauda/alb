@@ -1,0 +1,52 @@
+--- ../template/nginx/lua/operation.lua	2019-11-20 16:57:50.000000000 +0800
++++ ../template/nginx/lua/operation_for_test.lua	2019-11-20 16:57:46.000000000 +0800
+@@ -11,8 +11,7 @@
+ local table_insert = table.insert
+ local string_format = string.format
+ local ngx_re = ngx.re
+-local ngx_var = ngx.var
+-local ngx_req = ngx.req
++
+ local _M = {}
+ 
+ local bool_op = {
+@@ -28,11 +27,11 @@
+ 
+ local function parse_single_matcher(matcher)
+     if(matcher == "HOST") then
+-        return ngx_var.host
++        return ngx.var.host
+     elseif(matcher == "URL") then
+-        return ngx_var.uri
++        return ngx.var.uri
+     elseif(matcher == "SRC_IP") then
+-        local h = ngx_req.get_headers()
++        local h = ngx.req.get_headers()
+         local x_real_ip = h['x-real-ip']
+         if x_real_ip then
+           return x_real_ip
+@@ -47,7 +46,7 @@
+             return x_forwarded_for
+           end
+         end
+-        return ngx_var.remote_addr
++        return ngx.var.remote_addr
+     else
+         return nil
+     end
+@@ -72,12 +71,12 @@
+ 
+ local function parse_dual_matcher(matcher, key)
+     if(matcher == "HEADER") then
+-        return ngx_var["http_" .. transform_hyphen(key)]
++        return ngx.var["http_" .. transform_hyphen(key)]
+     elseif(matcher == "PARAM") then
+-        return ngx_req.get_uri_args()[key]
++        return ngx.req.get_uri_args()[key]
+     elseif(matcher == "COOKIE") then
+         local cookie_name = "cookie_" .. key
+-        return ngx_var[cookie_name]
++        return ngx.var[cookie_name]
+     else
+         return nil
+     end

@@ -1,5 +1,7 @@
 .PHONY: clean run lint unitest test build-ci build-nginx build push bundle version
 
+CI_IMAGE=index.alauda.cn/alaudaorg/alb-nginx-test:t2
+
 version:
 	git diff --quiet HEAD --
 	git rev-parse HEAD > VERSION
@@ -9,13 +11,15 @@ clean:
 
 int-test: clean
 	docker-compose up -d
-	docker run --rm --net=host --name=luatest -v $(PWD):/alb-nginx luaci busted -v -c test/integration
+	docker run --rm --net=host --name=luatest -v $(PWD):/alb-nginx ${CI_IMAGE} busted -v -c test/integration
 
 lint:
-	docker run --rm --name=luacheck -v $(PWD):/alb-nginx luaci luacheck .
+	docker run --rm --name=luacheck -v $(PWD):/alb-nginx -v $(PWD)/../template/nginx/lua:/alb-nginx/lua ${CI_IMAGE} luacheck .
 
 unit-test:
-	docker run --rm --name=luatest -v $(PWD):/alb-nginx luaci busted -v -c test/unit
+	patch -d../template/nginx/lua/ -p4 < test_patch
+	docker run --rm --name=luatest -v $(PWD):/alb-nginx -v $(PWD)/../template/nginx/lua:/alb-nginx/lua -v $(PWD)/busted:/usr/local/bin/busted ${CI_IMAGE}  busted -v -c test/unit
+	git checkout ../template/nginx/lua/operation.lua
 
 coverage:
 	luacov template/nginx/lua/certs.lua
@@ -24,7 +28,7 @@ coverage:
 test: lint unit-test int-test coverage
 
 build-ci:
-	docker build -t luaci -f Dockerfile.ci .
+	docker build -t ${CI_IMAGE} -f Dockerfile.ci .
 
 build-nginx: version
 	docker build -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile.nginx .

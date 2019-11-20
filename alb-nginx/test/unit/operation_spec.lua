@@ -19,7 +19,9 @@ describe("operation unit test", function()
         }
 
         ngx.req = {
-            get_uri_args = function() return {UID = "100"} end
+            get_uri_args = function() return {UID = "100"} end,
+            get_headers = function() return {} end
+
         }
         local test_table = {
             {"AND", {true, false}, false, nil},
@@ -60,7 +62,8 @@ describe("operation unit test", function()
     it("matcher not exists condition test", function ()
         ngx.var = {}
         ngx.req = {
-            get_uri_args = function() return {} end
+            get_uri_args = function() return {} end,
+            get_headers = function() return {} end
         }
         local test_table = {
             {"EQ", {"HOST", "www.baidu.com"}, false, nil},

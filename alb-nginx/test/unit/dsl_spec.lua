@@ -11,14 +11,11 @@ describe("DSL unit test", function()
             host = "www.baidu.com",
             uri  = "/search",
             remote_addr = "2.2.2.2",
-            http_test_header = "test-header",
-            http_UID = "100",
-            http_UUID = "x",
-            cookie_test_cookie = "test-cookie"
+            http_UID = 500,
         }
 
         ngx.req = {
-            get_uri_args = function() return {UID = "100"} end
+            get_headers = function() return {} end
         }
 
         local result, err = dsl.eval(dsl.generate_ast("(AND (OR (EQ HOST baidu.com) (EQ HOST www.baidu.com)) (STARTS_WITH URL /search) (EQ SRC_IP 2.2.2.2) (RANGE HEADER UID 10 1000))"))
