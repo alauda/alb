@@ -201,13 +201,13 @@ func (c *Controller) enqueue(obj interface{}) {
 // It then enqueues that Foo resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
 func (c *Controller) handleObject(obj interface{}) {
-	err := ctl.TryLockAlb()
+	isLeader, err := ctl.IsLocker()
 	if err != nil {
-		if err == ctl.ErrAlbInUse {
-			// I'm not master, ignore event
-			return
-		}
-		glog.Errorf("Lock alb failed: %s", err.Error())
+		glog.Errorf("not leader: %s", err.Error())
+		return
+	}
+	if !isLeader {
+		return
 	}
 	var object metav1.Object
 	var ok bool
