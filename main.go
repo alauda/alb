@@ -67,6 +67,10 @@ func main() {
 		ch := make(chan string)
 
 		go func() {
+			err := controller.TryLockAlb()
+			if err != nil {
+				glog.Error("lock alb failed", err.Error())
+			}
 			ctl, err := controller.GetController()
 			if err != nil {
 				glog.Error(err.Error())

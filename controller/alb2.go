@@ -226,3 +226,35 @@ func TryLockAlb() error {
 	holdUntil = retryUntil(lockString)
 	return nil
 }
+
+func IsLocker() (bool, error) {
+	if myself == "" {
+		if config.Get("MY_POD_NAME") != "" {
+			myself = config.Get("MY_POD_NAME")
+		} else {
+			myself = RandomStr("", 8)
+		}
+	}
+	name := config.Get("NAME")
+	namespace := config.Get("NAMESPACE")
+	driver, err := driver.GetDriver()
+	if err != nil {
+		return false, err
+	}
+	albRes, err := driver.LoadAlbResource(namespace, name)
+	if err != nil {
+		glog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
+		return false, err
+	}
+	if albRes.Annotations == nil {
+		albRes.Annotations = make(map[string]string)
+	}
+	lockString, ok := albRes.Annotations[config.Get("labels.lock")]
+	if ok {
+		if !locked(lockString, myself) {
+			return true, nil
+		}
+		return false, ErrAlbInUse
+	}
+	return false, nil
+}
