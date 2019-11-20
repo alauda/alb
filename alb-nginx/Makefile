@@ -10,6 +10,7 @@ clean:
 	docker-compose down
 
 int-test: clean
+	# FIXME: intergration test
 	docker-compose up -d
 	docker run --rm --net=host --name=luatest -v $(PWD):/alb-nginx ${CI_IMAGE} busted -v -c test/integration
 
