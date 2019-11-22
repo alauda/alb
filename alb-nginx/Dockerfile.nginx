@@ -44,7 +44,7 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-threads \
     "
 
-ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/nginx-module-vts"
+ARG RESTY_CONFIG_OPTIONS_MORE=""
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
@@ -126,7 +126,6 @@ RUN \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
-    && git clone https://github.com/vozlt/nginx-module-vts.git --depth=1 \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
     && cd /tmp/openresty-${RESTY_VERSION} \

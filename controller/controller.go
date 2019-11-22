@@ -151,15 +151,16 @@ func (rl RuleList) Less(i, j int) bool {
 }
 
 type Config struct {
-	Name           string
-	Address        string
-	BindAddress    string
-	LoadBalancerID string
-	Frontends      map[int]*Frontend
-	BackendGroup   []*BackendGroup
-	RecordPostBody bool
-	CertificateMap map[string]Certificate
-	TweakHash      string
+	Name             string
+	Address          string
+	BindAddress      string
+	LoadBalancerID   string
+	Frontends        map[int]*Frontend
+	BackendGroup     []*BackendGroup
+	RecordPostBody   bool
+	CertificateMap   map[string]Certificate
+	TweakHash        string
+	EnablePrometheus bool
 }
 
 var (
