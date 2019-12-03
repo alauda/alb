@@ -78,6 +78,18 @@ func MainLoop(ctx context.Context) {
 		drv,
 		kubeInformerFactory.Extensions().V1beta1().Ingresses(),
 	)
+	interval := config.GetInt("INTERVAL")
+	for {
+		time.Sleep(time.Duration(interval) * time.Second)
+		isLeader, err := ctl.IsLocker()
+		if err != nil {
+			glog.Errorf("not leader: %s", err.Error())
+			continue
+		}
+		if isLeader {
+			break
+		}
+	}
 
 	kubeInformerFactory.Start(ctx.Done())
 
