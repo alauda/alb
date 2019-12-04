@@ -86,4 +86,22 @@ function _M.get_nodes(backend)
     return nodes
 end
 
+-- http://nginx.org/en/docs/http/ngx_http_upstream_module.html#example
+-- CAVEAT: nginx is giving out : instead of , so the docs are wrong
+-- 127.0.0.1:26157 : 127.0.0.1:26157 , ngx.var.upstream_addr
+-- 200 : 200 , ngx.var.upstream_status
+-- 0.00 : 0.00, ngx.var.upstream_response_time
+function _M.split_upstream_var(var)
+  if not var then
+    return nil, nil
+  end
+  local t = {}
+  for v in var:gmatch("[^%s|,]+") do
+    if v ~= ":" then
+      t[#t+1] = v
+    end
+  end
+  return t
+end
+
 return _M
