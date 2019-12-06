@@ -2,6 +2,7 @@ local common = require "common"
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
 local chash = require "balancer.chash"
+local sticky_cookie = require "balancer.sticky_balanced"
 local ngx_log = ngx.log
 local ngx_var = ngx.var
 local ngx_exit = ngx.exit
@@ -17,6 +18,7 @@ local DEFAULT_LB_ALG = "round_robin"
 local IMPLEMENTATIONS = {
     round_robin = round_robin,
     chash = chash,
+    sticky_cookie = sticky_cookie,
 }
 
 local function get_implementation(backend)
@@ -24,6 +26,8 @@ local function get_implementation(backend)
     if backend["session_affinity_policy"] ~= "" then
         if backend["session_affinity_policy"] == "sip-hash" then
             name = "chash"
+        elseif backend["session_affinity_policy"] == "cookie" then
+            name = "sticky_cookie"
         end
     end
     local implementation = IMPLEMENTATIONS[name]
@@ -42,7 +46,19 @@ local function sync_backend(backend)
 
     local implementation = get_implementation(backend)
     local balancer = balancers[backend.name]
-
+    --{
+    --  "mode": "http",
+    --  "session_affinity_attribute": "",
+    --  "name": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
+    --  "session_affinity_policy": "",
+    --  "backends": [
+    --    {
+    --      "port": 80,
+    --      "address": "10.16.12.9",
+    --      "weight": 100
+    --    }
+    --  ]
+    --}
     if not balancer then
         balancers[backend.name] = implementation:new(backend)
         return

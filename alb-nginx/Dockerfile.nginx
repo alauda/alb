@@ -53,6 +53,7 @@ ARG RESTY_EVAL_PRE_CONFIGURE=""
 ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm \
     && ln -s /usr/local/openresty/bin/resty /usr/local/bin/resty \
     && opm install thibaultcha/lua-resty-mlcache \
+    && opm install xiangnanscu/lua-resty-cookie \
     && curl -fSL https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz -o lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
     && tar xzf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz && rm -rf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
     && cd lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION} \

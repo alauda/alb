@@ -29,7 +29,8 @@ CODEGEN_PKG=$SCRIPT_ROOT/vendor/k8s.io/code-generator
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client" \
   alb2/pkg/client alb2/pkg/apis \
-  "alauda:v1,v3" # \
+  "alauda:v1,v3"  \
+  --go-header-file ${SCRIPT_ROOT}/hack/boilerplate.go.txt
 #  --output-base "$(dirname ${BASH_SOURCE})/../.."
 
 # To use your own boilerplate text append:
