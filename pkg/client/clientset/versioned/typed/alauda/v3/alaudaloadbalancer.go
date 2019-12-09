@@ -21,6 +21,7 @@ package v3
 import (
 	v3 "alb2/pkg/apis/alauda/v3"
 	scheme "alb2/pkg/client/clientset/versioned/scheme"
+	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -73,10 +74,15 @@ func (c *alaudaLoadBalancers) Get(name string, options v1.GetOptions) (result *v
 
 // List takes label and field selectors, and returns the list of AlaudaLoadBalancers that match those selectors.
 func (c *alaudaLoadBalancers) List(opts v1.ListOptions) (result *v3.AlaudaLoadBalancerList, err error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	result = &v3.AlaudaLoadBalancerList{}
 	err = c.client.Get().
 		Resource("alaudaloadbalancers").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Do().
 		Into(result)
 	return
@@ -84,10 +90,15 @@ func (c *alaudaLoadBalancers) List(opts v1.ListOptions) (result *v3.AlaudaLoadBa
 
 // Watch returns a watch.Interface that watches the requested alaudaLoadBalancers.
 func (c *alaudaLoadBalancers) Watch(opts v1.ListOptions) (watch.Interface, error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	opts.Watch = true
 	return c.client.Get().
 		Resource("alaudaloadbalancers").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Watch()
 }
 
@@ -126,9 +137,14 @@ func (c *alaudaLoadBalancers) Delete(name string, options *v1.DeleteOptions) err
 
 // DeleteCollection deletes a collection of objects.
 func (c *alaudaLoadBalancers) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	var timeout time.Duration
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	}
 	return c.client.Delete().
 		Resource("alaudaloadbalancers").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
+		Timeout(timeout).
 		Body(options).
 		Do().
 		Error()

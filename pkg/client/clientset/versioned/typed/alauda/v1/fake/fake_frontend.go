@@ -132,7 +132,7 @@ func (c *FakeFrontends) DeleteCollection(options *v1.DeleteOptions, listOptions 
 // Patch applies the patch and returns the patched frontend.
 func (c *FakeFrontends) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *alaudav1.Frontend, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(frontendsResource, c.ns, name, data, subresources...), &alaudav1.Frontend{})
+		Invokes(testing.NewPatchSubresourceAction(frontendsResource, c.ns, name, pt, data, subresources...), &alaudav1.Frontend{})
 
 	if obj == nil {
 		return nil, err

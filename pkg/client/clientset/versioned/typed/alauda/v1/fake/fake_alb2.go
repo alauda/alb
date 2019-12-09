@@ -132,7 +132,7 @@ func (c *FakeALB2s) DeleteCollection(options *v1.DeleteOptions, listOptions v1.L
 // Patch applies the patch and returns the patched aLB2.
 func (c *FakeALB2s) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *alaudav1.ALB2, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(alb2sResource, c.ns, name, data, subresources...), &alaudav1.ALB2{})
+		Invokes(testing.NewPatchSubresourceAction(alb2sResource, c.ns, name, pt, data, subresources...), &alaudav1.ALB2{})
 
 	if obj == nil {
 		return nil, err

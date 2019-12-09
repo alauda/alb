@@ -56,7 +56,7 @@ func (in *ALB2) DeepCopyObject() runtime.Object {
 func (in *ALB2List) DeepCopyInto(out *ALB2List) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ALB2, len(*in))
@@ -154,7 +154,7 @@ func (in *Frontend) DeepCopyObject() runtime.Object {
 func (in *FrontendList) DeepCopyInto(out *FrontendList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Frontend, len(*in))
@@ -279,7 +279,7 @@ func (in *Rule) DeepCopyObject() runtime.Object {
 func (in *RuleList) DeepCopyInto(out *RuleList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Rule, len(*in))

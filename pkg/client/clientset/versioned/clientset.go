@@ -31,8 +31,6 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CrdV1() crdv1.CrdV1Interface
 	CrdV3() crdv3.CrdV3Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Crd() crdv3.CrdV3Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -50,12 +48,6 @@ func (c *Clientset) CrdV1() crdv1.CrdV1Interface {
 
 // CrdV3 retrieves the CrdV3Client
 func (c *Clientset) CrdV3() crdv3.CrdV3Interface {
-	return c.crdV3
-}
-
-// Deprecated: Crd retrieves the default version of CrdClient.
-// Please explicitly pick a version.
-func (c *Clientset) Crd() crdv3.CrdV3Interface {
 	return c.crdV3
 }
 

@@ -21,6 +21,7 @@ package v1
 import (
 	v1 "alb2/pkg/apis/alauda/v1"
 	scheme "alb2/pkg/client/clientset/versioned/scheme"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -77,11 +78,16 @@ func (c *frontends) Get(name string, options metav1.GetOptions) (result *v1.Fron
 
 // List takes label and field selectors, and returns the list of Frontends that match those selectors.
 func (c *frontends) List(opts metav1.ListOptions) (result *v1.FrontendList, err error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	result = &v1.FrontendList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("frontends").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Do().
 		Into(result)
 	return
@@ -89,11 +95,16 @@ func (c *frontends) List(opts metav1.ListOptions) (result *v1.FrontendList, err 
 
 // Watch returns a watch.Interface that watches the requested frontends.
 func (c *frontends) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
 		Resource("frontends").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Watch()
 }
 
@@ -151,10 +162,15 @@ func (c *frontends) Delete(name string, options *metav1.DeleteOptions) error {
 
 // DeleteCollection deletes a collection of objects.
 func (c *frontends) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+	var timeout time.Duration
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("frontends").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
+		Timeout(timeout).
 		Body(options).
 		Do().
 		Error()

@@ -55,7 +55,7 @@ func (in *AlaudaLoadBalancer) DeepCopyObject() runtime.Object {
 func (in *AlaudaLoadBalancerList) DeepCopyInto(out *AlaudaLoadBalancerList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]AlaudaLoadBalancer, len(*in))

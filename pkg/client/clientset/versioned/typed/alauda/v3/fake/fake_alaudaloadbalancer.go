@@ -113,7 +113,7 @@ func (c *FakeAlaudaLoadBalancers) DeleteCollection(options *v1.DeleteOptions, li
 // Patch applies the patch and returns the patched alaudaLoadBalancer.
 func (c *FakeAlaudaLoadBalancers) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v3.AlaudaLoadBalancer, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(alaudaloadbalancersResource, name, data, subresources...), &v3.AlaudaLoadBalancer{})
+		Invokes(testing.NewRootPatchSubresourceAction(alaudaloadbalancersResource, name, pt, data, subresources...), &v3.AlaudaLoadBalancer{})
 	if obj == nil {
 		return nil, err
 	}
