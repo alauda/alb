@@ -4,5 +4,8 @@ if ngx ~= nil then
   ngx.exit = function()end
 end
 
+-- mute warning
+rawset(_G, 'lfs', false)
+
 -- Busted command-line runner
 require 'busted.runner'({ standalone = false })
