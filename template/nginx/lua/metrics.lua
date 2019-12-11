@@ -1,7 +1,8 @@
 local _M = {}
 
-local table_clear  = require("table.clear"),
+local table_clear  = require("table.clear")
 local prometheus = require "resty.prometheus"
+local tonumber = tonumber
 local ngx = ngx
 local ngx_var = ngx.var
 local ngx_log = ngx.log
@@ -15,16 +16,14 @@ function _M.init()
     _prometheus = prometheus.init("prometheus_metrics")
     _metrics.requests = _prometheus:counter(
       "nginx_http_requests_total", "Number of HTTP requests")
+    _metrics.mismatch_rule_requests = _prometheus:counter(
+      "nginx_http_mismatch_rule_requests_total", "Number of mistach rule requests", {"port"})
     _metrics.status = _prometheus:counter(
       "nginx_http_status", "HTTP status code per rule", {"rule", "status"})
-    _metrics.latency = _prometheus:histogram(
-      "nginx_http_request_duration_seconds", "HTTP request latency", {"rule"})
-    _metrics.request_sizes = _prometheus:histogram(
-      "nginx_http_request_size_bytes", "Size of HTTP requests", nil,
-      {10,100,1000,10000,100000,1000000})
-    _metrics.response_sizes = _prometheus:histogram(
-      "nginx_http_response_size_bytes", "Size of HTTP responses", nil,
-      {10,100,1000,10000,100000,1000000})
+    _metrics.request_sizes = _prometheus:counter(
+      "nginx_http_request_size_bytes", "Size of HTTP requests")
+    _metrics.response_sizes = _prometheus:counter(
+      "nginx_http_response_size_bytes", "Size of HTTP responses")
 end
 
 function _M.log()
@@ -32,10 +31,10 @@ function _M.log()
     local rule_name = ngx_var.rule_name
     if rule_name and rule_name ~= "" then
       _metrics.status:inc(1, rule_name, ngx_var.status)
-      local latency = (ngx.now() - ngx.req.start_time()) * 1000
-      _metrics.latency:observe(latency, rule_name)
-      _metrics.request_sizes:observe(ngx_var.request_sizes)
-      _metrics.response_sizes:observe(ngx_var.bytes_sent)
+      _metrics.request_sizes:inc(tonumber(ngx_var.request_length))
+      _metrics.response_sizes:inc(tonumber(ngx_var.bytes_sent))
+    else
+      _metrics.mismatch_rule_requests:inc(1, ngx_var.server_port)
     end
 end
 
