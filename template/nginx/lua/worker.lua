@@ -61,11 +61,11 @@ local function fetch_policy()
                 t = policy["subsystem"]
                 if policy["dsl"] and policy["dsl"] ~= "" then
                     --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
-                    local new_rule, err = dsl.generate_ast(policy["dsl"])
+                    local tokenized_dsl, err = dsl.generate_ast(policy["dsl"])
                     if err then
                         ngx_log(ngx.ERR, "failed to generate ast for ", policy["dsl"], err)
                     else
-                        policy["dsl"] = new_rule
+                        policy["dsl"] = tokenized_dsl
                     end
                     --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
                 end

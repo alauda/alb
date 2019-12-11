@@ -44,10 +44,11 @@ function _M.get_upstream(port)
                 --[
                 --  {
                 --    "priority": 100,
+                --    "rule": rule_name,
                 --    "upstream": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
                 --    "protocol": "http",
                 --    "url": "/s1",
-                --    "rule": [
+                --    "dsl": [
                 --      "AND",
                 --      [
                 --        "STARTS_WITH",
@@ -60,14 +61,14 @@ function _M.get_upstream(port)
                 --]
             end
             for _, policy in ipairs(policies) do
-                if(policy ~= nil and policy["rule"] ~= nil) then
-                    local match, err = dsl.eval(policy["rule"])
+                if(policy ~= nil and policy["dsl"] ~= nil) then
+                    local match, err = dsl.eval(policy["dsl"])
                     if(match) then
                         return policy["upstream"], policy, nil
                     end
 
                     if(err ~= nil ) then
-                        ngx.log(ngx.ERR, "eval dsl " .. common.json_encode(policy["rule"]) .. " failed " .. err)
+                        ngx.log(ngx.ERR, "eval dsl " .. common.json_encode(policy["dsl"]) .. " failed " .. err)
                     end
                 end
             end
