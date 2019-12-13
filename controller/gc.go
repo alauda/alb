@@ -4,6 +4,7 @@ import (
 	"alb2/config"
 	"alb2/driver"
 	m "alb2/modules"
+	"fmt"
 
 	alb2v1 "alb2/pkg/apis/alauda/v1"
 
@@ -31,7 +32,7 @@ func GCRule(kd *driver.KubernetesDriver) error {
 						needDel = true
 					}
 				} else {
-					jsonInfo := service.Annotations[config.Get("labels.bindkey")]
+					jsonInfo := service.Annotations[fmt.Sprintf(config.Get("labels.bindkey"), config.Get("DOMAIN"))]
 					if jsonInfo == "" || jsonInfo == "[]" {
 						needDel = true
 					}
@@ -65,7 +66,7 @@ func GCRule(kd *driver.KubernetesDriver) error {
 						}
 						if rl.Source.Type == m.TypeBind {
 							// handle service unbind lb in UI
-							jsonInfo := service.Annotations[config.Get("labels.bindkey")]
+							jsonInfo := service.Annotations[fmt.Sprintf(config.Get("labels.bindkey"), config.Get("DOMAIN"))]
 							if jsonInfo == "" || jsonInfo == "[]" {
 								needDel = true
 								break

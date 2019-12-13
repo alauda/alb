@@ -6,6 +6,7 @@ import (
 	m "alb2/modules"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -182,7 +183,7 @@ func TryLockAlb() error {
 	if albRes.Annotations == nil {
 		albRes.Annotations = make(map[string]string)
 	}
-	lockString, ok := albRes.Annotations[config.Get("labels.lock")]
+	lockString, ok := albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))]
 	if ok && locked(lockString, myself) {
 		// used by another pod of alb2
 		waitUntil = retryUntil(lockString)
@@ -196,7 +197,7 @@ func TryLockAlb() error {
 	}
 
 	lockString = newLock(myself, 90*time.Second)
-	albRes.Annotations[config.Get("labels.lock")] = lockString
+	albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))] = lockString
 	fts, err := driver.LoadFrontends(namespace, name)
 	if err != nil {
 		return err
@@ -249,7 +250,7 @@ func IsLocker() (bool, error) {
 	if albRes.Annotations == nil {
 		albRes.Annotations = make(map[string]string)
 	}
-	lockString, ok := albRes.Annotations[config.Get("labels.lock")]
+	lockString, ok := albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))]
 	if ok {
 		if !locked(lockString, myself) {
 			return true, nil

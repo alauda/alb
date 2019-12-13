@@ -93,7 +93,7 @@ func main() {
 				Name:      ftName,
 				Namespace: NewNamespace,
 				Labels: map[string]string{
-					config.Get("labels.name"): Name,
+					fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): Name,
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					metav1.OwnerReference{
@@ -149,8 +149,8 @@ func main() {
 					Name:      modules.RandomStr(ftName, 4),
 					Namespace: NewNamespace,
 					Labels: map[string]string{
-						config.Get("labels.name"):     Name,
-						config.Get("labels.frontend"): ftName,
+						fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     Name,
+						fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): ftName,
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						metav1.OwnerReference{
@@ -220,10 +220,9 @@ func ensureK8sEnv() {
 	}
 	Name = config.Get("NAME")
 
-	config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
-	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
-	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
-
+	config.Set("LABEL_SERVICE_ID", fmt.Sprintf("service.%s/uuid", config.Get("DOMAIN")))
+	config.Set("LABEL_SERVICE_NAME", fmt.Sprintf("service.%s/name", config.Get("DOMAIN")))
+	config.Set("LABEL_CREATOR", fmt.Sprintf("service.%s/createby", config.Get("DOMAIN")))
 }
 
 func getServiceByServiceID(k8sDriver *driver.KubernetesDriver, serviceID string, servicePort int) (*v1types.Service, error) {

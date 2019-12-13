@@ -22,6 +22,7 @@ var Config = map[string]string{}
 var requiredFields = []string{
 	"NAME",
 	"NAMESPACE",
+	"DOMAIN",
 }
 
 var optionalFields = []string{
