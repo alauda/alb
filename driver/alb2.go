@@ -49,8 +49,8 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 	if source == nil {
 		return
 	}
-	labels[config.Get("labels.source_type")] = source.Type
-	labels[config.Get("labels.source_name")] = fmt.Sprintf("%s.%s", source.Name, source.Namespace)
+	labels[fmt.Sprintf(config.Get("labels.source_type"), config.Get("DOMAIN"))] = source.Type
+	labels[fmt.Sprintf(config.Get("labels.source_name"), config.Get("DOMAIN"))] = fmt.Sprintf("%s.%s", source.Name, source.Namespace)
 }
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
@@ -76,7 +76,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 				},
 				Spec: ft.FrontendSpec,
 			}
-			ftRes.Labels[config.Get("labels.name")] = alb.Name
+			ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
 			UpdateSourceLabels(ftRes.Labels, ft.Source)
 			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
 			if err != nil {
@@ -88,7 +88,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 			return err
 		}
 	}
-	ftRes.Labels[config.Get("labels.name")] = alb.Name
+	ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
 	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
 	_, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
@@ -105,8 +105,8 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 			Name:      rule.Name,
 			Namespace: rule.FT.LB.Namespace,
 			Labels: map[string]string{
-				config.Get("labels.name"):     rule.FT.LB.Name,
-				config.Get("labels.frontend"): rule.FT.Name,
+				fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     rule.FT.LB.Name,
+				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): rule.FT.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				metav1.OwnerReference{
@@ -150,7 +150,7 @@ func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
 }
 
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
-	selector := fmt.Sprintf("%s=%s", config.Get("labels.name"), lbname)
+	selector := fmt.Sprintf("%s=%s", fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")), lbname)
 	resList, err := kd.ALBClient.CrdV1().Frontends(namespace).List(metav1.ListOptions{
 		LabelSelector: selector,
 	})
@@ -164,8 +164,8 @@ func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Fr
 func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
 	selector := fmt.Sprintf(
 		"%s=%s,%s=%s",
-		config.Get("labels.name"), lbname,
-		config.Get("labels.frontend"), ftname,
+		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")), lbname,
+		fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")), ftname,
 	)
 	resList, err := kd.ALBClient.CrdV1().Rules(namespace).List(metav1.ListOptions{
 		LabelSelector: selector,

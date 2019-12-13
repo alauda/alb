@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -34,9 +35,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	config.Set("LABEL_SERVICE_ID", "service.alauda.io/uuid")
-	config.Set("LABEL_SERVICE_NAME", "service.alauda.io/name")
-	config.Set("LABEL_CREATOR", "service.alauda.io/createby")
+	config.Set("LABEL_SERVICE_ID", fmt.Sprintf("service.%s/uuid", config.Get("DOMAIN")))
+	config.Set("LABEL_SERVICE_NAME", fmt.Sprintf("service.%s/name", config.Get("DOMAIN")))
+	config.Set("LABEL_CREATOR", fmt.Sprintf("service.%s/createby", config.Get("DOMAIN")))
 
 	d, err := driver.GetDriver()
 	if err != nil {
