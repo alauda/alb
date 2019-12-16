@@ -29,7 +29,6 @@ http {
                       '"$gzip_ratio" $request_time $bytes_sent $request_length';
     access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
     rewrite_log on;
-    vhost_traffic_status_zone;
 
     init_by_lua_block {
             require "resty.core"
@@ -40,6 +39,7 @@ http {
             else
               balancer = res
             end
+            require("metrics").init()
     }
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
@@ -48,12 +48,15 @@ http {
         listen [::]:1936;
 
         access_log off;
-        location /admin {
+
+        location /status {
             stub_status;
         }
-        location /status {
-            vhost_traffic_status_display;
-            vhost_traffic_status_display_format html;
+
+        location /metrics {
+            content_by_lua_block {
+                require("metrics").collect()
+            }
         }
 
         location /policies {
@@ -63,8 +66,8 @@ http {
         }
     }
 
-    {{range $port, $ft := .Frontends }}
-    {{if eq $ft.Protocol "http" -}}
+    {{range $port, $ft := .Frontends}}
+    {{if eq $ft.Protocol "http"}}
     server {
         listen      {{$port}} default_server;
         listen      [::]:{{$port}} default_server;
@@ -72,16 +75,23 @@ http {
 
         location / {
             set $upstream default;
+            set $rule_name "";
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass http://http_backend;
+
+            {{if $.EnablePrometheus}}
+            log_by_lua_block {
+                require("metrics").log()
+            }
+            {{end}}
         }
     }
 
-    {{- end -}}
-    {{- end -}}
+    {{end}}
+    {{end}}
 
-    {{range $port, $ft := .Frontends -}}
-    {{- if eq $ft.Protocol "https" }}
+    {{range $port, $ft := .Frontends}}
+    {{if eq $ft.Protocol "https"}}
     server {
         listen      {{$port}} ssl;
         listen      [::]:{{$port}} ssl;
@@ -96,12 +106,18 @@ http {
 
         location / {
             set $upstream default;
+            set $rule_name "";
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass http://http_backend;
+            {{if $.EnablePrometheus}}
+            log_by_lua_block {
+                require("metrics").log()
+            }
+            {{end}}
         }
     }
-    {{- end -}}
-    {{- end -}}
+    {{end}}
+    {{end}}
 
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
@@ -131,8 +147,8 @@ stream {
     }
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
-    {{- range $port, $ft := .Frontends}}
-    {{- if eq $ft.Protocol "tcp"}}
+    {{range $port, $ft := .Frontends}}
+    {{if eq $ft.Protocol "tcp"}}
     server {
         listen {{$port}};
         listen [::]:{{$port}};
@@ -140,8 +156,8 @@ stream {
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
         proxy_pass tcp_backend;
     }
-    {{- end}}
-    {{- end}}
+    {{end}}
+    {{end}}
 
     upstream tcp_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder

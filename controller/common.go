@@ -175,14 +175,15 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 	cfgLocker.Lock()
 	defer cfgLocker.Unlock()
 	result := Config{
-		Name:           loadbalancer.Name,
-		Address:        loadbalancer.Address,
-		BindAddress:    loadbalancer.BindAddress,
-		LoadBalancerID: loadbalancer.LoadBalancerID,
-		Frontends:      make(map[int]*Frontend),
-		BackendGroup:   []*BackendGroup{},
-		CertificateMap: make(map[string]Certificate),
-		TweakHash:      loadbalancer.TweakHash,
+		Name:             loadbalancer.Name,
+		Address:          loadbalancer.Address,
+		BindAddress:      loadbalancer.BindAddress,
+		LoadBalancerID:   loadbalancer.LoadBalancerID,
+		Frontends:        make(map[int]*Frontend),
+		BackendGroup:     []*BackendGroup{},
+		CertificateMap:   make(map[string]Certificate),
+		TweakHash:        loadbalancer.TweakHash,
+		EnablePrometheus: os.Getenv("ENABLE_PROMETHEUS") == "true",
 	}
 	listenTCPPorts, err := utils.GetListenTCPPorts()
 	if err != nil {

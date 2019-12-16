@@ -59,15 +59,15 @@ local function fetch_policy()
         for _, policy in ipairs(policies) do
             if policy then
                 t = policy["subsystem"]
-                if policy["rule"] and policy["rule"] ~= "" then
-                    --ngx.log(ngx.ERR, common.json_encode(policy["rule"]))
-                    local new_rule, err = dsl.generate_ast(policy["rule"])
+                if policy["dsl"] and policy["dsl"] ~= "" then
+                    --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
+                    local tokenized_dsl, err = dsl.generate_ast(policy["dsl"])
                     if err then
-                        ngx_log(ngx.ERR, "failed to generate ast for ", policy["rule"], err)
+                        ngx_log(ngx.ERR, "failed to generate ast for ", policy["dsl"], err)
                     else
-                        policy["rule"] = new_rule
+                        policy["dsl"] = tokenized_dsl
                     end
-                    --ngx.log(ngx.ERR, common.json_encode(policy["rule"]))
+                    --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
                 end
             end
         end
@@ -75,10 +75,11 @@ local function fetch_policy()
             --[
             --  {
             --    "priority": 100,
+            --    "rule": "rule_name_lorem",
             --    "upstream": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
             --    "subsystem": "http",
             --    "url": "/s1",
-            --    "rule": [
+            --    "dsl": [
             --      "AND",
             --      [
             --        "STARTS_WITH",

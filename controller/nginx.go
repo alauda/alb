@@ -30,6 +30,7 @@ type NginxController struct {
 
 type Policy struct {
 	Rule          string `json:"rule"`
+	DSL           string `json:"dsl"`
 	Upstream      string `json:"upstream"`
 	URL           string `json:"url"`
 	RewriteTarget string `json:"rewrite_target"`
@@ -104,8 +105,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			} else if frontend.Protocol == ProtocolTCP {
 				policy.Subsystem = SubsystemStream
 			}
-			// it's using id as the name of certificate file now..
-			policy.Rule = rule.DSL
+			policy.Rule = rule.RuleID
+			policy.DSL = rule.DSL
 			if rule.Priority != 0 {
 				policy.Priority = int(rule.Priority)
 			} else {
@@ -128,7 +129,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				policy.Subsystem = SubsystemStream
 			}
 			if frontend.Protocol != ProtocolTCP {
-				policy.Rule = DEFAULT_RULE
+				policy.Rule = frontend.RawName
+				policy.DSL = DEFAULT_RULE
 			}
 			policy.Upstream = frontend.BackendGroup.Name
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)

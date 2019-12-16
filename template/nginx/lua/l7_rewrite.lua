@@ -11,6 +11,7 @@ if t_upstream ~= nil then
   ngx_var.upstream = t_upstream
 end
 if matched_policy ~= nil then
+  ngx_var.rule_name = matched_policy["rule"]
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]
   if rewrite_target ~= "" then

@@ -1,6 +1,5 @@
 local cache = require "cache"
 local ngx_config = ngx.config
-
 local subsystem = ngx_config.subsystem
 
 cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", {
