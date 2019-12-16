@@ -24,6 +24,7 @@ func TestEnvConfig(t *testing.T) {
 		"NEW_POLICY_PATH":     "new",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
+		"DOMAIN":              "alauda.io",
 	}
 	for key, val := range ENV {
 		os.Setenv(key, val)
@@ -58,6 +59,7 @@ func TestStandAlone(t *testing.T) {
 		"NEW_POLICY_PATH":     "new",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
+		"DOMAIN":              "alauda.io",
 	}
 	a := assert.New(t)
 	a.True(IsStandalone())
