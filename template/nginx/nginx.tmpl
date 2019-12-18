@@ -45,7 +45,9 @@ http {
 
     server {
         listen 1936;
+        {{if $.EnableIPV6}}
         listen [::]:1936;
+        {{end}}
 
         access_log off;
 
@@ -70,7 +72,9 @@ http {
     {{if eq $ft.Protocol "http"}}
     server {
         listen      {{$port}} default_server;
+        {{if $.EnableIPV6}}
         listen      [::]:{{$port}} default_server;
+        {{end}}
         server_name _;
 
         location / {
@@ -94,7 +98,9 @@ http {
     {{if eq $ft.Protocol "https"}}
     server {
         listen      {{$port}} ssl;
+        {{if $.EnableIPV6}}
         listen      [::]:{{$port}} ssl;
+        {{end}}
         server_name _;
 
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -151,7 +157,9 @@ stream {
     {{if eq $ft.Protocol "tcp"}}
     server {
         listen {{$port}};
+        {{if $.EnableIPV6}}
         listen [::]:{{$port}};
+        {{end}}
 
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
         proxy_pass tcp_backend;

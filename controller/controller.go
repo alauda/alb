@@ -161,6 +161,7 @@ type Config struct {
 	CertificateMap   map[string]Certificate
 	TweakHash        string
 	EnablePrometheus bool
+	EnableIPV6       bool
 }
 
 var (

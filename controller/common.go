@@ -184,6 +184,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		CertificateMap:   make(map[string]Certificate),
 		TweakHash:        loadbalancer.TweakHash,
 		EnablePrometheus: os.Getenv("ENABLE_PROMETHEUS") == "true",
+		EnableIPV6:       os.Getenv("ENABLE_IPV6") == "true",
 	}
 	listenTCPPorts, err := utils.GetListenTCPPorts()
 	if err != nil {
