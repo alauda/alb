@@ -9,7 +9,7 @@ AlaudaPipeline {
     component: "alauda-alb2",
     ],
     scm: [
-    credentials: 'global-credentials-acp-bitbucket'
+    credentials: 'acp-acp-bitbucket-new'
     ],
     docker: [
     repository: "index.alauda.cn/claas/alb2",
