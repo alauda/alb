@@ -17,7 +17,7 @@ ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
 
-RUN apk add jq
+RUN apk add jq iproute2
 
 CMD ["/run.sh"]
 

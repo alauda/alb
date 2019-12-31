@@ -183,12 +183,17 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		BackendGroup:     []*BackendGroup{},
 		CertificateMap:   make(map[string]Certificate),
 		TweakHash:        loadbalancer.TweakHash,
-		EnablePrometheus: os.Getenv("ENABLE_PROMETHEUS") == "true",
-		EnableIPV6:       os.Getenv("ENABLE_IPV6") == "true",
+		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
+		EnableIPV6:       config.Get("ENABLE_IPV6") == "true",
 	}
-	listenTCPPorts, err := utils.GetListenTCPPorts()
-	if err != nil {
-		glog.Error(err)
+	var listenTCPPorts []int
+	var err error
+	if config.Get("ENABLE_PORTPROBE") == "true" {
+		listenTCPPorts, err = utils.GetListenTCPPorts()
+		if err != nil {
+			glog.Error(err)
+		}
+		glog.Info("finish port probe, listen tcp ports: ", listenTCPPorts)
 	}
 	for _, ft := range loadbalancer.Frontends {
 		conflict := false
