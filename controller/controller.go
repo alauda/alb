@@ -118,13 +118,14 @@ type BackendService struct {
 }
 
 type Rule struct {
-	RuleID     string `json:"rule_id"`
-	Priority   int64  `json:"priority"`
-	Type       string `json:"type"`
-	Domain     string `json:"domain"`
-	URL        string `json:"url"`
-	DSL        string `json:"dsl"`
-	EnableCORS bool   `json:"enable_cors"`
+	RuleID          string `json:"rule_id"`
+	Priority        int64  `json:"priority"`
+	Type            string `json:"type"`
+	Domain          string `json:"domain"`
+	URL             string `json:"url"`
+	DSL             string `json:"dsl"`
+	EnableCORS      bool   `json:"enable_cors"`
+	BackendProtocol string `json:"backend_protocol"`
 	// CertificateName = namespace_secretname
 	CertificateName       string            `json:"certificate_name"`
 	RewriteTarget         string            `json:"rewrite_target"`
