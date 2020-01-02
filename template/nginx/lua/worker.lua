@@ -87,7 +87,8 @@ local function fetch_policy()
             --        "/s1"
             --      ]
             --    ],
-            --    "rewrite_target": "/server_addr"
+            --    "rewrite_target": "/server_addr",
+            --    "enable_cors": true
             --  }
             --]
         end

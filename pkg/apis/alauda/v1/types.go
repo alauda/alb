@@ -125,6 +125,7 @@ type RuleSpec struct {
 	Type            string        `json:"type"`
 	URL             string        `json:"url"`
 	CertificateName string        `json:"certificate_name"`
+	EnableCORS      bool          `json:"enableCORS"`
 	// +optional
 	RewriteTarget string `json:"rewrite_target,omitempty"`
 }

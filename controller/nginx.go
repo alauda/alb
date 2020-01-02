@@ -36,6 +36,7 @@ type Policy struct {
 	RewriteTarget string `json:"rewrite_target"`
 	Priority      int    `json:"priority"`
 	Subsystem     string `json:"subsystem"`
+	EnableCORS    bool   `json:"enable_cors"`
 }
 
 type NgxPolicy struct {
@@ -116,6 +117,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			// for rewrite
 			policy.URL = rule.URL
 			policy.RewriteTarget = rule.RewriteTarget
+			policy.EnableCORS = rule.EnableCORS
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 

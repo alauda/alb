@@ -64,6 +64,9 @@ const (
 
 	// ALBRewriteTargetAnnotation is the ingress annotation to define rewrite rule for alb
 	ALBRewriteTargetAnnotation = "nginx.ingress.kubernetes.io/rewrite-target"
+
+	// ALBEnableCORSAnnotation is the ingress annotation to enable cors for alb
+	ALBEnableCORSAnnotation = "nginx.ingress.kubernetes.io/enable-cors"
 )
 
 // MainLoop is the entrypoint of this controller
@@ -379,6 +382,7 @@ func (c *Controller) updateRule(
 ) error {
 	annotations := ingress.GetAnnotations()
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
+	enableCORS := annotations[ALBEnableCORSAnnotation] == "true"
 	certs := make(map[string]string)
 
 	for _, tls := range ingress.Spec.TLS {
@@ -399,7 +403,8 @@ func (c *Controller) updateRule(
 			strings.ToLower(rule.Domain) == host &&
 			rule.URL == url &&
 			rule.RewriteTarget == rewriteTarget &&
-			rule.CertificateName == certs[host] {
+			rule.CertificateName == certs[host] &&
+			rule.EnableCORS == enableCORS {
 			// already have
 
 			// FIX: http://jira.alaudatech.com/browse/DEV-16951
@@ -440,7 +445,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, "", rewriteTarget, certs[host])
+	rule, err := ft.NewRule(host, url, "", rewriteTarget, certs[host], enableCORS)
 	if err != nil {
 		glog.Error(err)
 		return err

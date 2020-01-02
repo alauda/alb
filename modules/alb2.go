@@ -65,7 +65,7 @@ func RandomStr(pixff string, length int) string {
 	return pixff + "-" + string(result)
 }
 
-func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, certificateName string) (*Rule, error) {
+func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, certificateName string, enableCORS bool) (*Rule, error) {
 	if domain != "" || url != "" {
 		dsl = GetDSL(domain, url)
 	}
@@ -77,6 +77,7 @@ func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, certificateName str
 			DSL:             dsl,
 			RewriteTarget:   rewriteTarget,
 			CertificateName: certificateName,
+			EnableCORS:      enableCORS,
 		},
 		FT: ft,
 	}
