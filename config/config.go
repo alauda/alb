@@ -42,8 +42,11 @@ var optionalFields = []string{
 	// set to "true" if want to use nodes which pods run on them
 	"USE_POD_HOST_IP",
 	"MY_POD_NAME",
-	"ENABLE_GC",
 	"ROTATE_INTERVAL",
+	"ENABLE_GC",
+	"ENABLE_IPV6",
+	"ENABLE_PROMETHEUS",
+	"ENABLE_PORTPROBE",
 }
 
 var nginxRequiredFields = []string{
