@@ -63,7 +63,7 @@ const (
 	MessageResourceSynced = "Ingress synced successfully"
 
 	// ALBRewriteTargetAnnotation is the ingress annotation to define rewrite rule for alb
-	ALBRewriteTargetAnnotation = "alb.ingress.kubernetes.io/rewrite-target"
+	ALBRewriteTargetAnnotation = "nginx.ingress.kubernetes.io/rewrite-target"
 )
 
 // MainLoop is the entrypoint of this controller
