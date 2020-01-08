@@ -59,13 +59,20 @@ local function fetch_policy()
         for _, policy in ipairs(policies) do
             if policy then
                 t = policy["subsystem"]
-                if policy["dsl"] and policy["dsl"] ~= "" then
-                    --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
-                    local tokenized_dsl, err = dsl.generate_ast(policy["dsl"])
-                    if err then
-                        ngx_log(ngx.ERR, "failed to generate ast for ", policy["dsl"], err)
+                if (policy["dsl"] and policy["dsl"] ~= "") or policy["internal_dsl"] ~= common.null then
+                    if policy["internal_dsl"] ~= common.null then
+                        if #policy["internal_dsl"] == 1 then
+                            policy["dsl"]  = policy["internal_dsl"][1]
+                        else
+                            policy["dsl"]  = policy["internal_dsl"]
+                        end
                     else
-                        policy["dsl"] = tokenized_dsl
+                        local tokenized_dsl, err = dsl.generate_ast(policy["dsl"])
+                        if err then
+                            ngx_log(ngx.ERR, "failed to generate ast for ", policy["dsl"], err)
+                        else
+                            policy["dsl"] = tokenized_dsl
+                        end
                     end
                     --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
                 end

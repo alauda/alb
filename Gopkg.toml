@@ -44,6 +44,10 @@ required = [
   name = "github.com/evanphx/json-patch"
   version = "v4.5.0"
 
+[[constraint]]
+  name = "github.com/spf13/cast"
+  version = "v1.3.1"
+
 [prune]
   non-go = true
   go-tests = true

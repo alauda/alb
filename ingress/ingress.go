@@ -458,7 +458,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, "", rewriteTarget, backendProtocol, certs[host], enableCORS)
+	rule, err := ft.NewRule(host, url, rewriteTarget, backendProtocol, certs[host], enableCORS)
 	if err != nil {
 		glog.Error(err)
 		return err

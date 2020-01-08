@@ -1,0 +1,75 @@
+原DSL为`(AND (OR (STARTS_WITH URL /kubernetes/) (STARTS_WITH URL /k8s/)) (EQ COOKIE test 12) (RANGE SRC_IP 1 2))`
+
+转为json表达为
+```json
+[
+    {
+        "values":[
+            [
+                "STARTS_WITH",
+                "/kubernetes"
+            ],
+            [
+                "STARTS_WITH",
+                "/k8s"
+            ]
+        ],
+        "type":"URL"
+    },
+    {
+        "values":[
+            [
+                "EQ",
+                "12"
+            ]
+        ],
+        "type":"COOKIE",
+        "key":"test"
+    },
+    {
+        "values":[
+            [
+                "RANGE",
+                "1",
+                "2"
+            ]
+        ],
+        "type":"SRC_IP"
+    }
+]
+```
+
+这个脚本用于更新Rule资源的dsl字段为dslx字段。由于过去dsl字段为字符串，因此部分包含了空格或者特殊符号的历史数据可能无法正确转换。需要手动删除后重新创建。
+
+传到lua层面需要拟合的dsl结构为
+```json
+
+[
+    "AND",
+    [
+        "OR",
+        [
+            "STARTS_WITH",
+            "URL",
+            "/kubernetes"
+        ],
+        [
+            "STARTS_WITH",
+            "URL",
+            "/k8s"
+        ]
+    ],
+    [
+        "EQ",
+        "COOKIE",
+        "test",
+        "12"
+    ],
+    [
+        "RANGE",
+        "SRC_IP",
+        "1",
+        "2"
+    ]
+]
+```

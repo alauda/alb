@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"alb2/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,15 +30,16 @@ type NginxController struct {
 }
 
 type Policy struct {
-	Rule            string `json:"rule"`
-	DSL             string `json:"dsl"`
-	Upstream        string `json:"upstream"`
-	URL             string `json:"url"`
-	RewriteTarget   string `json:"rewrite_target"`
-	Priority        int    `json:"priority"`
-	Subsystem       string `json:"subsystem"`
-	EnableCORS      bool   `json:"enable_cors"`
-	BackendProtocol string `json:"backend_protocol"`
+	Rule            string        `json:"rule"`
+	DSL             string        `json:"dsl"`
+	InternalDSL     []interface{} `json:"internal_dsl"`
+	Upstream        string        `json:"upstream"`
+	URL             string        `json:"url"`
+	RewriteTarget   string        `json:"rewrite_target"`
+	Priority        int           `json:"priority"`
+	Subsystem       string        `json:"subsystem"`
+	EnableCORS      bool          `json:"enable_cors"`
+	BackendProtocol string        `json:"backend_protocol"`
 }
 
 type NgxPolicy struct {
@@ -94,6 +96,14 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 						}
 					}
 				}
+				if rule.DSL != "" {
+					dslx, err := utils.DSL2DSLX(rule.DSL)
+					if err != nil {
+						glog.Warning(err)
+					} else {
+						rule.DSLX = dslx
+					}
+				}
 			}
 
 			if rule.DSL == "" {
@@ -109,6 +119,14 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			}
 			policy.Rule = rule.RuleID
 			policy.DSL = rule.DSL
+			if rule.DSLX != nil {
+				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
+				if err != nil {
+					glog.Error("convert dslx to internal failed", err)
+				} else {
+					policy.InternalDSL = internalDSL
+				}
+			}
 			if rule.Priority != 0 {
 				policy.Priority = int(rule.Priority)
 			} else {
