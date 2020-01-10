@@ -29,14 +29,15 @@ type NginxController struct {
 }
 
 type Policy struct {
-	Rule          string `json:"rule"`
-	DSL           string `json:"dsl"`
-	Upstream      string `json:"upstream"`
-	URL           string `json:"url"`
-	RewriteTarget string `json:"rewrite_target"`
-	Priority      int    `json:"priority"`
-	Subsystem     string `json:"subsystem"`
-	EnableCORS    bool   `json:"enable_cors"`
+	Rule            string `json:"rule"`
+	DSL             string `json:"dsl"`
+	Upstream        string `json:"upstream"`
+	URL             string `json:"url"`
+	RewriteTarget   string `json:"rewrite_target"`
+	Priority        int    `json:"priority"`
+	Subsystem       string `json:"subsystem"`
+	EnableCORS      bool   `json:"enable_cors"`
+	BackendProtocol string `json:"backend_protocol"`
 }
 
 type NgxPolicy struct {
@@ -118,6 +119,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.URL = rule.URL
 			policy.RewriteTarget = rule.RewriteTarget
 			policy.EnableCORS = rule.EnableCORS
+			policy.BackendProtocol = rule.BackendProtocol
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 

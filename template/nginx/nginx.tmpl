@@ -80,8 +80,10 @@ http {
         location / {
             set $upstream default;
             set $rule_name "";
+            set $backend_protocol http;
+
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
-            proxy_pass http://http_backend;
+            proxy_pass $backend_protocol://http_backend;
 
             {{if $.EnablePrometheus}}
             log_by_lua_block {
@@ -113,8 +115,10 @@ http {
         location / {
             set $upstream default;
             set $rule_name "";
+            set $backend_protocol http;
+
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
-            proxy_pass http://http_backend;
+            proxy_pass $backend_protocol://http_backend;
             {{if $.EnablePrometheus}}
             log_by_lua_block {
                 require("metrics").log()

@@ -31,6 +31,10 @@ if matched_policy ~= nil then
       ngx_header['Access-Control-Allow-Headers'] = 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization'
     end
   end
+  local backend_protocol = matched_policy["backend_protocol"]
+  if backend_protocol ~= "" then
+      ngx_var.backend_protocol = backend_protocol
+  end
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]
   if rewrite_target ~= "" then

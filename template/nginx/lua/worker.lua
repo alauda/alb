@@ -88,7 +88,8 @@ local function fetch_policy()
             --      ]
             --    ],
             --    "rewrite_target": "/server_addr",
-            --    "enable_cors": true
+            --    "enable_cors": true,
+            --    "backend_protocol": "https"
             --  }
             --]
         end

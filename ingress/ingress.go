@@ -64,10 +64,16 @@ const (
 
 	// ALBRewriteTargetAnnotation is the ingress annotation to define rewrite rule for alb
 	ALBRewriteTargetAnnotation = "nginx.ingress.kubernetes.io/rewrite-target"
-
 	// ALBEnableCORSAnnotation is the ingress annotation to enable cors for alb
 	ALBEnableCORSAnnotation = "nginx.ingress.kubernetes.io/enable-cors"
+	// ALBBackendProtocolAnnotation is the ingress annotation to define backend protocol
+	ALBBackendProtocolAnnotation = "nginx.ingress.kubernetes.io/backend-protocol"
 )
+
+var ValidBackendProtocol = map[string]bool{
+	"http":  true,
+	"https": true,
+}
 
 // MainLoop is the entrypoint of this controller
 func MainLoop(ctx context.Context) {
@@ -383,7 +389,13 @@ func (c *Controller) updateRule(
 	annotations := ingress.GetAnnotations()
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
 	enableCORS := annotations[ALBEnableCORSAnnotation] == "true"
+	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
 	certs := make(map[string]string)
+
+	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
+		glog.Errorf("Unsupported backend protocol %s for ingress %s/%s", backendProtocol, ingress.GetNamespace(), ingress.GetName())
+		return nil
+	}
 
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
@@ -404,7 +416,8 @@ func (c *Controller) updateRule(
 			rule.URL == url &&
 			rule.RewriteTarget == rewriteTarget &&
 			rule.CertificateName == certs[host] &&
-			rule.EnableCORS == enableCORS {
+			rule.EnableCORS == enableCORS &&
+			rule.BackendProtocol == backendProtocol {
 			// already have
 
 			// FIX: http://jira.alaudatech.com/browse/DEV-16951
@@ -445,7 +458,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, "", rewriteTarget, certs[host], enableCORS)
+	rule, err := ft.NewRule(host, url, "", rewriteTarget, backendProtocol, certs[host], enableCORS)
 	if err != nil {
 		glog.Error(err)
 		return err
