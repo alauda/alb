@@ -1,4 +1,5 @@
 local ngx_var = ngx.var
+local ngx_header = ngx.header
 local ngx_re = ngx.re
 local ngx_req = ngx.req
 local ngx_log = ngx.log
@@ -12,6 +13,24 @@ if t_upstream ~= nil then
 end
 if matched_policy ~= nil then
   ngx_var.rule_name = matched_policy["rule"]
+  local enable_cors = matched_policy["enable_cors"]
+  if enable_cors == true then
+    if ngx_req.get_method() == 'OPTION' then
+      ngx_header['Access-Control-Allow-Origin'] = '*'
+      ngx_header['Access-Control-Allow-Credentials'] = 'true'
+      ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
+      ngx_header['Access-Control-Allow-Headers'] = 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization'
+      ngx_header['Access-Control-Max-Age'] = '1728000'
+      ngx_header['Content-Type'] = 'text/plain charset=UTF-8'
+      ngx_header['Content-Length'] = '0'
+      ngx_exit(ngx.HTTP_NO_CONTENT)
+    else
+      ngx_header['Access-Control-Allow-Origin']= '*'
+      ngx_header['Access-Control-Allow-Credentials'] = 'true'
+      ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
+      ngx_header['Access-Control-Allow-Headers'] = 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization'
+    end
+  end
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]
   if rewrite_target ~= "" then
