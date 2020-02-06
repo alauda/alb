@@ -12,8 +12,8 @@ AlaudaPipeline {
     credentials: 'acp-acp-bitbucket-new'
     ],
     docker: [
-    repository: "index.alauda.cn/claas/alb2",
-    credentials: "acp-claas",
+    repository: "claas/alb2",
+    credentials: "alaudak8s",
     context: ".",
     dockerfile: "Dockerfile.nginx.local",
     ],
