@@ -48,6 +48,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 				Domain:          arl.Domain,
 				URL:             arl.URL,
 				DSL:             arl.DSL,
+				DSLX:            arl.DSLX,
 				Description:     arl.Description,
 				CertificateName: arl.CertificateName,
 				RewriteTarget:   arl.RewriteTarget,

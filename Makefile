@@ -1,5 +1,13 @@
 GOFILES_NOVENDOR=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_IMAGE=index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.12.9-alpine3.9.4
+UNAME:=$(shell uname)
+
+ifeq ($(UNAME),Linux)
+    SED = sed
+endif
+ifeq ($(UNAME),Darwin)
+    SED = gsed
+endif
 
 .PHONY: version
 
@@ -26,8 +34,8 @@ gen-code:
 	rm -rf pkg/client
 	GOOS=linux ./hack/update-codegen.sh
 	# fix code-generator wrong pluralize, skip fake_alb2 for test
-	# for osx, brew install gnu-sed --with-default-names
-	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs sed 's/"alb2s"/"alaudaloadbalancer2"/g' -i
+	# for osx, brew install gnu-sed
+	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs ${SED} 's/"alb2s"/"alaudaloadbalancer2"/g' -i
 
 lint:
 	@GOOS=linux gofmt -d ${GOFILES_NOVENDOR} 

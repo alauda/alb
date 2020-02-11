@@ -7,6 +7,8 @@ local pairs = pairs
 
 local _M = {}
 
+_M.null = json.null
+
 function _M.json_encode(data, empty_table_as_object )
   local json_value = nil
   if json.encode_empty_table_as_object then

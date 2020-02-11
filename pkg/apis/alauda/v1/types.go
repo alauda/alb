@@ -115,10 +115,19 @@ type Source struct {
 	Type      string `json:"type"`
 }
 
+type DSLXTerm struct {
+	Values [][]string `json:"values"`
+	Type   string     `json:"type"`
+	Key    string     `json:"key,omitempty"`
+}
+
+type DSLX []DSLXTerm
+
 type RuleSpec struct {
 	Description     string        `json:"description"`
 	Domain          string        `json:"domain"`
 	DSL             string        `json:"dsl"`
+	DSLX            DSLX          `json:"dslx"`
 	Priority        int           `json:"priority"`
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`

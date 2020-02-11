@@ -2,6 +2,7 @@ package modules
 
 import (
 	alb2v1 "alb2/pkg/apis/alauda/v1"
+	"alb2/utils"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -65,9 +66,14 @@ func RandomStr(pixff string, length int) string {
 	return pixff + "-" + string(result)
 }
 
-func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, backendProtocol, certificateName string, enableCORS bool) (*Rule, error) {
+func (ft *Frontend) NewRule(domain, url, rewriteTarget, backendProtocol, certificateName string, enableCORS bool) (*Rule, error) {
+	var (
+		dsl  string
+		dslx alb2v1.DSLX
+	)
 	if domain != "" || url != "" {
 		dsl = GetDSL(domain, url)
+		dslx = GetDSLX(domain, url)
 	}
 	r := Rule{
 		Name: RandomStr(ft.Name, 4),
@@ -75,6 +81,7 @@ func (ft *Frontend) NewRule(domain, url, dsl, rewriteTarget, backendProtocol, ce
 			Domain:          domain,
 			URL:             url,
 			DSL:             dsl,
+			DSLX:            dslx,
 			RewriteTarget:   rewriteTarget,
 			BackendProtocol: backendProtocol,
 			CertificateName: certificateName,
@@ -96,7 +103,7 @@ type Rule struct {
 func GetDSL(domain, url string) string {
 	var dsl string
 	if domain != "" && url != "" {
-		if strings.HasPrefix(url, "^") {
+		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
 			dsl = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", domain, url)
 		} else {
 			dsl = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", domain, url)
@@ -105,7 +112,7 @@ func GetDSL(domain, url string) string {
 		if domain != "" {
 			dsl = fmt.Sprintf("(EQ HOST %s)", domain)
 		} else {
-			if strings.HasPrefix(url, "^") {
+			if strings.IndexAny(url, "^$():?[]*\\") != -1 {
 				dsl = fmt.Sprintf("(REGEX URL %s)", url)
 			} else {
 				dsl = fmt.Sprintf("(STARTS_WITH URL %s)", url)
@@ -113,4 +120,34 @@ func GetDSL(domain, url string) string {
 		}
 	}
 	return dsl
+}
+
+func GetDSLX(domain, url string) alb2v1.DSLX {
+	var dslx alb2v1.DSLX
+	if url != "" {
+		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
+			dslx = append(dslx, alb2v1.DSLXTerm{
+				Values: [][]string{
+					{utils.OP_REGEX, url},
+				},
+				Type: utils.KEY_URL,
+			})
+		} else {
+			dslx = append(dslx, alb2v1.DSLXTerm{
+				Values: [][]string{
+					{utils.OP_STARTS_WITH, url},
+				},
+				Type: utils.KEY_URL,
+			})
+		}
+	}
+	if domain != "" {
+		dslx = append(dslx, alb2v1.DSLXTerm{
+			Values: [][]string{
+				{utils.OP_EQ, domain},
+			},
+			Type: utils.KEY_HOST,
+		})
+	}
+	return dslx
 }

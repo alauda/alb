@@ -214,12 +214,12 @@
   version = "v1.1.2"
 
 [[projects]]
-  digest = "1:c5e6b121ef3d2043505edaf4c80e5a008cec2513dc8804795eb0479d1555bcf7"
+  digest = "1:58dae2a64f88329debe1daed979ccd2fd9b5a1b4b1867c2bc7ed96acb0ff00d0"
   name = "github.com/spf13/cast"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "8c9545af88b134710ab1cd196795e7f2388358d7"
-  version = "v1.3.0"
+  revision = "1ffadf551085444af981432dd0f6d1160c11ec64"
+  version = "v1.3.1"
 
 [[projects]]
   digest = "1:f29f83301ed096daed24a90f4af591b7560cb14b9cc3e1827abbf04db7269ab5"
@@ -769,6 +769,7 @@
     "github.com/evanphx/json-patch",
     "github.com/fatih/set",
     "github.com/golang/glog",
+    "github.com/spf13/cast",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/thoas/go-funk",
