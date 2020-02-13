@@ -54,6 +54,8 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 				RewriteTarget:   arl.RewriteTarget,
 				EnableCORS:      arl.EnableCORS,
 				BackendProtocol: arl.BackendProtocol,
+				RedirectURL:     arl.RedirectURL,
+				RedirectCode:    arl.RedirectCode,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy

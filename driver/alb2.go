@@ -55,6 +55,7 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
 func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
+	glog.Infof("upsert frontend: %s", ft.Name)
 	var ftRes *alb2v1.Frontend
 	var err error
 	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
@@ -229,7 +230,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	return &alb2, nil
 }
 
-func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup) (map[string]*Service, error) {
+func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowNoAddr bool) (map[string]*Service, error) {
 	if sg == nil {
 		return data, nil
 	}
@@ -248,9 +249,12 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup) (map[s
 				glog.Errorf("Get service address for %s.%s:%d failed:%s",
 					svc.Namespace, svc.Name, svc.Port, err.Error(),
 				)
-				continue
+				if !allowNoAddr {
+					continue
+				}
+			} else {
+				glog.V(4).Infof("Get serivce %+v", *service)
 			}
-			glog.V(4).Infof("Get serivce %+v", *service)
 			data[key] = service
 		}
 	}
@@ -262,14 +266,14 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 	data := make(map[string]*Service)
 
 	for _, ft := range alb.Frontends {
-		data, err = parseServiceGroup(data, ft.ServiceGroup)
+		data, err = parseServiceGroup(data, ft.ServiceGroup, ft.AllowNoAddr())
 		if err != nil {
 			glog.Error(err)
 			return nil, err
 		}
 
 		for _, rule := range ft.Rules {
-			data, err = parseServiceGroup(data, rule.ServiceGroup)
+			data, err = parseServiceGroup(data, rule.ServiceGroup, rule.AllowNoAddr())
 			if err != nil {
 				glog.Error(err)
 				return nil, err

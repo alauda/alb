@@ -40,6 +40,8 @@ type Policy struct {
 	Subsystem       string        `json:"subsystem"`
 	EnableCORS      bool          `json:"enable_cors"`
 	BackendProtocol string        `json:"backend_protocol"`
+	RedirectURL     string        `json:"redirect_url"`
+	RedirectCode    int           `json:"redirect_code"`
 }
 
 type NgxPolicy struct {
@@ -70,7 +72,6 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		if _, ok := ngxPolicy.PortMap[port]; !ok {
 			ngxPolicy.PortMap[port] = Policies{}
 		}
-		glog.V(4).Infof("Rules are %+v", frontend.Rules)
 		for _, rule := range frontend.Rules {
 			if rule.BackendGroup == nil {
 				continue
@@ -138,6 +139,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.RewriteTarget = rule.RewriteTarget
 			policy.EnableCORS = rule.EnableCORS
 			policy.BackendProtocol = rule.BackendProtocol
+			policy.RedirectURL = rule.RedirectURL
+			policy.RedirectCode = rule.RedirectCode
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 

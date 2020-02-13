@@ -51,6 +51,10 @@ func GCRule(kd *driver.KubernetesDriver) error {
 			}
 		} else {
 			for _, rl := range ft.Rules {
+				if rl.RedirectURL != "" {
+					// for redirect rule, service is meaningless
+					continue
+				}
 				if rl.Source != nil &&
 					(rl.Source.Type == m.TypeBind || rl.Source.Type == m.TypeIngress) &&
 					rl.ServiceGroup != nil && len(rl.ServiceGroup.Services) != 0 {
