@@ -66,7 +66,8 @@ func RandomStr(pixff string, length int) string {
 	return pixff + "-" + string(result)
 }
 
-func (ft *Frontend) NewRule(domain, url, rewriteTarget, backendProtocol, certificateName string, enableCORS bool) (*Rule, error) {
+func (ft *Frontend) NewRule(domain, url, rewriteTarget, backendProtocol, certificateName string,
+	enableCORS bool, redirectURL string, redirectCode int) (*Rule, error) {
 	var (
 		dsl  string
 		dslx alb2v1.DSLX
@@ -86,6 +87,8 @@ func (ft *Frontend) NewRule(domain, url, rewriteTarget, backendProtocol, certifi
 			BackendProtocol: backendProtocol,
 			CertificateName: certificateName,
 			EnableCORS:      enableCORS,
+			RedirectURL:     redirectURL,
+			RedirectCode:    redirectCode,
 		},
 		FT: ft,
 	}
@@ -98,6 +101,17 @@ type Rule struct {
 	Name string
 
 	FT *Frontend
+}
+
+func (ft Frontend) AllowNoAddr() bool {
+	return false
+}
+
+func (rl Rule) AllowNoAddr() bool {
+	if rl.RedirectURL != "" {
+		return true
+	}
+	return false
 }
 
 func GetDSL(domain, url string) string {

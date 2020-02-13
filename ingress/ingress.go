@@ -68,6 +68,11 @@ const (
 	ALBEnableCORSAnnotation = "nginx.ingress.kubernetes.io/enable-cors"
 	// ALBBackendProtocolAnnotation is the ingress annotation to define backend protocol
 	ALBBackendProtocolAnnotation = "nginx.ingress.kubernetes.io/backend-protocol"
+
+	// ALBTemporalRedirectAnnotation allows you to return a temporal redirect (Return Code 302) instead of sending data to the upstream.
+	ALBTemporalRedirectAnnotation = "nginx.ingress.kubernetes.io/temporal-redirect"
+	// ALBPermanentRedirectAnnotation allows to return a permanent redirect instead of sending data to the upstream.
+	ALBPermanentRedirectAnnotation = "nginx.ingress.kubernetes.io/permanent-redirect"
 )
 
 var ValidBackendProtocol = map[string]bool{
@@ -390,6 +395,17 @@ func (c *Controller) updateRule(
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
 	enableCORS := annotations[ALBEnableCORSAnnotation] == "true"
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+	var (
+		redirectURL  string
+		redirectCode int
+	)
+	if annotations[ALBPermanentRedirectAnnotation] != "" {
+		redirectURL = annotations[ALBPermanentRedirectAnnotation]
+		redirectCode = 301
+	} else if annotations[ALBTemporalRedirectAnnotation] != "" {
+		redirectURL = annotations[ALBTemporalRedirectAnnotation]
+		redirectCode = 302
+	}
 	certs := make(map[string]string)
 
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
@@ -417,7 +433,9 @@ func (c *Controller) updateRule(
 			rule.RewriteTarget == rewriteTarget &&
 			rule.CertificateName == certs[host] &&
 			rule.EnableCORS == enableCORS &&
-			rule.BackendProtocol == backendProtocol {
+			rule.BackendProtocol == backendProtocol &&
+			rule.RedirectURL == redirectURL &&
+			rule.RedirectCode == redirectCode {
 			// already have
 
 			// FIX: http://jira.alaudatech.com/browse/DEV-16951
@@ -458,7 +476,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, rewriteTarget, backendProtocol, certs[host], enableCORS)
+	rule, err := ft.NewRule(host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode)
 	if err != nil {
 		glog.Error(err)
 		return err
@@ -506,29 +524,29 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	var httpFt *m.Frontend
 	var httpsFt *m.Frontend
 	hostCertMap := make(map[string]string)
-	ftTypes := set.New(set.NonThreadSafe)
+	needFtTypes := set.New(set.NonThreadSafe)
 	for _, r := range ingress.Spec.Rules {
 		foundTLS := false
 		for _, tls := range ingress.Spec.TLS {
 			for _, host := range tls.Hosts {
 				if strings.ToLower(r.Host) == strings.ToLower(host) {
-					ftTypes.Add(m.ProtoHTTPS)
+					needFtTypes.Add(m.ProtoHTTPS)
 					hostCertMap[strings.ToLower(host)] = tls.SecretName
 					foundTLS = true
 				}
 			}
 		}
 		if foundTLS == false {
-			ftTypes.Add(m.ProtoHTTP)
+			needFtTypes.Add(m.ProtoHTTP)
 		}
 	}
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
-	glog.Infof("is default backend: %t", isDefaultBackend)
+	glog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	for _, f := range alb.Frontends {
-		if ftTypes.Has(m.ProtoHTTP) && f.Port == 80 {
+		if needFtTypes.Has(m.ProtoHTTP) && f.Port == 80 {
 			httpFt = f
 		}
-		if ftTypes.Has(m.ProtoHTTPS) && f.Port == 443 {
+		if needFtTypes.Has(m.ProtoHTTPS) && f.Port == 443 {
 			httpsFt = f
 		}
 	}
@@ -564,14 +582,14 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 	}
 
 	needSaveHTTP := c.setFtDefault(ingress, httpFt)
-	if newHTTPFrontend || needSaveHTTP {
+	if needFtTypes.Has(m.ProtoHTTP) && (newHTTPFrontend || needSaveHTTP) {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpFt)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)
 			return err
 		}
 	}
-	if newHTTPSFrontend {
+	if needFtTypes.Has(m.ProtoHTTPS) && newHTTPSFrontend {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
 		if err != nil {
 			glog.Errorf("upsert ft failed: %s", err)

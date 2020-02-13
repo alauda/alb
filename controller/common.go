@@ -96,6 +96,9 @@ func generateBackend(serviceMap map[string][]*driver.Backend, services []*Backen
 func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 	serviceMap := make(map[string][]*driver.Backend)
 	for _, svc := range services {
+		if svc == nil {
+			continue
+		}
 		if svc.ServicePort == 0 {
 			svc.ServicePort = svc.ContainerPort
 		}
@@ -119,7 +122,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 					SessionAffinityAttribute: rule.SessionAffinityAttr,
 				}
 				rule.BackendGroup.Backends = generateBackend(serviceMap, rule.Services)
-				if len(rule.BackendGroup.Backends) > 0 {
+				if rule.AllowNoAddr() || len(rule.BackendGroup.Backends) > 0 {
 					rules = append(rules, rule)
 				}
 			}
@@ -131,7 +134,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			}
 
 			if len(ft.Services) == 0 {
-				glog.Warningf("skip frontend %s because no default service found.",
+				glog.Warningf("frontend %s has no default service.",
 					ft.String())
 				continue
 			}
@@ -199,18 +202,19 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		conflict := false
 		for _, port := range listenTCPPorts {
 			if ft.Port == port {
-				glog.Warningf("skip port: %d due to conflict", ft.Port)
 				conflict = true
 				glog.Errorf("skip port: %d has conflict", ft.Port)
 				break
 			}
 		}
-		if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
-			glog.Error(err)
-		}
-		if conflict {
-			// skip conflict port
-			continue
+		if config.Get("ENABLE_PORTPROBE") == "true" {
+			if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
+				glog.Error(err)
+			}
+			if conflict {
+				// skip conflict port
+				continue
+			}
 		}
 		glog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
 		isValid := false
@@ -334,7 +338,7 @@ func setLastReloadStatus(status, statusFileParentPath string) error {
 func getLastReloadStatus(statusFileParentPath string) string {
 	successStatusFilePath := path.Join(statusFileParentPath, SUCCESS)
 	if _, err := os.Stat(successStatusFilePath); err == nil {
-		glog.Info("last reload status", SUCCESS)
+		glog.Infof("last reload status: %s", SUCCESS)
 		return SUCCESS
 	}
 	glog.Info("last reload status", FAILED)

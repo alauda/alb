@@ -5,6 +5,7 @@ local ngx_req = ngx.req
 local ngx_log = ngx.log
 local ngx_say = ngx.say
 local ngx_exit = ngx.exit
+local ngx_redirect = ngx.redirect
 local upstream = require "upstream"
 
 local t_upstream, matched_policy, errmsg = upstream.get_upstream(ngx_var.server_port)
@@ -12,6 +13,11 @@ if t_upstream ~= nil then
   ngx_var.upstream = t_upstream
 end
 if matched_policy ~= nil then
+  local redirect_url = matched_policy["redirect_url"]
+  local redirect_code = matched_policy["redirect_code"]
+  if redirect_url ~= "" then
+    ngx_redirect(redirect_url, redirect_code)
+  end
   ngx_var.rule_name = matched_policy["rule"]
   local enable_cors = matched_policy["enable_cors"]
   if enable_cors == true then
