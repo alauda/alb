@@ -19,7 +19,7 @@ type AlaudaLoadBalancer struct {
 	TweakHash string
 }
 
-func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend, error) {
+func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string, certificateName string) (*Frontend, error) {
 	ft := &Frontend{
 		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
 		FrontendSpec: alb2v1.FrontendSpec{
@@ -27,6 +27,9 @@ func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string) (*Frontend
 			Protocol: protocol,
 		},
 		LB: alb,
+	}
+	if certificateName != "" {
+		ft.CertificateName = strings.Replace(certificateName, "/", "_", 1)
 	}
 	alb.Frontends = append(alb.Frontends, ft)
 	return ft, nil

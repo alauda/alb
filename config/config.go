@@ -47,6 +47,8 @@ var optionalFields = []string{
 	"ENABLE_IPV6",
 	"ENABLE_PROMETHEUS",
 	"ENABLE_PORTPROBE",
+	"DEFAULT-SSL-CERTIFICATE",
+	"DEFAULT-SSL-STRATEGY",
 }
 
 var nginxRequiredFields = []string{
@@ -122,6 +124,11 @@ func ValidateConfig() error {
 		emptyRequiredEnv = checkEmpty(nginxRequiredFields)
 		if len(emptyRequiredEnv) > 0 {
 			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
+		}
+		if Get("DEFAULT-SSL-STRATEGY") == "Always" || Get("DEFAULT-SSL-STRATEGY") == "Request" {
+			if Get("DEFAULT-SSL-CERTIFICATE") == "" {
+				return fmt.Errorf("no default ssl cert defined for nginx")
+			}
 		}
 	case ELB, SLB, CLB:
 		emptyRequiredEnv = checkEmpty(cloudLBRequiredFields)

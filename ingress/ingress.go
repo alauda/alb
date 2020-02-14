@@ -75,12 +75,20 @@ const (
 	ALBPermanentRedirectAnnotation = "nginx.ingress.kubernetes.io/permanent-redirect"
 )
 
-var ValidBackendProtocol = map[string]bool{
-	"http":  true,
-	"https": true,
-}
+var (
+	AlwaysSSLStrategy  = "Always"
+	NeverSSLStrategy   = "Never"
+	RequestSSLStrategy = "Request"
+	DefaultSSLStrategy = RequestSSLStrategy
 
-// MainLoop is the entrypoint of this controller
+	ValidBackendProtocol = map[string]bool{
+		"http":  true,
+		"https": true,
+	}
+	// ALBSSLStrategyAnnotation allows you to use default ssl certificate for a http ingress
+	ALBSSLStrategyAnnotation = fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
+)
+
 func MainLoop(ctx context.Context) {
 	drv, err := driver.GetDriver()
 	if err != nil {
@@ -521,6 +529,9 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		glog.Error(err)
 		return err
 	}
+	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
+	defaultSSLCert := config.Get("DEFAULT-SSL-CERTIFICATE")
+	ingSSLStrategy := ingress.Annotations[ALBSSLStrategyAnnotation]
 	var httpFt *m.Frontend
 	var httpsFt *m.Frontend
 	hostCertMap := make(map[string]string)
@@ -537,7 +548,12 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			}
 		}
 		if foundTLS == false {
-			needFtTypes.Add(m.ProtoHTTP)
+			if defaultSSLStrategy == AlwaysSSLStrategy || (defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
+				needFtTypes.Add(m.ProtoHTTPS)
+				hostCertMap["443"] = defaultSSLCert
+			} else {
+				needFtTypes.Add(m.ProtoHTTP)
+			}
 		}
 	}
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
@@ -555,17 +571,22 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		glog.Error(err)
 		return err
 	}
-	if httpsFt != nil && httpsFt.Protocol != m.ProtoHTTPS {
-		err = fmt.Errorf("Port 443 is not an HTTPS port, protocol: %s", httpsFt.Protocol)
-		glog.Error(err)
-		return err
+	if httpsFt != nil {
+		if httpsFt.Protocol != m.ProtoHTTPS {
+			err = fmt.Errorf("Port 443 is not an HTTPS port, protocol: %s", httpsFt.Protocol)
+			glog.Error(err)
+			return err
+		}
+		if httpsFt.CertificateName != "" && httpsFt.CertificateName != strings.Replace(defaultSSLCert, "/", "_", 1) {
+			glog.Warning("Port 443 already has ssl cert conflict with default ssl cert")
+		}
 	}
 
 	newHTTPFrontend := false
 	newHTTPSFrontend := false
 
 	if httpFt == nil {
-		httpFt, err = alb.NewFrontend(80, m.ProtoHTTP)
+		httpFt, err = alb.NewFrontend(80, m.ProtoHTTP, "")
 		if err != nil {
 			glog.Error(err)
 			return err
@@ -573,7 +594,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 		newHTTPFrontend = true
 	}
 	if httpsFt == nil && !isDefaultBackend {
-		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS)
+		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS, defaultSSLCert)
 		if err != nil {
 			glog.Error(err)
 			return err
@@ -589,11 +610,18 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			return err
 		}
 	}
-	if needFtTypes.Has(m.ProtoHTTPS) && newHTTPSFrontend {
-		err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
-		if err != nil {
-			glog.Errorf("upsert ft failed: %s", err)
-			return err
+	if needFtTypes.Has(m.ProtoHTTPS) {
+		needUpdate := false
+		if httpsFt.CertificateName == "" && defaultSSLCert != "" {
+			httpsFt.CertificateName = strings.Replace(defaultSSLCert, "/", "_", 1)
+			needUpdate = true
+		}
+		if newHTTPSFrontend || needUpdate {
+			err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
+			if err != nil {
+				glog.Errorf("upsert ft failed: %s", err)
+				return err
+			}
 		}
 	}
 
@@ -609,7 +637,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			continue
 		}
 		for _, p := range httpRules.Paths {
-			if hostCertMap[host] != "" {
+			if hostCertMap[host] != "" || hostCertMap["443"] != "" {
 				err = c.updateRule(ingress, httpsFt, host, p)
 			} else {
 				err = c.updateRule(ingress, httpFt, host, p)
