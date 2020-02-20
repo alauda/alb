@@ -290,6 +290,9 @@ func DSLX2Internal(dslx v1.DSLX) ([]interface{}, error) {
 		} else {
 			rest := dsl.Values[0][1:len(dsl.Values[0])]
 			term := []string{dsl.Values[0][0], dsl.Type}
+			if dsl.Key != "" {
+				term = append(term, dsl.Key)
+			}
 			term = append(term, rest...)
 			internal = append(internal, term)
 		}
