@@ -1,4 +1,6 @@
 local string_lower = string.lower
+local string_sub = string.sub
+local tonumber = tonumber
 local ssl = require "ngx.ssl"
 local ngx_shared = ngx.shared
 local ngx_config = ngx.config
@@ -20,6 +22,11 @@ local host_name, err = ssl.server_name()
 if err then
   ngx.log(ngx.ERR, "get sni failed", err)
   return ngx.exit(ngx.ERROR)
+end
+-- NOTE: when the SNI name is missing from the client handshake request,
+-- we use the server IP address accessed by the client to identify the site
+if host_name ~= nil and tonumber(string_sub(host_name, -1)) ~= nil then
+    host_name = nil
 end
 
 local cert
