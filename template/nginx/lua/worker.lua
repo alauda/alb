@@ -15,10 +15,14 @@ local ngx_worker = ngx.worker
 local ngx_config = ngx.config
 
 local subsystem = ngx_config.subsystem
+local ipc
+if subsystem == "http" then
+    ipc = require "ngx.ipc"
+end
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
-local sync_backend_interval = tonumber(os_getenv("SYNC_BACKEND_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")
+local sync_topic = "sync_upstream"
 
 local function fetch_policy()
     local f, err = io.open(policy_path, "r")
@@ -122,6 +126,9 @@ local function fetch_policy()
         end
         ngx_shared[subsystem .. "_backend_cache"]:set(backend["name"], common.json_encode(backend))
     end
+    if subsystem == "http" then
+        ipc.broadcast(sync_topic, "update")
+    end
 end
 
 if ngx_worker.id() == 0 then
@@ -135,7 +142,13 @@ end
 
 -- worker keep upstream peer balanced
 balancer.sync_backends()
-local _, err = ngx_timer.every(sync_backend_interval, balancer.sync_backends)
-if err then
-    ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))
+if subsystem == "http" then
+    ipc.receive(sync_topic, function(data)
+        balancer.sync_backends()
+    end)
+else
+    local _, err = ngx_timer.every(sync_policy_interval, balancer.sync_backends)
+    if err then
+        ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))
+    end
 end

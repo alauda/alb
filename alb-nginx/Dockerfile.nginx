@@ -1,5 +1,5 @@
 ARG RESTY_IMAGE_BASE="alpine"
-ARG RESTY_IMAGE_TAG="3.10"
+ARG RESTY_IMAGE_TAG="3.11"
 
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG}
 
@@ -9,7 +9,7 @@ RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
 
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG RESTY_IMAGE_BASE="alpine"
-ARG RESTY_IMAGE_TAG="3.10"
+ARG RESTY_IMAGE_TAG="3.11"
 ARG RESTY_VERSION="1.15.8.1"
 ARG RESTY_OPENSSL_VERSION="1.1.1c"
 ARG RESTY_PCRE_VERSION="8.42"
@@ -44,12 +44,13 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-threads \
     "
 
-ARG RESTY_CONFIG_OPTIONS_MORE=""
+ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/ngx_lua_ipc-master"
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
 ARG RESTY_ADD_PACKAGE_RUNDEPS=""
-ARG RESTY_EVAL_PRE_CONFIGURE=""
+ARG RESTY_EVAL_PRE_CONFIGURE="curl -fSL https://github.com/slact/ngx_lua_ipc/archive/master.zip -o ngx_lua_ipc.zip \
+  && unzip -q ngx_lua_ipc.zip && rm -rf ngx_lua_ipc.zip"
 ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm \
     && ln -s /usr/local/openresty/bin/resty /usr/local/bin/resty \
     && opm install thibaultcha/lua-resty-mlcache \
