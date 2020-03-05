@@ -15,25 +15,26 @@ function _M.init()
     table_clear(_metrics)
     _prometheus = prometheus.init("prometheus_metrics")
     _metrics.requests = _prometheus:counter(
-      "nginx_http_requests_total", "Number of HTTP requests")
+      "nginx_http_requests", "Number of HTTP requests", {"port", "rule"})
     _metrics.mismatch_rule_requests = _prometheus:counter(
-      "nginx_http_mismatch_rule_requests_total", "Number of mistach rule requests", {"port"})
+      "nginx_http_mismatch_rule_requests", "Number of mistach rule requests", {"port"})
     _metrics.status = _prometheus:counter(
-      "nginx_http_status", "HTTP status code per rule", {"rule", "status"})
+      "nginx_http_status", "HTTP status code per rule", {"port", "rule", "status"})
     _metrics.request_sizes = _prometheus:counter(
-      "nginx_http_request_size_bytes", "Size of HTTP requests")
+      "nginx_http_request_size_bytes", "Size of HTTP requests", {"port"})
     _metrics.response_sizes = _prometheus:counter(
-      "nginx_http_response_size_bytes", "Size of HTTP responses")
+      "nginx_http_response_size_bytes", "Size of HTTP responses", {"port"})
 end
 
 function _M.log()
-    _metrics.requests:inc(1)
     local rule_name = ngx_var.rule_name
     if rule_name and rule_name ~= "" then
-      _metrics.status:inc(1, rule_name, ngx_var.status)
-      _metrics.request_sizes:inc(tonumber(ngx_var.request_length))
-      _metrics.response_sizes:inc(tonumber(ngx_var.bytes_sent))
+      _metrics.requests:inc(1, ngx_var.server_port, rule_name)
+      _metrics.status:inc(1, ngx_var.server_port, rule_name, ngx_var.status)
+      _metrics.request_sizes:inc(tonumber(ngx_var.request_length), ngx_var.server_port)
+      _metrics.response_sizes:inc(tonumber(ngx_var.bytes_sent), ngx_var.server_port)
     else
+      _metrics.requests:inc(1, ngx_var.server_port, "")
       _metrics.mismatch_rule_requests:inc(1, ngx_var.server_port)
     end
 end
