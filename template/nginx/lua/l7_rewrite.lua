@@ -21,7 +21,7 @@ if matched_policy ~= nil then
   ngx_var.rule_name = matched_policy["rule"]
   local enable_cors = matched_policy["enable_cors"]
   if enable_cors == true then
-    if ngx_req.get_method() == 'OPTION' then
+    if ngx_req.get_method() == 'OPTIONS' then
       ngx_header['Access-Control-Allow-Origin'] = '*'
       ngx_header['Access-Control-Allow-Credentials'] = 'true'
       ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
