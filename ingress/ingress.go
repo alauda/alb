@@ -548,7 +548,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error
 			}
 		}
 		if foundTLS == false {
-			if defaultSSLStrategy == AlwaysSSLStrategy || (defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
+			if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") || (defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
 				needFtTypes.Add(m.ProtoHTTPS)
 				hostCertMap["443"] = defaultSSLCert
 			} else {
