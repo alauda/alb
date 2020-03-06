@@ -37,11 +37,7 @@ if(method == "GET") then
                 ngx.print(certs)
             end
         elseif q == "backends" then
-            if p then
-                ngx.print(ngx_shared[subsystem .. "_backend_cache"]:get(p))
-            else
-                ngx.print(backends)
-            end
+            ngx.print(backends)
         end
     else
         ngx.print('{"port_map": '.. policies .. ', "backend_group": ' .. backends .. ', "certificate_map": ' .. certs ..  '}')

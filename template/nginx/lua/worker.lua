@@ -6,6 +6,7 @@ local string_lower = string.lower
 local common = require "common"
 local dsl   = require "dsl"
 local balancer = require "balancer"
+local cache = require "cache"
 local ngx = ngx
 local ngx_shared = ngx.shared
 local ngx_log = ngx.log
@@ -24,6 +25,17 @@ local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 local policy_path = os_getenv("NEW_POLICY_PATH")
 local sync_topic = "sync_upstream"
 
+local function clean_cache(port_map_changed, cert_map_changed)
+    if subsystem == "http" and cert_map_changed then
+        ngx_log(ngx.ERR, "clean cert cache")
+        cache.cert_cache:purge()
+    end
+    if port_map_changed then
+        ngx_log(ngx.ERR, "clean rule cache")
+        cache.rule_cache:purge()
+    end
+end
+
 local function fetch_policy()
     local f, err = io.open(policy_path, "r")
     if err then
@@ -41,7 +53,11 @@ local function fetch_policy()
     if common.table_equals(dict_data, old_dict_data) then
         return
     end
-    ngx_log(ngx.ERR, "policy changed, update")
+    local port_map_changed = old_dict_data == nil or not common.table_equals(dict_data["port_map"], old_dict_data["port_map"])
+    local backend_group_changed =  old_dict_data == nil or not common.table_equals(dict_data["backend_group"], old_dict_data["backend_group"])
+    local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["cert_map"], old_dict_data["cert_map"])
+    clean_cache(port_map_changed, cert_map_changed)
+    ngx_log(ngx.ERR, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
     ngx_shared[subsystem .. "_alb_cache"]:set("raw", data)
     local all_ports_policies = dict_data["port_map"]
     local backend_group = dict_data["backend_group"]
@@ -63,6 +79,9 @@ local function fetch_policy()
         for _, policy in ipairs(policies) do
             if policy then
                 t = policy["subsystem"]
+                if t ~= subsystem then
+                    break
+                end
                 if (policy["dsl"] and policy["dsl"] ~= "") or policy["internal_dsl"] ~= common.null then
                     if policy["internal_dsl"] ~= common.null then
                         if #policy["internal_dsl"] == 1 then
@@ -108,25 +127,7 @@ local function fetch_policy()
             ngx_shared[subsystem .. "_policy"]:set(port, common.json_encode(policies))
         end
     end
-    for _, backend in ipairs(backend_group) do
-        do
-            --{
-            --  "mode": "http",
-            --  "session_affinity_attribute": "",
-            --  "name": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
-            --  "session_affinity_policy": "",
-            --  "backends": [
-            --    {
-            --      "port": 80,
-            --      "address": "10.16.12.9",
-            --      "weight": 100
-            --    }
-            --  ]
-            --}
-        end
-        ngx_shared[subsystem .. "_backend_cache"]:set(backend["name"], common.json_encode(backend))
-    end
-    if subsystem == "http" then
+    if subsystem == "http" and backend_group_changed then
         ipc.broadcast(sync_topic, "update")
     end
 end

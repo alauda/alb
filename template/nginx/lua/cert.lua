@@ -56,6 +56,7 @@ local function get_domain_cert(domain)
     end
     return cert
 end
+cache.cert_cache:update()
 cert = cache.cert_cache:get(host_name, nil, get_domain_cert, host_name)
 if cert ~= nil then
   pem_cert_chain = cert["cert"]
