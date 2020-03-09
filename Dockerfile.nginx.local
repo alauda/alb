@@ -5,15 +5,14 @@ RUN go build -ldflags "-w -s" -v -o /alb alb2
 RUN go build -ldflags "-w -s" -v -o /migrate_v1tov2 alb2/migrate/v1tov2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alb2/migrate/v26tov28
 
-FROM index.alauda.cn/alaudaorg/alb-nginx:889f3de6b66662d0a67fbb7ce6b4bbef7a2f3de7
+FROM index.alauda.cn/alaudaorg/alb-nginx:941d272cbd3082116902e08a83104673b40e4aa8
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
 ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
 ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
 ENV INTERVAL 5
-ENV SYNC_POLICY_INTERVAL 5
-ENV SYNC_BACKEND_INTERVAL 1
+ENV SYNC_POLICY_INTERVAL 1
 ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo

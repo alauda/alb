@@ -6,7 +6,8 @@
 
 local ipairs = ipairs
 local next = next
-local ngx_var = ngx.var
+local ngx = ngx
+local ngx_log = ngx.log
 local ngx_shared = ngx.shared
 local ngx_config = ngx.config
 local common = require "common"
@@ -18,9 +19,10 @@ local _M = {}
 local subsystem = ngx_config.subsystem
 
 local function get_port_policies(port)
+    ngx_log(ngx.ERR, "refresh cache for port:", port)
     local raw_policies = ngx_shared[subsystem .. "_policy"]:get(port)
     if raw_policies == nil then
-        return nil, "no policies found"
+        return nil, "no policies found on this port:" .. port
     end
     local policies = common.json_decode(raw_policies)
     return policies
@@ -32,6 +34,7 @@ end
 -- @ret: errmsg
 function _M.get_upstream(port)
     local upstream = "default"
+    cache.rule_cache:update()
     local policies, err = cache.rule_cache:get(port, nil, get_port_policies, port)
     if err then
         ngx.log(ngx.ERR, "get mlcache failed, " .. err)
@@ -95,12 +98,9 @@ function _M.get_upstream(port)
         end
     else
         -- no policies on this port
-        errmsg = "Resource not found, no policies on this port"
+        errmsg = "Resource not found, no policies on this port:" .. port
     end
 
-    if protocol == "http" then
-        ngx.log(ngx.ERR, "cant find upstream for req: " .. ngx_var.scheme.. "://" .. ngx_var.http_host .. ngx_var.request_uri)
-    end
     return nil, nil, errmsg
 end
 
