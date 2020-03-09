@@ -92,11 +92,12 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 	ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
 	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
-	_, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
+	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
 	if err != nil {
 		glog.Error(err)
 		return err
 	}
+	ft.UID = ftRes.UID
 	return nil
 }
 
