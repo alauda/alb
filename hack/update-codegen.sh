@@ -20,7 +20,7 @@ set -o pipefail
 set -x
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=$SCRIPT_ROOT/vendor/k8s.io/code-generator
+CODEGEN_PKG=$GOPATH/src/k8s.io/code-generator
 
 
 # generate the code with:
@@ -28,7 +28,7 @@ CODEGEN_PKG=$SCRIPT_ROOT/vendor/k8s.io/code-generator
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client" \
-  alb2/pkg/client alb2/pkg/apis \
+  alauda.io/alb2/pkg/client alauda.io/alb2/pkg/apis \
   "alauda:v1,v3"  \
   --go-header-file ${SCRIPT_ROOT}/hack/boilerplate.go.txt
 #  --output-base "$(dirname ${BASH_SOURCE})/../.."

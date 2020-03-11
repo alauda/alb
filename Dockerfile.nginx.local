@@ -1,9 +1,11 @@
 FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.13-alpine3.10
-WORKDIR $GOPATH
-COPY . src/alb2
-RUN go build -ldflags "-w -s" -v -o /alb alb2
-RUN go build -ldflags "-w -s" -v -o /migrate_v1tov2 alb2/migrate/v1tov2
-RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alb2/migrate/v26tov28
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn,direct
+COPY . $GOPATH/src/alauda.io/alb2
+WORKDIR $GOPATH/src/alauda.io/alb2
+RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
+RUN go build -ldflags "-w -s" -v -o /migrate_v1tov2 alauda.io/alb2/migrate/v1tov2
+RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 
 FROM index.alauda.cn/alaudaorg/alb-nginx:941d272cbd3082116902e08a83104673b40e4aa8
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx

@@ -24,9 +24,9 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"alb2/config"
-	"alb2/driver"
-	"alb2/utils"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/utils"
 )
 
 var (

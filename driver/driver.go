@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"alb2/config"
+	"alauda.io/alb2/config"
 	"fmt"
 
 	"github.com/golang/glog"

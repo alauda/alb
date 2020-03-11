@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"alb2/config"
-	"alb2/driver"
-	"alb2/modules"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/modules"
 
-	crdV1 "alb2/pkg/apis/alauda/v1"
+	crdV1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	"k8s.io/apimachinery/pkg/types"
 

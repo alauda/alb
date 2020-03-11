@@ -19,10 +19,10 @@ limitations under the License.
 package v3
 
 import (
-	v3 "alb2/pkg/apis/alauda/v3"
-	scheme "alb2/pkg/client/clientset/versioned/scheme"
 	"time"
 
+	v3 "alauda.io/alb2/pkg/apis/alauda/v3"
+	scheme "alauda.io/alb2/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

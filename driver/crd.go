@@ -1,8 +1,8 @@
 package driver
 
 import (
-	"alb2/config"
-	v1 "alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/config"
+	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"time"
 
 	"github.com/golang/glog"

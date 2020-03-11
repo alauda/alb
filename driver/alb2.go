@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"alb2/config"
-	m "alb2/modules"
-	alb2v1 "alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/config"
+	m "alauda.io/alb2/modules"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	"github.com/evanphx/json-patch"
 	"github.com/golang/glog"

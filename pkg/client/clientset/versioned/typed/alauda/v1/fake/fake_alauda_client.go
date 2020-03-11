@@ -19,8 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1 "alb2/pkg/client/clientset/versioned/typed/alauda/v1"
-
+	v1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

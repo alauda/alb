@@ -19,10 +19,10 @@ limitations under the License.
 package versioned
 
 import (
-	crdv1 "alb2/pkg/client/clientset/versioned/typed/alauda/v1"
-	crdv3 "alb2/pkg/client/clientset/versioned/typed/alauda/v3"
 	"fmt"
 
+	crdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1"
+	crdv3 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v3"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

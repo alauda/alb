@@ -19,12 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "alb2/pkg/client/clientset/versioned"
-	crdv1 "alb2/pkg/client/clientset/versioned/typed/alauda/v1"
-	fakecrdv1 "alb2/pkg/client/clientset/versioned/typed/alauda/v1/fake"
-	crdv3 "alb2/pkg/client/clientset/versioned/typed/alauda/v3"
-	fakecrdv3 "alb2/pkg/client/clientset/versioned/typed/alauda/v3/fake"
-
+	clientset "alauda.io/alb2/pkg/client/clientset/versioned"
+	crdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1"
+	fakecrdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1/fake"
+	crdv3 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v3"
+	fakecrdv3 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v3/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

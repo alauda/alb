@@ -12,11 +12,11 @@ import (
 
 	"github.com/golang/glog"
 
-	"alb2/config"
-	"alb2/controller"
-	"alb2/driver"
-	"alb2/ingress"
-	"alb2/utils"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/controller"
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/ingress"
+	"alauda.io/alb2/utils"
 )
 
 func main() {

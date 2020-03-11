@@ -1,13 +1,13 @@
 package main
 
 import (
-	"alb2/utils"
+	"alauda.io/alb2/utils"
 	"flag"
 	"fmt"
 	"strings"
 
-	"alb2/config"
-	"alb2/driver"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

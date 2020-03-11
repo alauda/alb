@@ -19,9 +19,8 @@ limitations under the License.
 package fake
 
 import (
-	crdv1 "alb2/pkg/apis/alauda/v1"
-	crdv3 "alb2/pkg/apis/alauda/v3"
-
+	crdv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	crdv3 "alauda.io/alb2/pkg/apis/alauda/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

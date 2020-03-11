@@ -19,8 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	alaudav1 "alb2/pkg/apis/alauda/v1"
-
+	alaudav1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

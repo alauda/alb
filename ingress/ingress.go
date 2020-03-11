@@ -27,25 +27,25 @@ import (
 
 	"github.com/fatih/set"
 	corev1 "k8s.io/api/core/v1"
-	extsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	extsinformers "k8s.io/client-go/informers/extensions/v1beta1"
+	networkinginformers "k8s.io/client-go/informers/networking/v1beta1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	extslisters "k8s.io/client-go/listers/extensions/v1beta1"
+	networkinglisters "k8s.io/client-go/listers/networking/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"alb2/config"
-	ctl "alb2/controller"
-	"alb2/driver"
-	m "alb2/modules"
-	alb2v1 "alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/config"
+	ctl "alauda.io/alb2/controller"
+	"alauda.io/alb2/driver"
+	m "alauda.io/alb2/modules"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 )
 
 const (
@@ -98,7 +98,7 @@ func MainLoop(ctx context.Context) {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
 	controller := NewController(
 		drv,
-		kubeInformerFactory.Extensions().V1beta1().Ingresses(),
+		kubeInformerFactory.Networking().V1beta1().Ingresses(),
 	)
 	interval := config.GetInt("INTERVAL")
 	for {
@@ -122,7 +122,7 @@ func MainLoop(ctx context.Context) {
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	ingressLister extslisters.IngressLister
+	ingressLister networkinglisters.IngressLister
 	ingressSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
@@ -141,7 +141,7 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(
 	d *driver.KubernetesDriver,
-	ingressInformer extsinformers.IngressInformer) *Controller {
+	ingressInformer networkinginformers.IngressInformer) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -174,8 +174,8 @@ func NewController(
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
-			newIngress := new.(*extsv1beta1.Ingress)
-			oldIngress := old.(*extsv1beta1.Ingress)
+			newIngress := new.(*networkingv1beta1.Ingress)
+			oldIngress := old.(*networkingv1beta1.Ingress)
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
 			}
@@ -357,7 +357,7 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) bool {
+func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Frontend) bool {
 	if ingress.Spec.Backend == nil {
 		return false
 	}
@@ -394,10 +394,10 @@ func (c *Controller) setFtDefault(ingress *extsv1beta1.Ingress, ft *m.Frontend) 
 }
 
 func (c *Controller) updateRule(
-	ingress *extsv1beta1.Ingress,
+	ingress *networkingv1beta1.Ingress,
 	ft *m.Frontend,
 	host string,
-	ingresPath extsv1beta1.HTTPIngressPath,
+	ingresPath networkingv1beta1.HTTPIngressPath,
 ) error {
 	annotations := ingress.GetAnnotations()
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
@@ -515,7 +515,7 @@ func (c *Controller) updateRule(
 	return nil
 }
 
-func (c *Controller) onIngressCreateOrUpdate(ingress *extsv1beta1.Ingress) error {
+func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress) error {
 	glog.Infof("on ingress create or update, %s/%s", ingress.Namespace, ingress.Name)
 	// Detele old rule if it exist
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
