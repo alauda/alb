@@ -32,7 +32,7 @@ build-ci:
 	docker build -t ${CI_IMAGE} -f Dockerfile.ci .
 
 build-nginx: version
-	docker build -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile.nginx .
+	docker buildx build --platform linux/amd64,linux/arm64 -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile.nginx .  --push
 
 build: build-nginx
 
