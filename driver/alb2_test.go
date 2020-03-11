@@ -14,8 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
-	albfakeclient "alb2/pkg/client/clientset/versioned/fake"
-	alb2scheme "alb2/pkg/client/clientset/versioned/scheme"
+	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
+	alb2scheme "alauda.io/alb2/pkg/client/clientset/versioned/scheme"
 
 	"k8s.io/client-go/kubernetes/scheme"
 )

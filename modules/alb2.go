@@ -1,8 +1,8 @@
 package modules
 
 import (
-	alb2v1 "alb2/pkg/apis/alauda/v1"
-	"alb2/utils"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
 	"fmt"
 	"math/rand"
 	"strings"

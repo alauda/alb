@@ -1,7 +1,7 @@
 package ingress
 
 import (
-	"alb2/driver"
+	"alauda.io/alb2/driver"
 	"context"
 	"flag"
 	"os"
@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	extsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,8 +27,8 @@ func TestIngres(t *testing.T) {
 
 	time.Sleep(time.Second)
 	client := drv.Client
-	client.ExtensionsV1beta1().Ingresses("default").Create(
-		&extsv1beta1.Ingress{
+	client.NetworkingV1beta1().Ingresses("default").Create(
+		&networkingv1beta1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 			},

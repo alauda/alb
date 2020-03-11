@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"alb2/config"
+	"alauda.io/alb2/config"
 )
 
 func TestCreateDriver(t *testing.T) {

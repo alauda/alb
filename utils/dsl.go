@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/pkg/apis/alauda/v1"
 	"errors"
 	"github.com/spf13/cast"
 )

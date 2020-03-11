@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"alb2/config"
-	"alb2/driver"
-	m "alb2/modules"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	m "alauda.io/alb2/modules"
 	"encoding/json"
 	"errors"
 	"fmt"

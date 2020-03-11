@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"alb2/utils"
+	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/template"
 
-	"alb2/config"
-	"alb2/driver"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
 
 	"github.com/golang/glog"
 )

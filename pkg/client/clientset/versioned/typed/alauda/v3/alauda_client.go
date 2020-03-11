@@ -19,9 +19,8 @@ limitations under the License.
 package v3
 
 import (
-	v3 "alb2/pkg/apis/alauda/v3"
-	"alb2/pkg/client/clientset/versioned/scheme"
-
+	v3 "alauda.io/alb2/pkg/apis/alauda/v3"
+	"alauda.io/alb2/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

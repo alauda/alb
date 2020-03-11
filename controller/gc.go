@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"alb2/config"
-	"alb2/driver"
-	m "alb2/modules"
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	m "alauda.io/alb2/modules"
 	"fmt"
 
-	alb2v1 "alb2/pkg/apis/alauda/v1"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	"github.com/golang/glog"
 	"github.com/thoas/go-funk"
