@@ -49,6 +49,10 @@ local function fetch_policy()
     end
     local old_data = ngx_shared[subsystem .. "_alb_cache"]:get("raw")
     local dict_data = common.json_decode(data)
+    if dict_data == nil then
+        ngx_log(ngx.ERR, "invalid policy file" .. data)
+        return
+    end
     local old_dict_data = common.json_decode(old_data)
     if common.table_equals(dict_data, old_dict_data) then
         return
