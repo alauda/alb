@@ -1,6 +1,6 @@
-diff -Nur openresty-1.15.8.1/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openresty-1.15.8.1.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua
---- openresty-1.15.8.1/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:08:39.000000000 +0800
-+++ openresty-1.15.8.1.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:07:33.000000000 +0800
+diff -Nur openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openresty-1.15.8.3.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua
+--- openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:08:39.000000000 +0800
++++ openresty-1.15.8.3.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:07:33.000000000 +0800
 @@ -25,6 +25,7 @@
  local ngx_lua_ffi_ssl_set_der_private_key
  local ngx_lua_ffi_ssl_raw_server_addr
@@ -55,9 +55,9 @@ diff -Nur openresty-1.15.8.1/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openre
  function _M.raw_client_addr()
      local r = get_request()
      if not r then
-diff -Nur openresty-1.15.8.1/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c openresty-1.15.8.1.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c
---- openresty-1.15.8.1/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:08:39.000000000 +0800
-+++ openresty-1.15.8.1.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:07:33.000000000 +0800
+diff -Nur openresty-1.15.8.3/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c openresty-1.15.8.3.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c
+--- openresty-1.15.8.3/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:08:39.000000000 +0800
++++ openresty-1.15.8.3.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:07:33.000000000 +0800
 @@ -882,6 +882,39 @@
  
  
