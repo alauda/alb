@@ -16,7 +16,7 @@ version:
 	git describe --long > VERSION
 
 images: gen-code lint test version
-	docker build -t index.alauda.cn/alaudaorg/alb2:`cat VERSION` -f Dockerfile.nginx.local .
+	docker buildx build --platform linux/amd64,linux/arm64 -t index.alauda.cn/alaudaorg/alb2:`cat VERSION` -f Dockerfile.nginx.local . --push
 	docker image prune -f
 
 push: images

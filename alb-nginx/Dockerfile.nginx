@@ -150,19 +150,8 @@ RUN \
         pcre-${RESTY_PCRE_VERSION}.tar.gz pcre-${RESTY_PCRE_VERSION} \
     && apk del .build-deps \
     && addgroup -S nginx \
-    && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
-    && apk add --no-cache logrotate openssl tcpdump
+    && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx
 
 
 # Add additional binaries into PATH for convenience
 ENV PATH=$PATH:/usr/local/openresty/luajit/bin/:/usr/local/openresty/nginx/sbin/:/usr/local/openresty/bin/
-ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
-ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
-ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
-ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
-ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
-
-RUN mkdir -p /var/log/mathilde && \
-    mkdir -p /alb/certificates && \
-    mkdir -p /var/log/nginx
-COPY alauda /etc/logrotate.d/alauda

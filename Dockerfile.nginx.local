@@ -1,4 +1,4 @@
-FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.13-alpine3.10
+FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.13-alpine3.10 AS builder
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 COPY . $GOPATH/src/alauda.io/alb2
@@ -19,7 +19,8 @@ ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
 
-RUN apk add jq iproute2
+RUN apk add jq iproute2 logrotate openssl tcpdump
+
 
 CMD ["/run.sh"]
 
@@ -27,12 +28,13 @@ RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
     mkdir -p /alb/tweak && \
     mkdir -p /var/log/nginx
+COPY alauda /etc/logrotate.d/alauda
 
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
-COPY --from=0 alb /alb/alb
-COPY --from=0 migrate_v1tov2 /alb/migrate_v1tov2
-COPY --from=0 migrate_v26tov28 /alb/migrate_v26tov28
+COPY --from=builder alb /alb/alb
+COPY --from=builder migrate_v1tov2 /alb/migrate_v1tov2
+COPY --from=builder migrate_v26tov28 /alb/migrate_v26tov28
 COPY alauda /etc/logrotate.d/alauda
