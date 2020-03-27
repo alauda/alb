@@ -151,9 +151,8 @@ if subsystem == "http" then
     ipc.receive(sync_topic, function(data)
         balancer.sync_backends()
     end)
-else
-    local _, err = ngx_timer.every(sync_policy_interval, balancer.sync_backends)
-    if err then
-        ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))
-    end
+end
+local _, err = ngx_timer.every(sync_policy_interval, balancer.sync_backends)
+if err then
+    ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))
 end
