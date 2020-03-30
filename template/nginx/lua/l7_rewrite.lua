@@ -51,8 +51,6 @@ if matched_policy ~= nil then
     ngx_req.set_uri(new_uri, false)
   end
 elseif errmsg ~= nil then
-  ngx.status = 404
   ngx_log(ngx.ERR, errmsg)
-  ngx_say(errmsg)
-  ngx_exit(ngx.HTTP_OK)
+  ngx_exit(ngx.HTTP_NOT_FOUND)
 end

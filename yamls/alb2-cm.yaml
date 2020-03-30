@@ -6,7 +6,7 @@ metadata:
 data:
   http: |
     # Disable nginx or openresty symbol
-    server_tokens off;
+    server_tokens build;
     more_set_headers 'Server: alb/2.0.0';
 
     # Disable checking of client request body size
@@ -60,7 +60,7 @@ data:
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 10m;
     ssl_prefer_server_ciphers on;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
     ssl_ciphers EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:ECDH+AES256:DH+AESGCM:DH+AES256:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
     ssl_dhparam /etc/ssl/dhparam.pem;
     ssl_ecdh_curve secp384r1;

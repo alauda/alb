@@ -17,7 +17,9 @@ import (
 	"k8s.io/klog"
 )
 
-const DEFAULT_RULE = "(STARTS_WITH URL /)"
+const (
+	DEFAULT_RULE = "(STARTS_WITH URL /)"
+)
 
 type NginxController struct {
 	BackendType   string
@@ -73,10 +75,6 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			ngxPolicy.PortMap[port] = Policies{}
 		}
 		for _, rule := range frontend.Rules {
-			if rule.BackendGroup == nil {
-				continue
-			}
-
 			// for compatible
 			if rule.DSL == "" && (rule.Domain != "" || rule.URL != "") {
 				klog.Info("transfer rule to dsl")
@@ -107,7 +105,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				}
 			}
 
-			if rule.DSL == "" {
+			if rule.DSL == "" || rule.DSLX == nil {
+				klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
 				continue
 			}
 
@@ -128,11 +127,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 					policy.InternalDSL = internalDSL
 				}
 			}
-			if rule.Priority != 0 {
-				policy.Priority = int(rule.Priority)
-			} else {
-				policy.Priority = len(rule.DSL)
-			}
+			policy.Priority = rule.GetPriority()
 			policy.Upstream = rule.BackendGroup.Name
 			// for rewrite
 			policy.URL = rule.URL
@@ -145,20 +140,21 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		}
 
 		// set default rule if exists
+		defaultPolicy := Policy{}
+		// default rule should have the minimum priority
+		defaultPolicy.Priority = -1
+		if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
+			defaultPolicy.Subsystem = SubsystemHTTP
+		} else if frontend.Protocol == ProtocolTCP {
+			defaultPolicy.Subsystem = SubsystemStream
+		}
+		if frontend.Protocol != ProtocolTCP {
+			defaultPolicy.Rule = frontend.RawName
+			defaultPolicy.DSL = DEFAULT_RULE
+		}
 		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
-			klog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
-			policy := Policy{}
-			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
-				policy.Subsystem = SubsystemHTTP
-			} else if frontend.Protocol == ProtocolTCP {
-				policy.Subsystem = SubsystemStream
-			}
-			if frontend.Protocol != ProtocolTCP {
-				policy.Rule = frontend.RawName
-				policy.DSL = DEFAULT_RULE
-			}
-			policy.Upstream = frontend.BackendGroup.Name
-			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
+			defaultPolicy.Upstream = frontend.BackendGroup.Name
+			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &defaultPolicy)
 		}
 		sort.Sort(ngxPolicy.PortMap[port])
 	}

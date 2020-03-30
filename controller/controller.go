@@ -2,6 +2,7 @@ package controller
 
 import (
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,7 +121,7 @@ type BackendService struct {
 
 type Rule struct {
 	RuleID          string  `json:"rule_id"`
-	Priority        int64   `json:"priority"`
+	Priority        int     `json:"priority"`
 	Type            string  `json:"type"`
 	Domain          string  `json:"domain"`
 	URL             string  `json:"url"`
@@ -139,14 +140,26 @@ type Rule struct {
 	Services              []*BackendService `json:"services"`
 
 	BackendGroup *BackendGroup `json:"-"`
-	Regexp       string        `json:"-"`
 }
 
-func (rl Rule) AllowNoAddr() bool {
-	if rl.RedirectURL != "" {
-		return true
+func (rl Rule) GetPriority() int {
+	var (
+		dslx v1.DSLX
+		err  error
+	)
+	if rl.Priority != 0 {
+		return rl.Priority
 	}
-	return false
+	if rl.DSLX != nil {
+		dslx = rl.DSLX
+	} else {
+		dslx, err = utils.DSL2DSLX(rl.DSL)
+		if err != nil {
+			return len(rl.DSL)
+		}
+	}
+
+	return dslx.Priority()
 }
 
 type RuleList []*Rule
@@ -170,7 +183,6 @@ type Config struct {
 	LoadBalancerID   string
 	Frontends        map[int]*Frontend
 	BackendGroup     []*BackendGroup
-	RecordPostBody   bool
 	CertificateMap   map[string]Certificate
 	TweakHash        string
 	EnablePrometheus bool

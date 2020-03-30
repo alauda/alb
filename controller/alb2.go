@@ -43,7 +43,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		for _, arl := range aft.Rules {
 			rule := &Rule{
 				RuleID:          arl.Name,
-				Priority:        int64(arl.Priority),
+				Priority:        arl.Priority,
 				Type:            arl.Type,
 				Domain:          arl.Domain,
 				URL:             arl.URL,

@@ -111,8 +111,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			var rules RuleList
 			for _, rule := range ft.Rules {
 				if len(rule.Services) == 0 {
-					klog.Warningf("skip rule %s.", rule.RuleID)
-					continue
+					klog.Warningf("rule %s has no active service.", rule.RuleID)
 				}
 				rule.BackendGroup = &BackendGroup{
 					Name: rule.RuleID,
@@ -122,9 +121,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 					SessionAffinityAttribute: rule.SessionAffinityAttr,
 				}
 				rule.BackendGroup.Backends = generateBackend(serviceMap, rule.Services)
-				if rule.AllowNoAddr() || len(rule.BackendGroup.Backends) > 0 {
-					rules = append(rules, rule)
-				}
+				rules = append(rules, rule)
 			}
 			if len(rules) > 0 {
 				sort.Sort(rules)
@@ -136,40 +133,16 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			if len(ft.Services) == 0 {
 				klog.Warningf("frontend %s has no default service.",
 					ft.String())
-				continue
-			}
-			ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
-
-			if ft.Protocol == ProtocolTCP {
-				ft.BackendGroup.Mode = ModeTCP
 			} else {
-				ft.BackendGroup.Mode = ModeHTTP
+				ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
+				if ft.Protocol == ProtocolTCP {
+					ft.BackendGroup.Mode = ModeTCP
+				} else {
+					ft.BackendGroup.Mode = ModeHTTP
+				}
 			}
 		}
 	}
-}
-
-func generateRegexp(ft *Frontend, rule *Rule) string {
-	domain := "[^/]+"
-	if rule.Domain != "" {
-		domain = rule.Domain
-	}
-	url := ".*"
-	if rule.URL != "" {
-		if strings.HasPrefix(rule.URL, "^") {
-			url = rule.URL[1:]
-		} else {
-			url = rule.URL + ".*"
-		}
-	}
-	var reg string
-	if (ft.Protocol == ProtocolHTTP && ft.Port == 80) ||
-		(ft.Protocol == ProtocolHTTPS && ft.Port == 443) {
-		reg = fmt.Sprintf("^%s(:%d)?%s$", domain, ft.Port, url)
-	} else {
-		reg = fmt.Sprintf("^%s:%d%s$", domain, ft.Port, url)
-	}
-	return reg
 }
 
 var cfgLocker sync.Mutex
@@ -217,7 +190,6 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			}
 		}
 		klog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
-		isValid := false
 		isHTTP := ft.Protocol == ProtocolHTTP
 		isHTTPS := ft.Protocol == ProtocolHTTPS
 		if isHTTP || isHTTPS {
@@ -228,10 +200,10 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 				cert, err := getCertificate(driver, secretNs, secretName)
 				if err != nil {
 					klog.Warningf("get cert failed, %+v", err)
-					continue
+				} else {
+					// default cert for port ft.Port
+					result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
 				}
-				// default cert for port ft.Port
-				result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
 			}
 			for _, rule := range ft.Rules {
 				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
@@ -252,9 +224,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 					result.CertificateMap[strings.ToLower(rule.Domain)] = *cert
 				}
 				rule.Domain = strings.ToLower(rule.Domain)
-				rule.Regexp = generateRegexp(ft, rule)
 				result.BackendGroup = append(result.BackendGroup, rule.BackendGroup)
-				isValid = true
 			}
 		}
 		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
@@ -263,20 +233,11 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			if !funk.Contains(result.BackendGroup, ft.BackendGroup) {
 				result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
 			}
-			isValid = true
 		}
 
-		if isValid {
-			result.Frontends[ft.Port] = ft
-		} else {
-			klog.Warningf("Skip invalid frontend %s.", ft.String())
-		}
+		result.Frontends[ft.Port] = ft
 	} // end of  _, ft := range loadbalancer.Frontends
 
-	if config.Get("RECORD_POST_BODY") == "true" {
-		// nginx not support record request body alb2.x
-		result.RecordPostBody = true
-	}
 	return result
 }
 

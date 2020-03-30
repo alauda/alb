@@ -42,6 +42,7 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-stream \
     --with-stream_ssl_module \
     --with-threads \
+    --build=ALB \
     "
 
 ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/ngx_lua_ipc-master"

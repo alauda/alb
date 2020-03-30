@@ -167,3 +167,14 @@ func (s Service) Is(ns, name string, port int) bool {
 	}
 	return false
 }
+
+func (dslx DSLX) Priority() int {
+	var p int
+	// each term weight 10000
+	for _, term := range dslx {
+		p += 10000
+		// echo value weight 100
+		p += 100 * len(term.Values)
+	}
+	return p
+}

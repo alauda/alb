@@ -11,8 +11,7 @@ if t_upstream ~= nil then
 end
 
 if errmsg ~= nil then
-  ngx.status = 404
   ngx_log(ngx.ERR, errmsg)
-  ngx_say(errmsg)
-  ngx_exit(200)
+  ngx_say("alb:", errmsg)
+  ngx_exit(ngx.ERROR)
 end
