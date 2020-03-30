@@ -8,16 +8,16 @@ import (
 
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
-	"github.com/golang/glog"
 	"github.com/thoas/go-funk"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 func GCRule(kd *driver.KubernetesDriver) error {
 	alb, err := kd.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	for _, ft := range alb.Frontends {
@@ -40,12 +40,12 @@ func GCRule(kd *driver.KubernetesDriver) error {
 				if needDel {
 					ftRes, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Get(ft.Name, metav1.GetOptions{})
 					if err != nil {
-						glog.Error(err)
+						klog.Error(err)
 						continue
 					}
 					ftRes.Spec.ServiceGroup.Services = []alb2v1.Service{}
 					if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Update(ftRes); err != nil {
-						glog.Error(err)
+						klog.Error(err)
 					}
 				}
 			}
@@ -79,10 +79,10 @@ func GCRule(kd *driver.KubernetesDriver) error {
 					}
 					if noneExist == len(rl.ServiceGroup.Services) || needDel {
 						// all services associate with rule are not exist any more
-						glog.Infof("delete rule %s in gc", rl.Name)
+						klog.Infof("delete rule %s in gc", rl.Name)
 						err := kd.ALBClient.CrdV1().Rules(config.Get("NAMESPACE")).Delete(rl.Name, &metav1.DeleteOptions{})
 						if err != nil {
-							glog.Error(err)
+							klog.Error(err)
 						}
 					}
 				}

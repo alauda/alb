@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 )
 
 func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
@@ -38,7 +38,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			ft.Protocol = ProtocolTCP
 		}
 		if ft.Port <= 0 {
-			glog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
+			klog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
 		}
 		for _, arl := range aft.Rules {
 			rule := &Rule{
@@ -117,7 +117,7 @@ func locked(lockString, ownerID string) bool {
 	var lock Lock
 	err := json.Unmarshal([]byte(lockString), &lock)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return false
 	}
 	now := time.Now()
@@ -132,7 +132,7 @@ func needRelock(lockString string) bool {
 	var lock Lock
 	err := json.Unmarshal([]byte(lockString), &lock)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return true
 	}
 	if lock.LockUntil.Sub(time.Now()) <= 30*time.Second {
@@ -146,7 +146,7 @@ func retryUntil(lockString string) time.Time {
 	var lock Lock
 	err := json.Unmarshal([]byte(lockString), &lock)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return time.Now()
 	}
 	return lock.LockUntil.Add(-30 * time.Second)
@@ -182,7 +182,7 @@ func TryLockAlb() error {
 	}
 	albRes, err := driver.LoadAlbResource(namespace, name)
 	if err != nil {
-		glog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
+		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
 	if albRes.Annotations == nil {
@@ -192,12 +192,12 @@ func TryLockAlb() error {
 	if ok && locked(lockString, myself) {
 		// used by another pod of alb2
 		waitUntil = retryUntil(lockString)
-		glog.Info(ErrAlbInUse)
+		klog.Info(ErrAlbInUse)
 		return ErrAlbInUse
 	}
 
 	if !needRelock(lockString) {
-		glog.Info("Hold lock, no need to relock")
+		klog.Info("Hold lock, no need to relock")
 		return nil
 	}
 
@@ -225,10 +225,10 @@ func TryLockAlb() error {
 	albRes.Status.ProbeTime = time.Now().Unix()
 	err = driver.UpdateAlbResource(albRes)
 	if err != nil {
-		glog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())
+		klog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
-	glog.Infof("I locked alb.")
+	klog.Infof("I locked alb.")
 	holdUntil = retryUntil(lockString)
 	return nil
 }
@@ -249,7 +249,7 @@ func IsLocker() (bool, error) {
 	}
 	albRes, err := driver.LoadAlbResource(namespace, name)
 	if err != nil {
-		glog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
+		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
 		return false, err
 	}
 	if albRes.Annotations == nil {

@@ -4,7 +4,7 @@ import (
 	"alauda.io/alb2/config"
 	"fmt"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 )
 
 const (
@@ -66,6 +66,6 @@ func GetDriver() (*KubernetesDriver, error) {
 
 // SetDebug enable debug mode. GetDriver() will return a driver with fake client
 func SetDebug() {
-	glog.Info("Set Debug")
+	klog.Info("Set Debug")
 	config.Set("TEST", "true")
 }

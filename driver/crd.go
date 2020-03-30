@@ -5,11 +5,11 @@ import (
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"time"
 
-	"github.com/golang/glog"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 )
 
 const (
@@ -71,7 +71,7 @@ func (d *KubernetesDriver) RegisterCustomDefinedResources() error {
 				continue
 			}
 
-			glog.Warningf("Not established: %v", name)
+			klog.Warningf("Not established: %v", name)
 			skipCreate = false
 			break
 		}
@@ -102,7 +102,7 @@ func (d *KubernetesDriver) RegisterCustomDefinedResources() error {
 				Validation: nil,
 			},
 		}
-		glog.Infof("registering CRD %q", name)
+		klog.Infof("registering CRD %q", name)
 		_, err := d.ExtClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -123,19 +123,19 @@ func (d *KubernetesDriver) RegisterCustomDefinedResources() error {
 					switch cond.Type {
 					case apiextensionsv1beta1.Established:
 						if cond.Status == apiextensionsv1beta1.ConditionTrue {
-							glog.Infof("established CRD %q", name)
+							klog.Infof("established CRD %q", name)
 							continue LOOP
 						}
 					case apiextensionsv1beta1.NamesAccepted:
 						if cond.Status == apiextensionsv1beta1.ConditionFalse {
-							glog.Warningf("name conflict: %v", cond.Reason)
+							klog.Warningf("name conflict: %v", cond.Reason)
 						}
 					}
 				}
 			} else {
 				continue LOOP
 			}
-			glog.Infof("missing status condition for %q", name)
+			klog.Infof("missing status condition for %q", name)
 			return false, nil
 		}
 		return true, nil

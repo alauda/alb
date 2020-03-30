@@ -14,7 +14,7 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 )
 
 const DEFAULT_RULE = "(STARTS_WITH URL /)"
@@ -68,7 +68,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		BackendGroup:   config.BackendGroup,
 	}
 	for port, frontend := range config.Frontends {
-		glog.V(3).Infof("Frontend is %+v", frontend)
+		klog.V(3).Infof("Frontend is %+v", frontend)
 		if _, ok := ngxPolicy.PortMap[port]; !ok {
 			ngxPolicy.PortMap[port] = Policies{}
 		}
@@ -79,7 +79,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 
 			// for compatible
 			if rule.DSL == "" && (rule.Domain != "" || rule.URL != "") {
-				glog.Info("transfer rule to dsl")
+				klog.Info("transfer rule to dsl")
 				if rule.Domain != "" && rule.URL != "" {
 					if strings.HasPrefix(rule.URL, "^") {
 						rule.DSL = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", rule.Domain, rule.URL)
@@ -100,7 +100,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				if rule.DSL != "" {
 					dslx, err := utils.DSL2DSLX(rule.DSL)
 					if err != nil {
-						glog.Warning(err)
+						klog.Warning(err)
 					} else {
 						rule.DSLX = dslx
 					}
@@ -111,7 +111,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				continue
 			}
 
-			glog.V(3).Infof("Rule is %v", rule)
+			klog.V(3).Infof("Rule is %v", rule)
 			policy := Policy{}
 			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
 				policy.Subsystem = SubsystemHTTP
@@ -123,7 +123,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			if rule.DSLX != nil {
 				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 				if err != nil {
-					glog.Error("convert dslx to internal failed", err)
+					klog.Error("convert dslx to internal failed", err)
 				} else {
 					policy.InternalDSL = internalDSL
 				}
@@ -146,7 +146,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 
 		// set default rule if exists
 		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
-			glog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
+			klog.V(3).Infof("Default rule is %v", frontend.BackendGroup)
 			policy := Policy{}
 			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
 				policy.Subsystem = SubsystemHTTP
@@ -181,49 +181,49 @@ func (nc *NginxController) GenerateConf() error {
 		return errors.New("no lb found")
 	}
 	if len(loadbalancers[0].Frontends) == 0 {
-		glog.Info("No service bind to this nginx now")
+		klog.Info("No service bind to this nginx now")
 	}
 
 	nginxConfig, ngxPolicies := nc.generateNginxConfig(loadbalancers[0])
-	// glog.Infof("nginxConfig is %v", nginxConfig)
-	// glog.Infof("policy is %v", ngxPolicies)
+	// klog.Infof("nginxConfig is %v", nginxConfig)
+	// klog.Infof("policy is %v", ngxPolicies)
 
 	policyBytes, err := json.Marshal(ngxPolicies)
 	if err != nil {
-		glog.Error()
+		klog.Error()
 		return err
 	}
 	configWriter, err := os.Create(nc.NewConfigPath)
 	if err != nil {
-		glog.Errorf("Failed to create new config file %s", err.Error())
+		klog.Errorf("Failed to create new config file %s", err.Error())
 		return err
 	}
 	defer configWriter.Close()
 	policyWriter, err := os.Create(nc.NewPolicyPath)
 	if err != nil {
-		glog.Errorf("Failed to create new policy file %s", err.Error())
+		klog.Errorf("Failed to create new policy file %s", err.Error())
 		return err
 	}
 	defer policyWriter.Close()
 
 	t, err := template.New("nginx.tmpl").ParseFiles(nc.TemplatePath)
 	if err != nil {
-		glog.Errorf("Failed to parse template %s", err.Error())
+		klog.Errorf("Failed to parse template %s", err.Error())
 		return err
 	}
 	if _, err := policyWriter.Write(policyBytes); err != nil {
-		glog.Errorf("Write policy file failed %s", err.Error())
+		klog.Errorf("Write policy file failed %s", err.Error())
 		return err
 	}
 	policyWriter.Sync()
 
 	err = t.Execute(configWriter, nginxConfig)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	if err := configWriter.Sync(); err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	return nil
@@ -232,7 +232,7 @@ func (nc *NginxController) GenerateConf() error {
 func (nc *NginxController) ReloadLoadBalancer() error {
 	if nc.BinaryPath == "" {
 		// set it to empty for local test
-		glog.Errorf("Nginx bin path is empty!!!")
+		klog.Errorf("Nginx bin path is empty!!!")
 		return nil
 	}
 
@@ -247,7 +247,7 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 
 	pids, err := CheckProcessAlive(nc.BinaryPath)
 	if err != nil && err.Error() != "exit status 1" {
-		glog.Errorf("failed to check nginx aliveness: %s", err.Error())
+		klog.Errorf("failed to check nginx aliveness: %s", err.Error())
 		return err
 	}
 	pids = strings.Trim(pids, "\n ")
@@ -255,20 +255,20 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 
 	// No change, Nginx running, skip
 	if !configChanged && len(pids) > 0 && getLastReloadStatus(StatusFileParentPath) == SUCCESS {
-		glog.Info("Config not changed and last reload success")
+		klog.Info("Config not changed and last reload success")
 		return nil
 	}
 
 	// Update config and policy files
 	if configChanged {
 		diffOutput, _ := exec.Command("diff", "-u", nc.OldConfigPath, nc.NewConfigPath).CombinedOutput()
-		glog.Infof("NGINX configuration diff\n")
-		glog.Infof("%v\n", string(diffOutput))
+		klog.Infof("NGINX configuration diff\n")
+		klog.Infof("%v\n", string(diffOutput))
 
-		glog.Info("Start to change config.")
+		klog.Info("Start to change config.")
 		err = os.Rename(nc.NewConfigPath, nc.OldConfigPath)
 		if err != nil {
-			glog.Errorf("failed to replace config: %s", err.Error())
+			klog.Errorf("failed to replace config: %s", err.Error())
 			return err
 		}
 	}
@@ -284,19 +284,19 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 }
 
 func (nc *NginxController) start() error {
-	glog.Info("Run command nginx start")
+	klog.Info("Run command nginx start")
 	output, err := exec.Command(nc.BinaryPath, "-c", nc.OldConfigPath).CombinedOutput()
 	if err != nil {
-		glog.Errorf("start nginx failed: %s %v", output, err)
+		klog.Errorf("start nginx failed: %s %v", output, err)
 	}
 	return err
 }
 
 func (nc *NginxController) reload() error {
-	glog.Info("Run command nginx -s reload")
+	klog.Info("Run command nginx -s reload")
 	output, err := exec.Command(nc.BinaryPath, "-s", "reload", "-c", nc.OldConfigPath).CombinedOutput()
 	if err != nil {
-		glog.Errorf("start nginx failed: %s %v", output, err)
+		klog.Errorf("start nginx failed: %s %v", output, err)
 	}
 	return err
 }
@@ -305,6 +305,6 @@ func (nc *NginxController) GC() error {
 	if config.Get("ENABLE_GC") != "true" {
 		return nil
 	}
-	glog.Info("begin gc rule")
+	klog.Info("begin gc rule")
 	return GCRule(nc.Driver)
 }

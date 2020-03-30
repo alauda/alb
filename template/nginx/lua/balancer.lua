@@ -40,7 +40,7 @@ local function get_implementation(backend)
 
 local function sync_backend(backend)
     if not backend.backends or #backend.backends == 0 then
-        ngx_log(ngx.ERR, string_format("there is no endpoint for backend %s. Removing...", backend.name))
+        ngx_log(ngx.INFO, string_format("there is no endpoint for backend %s. Removing...", backend.name))
         balancers[backend.name] = nil
         return
     end

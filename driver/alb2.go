@@ -11,11 +11,11 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	"github.com/evanphx/json-patch"
-	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 )
 
 const (
@@ -35,12 +35,12 @@ func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB
 func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
 	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
 	if err != nil {
-		glog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+		klog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 	}
 	newAlb.Status = alb.Status
 	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(newAlb)
 	if err != nil {
-		glog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+		klog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 	}
 	return err
 }
@@ -55,7 +55,7 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
 func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
-	glog.Infof("upsert frontend: %s", ft.Name)
+	klog.Infof("upsert frontend: %s", ft.Name)
 	var ftRes *alb2v1.Frontend
 	var err error
 	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
@@ -81,11 +81,11 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 			UpdateSourceLabels(ftRes.Labels, ft.Source)
 			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
 			if err != nil {
-				glog.Error(err)
+				klog.Error(err)
 				return err
 			}
 		} else {
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 	}
@@ -94,7 +94,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 	ftRes.Spec = ft.FrontendSpec
 	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	ft.UID = ftRes.UID
@@ -124,7 +124,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 	UpdateSourceLabels(ruleRes.Labels, rule.Source)
 	_, err := kd.ALBClient.CrdV1().Rules(ruleRes.Namespace).Create(ruleRes)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 	}
 	return err
 }
@@ -132,7 +132,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
 	err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Delete(rule.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 	}
 	return err
 }
@@ -157,7 +157,7 @@ func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Fr
 		LabelSelector: selector,
 	})
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	return resList.Items, nil
@@ -173,7 +173,7 @@ func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]alb2v
 		LabelSelector: selector,
 	})
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	return resList.Items, nil
@@ -187,21 +187,21 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	}
 	alb2Res, err := kd.LoadAlbResource(namespace, name)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	alb2.UID = alb2Res.UID
 	alb2.Spec = alb2Res.Spec
 	cm, err := kd.LoadConfigmap(namespace, name)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	alb2.TweakHash = cm.ResourceVersion
 
 	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	for _, res := range resList {
@@ -214,7 +214,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		}
 		ruleList, err := kd.LoadRules(namespace, name, res.Name)
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return nil, err
 		}
 
@@ -238,7 +238,7 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowN
 
 	kd, err := GetDriver()
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return data, err
 	}
 
@@ -247,14 +247,14 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowN
 		if _, ok := data[key]; !ok {
 			service, err := kd.GetServiceByName(svc.Namespace, svc.Name, svc.Port)
 			if err != nil {
-				glog.Errorf("Get service address for %s.%s:%d failed:%s",
+				klog.Errorf("Get service address for %s.%s:%d failed:%s",
 					svc.Namespace, svc.Name, svc.Port, err.Error(),
 				)
 				if !allowNoAddr {
 					continue
 				}
 			} else {
-				glog.V(4).Infof("Get serivce %+v", *service)
+				klog.V(4).Infof("Get serivce %+v", *service)
 			}
 			data[key] = service
 		}
@@ -269,14 +269,14 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 	for _, ft := range alb.Frontends {
 		data, err = parseServiceGroup(data, ft.ServiceGroup, ft.AllowNoAddr())
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return nil, err
 		}
 
 		for _, rule := range ft.Rules {
 			data, err = parseServiceGroup(data, rule.ServiceGroup, rule.AllowNoAddr())
 			if err != nil {
-				glog.Error(err)
+				klog.Error(err)
 				return nil, err
 			}
 		}
@@ -331,7 +331,7 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) e
 func (kd *KubernetesDriver) LoadConfigmap(namespace, lbname string) (*corev1.ConfigMap, error) {
 	cm, err := kd.Client.CoreV1().ConfigMaps(namespace).Get(lbname, metav1.GetOptions{})
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	return cm, nil

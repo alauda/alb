@@ -10,25 +10,23 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/ingress"
-	"alauda.io/alb2/utils"
 )
 
 func main() {
-	flag.Set("alsologtostderr", "true")
+	klog.InitFlags(nil)
 	flag.Parse()
-	utils.InitLog()
-	defer glog.Flush()
-	glog.Error("Service start.")
+	defer klog.Flush()
+	klog.Error("Service start.")
 
 	err := config.ValidateConfig()
 	if err != nil {
-		glog.Error(err.Error())
+		klog.Error(err.Error())
 		return
 	}
 
@@ -58,7 +56,7 @@ func main() {
 	}()
 
 	if config.Get("LB_TYPE") == config.Nginx {
-		go rotateLog(ctx)
+		go rotateLog()
 	}
 
 	interval := config.GetInt("INTERVAL")
@@ -70,11 +68,11 @@ func main() {
 		go func() {
 			err := controller.TryLockAlb()
 			if err != nil {
-				glog.Error("lock alb failed", err.Error())
+				klog.Error("lock alb failed", err.Error())
 			}
 			ctl, err := controller.GetController()
 			if err != nil {
-				glog.Error(err.Error())
+				klog.Error(err.Error())
 				ch <- "continue"
 				return
 			}
@@ -83,14 +81,14 @@ func main() {
 			ctl.GC()
 			err = ctl.GenerateConf()
 			if err != nil {
-				glog.Error(err.Error())
+				klog.Error(err.Error())
 				ch <- "continue"
 				return
 			}
 			ch <- "wait"
 			err = ctl.ReloadLoadBalancer()
 			if err != nil {
-				glog.Error(err.Error())
+				klog.Error(err.Error())
 			}
 			ch <- "continue"
 			return
@@ -102,15 +100,15 @@ func main() {
 			select {
 			case msg := <-ch:
 				if msg == "continue" {
-					glog.Info("continue")
+					klog.Info("continue")
 					timer.Reset(0)
 					break watchdog
 				}
 				timer.Reset(tmo)
 				continue
 			case <-timer.C:
-				glog.Error("reload timeout")
-				glog.Flush()
+				klog.Error("reload timeout")
+				klog.Flush()
 				os.Exit(1)
 			}
 		}
@@ -118,27 +116,17 @@ func main() {
 	}
 }
 
-func rotateLog(ctx context.Context) {
+func rotateLog() {
 	rotateInterval := config.GetInt("ROTATE_INTERVAL")
-	glog.Info("rotateLog start, rotate interval ", rotateInterval)
+	klog.Info("rotateLog start, rotate interval ", rotateInterval)
 	for {
-		select {
-		case <-ctx.Done():
-			glog.Info("rotateLog exit")
-			return
-		case <-time.After(time.Duration(rotateInterval) * time.Minute):
-			err := utils.RotateGlog(time.Now().Add(-time.Duration(rotateInterval) * time.Minute))
-			if err != nil {
-				glog.Errorf("rotate glog failed, %+v", err)
-			}
-			// Do nothin
-		}
-		glog.Info("start rorate log")
+		klog.Info("start rorate log")
 		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()
 		if err != nil {
-			glog.Errorf("rotate log failed %s %v", output, err)
+			klog.Errorf("rotate log failed %s %v", output, err)
 		} else {
-			glog.Info("rotate log success")
+			klog.Info("rotate log success")
 		}
+		time.Sleep(time.Duration(rotateInterval) * time.Minute)
 	}
 }

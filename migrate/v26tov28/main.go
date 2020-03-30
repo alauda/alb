@@ -8,8 +8,8 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 var (
@@ -20,9 +20,9 @@ var (
 )
 
 func main() {
-	flag.Set("alsologtostderr", "true")
+	klog.InitFlags(nil)
 	flag.Parse()
-	defer glog.Flush()
+	defer klog.Flush()
 	ensureEnv()
 	k8sDriver, err := driver.GetDriver()
 	if err != nil {
@@ -40,22 +40,22 @@ func main() {
 		}
 		dslx, err := utils.DSL2DSLX(rl.Spec.DSL)
 		if err != nil {
-			glog.Warningf("failed to convert rule %s/%s dsl %s to dslx", rl.Namespace, rl.Name, rl.Spec.DSL)
+			klog.Warningf("failed to convert rule %s/%s dsl %s to dslx", rl.Namespace, rl.Name, rl.Spec.DSL)
 		}
 		rl.Spec.DSLX = dslx
-		glog.Infof("convert rule %s/%s dsl: %s to dslx: %+v", rl.Namespace, rl.Name, rl.Spec.DSL, dslx)
+		klog.Infof("convert rule %s/%s dsl: %s to dslx: %+v", rl.Namespace, rl.Name, rl.Spec.DSL, dslx)
 		if *dryRun == false {
 			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(&rl); err != nil {
-				glog.Error(err)
+				klog.Error(err)
 			}
 		}
 	}
 }
 
 func ensureEnv() {
-	glog.Info("NAME: ", config.Get("NAME"))
-	glog.Info("NAMESPACE: ", config.Get("NAMESPACE"))
-	glog.Info("DOMAIN: ", config.Get("DOMAIN"))
+	klog.Info("NAME: ", config.Get("NAME"))
+	klog.Info("NAMESPACE: ", config.Get("NAMESPACE"))
+	klog.Info("DOMAIN: ", config.Get("DOMAIN"))
 	if strings.TrimSpace(config.Get("NAME")) == "" &&
 		strings.TrimSpace(config.Get("NAMESPACE")) == "" &&
 		strings.TrimSpace(config.Get("DOMAIN")) == "" {
