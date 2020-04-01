@@ -31,17 +31,18 @@ func TestRule_GetPriority(t *testing.T) {
 			want: 100,
 		},
 		{
-			name: "no priority with dsl",
+			name: "no priority with dsl 1",
 			fields: fields{
 				DSL: "(START_WITH URL /)",
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{"START_WITH", "/"}},
-						Type:   "URL",
-					},
-				},
 			},
-			want: 10000 + 100,
+			want: 10000 + 100 + len("(START_WITH URL /)"),
+		},
+		{
+			name: "no priority with dsl 2",
+			fields: fields{
+				DSL: "(START_WITH URL /lorem)",
+			},
+			want: 10000 + 100 + len("(START_WITH URL /lorem)"),
 		},
 		{
 			name: "no priority with dslx",
@@ -54,11 +55,25 @@ func TestRule_GetPriority(t *testing.T) {
 					},
 				},
 			},
-			want: 10000 + 100,
+			want: 10000 + 100 + len("(START_WITH URL /)"),
+		},
+		{
+			name: "no priority with dslx",
+			fields: fields{
+				DSL: "(START_WITH URL /)",
+				DSLX: []v1.DSLXTerm{
+					{
+						Values: [][]string{{"START_WITH", "/"}},
+						Type:   "URL",
+					},
+				},
+			},
+			want: 10000 + 100 + len("(START_WITH URL /)"),
 		},
 		{
 			name: "no priority with complex dslx",
 			fields: fields{
+				DSL: "(AND (OR (START_WITH URL /k8s) (START_WITH URL /kubernetes)) (EQ COOKIE test lorem))",
 				DSLX: []v1.DSLXTerm{
 					{
 						Values: [][]string{{"START_WITH", "/k8s"}, {"START_WITH", "/kubernetes"}},
@@ -71,7 +86,7 @@ func TestRule_GetPriority(t *testing.T) {
 					},
 				},
 			},
-			want: 10000 + 100 + 100 + 10000 + 100,
+			want: 10000 + 100 + 100 + 10000 + 100 + len("(AND (OR (START_WITH URL /k8s) (START_WITH URL /kubernetes)) (EQ COOKIE test lorem))"),
 		},
 	}
 	for _, tt := range tests {

@@ -147,9 +147,10 @@ func (rl Rule) GetPriority() int {
 		dslx v1.DSLX
 		err  error
 	)
-	if rl.Priority != 0 {
-		return rl.Priority
-	}
+	// rl.Priority is not used in acp, ignore
+	//if rl.Priority != 0 {
+	//	return rl.Priority
+	//}
 	if rl.DSLX != nil {
 		dslx = rl.DSLX
 	} else {
@@ -159,7 +160,7 @@ func (rl Rule) GetPriority() int {
 		}
 	}
 
-	return dslx.Priority()
+	return dslx.Priority() + len(rl.DSL)
 }
 
 type RuleList []*Rule

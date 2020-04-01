@@ -95,7 +95,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 						}
 					}
 				}
-				if rule.DSL != "" {
+				if rule.DSL != "" && rule.DSLX == nil {
 					dslx, err := utils.DSL2DSLX(rule.DSL)
 					if err != nil {
 						klog.Warning(err)
@@ -119,6 +119,14 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			}
 			policy.Rule = rule.RuleID
 			policy.DSL = rule.DSL
+			if rule.DSLX == nil {
+				dslx, err := utils.DSL2DSLX(rule.DSL)
+				if err != nil {
+					klog.Error("convert dsl to dslx failed", err)
+				} else {
+					rule.DSLX = dslx
+				}
+			}
 			if rule.DSLX != nil {
 				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 				if err != nil {
