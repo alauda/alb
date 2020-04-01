@@ -4,6 +4,7 @@ import (
 	"alauda.io/alb2/driver"
 	"context"
 	"flag"
+	"k8s.io/klog"
 	"os"
 	"time"
 
@@ -37,6 +38,7 @@ func TestIngres(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	klog.InitFlags(nil)
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 	code := m.Run()

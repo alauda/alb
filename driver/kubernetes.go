@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	v1types "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsfakeclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 
 	"alauda.io/alb2/config"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
@@ -98,12 +98,12 @@ func selectorToLabelSelector(selector map[string]string) string {
 func (kd *KubernetesDriver) ListService() ([]*Service, error) {
 	alb, err := kd.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	services, err := LoadServices(alb)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 
@@ -127,7 +127,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 		}
 	}
 	if nodeport == 0 {
-		glog.Errorf("Service %s.%s NOT have port %d", svc.Name, svc.Namespace, port)
+		klog.Errorf("Service %s.%s NOT have port %d", svc.Name, svc.Namespace, port)
 		return nil, errors.New("Port NOT Found")
 	}
 
@@ -135,7 +135,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 		LabelSelector: selectorToLabelSelector(svc.Spec.Selector),
 	})
 	if err != nil {
-		glog.Errorf("Get pods of service %s.%s failed: %s", svc.Name, svc.Namespace, err.Error())
+		klog.Errorf("Get pods of service %s.%s failed: %s", svc.Name, svc.Namespace, err.Error())
 		return service, nil //return a service with empty backend list
 	}
 	nodeSet := make(map[string]bool)
@@ -165,7 +165,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePort int) (*Service, error) {
 	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
+		klog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
 	}
 	var port int
@@ -183,7 +183,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 
 	ep, err := kd.Client.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
-		glog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())
+		klog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
 	}
 
@@ -206,9 +206,9 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 		}
 	}
 	sort.Sort(ByBackend(service.Backends))
-	glog.V(3).Infof("backends of svc %s: %+v", name, service.Backends)
+	klog.V(3).Infof("backends of svc %s: %+v", name, service.Backends)
 	if len(service.Backends) == 0 {
-		glog.Warningf("service %s has 0 backends, means has no health pods", name)
+		klog.Warningf("service %s has 0 backends, means has no health pods", name)
 	}
 	return service, nil
 }
@@ -217,7 +217,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) (*Service, error) {
 	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil || svc == nil {
-		glog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
+		klog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
 		return nil, err
 	}
 	switch svc.Spec.Type {
@@ -240,7 +240,7 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) 
 	case "None": //headless service
 		return kd.GetEndPointAddress(name, namespace, port)
 	default:
-		glog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
+		klog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
 		return nil, errors.New("Unknown Service Type")
 	}
 }

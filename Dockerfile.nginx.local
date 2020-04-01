@@ -1,13 +1,14 @@
-FROM index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.13-alpine3.10 AS builder
+FROM golang:1.13 AS builder
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /migrate_v1tov2 alauda.io/alb2/migrate/v1tov2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 
-FROM index.alauda.cn/alaudaorg/alb-nginx:e567839e3e4bd50291931db4673622ffe126e62d
+FROM halfcrazy/alb-nginx:7dd7a4ea7df85f1333d751c05db45863398d5d92
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
@@ -34,7 +35,7 @@ COPY run.sh /run.sh
 RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
-COPY --from=builder alb /alb/alb
-COPY --from=builder migrate_v1tov2 /alb/migrate_v1tov2
-COPY --from=builder migrate_v26tov28 /alb/migrate_v26tov28
+COPY --from=builder /alb /alb/alb
+COPY --from=builder /migrate_v1tov2 /alb/migrate_v1tov2
+COPY --from=builder /migrate_v26tov28 /alb/migrate_v26tov28
 COPY alauda /etc/logrotate.d/alauda

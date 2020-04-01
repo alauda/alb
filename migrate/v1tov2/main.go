@@ -13,10 +13,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/golang/glog"
 	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 var (
@@ -28,9 +28,9 @@ var (
 )
 
 func main() {
-	flag.Set("alsologtostderr", "true")
+	klog.InitFlags(nil)
 	flag.Parse()
-	defer glog.Flush()
+	defer klog.Flush()
 	ensureK8sEnv()
 	k8sDriver, err := driver.GetDriver()
 	if err != nil {
@@ -46,7 +46,7 @@ func main() {
 	_, err = k8sDriver.Client.CoreV1().Namespaces().Get(NewNamespace, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			glog.Errorf("your specific namespace %s is not exist, to hold alb2 related resource the namespace must exist", NewNamespace)
+			klog.Errorf("your specific namespace %s is not exist, to hold alb2 related resource the namespace must exist", NewNamespace)
 		}
 		panic(err)
 	}
@@ -74,12 +74,12 @@ func main() {
 			Type:        alb1Resource.Spec.Type,
 		},
 	}
-	glog.Infof("will create resource alb2, %+v", alb2Resource)
+	klog.Infof("will create resource alb2, %+v", alb2Resource)
 	var alb2UID types.UID
 	if *dryRun == false {
 		albRes, err := k8sDriver.ALBClient.CrdV1().ALB2s(NewNamespace).Create(alb2Resource)
 		if err != nil {
-			glog.Errorf("create alb2 resource failed, %+v", err)
+			klog.Errorf("create alb2 resource failed, %+v", err)
 		}
 		alb2UID = albRes.GetUID()
 	}
@@ -115,11 +115,11 @@ func main() {
 
 			kubeSvc, err := getServiceByServiceID(k8sDriver, alb1ft.ServiceID, alb1ft.ContainerPort)
 			if err != nil {
-				glog.Errorf("get service by serviceID %s failed, %+v", alb1ft.ServiceID, err)
+				klog.Errorf("get service by serviceID %s failed, %+v", alb1ft.ServiceID, err)
 			} else if kubeSvc == nil {
-				glog.Warningf("get no service by serviceID %s", alb1ft.ServiceID)
+				klog.Warningf("get no service by serviceID %s", alb1ft.ServiceID)
 			} else {
-				glog.Infof("get services %+v with serviceID %s", kubeSvc, alb1ft.ServiceID)
+				klog.Infof("get services %+v with serviceID %s", kubeSvc, alb1ft.ServiceID)
 				ftsg = append(ftsg, crdV1.Service{
 					Name:      kubeSvc.Name,
 					Namespace: kubeSvc.Namespace,
@@ -129,11 +129,11 @@ func main() {
 				ftResource.Spec.ServiceGroup = &crdV1.ServiceGroup{Services: ftsg}
 			}
 		}
-		glog.Infof("will create resource frontend, %+v", ftResource)
+		klog.Infof("will create resource frontend, %+v", ftResource)
 		if *dryRun == false {
 			ftRes, err := k8sDriver.ALBClient.CrdV1().Frontends(NewNamespace).Create(ftResource)
 			if err != nil {
-				glog.Errorf("create frontend resource failed, %+v", err)
+				klog.Errorf("create frontend resource failed, %+v", err)
 			}
 			ftUID = ftRes.UID
 		}
@@ -175,11 +175,11 @@ func main() {
 				for _, service := range alb1rule.Services {
 					kubeSvc, err := getServiceByServiceID(k8sDriver, service.ServiceID, service.ContainerPort)
 					if err != nil {
-						glog.Errorf("get service by serviceID %s failed, %+v", service.ServiceID, err)
+						klog.Errorf("get service by serviceID %s failed, %+v", service.ServiceID, err)
 					} else if kubeSvc == nil {
-						glog.Warningf("get no service by serviceID %s", service.ServiceID)
+						klog.Warningf("get no service by serviceID %s", service.ServiceID)
 					} else {
-						glog.Infof("get services %+v with serviceID %s", kubeSvc, service.ServiceID)
+						klog.Infof("get services %+v with serviceID %s", kubeSvc, service.ServiceID)
 						rulesg = append(rulesg, crdV1.Service{
 							Name:      kubeSvc.Name,
 							Namespace: kubeSvc.Namespace,
@@ -194,11 +194,11 @@ func main() {
 					SessionAffinityPolicy:    alb1rule.SessionAffinityPolicy,
 				}
 			}
-			glog.Infof("will create resource rule, %+v", ruleResource)
+			klog.Infof("will create resource rule, %+v", ruleResource)
 			if *dryRun == false {
 				_, err := k8sDriver.ALBClient.CrdV1().Rules(NewNamespace).Create(ruleResource)
 				if err != nil {
-					glog.Errorf("create rule resource failed, %+v", err)
+					klog.Errorf("create rule resource failed, %+v", err)
 				}
 			}
 		}
@@ -206,9 +206,9 @@ func main() {
 }
 
 func ensureK8sEnv() {
-	glog.Info("KUBERNETES_SERVER: ", config.Get("KUBERNETES_SERVER"))
-	glog.Info("KUBERNETES_BEARERTOKEN: ", config.Get("KUBERNETES_BEARERTOKEN"))
-	glog.Info("NAME: ", config.Get("NAME"))
+	klog.Info("KUBERNETES_SERVER: ", config.Get("KUBERNETES_SERVER"))
+	klog.Info("KUBERNETES_BEARERTOKEN: ", config.Get("KUBERNETES_BEARERTOKEN"))
+	klog.Info("NAME: ", config.Get("NAME"))
 	if strings.TrimSpace(config.Get("KUBERNETES_SERVER")) == "" ||
 		strings.TrimSpace(config.Get("KUBERNETES_BEARERTOKEN")) == "" ||
 		strings.TrimSpace(config.Get("NAME")) == "" {

@@ -2,6 +2,7 @@ package controller
 
 import (
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
@@ -66,7 +67,7 @@ type LoadBalancer struct {
 func (lb *LoadBalancer) String() string {
 	r, err := json.Marshal(lb)
 	if err != nil {
-		glog.Errorf("Error to parse lb: %s", err.Error())
+		klog.Errorf("Error to parse lb: %s", err.Error())
 		return ""
 	}
 	return string(r)
@@ -120,7 +121,7 @@ type BackendService struct {
 
 type Rule struct {
 	RuleID          string  `json:"rule_id"`
-	Priority        int64   `json:"priority"`
+	Priority        int     `json:"priority"`
 	Type            string  `json:"type"`
 	Domain          string  `json:"domain"`
 	URL             string  `json:"url"`
@@ -139,14 +140,27 @@ type Rule struct {
 	Services              []*BackendService `json:"services"`
 
 	BackendGroup *BackendGroup `json:"-"`
-	Regexp       string        `json:"-"`
 }
 
-func (rl Rule) AllowNoAddr() bool {
-	if rl.RedirectURL != "" {
-		return true
+func (rl Rule) GetPriority() int {
+	var (
+		dslx v1.DSLX
+		err  error
+	)
+	// rl.Priority is not used in acp, ignore
+	//if rl.Priority != 0 {
+	//	return rl.Priority
+	//}
+	if rl.DSLX != nil {
+		dslx = rl.DSLX
+	} else {
+		dslx, err = utils.DSL2DSLX(rl.DSL)
+		if err != nil {
+			return len(rl.DSL)
+		}
 	}
-	return false
+
+	return dslx.Priority() + len(rl.DSL)
 }
 
 type RuleList []*Rule
@@ -170,7 +184,6 @@ type Config struct {
 	LoadBalancerID   string
 	Frontends        map[int]*Frontend
 	BackendGroup     []*BackendGroup
-	RecordPostBody   bool
 	CertificateMap   map[string]Certificate
 	TweakHash        string
 	EnablePrometheus bool
@@ -201,7 +214,7 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 		err := json.Unmarshal(loadBalancersCache, &lbs)
 		if err != nil {
 			// should never happen
-			glog.Error(err)
+			klog.Error(err)
 			panic(err)
 		}
 		return lbs, nil
@@ -213,13 +226,13 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 	}
 	alb, err := d.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return []*LoadBalancer{}, nil
 	}
 
 	lb, err := MergeNew(alb)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return nil, err
 	}
 	var loadBalancers = []*LoadBalancer{
@@ -228,12 +241,12 @@ func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 
 	interval, err := strconv.Atoi(config.Get("INTERVAL"))
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		interval = 5
 	}
 	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
 	loadBalancersCache, _ = json.Marshal(loadBalancers)
-	glog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
+	klog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
 	return loadBalancers, err
 }
 

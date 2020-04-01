@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/set v0.2.1
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
@@ -20,6 +19,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0-20191014073952-6b6acca910e3
 	k8s.io/apimachinery v0.15.10-beta.0
 	k8s.io/client-go v0.0.0-20191004120415-b2f42092e376
+	k8s.io/klog v0.4.0
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
 )
 

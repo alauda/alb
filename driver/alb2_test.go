@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/glog"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,12 +37,12 @@ func loadData(dir, prefix string) ([]runtime.Object, error) {
 		}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 		obj, _, err := decode(data, nil, nil)
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 		rv = append(rv, obj)

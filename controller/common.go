@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/thoas/go-funk"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
@@ -111,8 +111,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			var rules RuleList
 			for _, rule := range ft.Rules {
 				if len(rule.Services) == 0 {
-					glog.Warningf("skip rule %s.", rule.RuleID)
-					continue
+					klog.Warningf("rule %s has no active service.", rule.RuleID)
 				}
 				rule.BackendGroup = &BackendGroup{
 					Name: rule.RuleID,
@@ -122,9 +121,7 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 					SessionAffinityAttribute: rule.SessionAffinityAttr,
 				}
 				rule.BackendGroup.Backends = generateBackend(serviceMap, rule.Services)
-				if rule.AllowNoAddr() || len(rule.BackendGroup.Backends) > 0 {
-					rules = append(rules, rule)
-				}
+				rules = append(rules, rule)
 			}
 			if len(rules) > 0 {
 				sort.Sort(rules)
@@ -134,42 +131,18 @@ func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
 			}
 
 			if len(ft.Services) == 0 {
-				glog.Warningf("frontend %s has no default service.",
+				klog.Warningf("frontend %s has no default service.",
 					ft.String())
-				continue
-			}
-			ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
-
-			if ft.Protocol == ProtocolTCP {
-				ft.BackendGroup.Mode = ModeTCP
 			} else {
-				ft.BackendGroup.Mode = ModeHTTP
+				ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
+				if ft.Protocol == ProtocolTCP {
+					ft.BackendGroup.Mode = ModeTCP
+				} else {
+					ft.BackendGroup.Mode = ModeHTTP
+				}
 			}
 		}
 	}
-}
-
-func generateRegexp(ft *Frontend, rule *Rule) string {
-	domain := "[^/]+"
-	if rule.Domain != "" {
-		domain = rule.Domain
-	}
-	url := ".*"
-	if rule.URL != "" {
-		if strings.HasPrefix(rule.URL, "^") {
-			url = rule.URL[1:]
-		} else {
-			url = rule.URL + ".*"
-		}
-	}
-	var reg string
-	if (ft.Protocol == ProtocolHTTP && ft.Port == 80) ||
-		(ft.Protocol == ProtocolHTTPS && ft.Port == 443) {
-		reg = fmt.Sprintf("^%s(:%d)?%s$", domain, ft.Port, url)
-	} else {
-		reg = fmt.Sprintf("^%s:%d%s$", domain, ft.Port, url)
-	}
-	return reg
 }
 
 var cfgLocker sync.Mutex
@@ -194,30 +167,29 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 	if config.Get("ENABLE_PORTPROBE") == "true" {
 		listenTCPPorts, err = utils.GetListenTCPPorts()
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 		}
-		glog.Info("finish port probe, listen tcp ports: ", listenTCPPorts)
+		klog.Info("finish port probe, listen tcp ports: ", listenTCPPorts)
 	}
 	for _, ft := range loadbalancer.Frontends {
 		conflict := false
 		for _, port := range listenTCPPorts {
 			if ft.Port == port {
 				conflict = true
-				glog.Errorf("skip port: %d has conflict", ft.Port)
+				klog.Errorf("skip port: %d has conflict", ft.Port)
 				break
 			}
 		}
 		if config.Get("ENABLE_PORTPROBE") == "true" {
 			if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
-				glog.Error(err)
+				klog.Error(err)
 			}
 			if conflict {
 				// skip conflict port
 				continue
 			}
 		}
-		glog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
-		isValid := false
+		klog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
 		isHTTP := ft.Protocol == ProtocolHTTP
 		isHTTPS := ft.Protocol == ProtocolHTTPS
 		if isHTTP || isHTTPS {
@@ -227,11 +199,11 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 				secretName := slice[1]
 				cert, err := getCertificate(driver, secretNs, secretName)
 				if err != nil {
-					glog.Warningf("get cert failed, %+v", err)
-					continue
+					klog.Warningf("get cert failed, %+v", err)
+				} else {
+					// default cert for port ft.Port
+					result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
 				}
-				// default cert for port ft.Port
-				result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
 			}
 			for _, rule := range ft.Rules {
 				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
@@ -240,21 +212,19 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 					secretName := slice[1]
 					cert, err := getCertificate(driver, secretNs, secretName)
 					if err != nil {
-						glog.Warningf("get cert failed, %+v", err)
+						klog.Warningf("get cert failed, %+v", err)
 						continue
 					}
 					if existCert, ok := result.CertificateMap[strings.ToLower(rule.Domain)]; ok {
 						if existCert.Cert != cert.Cert || existCert.Key != cert.Key {
-							glog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
+							klog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
 							continue
 						}
 					}
 					result.CertificateMap[strings.ToLower(rule.Domain)] = *cert
 				}
 				rule.Domain = strings.ToLower(rule.Domain)
-				rule.Regexp = generateRegexp(ft, rule)
 				result.BackendGroup = append(result.BackendGroup, rule.BackendGroup)
-				isValid = true
 			}
 		}
 		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
@@ -263,32 +233,23 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			if !funk.Contains(result.BackendGroup, ft.BackendGroup) {
 				result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
 			}
-			isValid = true
 		}
 
-		if isValid {
-			result.Frontends[ft.Port] = ft
-		} else {
-			glog.Warningf("Skip invalid frontend %s.", ft.String())
-		}
+		result.Frontends[ft.Port] = ft
 	} // end of  _, ft := range loadbalancer.Frontends
 
-	if config.Get("RECORD_POST_BODY") == "true" {
-		// nginx not support record request body alb2.x
-		result.RecordPostBody = true
-	}
 	return result
 }
 
 func sameFiles(file1, file2 string) bool {
 	sum1, err := fileMd5(file1)
 	if err != nil {
-		glog.Error(err.Error())
+		klog.Error(err.Error())
 		return false
 	}
 	sum2, err := fileMd5(file2)
 	if err != nil {
-		glog.Error(err.Error())
+		klog.Error(err.Error())
 		return false
 	}
 
@@ -298,7 +259,7 @@ func sameFiles(file1, file2 string) bool {
 func fileMd5(file string) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		glog.Error(err.Error())
+		klog.Error(err.Error())
 		return "", err
 	}
 	md5h := md5.New()
@@ -318,7 +279,7 @@ func setLastReloadStatus(status, statusFileParentPath string) error {
 	if _, err := os.Stat(statusFilePath); os.IsNotExist(err) {
 		f, err := os.Create(statusFilePath)
 		if err != nil {
-			glog.Errorf("create new status file failed %s", err.Error())
+			klog.Errorf("create new status file failed %s", err.Error())
 			return err
 		}
 		f.Close()
@@ -328,7 +289,7 @@ func setLastReloadStatus(status, statusFileParentPath string) error {
 	if _, err := os.Stat(reversStatusFilePath); err == nil {
 		err := os.Remove(reversStatusFilePath)
 		if err != nil {
-			glog.Errorf("remove old status file failed %s", err.Error())
+			klog.Errorf("remove old status file failed %s", err.Error())
 			return err
 		}
 	}
@@ -338,10 +299,10 @@ func setLastReloadStatus(status, statusFileParentPath string) error {
 func getLastReloadStatus(statusFileParentPath string) string {
 	successStatusFilePath := path.Join(statusFileParentPath, SUCCESS)
 	if _, err := os.Stat(successStatusFilePath); err == nil {
-		glog.Infof("last reload status: %s", SUCCESS)
+		klog.Infof("last reload status: %s", SUCCESS)
 		return SUCCESS
 	}
-	glog.Info("last reload status", FAILED)
+	klog.Info("last reload status", FAILED)
 	return FAILED
 }
 

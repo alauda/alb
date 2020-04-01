@@ -37,4 +37,4 @@ if [ "$LB_TYPE" = "nginx" ]; then
     fi
 fi
 
-/alb/alb -log_dir=/var/log/mathilde/ -stderrthreshold=ERROR $ARGS
+/alb/alb $ARGS

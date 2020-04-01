@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/fatih/set"
 	corev1 "k8s.io/api/core/v1"
@@ -105,7 +105,7 @@ func MainLoop(ctx context.Context) {
 		time.Sleep(time.Duration(interval) * time.Second)
 		isLeader, err := ctl.IsLocker()
 		if err != nil {
-			glog.Errorf("not leader: %s", err.Error())
+			klog.Errorf("not leader: %s", err.Error())
 			continue
 		}
 		if isLeader {
@@ -116,7 +116,7 @@ func MainLoop(ctx context.Context) {
 	kubeInformerFactory.Start(ctx.Done())
 
 	if err = controller.Run(1, ctx.Done()); err != nil {
-		glog.Errorf("Error running controller: %s", err.Error())
+		klog.Errorf("Error running controller: %s", err.Error())
 	}
 }
 
@@ -146,9 +146,9 @@ func NewController(
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
-	glog.Info("Creating event broadcaster")
+	klog.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{Interface: d.Client.CoreV1().Events("")},
 	)
@@ -169,7 +169,7 @@ func NewController(
 		KubernetesDriver: d,
 	}
 
-	glog.Info("Setting up event handlers")
+	klog.Info("Setting up event handlers")
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
@@ -196,25 +196,25 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("start ingress controller")
+	klog.Info("start ingress controller")
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	klog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.ingressSynced); !ok {
 		err := fmt.Errorf("failed to wait for caches to sync")
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 
-	glog.Info("Starting workers")
+	klog.Info("Starting workers")
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	klog.Info("Shutting down workers")
 
 	return nil
 }
@@ -237,7 +237,7 @@ func (c *Controller) enqueue(obj interface{}) {
 func (c *Controller) handleObject(obj interface{}) {
 	isLeader, err := ctl.IsLocker()
 	if err != nil {
-		glog.Errorf("not leader: %s", err.Error())
+		klog.Errorf("not leader: %s", err.Error())
 		return
 	}
 	if !isLeader {
@@ -249,7 +249,7 @@ func (c *Controller) handleObject(obj interface{}) {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			err := fmt.Errorf("error decoding object, invalid type")
-			glog.Error(err)
+			klog.Error(err)
 			runtime.HandleError(err)
 			return
 		}
@@ -258,9 +258,9 @@ func (c *Controller) handleObject(obj interface{}) {
 			runtime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.Infof("Processing object: %s", object.GetName())
+	klog.Infof("Processing object: %s", object.GetName())
 	annotations := object.GetAnnotations()
 	if annotations["kubernetes.io/ingress.class"] == "" ||
 		annotations["kubernetes.io/ingress.class"] == config.Get("NAME") {
@@ -319,12 +319,12 @@ func (c *Controller) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return true
 	}
 
@@ -338,16 +338,16 @@ func (c *Controller) syncHandler(key string) error {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return nil
 	}
-	glog.Infof("Sync ingress %s/%s", namespace, name)
+	klog.Infof("Sync ingress %s/%s", namespace, name)
 	ingress, err := c.ingressLister.Ingresses(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return c.onIngressDelete(name, namespace)
 		}
-		glog.Errorf("Handle %s.%s failed: %s", name, namespace, err.Error())
+		klog.Errorf("Handle %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
-	glog.Infof("Process ingress %s.%s, %+v", ingress.Name, ingress.Namespace, ingress)
+	klog.Infof("Process ingress %s.%s, %+v", ingress.Name, ingress.Namespace, ingress)
 	err = c.onIngressCreateOrUpdate(ingress)
 	if err != nil {
 		return err
@@ -386,7 +386,7 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 			ingress.Namespace,
 			ingress.Spec.Backend.ServiceName,
 			int(ingress.Spec.Backend.ServicePort.IntVal)) {
-			glog.Warning("frontend already has default service, conflict")
+			klog.Warning("frontend already has default service, conflict")
 			//TODO Add event here
 		}
 	}
@@ -417,7 +417,7 @@ func (c *Controller) updateRule(
 	certs := make(map[string]string)
 
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
-		glog.Errorf("Unsupported backend protocol %s for ingress %s/%s", backendProtocol, ingress.GetNamespace(), ingress.GetName())
+		klog.Errorf("Unsupported backend protocol %s for ingress %s/%s", backendProtocol, ingress.GetNamespace(), ingress.GetName())
 		return nil
 	}
 
@@ -474,7 +474,7 @@ func (c *Controller) updateRule(
 				}
 				err := c.KubernetesDriver.UpdateRule(rule)
 				if err != nil {
-					glog.Errorf(
+					klog.Errorf(
 						"update rule %+v for ingress %s.%s failed: %s",
 						*rule, ingress.Namespace, ingress.Name, err.Error(),
 					)
@@ -486,7 +486,7 @@ func (c *Controller) updateRule(
 	}
 	rule, err := ft.NewRule(host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	rule.ServiceGroup = &alb2v1.ServiceGroup{
@@ -506,7 +506,7 @@ func (c *Controller) updateRule(
 	}
 	err = c.KubernetesDriver.CreateRule(rule)
 	if err != nil {
-		glog.Errorf(
+		klog.Errorf(
 			"Create rule %+v for ingress %s.%s failed: %s",
 			*rule, ingress.Namespace, ingress.Name, err.Error(),
 		)
@@ -516,7 +516,7 @@ func (c *Controller) updateRule(
 }
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress) error {
-	glog.Infof("on ingress create or update, %s/%s", ingress.Namespace, ingress.Name)
+	klog.Infof("on ingress create or update, %s/%s", ingress.Namespace, ingress.Name)
 	// Detele old rule if it exist
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
@@ -526,7 +526,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		config.Get("NAME"),
 	)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
@@ -557,7 +557,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		}
 	}
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
-	glog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
+	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	for _, f := range alb.Frontends {
 		if needFtTypes.Has(m.ProtoHTTP) && f.Port == 80 {
 			httpFt = f
@@ -568,17 +568,17 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	}
 	if httpFt != nil && httpFt.Protocol != m.ProtoHTTP {
 		err = fmt.Errorf("Port 80 is not an HTTP port, protocol: %s", httpFt.Protocol)
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	if httpsFt != nil {
 		if httpsFt.Protocol != m.ProtoHTTPS {
 			err = fmt.Errorf("Port 443 is not an HTTPS port, protocol: %s", httpsFt.Protocol)
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 		if httpsFt.CertificateName != "" && httpsFt.CertificateName != strings.Replace(defaultSSLCert, "/", "_", 1) {
-			glog.Warning("Port 443 already has ssl cert conflict with default ssl cert")
+			klog.Warning("Port 443 already has ssl cert conflict with default ssl cert")
 		}
 	}
 
@@ -588,7 +588,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	if httpFt == nil {
 		httpFt, err = alb.NewFrontend(80, m.ProtoHTTP, "")
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 		newHTTPFrontend = true
@@ -596,7 +596,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	if httpsFt == nil && !isDefaultBackend {
 		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS, defaultSSLCert)
 		if err != nil {
-			glog.Error(err)
+			klog.Error(err)
 			return err
 		}
 		newHTTPSFrontend = true
@@ -606,7 +606,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	if needFtTypes.Has(m.ProtoHTTP) && (newHTTPFrontend || needSaveHTTP) {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpFt)
 		if err != nil {
-			glog.Errorf("upsert ft failed: %s", err)
+			klog.Errorf("upsert ft failed: %s", err)
 			return err
 		}
 	}
@@ -619,7 +619,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		if newHTTPSFrontend || needUpdate {
 			err = c.KubernetesDriver.UpsertFrontends(alb, httpsFt)
 			if err != nil {
-				glog.Errorf("upsert ft failed: %s", err)
+				klog.Errorf("upsert ft failed: %s", err)
 				return err
 			}
 		}
@@ -629,7 +629,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		host := strings.ToLower(r.Host)
 		httpRules := r.IngressRuleValue.HTTP
 		if httpRules == nil {
-			glog.Infof("No http rule found on ingress %s/%s under host %s.",
+			klog.Infof("No http rule found on ingress %s/%s under host %s.",
 				ingress.Namespace,
 				ingress.Name,
 				host,
@@ -643,7 +643,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 				err = c.updateRule(ingress, httpFt, host, p)
 			}
 			if err != nil {
-				glog.Errorf(
+				klog.Errorf(
 					"Update rule failed for ingress %s/%s with host=%s, path=%s",
 					ingress.Namespace,
 					ingress.Name,
@@ -657,13 +657,13 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 }
 
 func (c *Controller) onIngressDelete(name, namespace string) error {
-	glog.Infof("on ingress delete, %s/%s", namespace, name)
+	klog.Infof("on ingress delete, %s/%s", namespace, name)
 	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
 		config.Get("NAME"),
 	)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		return err
 	}
 	var ft *m.Frontend
@@ -678,7 +678,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 				ft.Source = nil
 				err = c.KubernetesDriver.UpsertFrontends(alb, ft)
 				if err != nil {
-					glog.Errorf("upsert ft failed: %s", err)
+					klog.Errorf("upsert ft failed: %s", err)
 					return err
 				}
 			}
@@ -691,7 +691,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 
 					err = c.KubernetesDriver.DeleteRule(rule)
 					if err != nil {
-						glog.Errorf("upsert ft failed: %s", err)
+						klog.Errorf("upsert ft failed: %s", err)
 						return err
 					}
 				}

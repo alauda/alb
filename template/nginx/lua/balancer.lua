@@ -40,7 +40,7 @@ local function get_implementation(backend)
 
 local function sync_backend(backend)
     if not backend.backends or #backend.backends == 0 then
-        ngx_log(ngx.ERR, string_format("there is no endpoint for backend %s. Removing...", backend.name))
+        ngx_log(ngx.INFO, string_format("there is no endpoint for backend %s. Removing...", backend.name))
         balancers[backend.name] = nil
         return
     end
@@ -109,9 +109,6 @@ local function get_balancer()
     local backend_name = ngx_var.upstream
     local balancer = balancers[backend_name]
     if not balancer then
-        ngx_log(ngx.ERR, "no balancer found for ", backend_name)
-        ngx.status = 404
-        ngx_exit(200)
         return
     end
     return balancer
@@ -120,12 +117,13 @@ end
 function _M.balance()
     local balancer = get_balancer()
     if not balancer then
+        ngx_log(ngx.ERR, "no balancer found for ", ngx_var.upstream)
         return
     end
 
     local peer = balancer:balance()
     if not peer then
-        ngx.log(ngx.WARN, "no peer was returned, balancer: " .. balancer.name)
+        ngx.log(ngx.ERR, "no peer was returned, balancer: " .. balancer.name)
         return
     end
 
