@@ -6,7 +6,7 @@ metadata:
 data:
   http: |
     # Disable nginx or openresty symbol
-    server_tokens build;
+    # server_tokens off;
     more_set_headers 'Server: alb/2.0.0';
 
     # Disable checking of client request body size
