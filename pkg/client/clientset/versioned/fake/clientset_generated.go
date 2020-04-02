@@ -22,8 +22,6 @@ import (
 	clientset "alauda.io/alb2/pkg/client/clientset/versioned"
 	crdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1"
 	fakecrdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1/fake"
-	crdv3 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v3"
-	fakecrdv3 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v3/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -81,9 +79,4 @@ var _ clientset.Interface = &Clientset{}
 // CrdV1 retrieves the CrdV1Client
 func (c *Clientset) CrdV1() crdv1.CrdV1Interface {
 	return &fakecrdv1.FakeCrdV1{Fake: &c.Fake}
-}
-
-// CrdV3 retrieves the CrdV3Client
-func (c *Clientset) CrdV3() crdv3.CrdV3Interface {
-	return &fakecrdv3.FakeCrdV3{Fake: &c.Fake}
 }
