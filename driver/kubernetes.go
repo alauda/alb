@@ -1,15 +1,14 @@
 package driver
 
 import (
+	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	"errors"
 	"fmt"
+	corev1 "k8s.io/client-go/listers/core/v1"
 	"sort"
 	"strings"
-	"time"
 
 	v1types "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsfakeclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -22,20 +21,22 @@ import (
 )
 
 type KubernetesDriver struct {
-	Client    kubernetes.Interface
-	ALBClient albclient.Interface
-	ExtClient apiextensionsclient.Interface
+	Client         kubernetes.Interface
+	ALBClient      albclient.Interface
+	ALB2Lister     v1.ALB2Lister
+	FrontendLister v1.FrontendLister
+	RuleLister     v1.RuleLister
+	ServiceLister  corev1.ServiceLister
+	EndpointLister corev1.EndpointsLister
 }
 
-func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
+func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 	var client kubernetes.Interface
 	var albClient albclient.Interface
-	var extClient apiextensionsclient.Interface
 	if isFake {
 		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
 		albClient = albfakeclient.NewSimpleClientset()
-		extClient = apiextensionsfakeclient.NewSimpleClientset()
 	} else {
 		var cf *rest.Config
 		var err error
@@ -53,7 +54,6 @@ func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 				return nil, err
 			}
 		}
-		cf.Timeout = time.Duration(timeout) * time.Second
 		client, err = kubernetes.NewForConfig(cf)
 		if err != nil {
 			return nil, err
@@ -62,21 +62,22 @@ func GetKubernetesDriver(isFake bool, timeout int) (*KubernetesDriver, error) {
 		if err != nil {
 			return nil, err
 		}
-		extClient, err = apiextensionsclient.NewForConfig(cf)
-		if err != nil {
-			return nil, err
-		}
+
 	}
-	return &KubernetesDriver{Client: client, ALBClient: albClient, ExtClient: extClient}, nil
+	return &KubernetesDriver{Client: client, ALBClient: albClient}, nil
 }
 
 func (kd *KubernetesDriver) GetType() string {
 	return config.Kubernetes
 }
 
-func (kd *KubernetesDriver) IsHealthy() bool {
-	_, err := kd.Client.CoreV1().Nodes().List(metav1.ListOptions{})
-	return err == nil
+func (kd *KubernetesDriver) FillUpListers(serviceLister corev1.ServiceLister, endpointLister corev1.EndpointsLister,
+	alb2Lister v1.ALB2Lister, frontendLister v1.FrontendLister, ruleLister v1.RuleLister) {
+	kd.ServiceLister = serviceLister
+	kd.EndpointLister = endpointLister
+	kd.ALB2Lister = alb2Lister
+	kd.FrontendLister = frontendLister
+	kd.RuleLister = ruleLister
 }
 
 func selectorToLabelSelector(selector map[string]string) string {
@@ -101,7 +102,7 @@ func (kd *KubernetesDriver) ListService() ([]*Service, error) {
 		klog.Error(err)
 		return nil, err
 	}
-	services, err := LoadServices(alb)
+	services, err := kd.LoadServices(alb)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
@@ -111,6 +112,7 @@ func (kd *KubernetesDriver) ListService() ([]*Service, error) {
 }
 
 // GetNodePortAddr return addresses of a NodePort service by using host ip and nodeport.
+// TODO: remove or use lister
 func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Service, error) {
 	service := &Service{
 		ServiceID:     fmt.Sprintf("%s.%s", svc.Name, svc.Namespace),
@@ -163,7 +165,7 @@ func (kd *KubernetesDriver) GetNodePortAddr(svc *v1types.Service, port int) (*Se
 
 // GetEndPointAddress return a list of pod ip in the endpoint
 func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePort int) (*Service, error) {
-	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	svc, err := kd.ServiceLister.Services(namespace).Get(name)
 	if err != nil {
 		klog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
@@ -181,7 +183,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 		}
 	}
 
-	ep, err := kd.Client.CoreV1().Endpoints(namespace).Get(name, metav1.GetOptions{})
+	ep, err := kd.EndpointLister.Endpoints(namespace).Get(name)
 	if err != nil {
 		klog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
@@ -215,7 +217,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 
 // GetServiceAddress return ip list of a service base on the type of service
 func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, port int) (*Service, error) {
-	svc, err := kd.Client.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	svc, err := kd.ServiceLister.Services(namespace).Get(name)
 	if err != nil || svc == nil {
 		klog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
 		return nil, err

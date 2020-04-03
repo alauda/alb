@@ -6,12 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os/exec"
-	"strconv"
-	"sync"
-	"time"
-
 	"k8s.io/klog"
+	"os/exec"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
@@ -195,67 +191,7 @@ var (
 	ErrStandAlone = errors.New("operation is not allowed in stand alone mode")
 )
 
-//IsNewK8sCluster return true if cluser is new kubernetes cluseter
-func IsNewK8sCluster() (bool, error) {
-	return true, nil
-}
-
-var loadBalancersCache []byte
-var nextFetchTime time.Time
-var infoLock sync.Mutex
-
-//FetchLoadBalancersInfo return loadbalancer info from cache, mirana2 or apiserver
-func FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
-	infoLock.Lock()
-	defer infoLock.Unlock()
-	if time.Now().Before(nextFetchTime) && loadBalancersCache != nil {
-		var lbs []*LoadBalancer
-		//make sure always return a copy of loadbalaners
-		err := json.Unmarshal(loadBalancersCache, &lbs)
-		if err != nil {
-			// should never happen
-			klog.Error(err)
-			panic(err)
-		}
-		return lbs, nil
-	}
-
-	d, err := driver.GetDriver()
-	if err != nil {
-		return nil, err
-	}
-	alb, err := d.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
-	if err != nil {
-		klog.Error(err)
-		return []*LoadBalancer{}, nil
-	}
-
-	lb, err := MergeNew(alb)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-	var loadBalancers = []*LoadBalancer{
-		lb,
-	}
-
-	interval, err := strconv.Atoi(config.Get("INTERVAL"))
-	if err != nil {
-		klog.Error(err)
-		interval = 5
-	}
-	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
-	loadBalancersCache, _ = json.Marshal(loadBalancers)
-	klog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
-	return loadBalancers, err
-}
-
-func GetController() (Controller, error) {
-	d, err := driver.GetDriver()
-	if err != nil {
-		return nil, err
-	}
-
+func GetController(kd *driver.KubernetesDriver) (Controller, error) {
 	switch config.Get("LB_TYPE") {
 	case config.Nginx:
 		return &NginxController{
@@ -263,9 +199,9 @@ func GetController() (Controller, error) {
 			NewConfigPath: config.Get("NEW_CONFIG_PATH"),
 			OldConfigPath: config.Get("OLD_CONFIG_PATH"),
 			NewPolicyPath: config.Get("NEW_POLICY_PATH"),
-			BackendType:   d.GetType(),
+			BackendType:   kd.GetType(),
 			BinaryPath:    config.Get("NGINX_BIN_PATH"),
-			Driver:        d}, nil
+			Driver:        kd}, nil
 	default:
 		return nil, fmt.Errorf("Unsupport lb type %s only support nginx. Will support elb, slb, clb in the future", config.Get("LB_TYPE"))
 	}

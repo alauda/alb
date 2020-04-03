@@ -8,8 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"text/template"
+	"time"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
@@ -169,12 +172,58 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 	return config, ngxPolicy
 }
 
+var loadBalancersCache []byte
+var nextFetchTime time.Time
+var infoLock sync.Mutex
+
+//FetchLoadBalancersInfo return loadbalancer info from cache, mirana2 or apiserver
+func (nc *NginxController) FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
+	infoLock.Lock()
+	defer infoLock.Unlock()
+	if time.Now().Before(nextFetchTime) && loadBalancersCache != nil {
+		var lbs []*LoadBalancer
+		//make sure always return a copy of loadbalaners
+		err := json.Unmarshal(loadBalancersCache, &lbs)
+		if err != nil {
+			// should never happen
+			klog.Error(err)
+			panic(err)
+		}
+		return lbs, nil
+	}
+
+	alb, err := nc.Driver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
+	if err != nil {
+		klog.Error(err)
+		return []*LoadBalancer{}, nil
+	}
+
+	lb, err := MergeNew(alb)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+	var loadBalancers = []*LoadBalancer{
+		lb,
+	}
+
+	interval, err := strconv.Atoi(config.Get("INTERVAL"))
+	if err != nil {
+		klog.Error(err)
+		interval = 5
+	}
+	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
+	loadBalancersCache, _ = json.Marshal(loadBalancers)
+	klog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
+	return loadBalancers, err
+}
+
 func (nc *NginxController) GenerateConf() error {
 	services, err := nc.Driver.ListService()
 	if err != nil {
 		return err
 	}
-	loadbalancers, err := FetchLoadBalancersInfo()
+	loadbalancers, err := nc.FetchLoadBalancersInfo()
 	if err != nil {
 		return err
 	}
@@ -309,6 +358,8 @@ func (nc *NginxController) GC() error {
 	if config.Get("ENABLE_GC") != "true" {
 		return nil
 	}
+	start := time.Now()
 	klog.Info("begin gc rule")
+	defer klog.Infof("end gc rule, spend time %s", time.Since(start))
 	return GCRule(nc.Driver)
 }

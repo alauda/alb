@@ -3,6 +3,7 @@ package driver
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"time"
 
@@ -25,7 +26,7 @@ const (
 )
 
 func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB2, error) {
-	alb, err := kd.ALBClient.CrdV1().ALB2s(namespace).Get(name, metav1.GetOptions{})
+	alb, err := kd.ALB2Lister.ALB2s(namespace).Get(name)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 	klog.Infof("upsert frontend: %s", ft.Name)
 	var ftRes *alb2v1.Frontend
 	var err error
-	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Get(ft.Name, metav1.GetOptions{})
+	ftRes, err = kd.FrontendLister.Frontends(alb.Namespace).Get(ft.Name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			ftRes = &alb2v1.Frontend{
@@ -138,7 +139,7 @@ func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
 }
 
 func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
-	oldRule, err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Get(rule.Name, metav1.GetOptions{})
+	oldRule, err := kd.RuleLister.Rules(rule.FT.LB.Namespace).Get(rule.Name)
 	if err != nil {
 		return err
 	}
@@ -151,32 +152,27 @@ func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
 	return nil
 }
 
-func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]alb2v1.Frontend, error) {
-	selector := fmt.Sprintf("%s=%s", fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")), lbname)
-	resList, err := kd.ALBClient.CrdV1().Frontends(namespace).List(metav1.ListOptions{
-		LabelSelector: selector,
-	})
+func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.Frontend, error) {
+	sel := labels.Set{fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): lbname}.AsSelector()
+	resList, err := kd.FrontendLister.Frontends(namespace).List(sel)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
-	return resList.Items, nil
+	return resList, nil
 }
 
-func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]alb2v1.Rule, error) {
-	selector := fmt.Sprintf(
-		"%s=%s,%s=%s",
-		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")), lbname,
-		fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")), ftname,
-	)
-	resList, err := kd.ALBClient.CrdV1().Rules(namespace).List(metav1.ListOptions{
-		LabelSelector: selector,
-	})
+func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]*alb2v1.Rule, error) {
+	sel := labels.Set{
+		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     lbname,
+		fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): ftname,
+	}.AsSelector()
+	resList, err := kd.RuleLister.Rules(namespace).List(sel)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
-	return resList.Items, nil
+	return resList, nil
 }
 
 func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
@@ -231,15 +227,9 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	return &alb2, nil
 }
 
-func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowNoAddr bool) (map[string]*Service, error) {
+func (kd *KubernetesDriver) parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowNoAddr bool) (map[string]*Service, error) {
 	if sg == nil {
 		return data, nil
-	}
-
-	kd, err := GetDriver()
-	if err != nil {
-		klog.Error(err)
-		return data, err
 	}
 
 	for _, svc := range sg.Services {
@@ -262,19 +252,19 @@ func parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowN
 	return data, nil
 }
 
-func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
+func (kd *KubernetesDriver) LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 	var err error
 	data := make(map[string]*Service)
 
 	for _, ft := range alb.Frontends {
-		data, err = parseServiceGroup(data, ft.ServiceGroup, ft.AllowNoAddr())
+		data, err = kd.parseServiceGroup(data, ft.ServiceGroup, ft.AllowNoAddr())
 		if err != nil {
 			klog.Error(err)
 			return nil, err
 		}
 
 		for _, rule := range ft.Rules {
-			data, err = parseServiceGroup(data, rule.ServiceGroup, rule.AllowNoAddr())
+			data, err = kd.parseServiceGroup(data, rule.ServiceGroup, rule.AllowNoAddr())
 			if err != nil {
 				klog.Error(err)
 				return nil, err
@@ -290,7 +280,7 @@ func LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
 }
 
 func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) error {
-	ft, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Get(ftName, metav1.GetOptions{})
+	ft, err := kd.FrontendLister.Frontends(config.Get("NAMESPACE")).Get(ftName)
 	if err != nil {
 		return err
 	}

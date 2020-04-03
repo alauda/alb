@@ -58,7 +58,7 @@ func loadData(dir, prefix string) ([]runtime.Object, error) {
 func TestLoadAlb(t *testing.T) {
 	os.Setenv("DOMAIN", "alauda.io")
 	a := assert.New(t)
-	driver, err := GetKubernetesDriver(true, 0)
+	driver, err := GetKubernetesDriver(true)
 	a.NoError(err)
 	crdDataset, err := loadData("./texture", "crd")
 	a.NoError(err)

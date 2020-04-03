@@ -25,7 +25,7 @@ func GCRule(kd *driver.KubernetesDriver) error {
 			// protocol tcp or udp has no rules
 			if ft.Source != nil && ft.Source.Type == m.TypeBind && ft.ServiceGroup != nil && len(ft.ServiceGroup.Services) == 1 {
 				svc := ft.ServiceGroup.Services[0]
-				service, err := kd.Client.CoreV1().Services(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
+				service, err := kd.ServiceLister.Services(svc.Namespace).Get(svc.Name)
 				needDel := false
 				if err != nil {
 					if k8serrors.IsNotFound(err) {
@@ -38,7 +38,7 @@ func GCRule(kd *driver.KubernetesDriver) error {
 					}
 				}
 				if needDel {
-					ftRes, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Get(ft.Name, metav1.GetOptions{})
+					ftRes, err := kd.FrontendLister.Frontends(config.Get("NAMESPACE")).Get(ft.Name)
 					if err != nil {
 						klog.Error(err)
 						continue
@@ -61,7 +61,7 @@ func GCRule(kd *driver.KubernetesDriver) error {
 					noneExist := 0
 					needDel := false
 					for _, svc := range rl.ServiceGroup.Services {
-						service, err := kd.Client.CoreV1().Services(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
+						service, err := kd.ServiceLister.Services(svc.Namespace).Get(svc.Name)
 						if err != nil {
 							if k8serrors.IsNotFound(err) {
 								noneExist++

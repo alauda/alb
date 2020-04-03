@@ -1,9 +1,12 @@
 package main
 
 import (
+	"alauda.io/alb2/driver"
+	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	"context"
 	"flag"
-	"fmt"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -14,7 +17,6 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller"
-	"alauda.io/alb2/driver"
 	"alauda.io/alb2/ingress"
 )
 
@@ -22,7 +24,7 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 	defer klog.Flush()
-	klog.Error("Service start.")
+	klog.Info("ALB start.")
 
 	err := config.ValidateConfig()
 	if err != nil {
@@ -33,23 +35,42 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	config.Set("LABEL_SERVICE_ID", fmt.Sprintf("service.%s/uuid", config.Get("DOMAIN")))
-	config.Set("LABEL_SERVICE_NAME", fmt.Sprintf("service.%s/name", config.Get("DOMAIN")))
-	config.Set("LABEL_CREATOR", fmt.Sprintf("service.%s/createby", config.Get("DOMAIN")))
-
-	d, err := driver.GetDriver()
+	drv, err := driver.GetDriver()
 	if err != nil {
 		panic(err)
 	}
-	// install necessary crd on start
-	if config.GetBool("INSTALL_CRD") {
-		if err := d.RegisterCustomDefinedResources(); err != nil {
-			// install crd failed, abort
-			panic(err)
-		}
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
+	ingressInformer := kubeInformerFactory.Networking().V1beta1().Ingresses()
+	ingressSynced := ingressInformer.Informer().HasSynced
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
+	serviceLister := serviceInformer.Lister()
+	serviceSynced := serviceInformer.Informer().HasSynced
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	endpointLister := endpointInformer.Lister()
+	endpointSynced := endpointInformer.Informer().HasSynced
+	kubeInformerFactory.Start(ctx.Done())
+
+	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(drv.ALBClient, 0,
+		albinformers.WithNamespace(config.Get("NAMESPACE")))
+	alb2Informer := albInformerFactory.Crd().V1().ALB2s()
+	alb2Lister := alb2Informer.Lister()
+	alb2Synced := alb2Informer.Informer().HasSynced
+	frontendInformer := albInformerFactory.Crd().V1().Frontends()
+	frontendLister := frontendInformer.Lister()
+	frontendSynced := frontendInformer.Informer().HasSynced
+	ruleInformer := albInformerFactory.Crd().V1().Rules()
+	ruleLister := ruleInformer.Lister()
+	ruleSynced := ruleInformer.Informer().HasSynced
+	albInformerFactory.Start(ctx.Done())
+	drv.FillUpListers(serviceLister, endpointLister, alb2Lister, frontendLister, ruleLister)
+
+	klog.Info("Waiting for informer caches to sync")
+	if ok := cache.WaitForCacheSync(ctx.Done(), ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
+		klog.Fatalf("failed to wait for caches to sync")
 	}
 
-	go ingress.MainLoop(ctx)
+	ingressController := ingress.NewController(drv, ingressInformer)
+	go ingressController.Start(ctx)
 	go func() {
 		// for profiling
 		http.ListenAndServe(":1937", nil)
@@ -68,11 +89,11 @@ func main() {
 		klog.Info("Begin update reload loop")
 
 		go func() {
-			err := controller.TryLockAlb()
+			err := controller.TryLockAlb(drv)
 			if err != nil {
 				klog.Error("lock alb failed", err.Error())
 			}
-			ctl, err := controller.GetController()
+			ctl, err := controller.GetController(drv)
 			if err != nil {
 				klog.Error(err.Error())
 				ch <- "continue"

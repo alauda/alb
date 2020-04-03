@@ -8,7 +8,10 @@ require (
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
+	github.com/magiconair/properties v1.8.1 // indirect
+	github.com/pkg/errors v0.8.0 // indirect
 	github.com/spf13/cast v1.3.1
+	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0
 	github.com/thoas/go-funk v0.0.0-20181015191849-9132db0aefe2
@@ -16,11 +19,9 @@ require (
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.0.0
-	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.15.10-beta.0
 	k8s.io/client-go v0.0.0
 	k8s.io/klog v0.4.0
-	k8s.io/kubernetes v1.16.0 // indirect
 	k8s.io/utils v0.0.0-20191114200735-6ca3b61696b6 // indirect
 )
 

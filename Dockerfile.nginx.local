@@ -35,6 +35,5 @@ RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
-COPY --from=builder /migrate_v1tov2 /alb/migrate_v1tov2
 COPY --from=builder /migrate_v26tov28 /alb/migrate_v26tov28
 COPY alauda /etc/logrotate.d/alauda
