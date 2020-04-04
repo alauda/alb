@@ -64,6 +64,8 @@ func main() {
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
 		ch := make(chan string)
+		startTime := time.Now()
+		klog.Info("Begin update reload loop")
 
 		go func() {
 			err := controller.TryLockAlb()
@@ -113,6 +115,7 @@ func main() {
 			}
 		}
 
+		klog.Infof("End update reload loop, cost %s", time.Since(startTime))
 	}
 }
 
