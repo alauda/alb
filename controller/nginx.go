@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -207,11 +206,7 @@ func (nc *NginxController) FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 		lb,
 	}
 
-	interval, err := strconv.Atoi(config.Get("INTERVAL"))
-	if err != nil {
-		klog.Error(err)
-		interval = 5
-	}
+	interval := config.GetInt("INTERVAL")
 	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
 	loadBalancersCache, _ = json.Marshal(loadBalancers)
 	klog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
