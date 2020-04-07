@@ -157,7 +157,7 @@ var mutexLock sync.Mutex
 var holdUntil time.Time
 var waitUntil time.Time
 
-func TryLockAlb() error {
+func TryLockAlb(kd *driver.KubernetesDriver) error {
 	mutexLock.Lock()
 	defer mutexLock.Unlock()
 	if myself == "" {
@@ -176,11 +176,7 @@ func TryLockAlb() error {
 	}
 	name := config.Get("NAME")
 	namespace := config.Get("NAMESPACE")
-	driver, err := driver.GetDriver()
-	if err != nil {
-		return err
-	}
-	albRes, err := driver.LoadAlbResource(namespace, name)
+	albRes, err := kd.LoadAlbResource(namespace, name)
 	if err != nil {
 		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
 		return err
@@ -203,7 +199,7 @@ func TryLockAlb() error {
 
 	lockString = newLock(myself, 90*time.Second)
 	albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))] = lockString
-	fts, err := driver.LoadFrontends(namespace, name)
+	fts, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
 		return err
 	}
@@ -223,7 +219,7 @@ func TryLockAlb() error {
 	albRes.Status.State = state
 	albRes.Status.Reason = reason
 	albRes.Status.ProbeTime = time.Now().Unix()
-	err = driver.UpdateAlbResource(albRes)
+	err = kd.UpdateAlbResource(albRes)
 	if err != nil {
 		klog.Errorf("lock %s.%s failed: %s", name, namespace, err.Error())
 		return err
@@ -233,7 +229,7 @@ func TryLockAlb() error {
 	return nil
 }
 
-func IsLocker() (bool, error) {
+func IsLocker(kd *driver.KubernetesDriver) (bool, error) {
 	if myself == "" {
 		if config.Get("MY_POD_NAME") != "" {
 			myself = config.Get("MY_POD_NAME")
@@ -243,11 +239,7 @@ func IsLocker() (bool, error) {
 	}
 	name := config.Get("NAME")
 	namespace := config.Get("NAMESPACE")
-	driver, err := driver.GetDriver()
-	if err != nil {
-		return false, err
-	}
-	albRes, err := driver.LoadAlbResource(namespace, name)
+	albRes, err := kd.LoadAlbResource(namespace, name)
 	if err != nil {
 		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
 		return false, err

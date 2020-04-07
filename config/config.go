@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	"strings"
+	"sync"
 )
 
 const (
@@ -17,7 +18,9 @@ const (
 	Nginx = "nginx"
 )
 
-var Config = map[string]string{}
+var ConfigString sync.Map
+var ConfigBool sync.Map
+var ConfigInt sync.Map
 
 var requiredFields = []string{
 	"NAME",
@@ -81,7 +84,6 @@ func setDefault() {
 	defaultConfig := viper.GetStringMapString("default")
 	for key, val := range defaultConfig {
 		viper.SetDefault(key, val)
-		Config[key] = val
 	}
 }
 
@@ -99,7 +101,6 @@ func Initialize() {
 func getEnvs(fs []string) {
 	for _, f := range fs {
 		viper.BindEnv(f, f)
-		Config[f] = viper.GetString(f)
 	}
 }
 
@@ -119,7 +120,7 @@ func ValidateConfig() error {
 		return fmt.Errorf("%s env vars are requied but empty", strings.Join(emptyRequiredEnv, ","))
 	}
 
-	switch strings.ToLower(Config["LB_TYPE"]) {
+	switch strings.ToLower(Get("LB_TYPE")) {
 	case Nginx:
 		emptyRequiredEnv = checkEmpty(nginxRequiredFields)
 		if len(emptyRequiredEnv) > 0 {
@@ -142,7 +143,7 @@ func ValidateConfig() error {
 		}
 
 	default:
-		return fmt.Errorf("Unsuported lb type %s", Config["LB_TYPE"])
+		return fmt.Errorf("Unsuported lb type %s", Get("LB_TYPE"))
 	}
 
 	return nil
@@ -155,21 +156,36 @@ func IsStandalone() bool {
 
 // Set key to val
 func Set(key, val string) {
-	Config[key] = val
+	ConfigString.Store(key, val)
 	viper.Set(key, val)
 }
 
 // Get return string value of keyGet
 func Get(key string) string {
-	return viper.GetString(key)
+	if val, ok := ConfigString.Load(key); ok {
+		return val.(string)
+	}
+	v := viper.GetString(key)
+	ConfigString.Store(key, v)
+	return v
 }
 
 //GetBool return bool value of the key
 func GetBool(key string) bool {
-	return viper.GetBool(key)
+	if val, ok := ConfigBool.Load(key); ok {
+		return val.(bool)
+	}
+	v := viper.GetBool(key)
+	ConfigBool.Store(key, v)
+	return v
 }
 
 //GetInt reuturn int value of the key
 func GetInt(key string) int {
-	return viper.GetInt(key)
+	if val, ok := ConfigInt.Load(key); ok {
+		return val.(int)
+	}
+	v := viper.GetInt(key)
+	ConfigInt.Store(key, v)
+	return v
 }

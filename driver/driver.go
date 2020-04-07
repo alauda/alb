@@ -59,9 +59,8 @@ type NodePort struct {
 }
 
 func GetDriver() (*KubernetesDriver, error) {
-	timeout := config.GetInt("KUBERNETES_TIMEOUT")
 	// TEST != "" means we are debugging or testing
-	return GetKubernetesDriver(config.Get("TEST") != "", timeout)
+	return GetKubernetesDriver(config.Get("TEST") != "")
 }
 
 // SetDebug enable debug mode. GetDriver() will return a driver with fake client

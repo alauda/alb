@@ -20,7 +20,6 @@ package fake
 
 import (
 	crdv1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	crdv3 "alauda.io/alb2/pkg/apis/alauda/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,7 +32,6 @@ var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
 	crdv1.AddToScheme,
-	crdv3.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

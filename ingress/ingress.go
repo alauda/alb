@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	kubeinformers "k8s.io/client-go/informers"
 	networkinginformers "k8s.io/client-go/informers/networking/v1beta1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -89,21 +88,11 @@ var (
 	ALBSSLStrategyAnnotation = fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
 )
 
-func MainLoop(ctx context.Context) {
-	drv, err := driver.GetDriver()
-	if err != nil {
-		panic(err)
-	}
-
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
-	controller := NewController(
-		drv,
-		kubeInformerFactory.Networking().V1beta1().Ingresses(),
-	)
+func (c *Controller) Start(ctx context.Context) {
 	interval := config.GetInt("INTERVAL")
 	for {
 		time.Sleep(time.Duration(interval) * time.Second)
-		isLeader, err := ctl.IsLocker()
+		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 		if err != nil {
 			klog.Errorf("not leader: %s", err.Error())
 			continue
@@ -113,9 +102,7 @@ func MainLoop(ctx context.Context) {
 		}
 	}
 
-	kubeInformerFactory.Start(ctx.Done())
-
-	if err = controller.Run(1, ctx.Done()); err != nil {
+	if err := c.Run(1, ctx.Done()); err != nil {
 		klog.Errorf("Error running controller: %s", err.Error())
 	}
 }
@@ -123,7 +110,6 @@ func MainLoop(ctx context.Context) {
 // Controller is the controller implementation for Foo resources
 type Controller struct {
 	ingressLister networkinglisters.IngressLister
-	ingressSynced cache.InformerSynced
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -160,7 +146,6 @@ func NewController(
 
 	controller := &Controller{
 		ingressLister: ingressInformer.Lister(),
-		ingressSynced: ingressInformer.Informer().HasSynced,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"Ingresses",
@@ -197,15 +182,6 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("start ingress controller")
-
-	// Wait for the caches to be synced before starting workers
-	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.ingressSynced); !ok {
-		err := fmt.Errorf("failed to wait for caches to sync")
-		klog.Error(err)
-		return err
-	}
-
 	klog.Info("Starting workers")
 
 	for i := 0; i < threadiness; i++ {
@@ -235,7 +211,7 @@ func (c *Controller) enqueue(obj interface{}) {
 // It then enqueues that Foo resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
 func (c *Controller) handleObject(obj interface{}) {
-	isLeader, err := ctl.IsLocker()
+	isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 	if err != nil {
 		klog.Errorf("not leader: %s", err.Error())
 		return

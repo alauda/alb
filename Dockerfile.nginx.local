@@ -5,7 +5,6 @@ ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
-RUN go build -ldflags "-w -s" -v -o /migrate_v1tov2 alauda.io/alb2/migrate/v1tov2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 
 FROM halfcrazy/alb-nginx:7dd7a4ea7df85f1333d751c05db45863398d5d92
@@ -36,6 +35,5 @@ RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
-COPY --from=builder /migrate_v1tov2 /alb/migrate_v1tov2
 COPY --from=builder /migrate_v26tov28 /alb/migrate_v26tov28
 COPY alauda /etc/logrotate.d/alauda
