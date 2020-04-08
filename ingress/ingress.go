@@ -392,8 +392,9 @@ func (c *Controller) updateRule(
 	}
 	certs := make(map[string]string)
 
+	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
-		klog.Errorf("Unsupported backend protocol %s for ingress %s/%s", backendProtocol, ingress.GetNamespace(), ingress.GetName())
+		klog.Errorf("Unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo)
 		return nil
 	}
 
@@ -451,8 +452,8 @@ func (c *Controller) updateRule(
 				err := c.KubernetesDriver.UpdateRule(rule)
 				if err != nil {
 					klog.Errorf(
-						"update rule %+v for ingress %s.%s failed: %s",
-						*rule, ingress.Namespace, ingress.Name, err.Error(),
+						"update rule %+v for ingress %s failed: %s",
+						*rule, ingInfo, err.Error(),
 					)
 					return err
 				}
@@ -460,7 +461,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode)
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode)
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -483,11 +484,12 @@ func (c *Controller) updateRule(
 	err = c.KubernetesDriver.CreateRule(rule)
 	if err != nil {
 		klog.Errorf(
-			"Create rule %+v for ingress %s.%s failed: %s",
-			*rule, ingress.Namespace, ingress.Name, err.Error(),
+			"Create rule %+v for ingress %s failed: %s",
+			*rule, ingInfo, err.Error(),
 		)
 		return err
 	}
+	klog.Infof("Create rule %s for ingress %s success", rule.Name, ingInfo)
 	return nil
 }
 
@@ -621,6 +623,14 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			if err != nil {
 				klog.Errorf(
 					"Update rule failed for ingress %s/%s with host=%s, path=%s",
+					ingress.Namespace,
+					ingress.Name,
+					host,
+					p.Path,
+				)
+			} else {
+				klog.Infof(
+					"Update rule success for ingress %s/%s with host=%s, path=%s",
 					ingress.Namespace,
 					ingress.Name,
 					host,

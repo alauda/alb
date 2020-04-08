@@ -37,13 +37,15 @@ func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
 	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
 	if err != nil {
 		klog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+		return err
 	}
 	newAlb.Status = alb.Status
 	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(newAlb)
 	if err != nil {
 		klog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
+		return err
 	}
-	return err
+	return nil
 }
 
 func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {

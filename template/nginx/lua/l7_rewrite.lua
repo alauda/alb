@@ -1,9 +1,9 @@
+local string_lower = string.lower
 local ngx_var = ngx.var
 local ngx_header = ngx.header
 local ngx_re = ngx.re
 local ngx_req = ngx.req
 local ngx_log = ngx.log
-local ngx_say = ngx.say
 local ngx_exit = ngx.exit
 local ngx_redirect = ngx.redirect
 local upstream = require "upstream"
@@ -39,7 +39,7 @@ if matched_policy ~= nil then
   end
   local backend_protocol = matched_policy["backend_protocol"]
   if backend_protocol ~= "" then
-      ngx_var.backend_protocol = backend_protocol
+      ngx_var.backend_protocol = string_lower(backend_protocol)
   end
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]

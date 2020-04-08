@@ -158,6 +158,8 @@ var holdUntil time.Time
 var waitUntil time.Time
 
 func TryLockAlb(kd *driver.KubernetesDriver) error {
+	now := time.Now()
+	klog.Infof("try lock alb, now: %s, holdUntil: %s, waitUntil: %s", now, holdUntil, waitUntil)
 	mutexLock.Lock()
 	defer mutexLock.Unlock()
 	if myself == "" {
@@ -167,7 +169,6 @@ func TryLockAlb(kd *driver.KubernetesDriver) error {
 			myself = RandomStr("", 8)
 		}
 	}
-	now := time.Now()
 	if now.Before(holdUntil) {
 		return nil
 	}
@@ -185,6 +186,7 @@ func TryLockAlb(kd *driver.KubernetesDriver) error {
 		albRes.Annotations = make(map[string]string)
 	}
 	lockString, ok := albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))]
+	klog.Infof("lockstring: %s", lockString)
 	if ok && locked(lockString, myself) {
 		// used by another pod of alb2
 		waitUntil = retryUntil(lockString)
