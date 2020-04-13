@@ -47,6 +47,7 @@ local function fetch_policy()
         ngx_log(ngx.ERR, "read policy file failed")
         return
     end
+    f:close()
     local dict_data = common.json_decode(data)
     if dict_data == nil then
         ngx_log(ngx.ERR, "invalid policy file" .. data)
