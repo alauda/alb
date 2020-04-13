@@ -27,11 +27,11 @@ local sync_topic = "sync_upstream"
 
 local function clean_cache(port_map_changed, cert_map_changed)
     if subsystem == "http" and cert_map_changed then
-        ngx_log(ngx.ERR, "clean cert cache")
+        ngx_log(ngx.INFO, "clean cert cache")
         cache.cert_cache:purge()
     end
     if port_map_changed then
-        ngx_log(ngx.ERR, "clean rule cache")
+        ngx_log(ngx.INFO, "clean rule cache")
         cache.rule_cache:purge()
     end
 end
@@ -47,29 +47,31 @@ local function fetch_policy()
         ngx_log(ngx.ERR, "read policy file failed")
         return
     end
-    local old_data = ngx_shared[subsystem .. "_alb_cache"]:get("raw")
     local dict_data = common.json_decode(data)
     if dict_data == nil then
         ngx_log(ngx.ERR, "invalid policy file" .. data)
         return
     end
+    local old_data = ngx_shared[subsystem .. "_alb_cache"]:get("raw")
     local old_dict_data = common.json_decode(old_data)
     if common.table_equals(dict_data, old_dict_data) then
         return
     end
+    ngx_shared[subsystem .. "_alb_cache"]:set("raw", data)
     local port_map_changed = old_dict_data == nil or not common.table_equals(dict_data["port_map"], old_dict_data["port_map"])
     local backend_group_changed =  old_dict_data == nil or not common.table_equals(dict_data["backend_group"], old_dict_data["backend_group"])
-    local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["cert_map"], old_dict_data["cert_map"])
+    local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["certificate_map"], old_dict_data["certificate_map"])
+    if port_map_changed or backend_group_changed or cert_map_changed then
+        ngx_log(ngx.ERR, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
+    end
     clean_cache(port_map_changed, cert_map_changed)
-    ngx_log(ngx.ERR, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
-    ngx_shared[subsystem .. "_alb_cache"]:set("raw", data)
     local all_ports_policies = dict_data["port_map"]
     local backend_group = dict_data["backend_group"]
+    local certificate_map = dict_data["certificate_map"]
     ngx_shared[subsystem .. "_policy"]:set("all_policies", common.json_encode(all_ports_policies, true))
     ngx_shared[subsystem .. "_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
 
     if subsystem == "http" then
-        local certificate_map = dict_data["certificate_map"]
         ngx_shared[subsystem .. "_certs_cache"]:set("certificate_map", common.json_encode(certificate_map, true))
         for domain, certs in pairs(certificate_map) do
             ngx_shared[subsystem .. "_certs_cache"]:set(string_lower(domain), common.json_encode(certs))
