@@ -107,7 +107,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				}
 			}
 
-			if rule.DSL == "" || rule.DSLX == nil {
+			if rule.DSL == "" && rule.DSLX == nil {
 				klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
 				continue
 			}
