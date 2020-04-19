@@ -19,7 +19,7 @@ ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV GODEBUG=netdns=cgo
 
-RUN apk add jq iproute2 logrotate openssl tcpdump
+RUN apk add jq iproute2 logrotate openssl tcpdump tshark
 
 
 CMD ["/run.sh"]
