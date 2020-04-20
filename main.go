@@ -40,7 +40,7 @@ func main() {
 		panic(err)
 	}
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
-	ingressInformer := kubeInformerFactory.Networking().V1beta1().Ingresses()
+	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	ingressSynced := ingressInformer.Informer().HasSynced
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	serviceLister := serviceInformer.Lister()
