@@ -12,7 +12,7 @@ AlaudaPipeline {
       credentials: 'acp-acp-bitbucket-new'
     ],
     docker: [
-      repository: "claas/alb2",
+      repository: "acp/alb2",
       credentials: "alaudak8s",
       context: ".",
       dockerfile: "Dockerfile.nginx.local",
