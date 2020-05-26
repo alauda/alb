@@ -28,10 +28,12 @@ local sync_topic = "sync_upstream"
 local function clean_cache(port_map_changed, cert_map_changed)
     if subsystem == "http" and cert_map_changed then
         ngx_log(ngx.INFO, "clean cert cache")
+        ngx_shared[subsystem .. "_certs_cache"]:flush_all()
         cache.cert_cache:purge()
     end
     if port_map_changed then
         ngx_log(ngx.INFO, "clean rule cache")
+        ngx_shared[subsystem .. "_policy"]:flush_all()
         cache.rule_cache:purge()
     end
 end
@@ -53,12 +55,12 @@ local function fetch_policy()
         ngx_log(ngx.ERR, "invalid policy file" .. data)
         return
     end
-    local old_data = ngx_shared[subsystem .. "_alb_cache"]:get("raw")
+    local old_data = ngx_shared[subsystem .. "_raw"]:get("raw")
     local old_dict_data = common.json_decode(old_data)
     if common.table_equals(dict_data, old_dict_data) then
         return
     end
-    ngx_shared[subsystem .. "_alb_cache"]:set("raw", data)
+    ngx_shared[subsystem .. "_raw"]:set("raw", data)
     local port_map_changed = old_dict_data == nil or not common.table_equals(dict_data["port_map"], old_dict_data["port_map"])
     local backend_group_changed =  old_dict_data == nil or not common.table_equals(dict_data["backend_group"], old_dict_data["backend_group"])
     local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["certificate_map"], old_dict_data["certificate_map"])

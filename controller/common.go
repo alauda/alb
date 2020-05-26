@@ -236,6 +236,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		}
 
 		result.Frontends[ft.Port] = ft
+		sort.Sort(result.BackendGroup)
 	} // end of  _, ft := range loadbalancer.Frontends
 
 	return result

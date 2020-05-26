@@ -173,13 +173,27 @@ func (rl RuleList) Less(i, j int) bool {
 	return rl[i].Priority > rl[j].Priority
 }
 
+type BackendGroups []*BackendGroup
+
+func (bgs BackendGroups) Len() int {
+	return len(bgs)
+}
+
+func (bgs BackendGroups) Swap(i, j int) {
+	bgs[i], bgs[j] = bgs[j], bgs[i]
+}
+
+func (bgs BackendGroups) Less(i, j int) bool {
+	return bgs[i].Name > bgs[j].Name
+}
+
 type Config struct {
 	Name             string
 	Address          string
 	BindAddress      string
 	LoadBalancerID   string
 	Frontends        map[int]*Frontend
-	BackendGroup     []*BackendGroup
+	BackendGroup     BackendGroups
 	CertificateMap   map[string]Certificate
 	TweakHash        string
 	EnablePrometheus bool
