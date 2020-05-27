@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"strings"
 	"time"
@@ -189,6 +190,15 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Started workers")
+	ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
+	if err != nil {
+		klog.Error("error list all ingresses", err)
+	} else {
+		// ensure legacy ingresses will be transformed
+		for _, ing := range ings {
+			c.enqueue(ing)
+		}
+	}
 	<-stopCh
 	klog.Info("Shutting down workers")
 
