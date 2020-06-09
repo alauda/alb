@@ -28,7 +28,7 @@ func TestRule_GetPriority(t *testing.T) {
 					},
 				},
 			},
-			want: 100,
+			want: 10000 + 100 + len("(START_WITH URL /)"),
 		},
 		{
 			name: "no priority with dsl 1",

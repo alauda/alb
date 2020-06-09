@@ -32,7 +32,6 @@ func TestEnvConfig(t *testing.T) {
 	Initialize()
 
 	for key, val := range ENV {
-		a.Equal(val, Config[key])
 		a.Equal(val, Get(key))
 	}
 
