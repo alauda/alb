@@ -169,7 +169,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		if err != nil {
 			klog.Error(err)
 		}
-		klog.Info("finish port probe, listen tcp ports: ", listenTCPPorts)
+		klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
 	}
 	for _, ft := range loadbalancer.Frontends {
 		conflict := false
@@ -199,7 +199,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 				secretName := slice[1]
 				cert, err := getCertificate(driver, secretNs, secretName)
 				if err != nil {
-					klog.Warningf("get cert failed, %+v", err)
+					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
 				} else {
 					// default cert for port ft.Port
 					result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
@@ -212,7 +212,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 					secretName := slice[1]
 					cert, err := getCertificate(driver, secretNs, secretName)
 					if err != nil {
-						klog.Warningf("get cert failed, %+v", err)
+						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
 						continue
 					}
 					if existCert, ok := result.CertificateMap[strings.ToLower(rule.Domain)]; ok {
