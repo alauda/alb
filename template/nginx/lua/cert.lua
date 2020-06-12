@@ -6,6 +6,7 @@ local ngx_shared = ngx.shared
 local ngx_config = ngx.config
 local common = require "common"
 local cache = require "cache"
+local conf = require "conf"
 
 local subsystem = ngx_config.subsystem
 
@@ -52,6 +53,9 @@ local function get_domain_cert(domain)
     local raw_cert = ngx_shared[subsystem .. "_certs_cache"]:get(domain)
     local cert = common.json_decode(raw_cert)
     if raw_cert == ""  or raw_cert == nil then
+        if conf.default_ssl_strategy == "Always" and domain ~= conf.default_https_port then
+            return get_domain_cert(conf.default_https_port)
+        end
         return nil, "invalid"
     end
     return cert
