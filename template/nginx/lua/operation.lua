@@ -28,7 +28,14 @@ local single_matcher = {
 
 local function parse_single_matcher(matcher)
     if(matcher == "HOST") then
-        return ngx_var.host
+        local host = ngx_var.host
+        -- https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.23
+        -- client will add port to host if is not a default port
+        local s = string_find(host, ":")
+        if s ~= nil then
+            return string_sub(host, 1, s - 1)
+        end
+        return host
     elseif(matcher == "URL") then
         return ngx_var.uri
     elseif(matcher == "SRC_IP") then
