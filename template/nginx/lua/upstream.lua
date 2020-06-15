@@ -19,7 +19,7 @@ local _M = {}
 local subsystem = ngx_config.subsystem
 
 local function get_port_policies(port)
-    ngx_log(ngx.ERR, "refresh cache for port:", port)
+    ngx_log(ngx.INFO, "refresh cache for port:", port)
     local raw_policies = ngx_shared[subsystem .. "_policy"]:get(port)
     if raw_policies == nil then
         return nil, "no policies found on this port:" .. port
