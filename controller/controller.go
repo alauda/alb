@@ -127,6 +127,7 @@ type Rule struct {
 	BackendProtocol string  `json:"backend_protocol"`
 	RedirectURL     string  `json:"redirect_url"`
 	RedirectCode    int     `json:"redirect_code"`
+	VHost           string  `json:"vhost"`
 	// CertificateName = namespace_secretname
 	CertificateName       string            `json:"certificate_name"`
 	RewriteTarget         string            `json:"rewrite_target"`

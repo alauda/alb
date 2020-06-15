@@ -70,7 +70,7 @@ func RandomStr(pixff string, length int) string {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, redirectURL string, redirectCode int) (*Rule, error) {
+	enableCORS bool, redirectURL string, redirectCode int, vhost string) (*Rule, error) {
 	var (
 		dsl  string
 		dslx alb2v1.DSLX
@@ -92,6 +92,7 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 			EnableCORS:      enableCORS,
 			RedirectURL:     redirectURL,
 			RedirectCode:    redirectCode,
+			VHost:           vhost,
 			Description:     ingressInfo,
 		},
 		FT: ft,

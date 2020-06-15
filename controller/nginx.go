@@ -46,6 +46,7 @@ type Policy struct {
 	BackendProtocol string        `json:"backend_protocol"`
 	RedirectURL     string        `json:"redirect_url"`
 	RedirectCode    int           `json:"redirect_code"`
+	VHost           string        `json:"vhost"`
 }
 
 type NgxPolicy struct {
@@ -146,6 +147,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.BackendProtocol = rule.BackendProtocol
 			policy.RedirectURL = rule.RedirectURL
 			policy.RedirectCode = rule.RedirectCode
+			policy.VHost = rule.VHost
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 
