@@ -65,7 +65,7 @@ local function fetch_policy()
     local backend_group_changed =  old_dict_data == nil or not common.table_equals(dict_data["backend_group"], old_dict_data["backend_group"])
     local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["certificate_map"], old_dict_data["certificate_map"])
     if port_map_changed or backend_group_changed or cert_map_changed then
-        ngx_log(ngx.ERR, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
+        ngx_log(ngx.INFO, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
     end
     clean_cache(port_map_changed, cert_map_changed)
     local all_ports_policies = dict_data["port_map"]
