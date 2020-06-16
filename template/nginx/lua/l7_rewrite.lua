@@ -41,6 +41,12 @@ if matched_policy ~= nil then
   if backend_protocol ~= "" then
       ngx_var.backend_protocol = string_lower(backend_protocol)
   end
+  local vhost = matched_policy["vhost"]
+  if vhost ~= "" then
+    ngx_var.custom_host = vhost
+  else
+    ngx_var.custom_host = ngx_var.http_host
+  end
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]
   if rewrite_target ~= "" then

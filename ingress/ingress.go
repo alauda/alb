@@ -73,6 +73,9 @@ const (
 	ALBTemporalRedirectAnnotation = "nginx.ingress.kubernetes.io/temporal-redirect"
 	// ALBPermanentRedirectAnnotation allows to return a permanent redirect instead of sending data to the upstream.
 	ALBPermanentRedirectAnnotation = "nginx.ingress.kubernetes.io/permanent-redirect"
+
+	// ALBVHostAnnotation allows user to override the request Host
+	ALBVHostAnnotation = "nginx.ingress.kubernetes.io/upstream-vhost"
 )
 
 var (
@@ -387,6 +390,7 @@ func (c *Controller) updateRule(
 ) error {
 	annotations := ingress.GetAnnotations()
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
+	vhost := annotations[ALBVHostAnnotation]
 	enableCORS := annotations[ALBEnableCORSAnnotation] == "true"
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
 	var (
@@ -430,7 +434,8 @@ func (c *Controller) updateRule(
 			rule.EnableCORS == enableCORS &&
 			rule.BackendProtocol == backendProtocol &&
 			rule.RedirectURL == redirectURL &&
-			rule.RedirectCode == redirectCode {
+			rule.RedirectCode == redirectCode &&
+			rule.VHost == vhost {
 			// already have
 
 			// FIX: http://jira.alaudatech.com/browse/DEV-16951
@@ -471,7 +476,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode)
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode, vhost)
 	if err != nil {
 		klog.Error(err)
 		return err

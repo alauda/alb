@@ -56,6 +56,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 				BackendProtocol: arl.BackendProtocol,
 				RedirectURL:     arl.RedirectURL,
 				RedirectCode:    arl.RedirectCode,
+				VHost:           arl.VHost,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
