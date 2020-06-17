@@ -57,6 +57,8 @@ spec:
           items:
           - key: http
             path: http.conf
+          - key: http_server
+            path: http_server.conf
           - key: upstream
             path: upstream.conf
           - key: stream
