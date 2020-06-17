@@ -44,8 +44,6 @@ if matched_policy ~= nil then
   local vhost = matched_policy["vhost"]
   if vhost ~= "" then
     ngx_var.custom_host = vhost
-  else
-    ngx_var.custom_host = ngx_var.http_host
   end
   local rewrite_target = matched_policy["rewrite_target"]
   local policy_url = matched_policy["url"]
