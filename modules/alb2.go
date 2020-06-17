@@ -123,6 +123,9 @@ func GetDSL(domain, url string) string {
 	var dsl string
 	if domain != "" && url != "" {
 		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
+			if !strings.HasPrefix(url, "^") {
+				url = "^" + url
+			}
 			dsl = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", domain, url)
 		} else {
 			dsl = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", domain, url)
@@ -132,6 +135,9 @@ func GetDSL(domain, url string) string {
 			dsl = fmt.Sprintf("(EQ HOST %s)", domain)
 		} else {
 			if strings.IndexAny(url, "^$():?[]*\\") != -1 {
+				if !strings.HasPrefix(url, "^") {
+					url = "^" + url
+				}
 				dsl = fmt.Sprintf("(REGEX URL %s)", url)
 			} else {
 				dsl = fmt.Sprintf("(STARTS_WITH URL %s)", url)
@@ -145,6 +151,9 @@ func GetDSLX(domain, url string) alb2v1.DSLX {
 	var dslx alb2v1.DSLX
 	if url != "" {
 		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
+			if !strings.HasPrefix(url, "^") {
+				url = "^" + url
+			}
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_REGEX, url},
