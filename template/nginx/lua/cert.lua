@@ -53,7 +53,8 @@ local function get_domain_cert(domain)
     local raw_cert = ngx_shared[subsystem .. "_certs_cache"]:get(domain)
     local cert = common.json_decode(raw_cert)
     if raw_cert == ""  or raw_cert == nil then
-        if conf.default_ssl_strategy == "Always" and domain ~= conf.default_https_port then
+        if (conf.default_ssl_strategy == "Always" or conf.default_ssl_strategy == "Both")
+        and domain ~= conf.default_https_port then
             return get_domain_cert(conf.default_https_port)
         end
         return nil, "invalid"

@@ -82,6 +82,7 @@ var (
 	AlwaysSSLStrategy  = "Always"
 	NeverSSLStrategy   = "Never"
 	RequestSSLStrategy = "Request"
+	BothSSLStrategy    = "Both"
 	DefaultSSLStrategy = RequestSSLStrategy
 
 	ValidBackendProtocol = map[string]bool{
@@ -346,6 +347,7 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
+// setFtDefault will set ingress default backend as frontend default service group
 func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Frontend) bool {
 	if ingress.Spec.Backend == nil {
 		return false
@@ -375,13 +377,14 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 			ingress.Namespace,
 			ingress.Spec.Backend.ServiceName,
 			int(ingress.Spec.Backend.ServicePort.IntVal)) {
-			klog.Warning("frontend already has default service, conflict")
+			klog.Warningf("frontend %s already has default service, conflict", ft.Name)
 			//TODO Add event here
 		}
 	}
 	return needSave
 }
 
+// updateRule update or create rules for a ingress
 func (c *Controller) updateRule(
 	ingress *networkingv1beta1.Ingress,
 	ft *m.Frontend,
@@ -541,7 +544,12 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			}
 		}
 		if foundTLS == false {
-			if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") || (defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
+			if defaultSSLStrategy == BothSSLStrategy && ingSSLStrategy != "false" {
+				needFtTypes.Add(m.ProtoHTTPS)
+				needFtTypes.Add(m.ProtoHTTP)
+				hostCertMap["443"] = defaultSSLCert
+			} else if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") ||
+				(defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
 				needFtTypes.Add(m.ProtoHTTPS)
 				hostCertMap["443"] = defaultSSLCert
 			} else {
@@ -549,6 +557,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			}
 		}
 	}
+	// default backend we will not create rules but save service to frontend's servicegroup
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	for _, f := range alb.Frontends {
@@ -595,7 +604,11 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		newHTTPSFrontend = true
 	}
 
-	needSaveHTTP := c.setFtDefault(ingress, httpFt)
+	needSaveHTTP := false
+	if isDefaultBackend {
+		needSaveHTTP = c.setFtDefault(ingress, httpFt)
+	}
+	// make sure we have a fronted before we create rules
 	if needFtTypes.Has(m.ProtoHTTP) && (newHTTPFrontend || needSaveHTTP) {
 		err = c.KubernetesDriver.UpsertFrontends(alb, httpFt)
 		if err != nil {
@@ -618,6 +631,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		}
 	}
 
+	// create rules
 	for _, r := range ingress.Spec.Rules {
 		host := strings.ToLower(r.Host)
 		httpRules := r.IngressRuleValue.HTTP
@@ -630,27 +644,37 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			continue
 		}
 		for _, p := range httpRules.Paths {
-			if hostCertMap[host] != "" || hostCertMap["443"] != "" {
-				err = c.updateRule(ingress, httpsFt, host, p)
-			} else {
-				err = c.updateRule(ingress, httpFt, host, p)
-			}
-			if err != nil {
-				klog.Errorf(
-					"Update rule failed for ingress %s/%s with host=%s, path=%s",
-					ingress.Namespace,
-					ingress.Name,
-					host,
-					p.Path,
-				)
-			} else {
-				klog.Infof(
-					"Update rule success for ingress %s/%s with host=%s, path=%s",
-					ingress.Namespace,
-					ingress.Name,
-					host,
-					p.Path,
-				)
+			for _, proto := range []string{m.ProtoHTTPS, m.ProtoHTTP} {
+				if needFtTypes.Has(proto) {
+					var ft *m.Frontend
+					if proto == m.ProtoHTTP && httpFt != nil {
+						ft = httpFt
+					} else if proto == m.ProtoHTTPS && httpsFt != nil {
+						ft = httpsFt
+					} else {
+						continue
+					}
+					err = c.updateRule(ingress, ft, host, p)
+					if err != nil {
+						klog.Errorf(
+							"Update %s rule failed for ingress %s/%s with host=%s, path=%s",
+							proto,
+							ingress.Namespace,
+							ingress.Name,
+							host,
+							p.Path,
+						)
+					} else {
+						klog.Infof(
+							"Update %s rule success for ingress %s/%s with host=%s, path=%s",
+							proto,
+							ingress.Namespace,
+							ingress.Name,
+							host,
+							p.Path,
+						)
+					}
+				}
 			}
 		}
 	}

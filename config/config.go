@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"github.com/spf13/viper"
+	"github.com/thoas/go-funk"
 	"strings"
 	"sync"
 )
@@ -127,7 +128,7 @@ func ValidateConfig() error {
 		if len(emptyRequiredEnv) > 0 {
 			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
 		}
-		if Get("DEFAULT-SSL-STRATEGY") == "Always" || Get("DEFAULT-SSL-STRATEGY") == "Request" {
+		if funk.ContainsString([]string{"Always", "Request", "Both"}, Get("DEFAULT-SSL-STRATEGY")) {
 			if Get("DEFAULT-SSL-CERTIFICATE") == "" {
 				return fmt.Errorf("no default ssl cert defined for nginx")
 			}
