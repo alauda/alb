@@ -7,7 +7,7 @@ data:
   http: |
     # Show alb info to identify error response
     server_tokens build;
-    more_set_headers 'Server: alb/2.0.0';
+    more_set_headers 'Via: 1.1 alb/2.0.0';
 
     # Disable checking of client request body size
     client_max_body_size 0;
