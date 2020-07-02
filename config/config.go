@@ -54,6 +54,8 @@ var optionalFields = []string{
 	"DEFAULT-SSL-CERTIFICATE",
 	"DEFAULT-SSL-STRATEGY",
 	"SERVE_INGRESS",
+	"INGRESS_HTTP_PORT",
+	"INGRESS_HTTPS_PORT",
 }
 
 var nginxRequiredFields = []string{

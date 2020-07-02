@@ -95,6 +95,9 @@ var (
 	}
 	// ALBSSLStrategyAnnotation allows you to use default ssl certificate for a http ingress
 	ALBSSLStrategyAnnotation = fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
+
+	IngressHTTPPort  = config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort = config.GetInt("INGRESS_HTTPS_PORT")
 )
 
 func (c *Controller) Start(ctx context.Context) {
@@ -597,10 +600,10 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	for _, f := range alb.Frontends {
-		if needFtTypes.Has(m.ProtoHTTP) && f.Port == 80 {
+		if needFtTypes.Has(m.ProtoHTTP) && f.Port == IngressHTTPPort {
 			httpFt = f
 		}
-		if needFtTypes.Has(m.ProtoHTTPS) && f.Port == 443 {
+		if needFtTypes.Has(m.ProtoHTTPS) && f.Port == IngressHTTPSPort {
 			httpsFt = f
 		}
 	}
@@ -624,7 +627,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	newHTTPSFrontend := false
 
 	if httpFt == nil {
-		httpFt, err = alb.NewFrontend(80, m.ProtoHTTP, "")
+		httpFt, err = alb.NewFrontend(IngressHTTPPort, m.ProtoHTTP, "")
 		if err != nil {
 			klog.Error(err)
 			return err
@@ -632,7 +635,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		newHTTPFrontend = true
 	}
 	if httpsFt == nil && !isDefaultBackend {
-		httpsFt, err = alb.NewFrontend(443, m.ProtoHTTPS, defaultSSLCert)
+		httpsFt, err = alb.NewFrontend(IngressHTTPSPort, m.ProtoHTTPS, defaultSSLCert)
 		if err != nil {
 			klog.Error(err)
 			return err
