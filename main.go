@@ -69,6 +69,7 @@ func main() {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 
+	klog.Info("SERVE_INGRESS:", config.GetBool("SERVE_INGRESS"))
 	if config.GetBool("SERVE_INGRESS") {
 		ingressController := ingress.NewController(drv, ingressInformer)
 		go ingressController.Start(ctx)

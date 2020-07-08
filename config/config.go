@@ -52,6 +52,7 @@ var optionalFields = []string{
 	"ENABLE_PORTPROBE",
 	"DEFAULT-SSL-CERTIFICATE",
 	"DEFAULT-SSL-STRATEGY",
+	"SERVE_INGRESS",
 }
 
 var nginxRequiredFields = []string{
