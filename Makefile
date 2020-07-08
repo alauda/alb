@@ -37,6 +37,9 @@ gen-code:
 	# for osx, brew install gnu-sed
 	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs ${SED} 's/"alb2s"/"alaudaloadbalancer2"/g' -i
 
+fmt:
+	go fmt ./...
+
 lint:
 	@GOOS=linux gofmt -d ${GOFILES_NOVENDOR} 
 	@GOOS=linux gofmt -l ${GOFILES_NOVENDOR} | read && echo "Code differs from gofmt's style" 1>&2 && exit 1 || true
