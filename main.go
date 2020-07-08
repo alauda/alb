@@ -69,8 +69,10 @@ func main() {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 
-	ingressController := ingress.NewController(drv, ingressInformer)
-	go ingressController.Start(ctx)
+	if config.GetBool("SERVE_INGRESS") {
+		ingressController := ingress.NewController(drv, ingressInformer)
+		go ingressController.Start(ctx)
+	}
 	go func() {
 		// for profiling
 		http.ListenAndServe(":1937", nil)
