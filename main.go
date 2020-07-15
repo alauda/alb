@@ -39,7 +39,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, time.Second*180)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, 0)
+	namespaceInformer := kubeInformerFactory.Core().V1().Namespaces()
+	namespaceLister := namespaceInformer.Lister()
+	namespaceSynced := namespaceInformer.Informer().HasSynced
 	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
 	ingressSynced := ingressInformer.Informer().HasSynced
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
@@ -65,13 +68,13 @@ func main() {
 	drv.FillUpListers(serviceLister, endpointLister, alb2Lister, frontendLister, ruleLister)
 
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(ctx.Done(), ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
+	if ok := cache.WaitForCacheSync(ctx.Done(), namespaceSynced, ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
 		klog.Fatalf("failed to wait for caches to sync")
 	}
 
 	klog.Info("SERVE_INGRESS:", config.GetBool("SERVE_INGRESS"))
 	if config.GetBool("SERVE_INGRESS") {
-		ingressController := ingress.NewController(drv, ingressInformer)
+		ingressController := ingress.NewController(drv, alb2Informer, ingressInformer, namespaceLister)
 		go ingressController.Start(ctx)
 	}
 	go func() {

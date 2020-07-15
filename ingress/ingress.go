@@ -17,10 +17,13 @@ limitations under the License.
 package ingress
 
 import (
+	v1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
 	"context"
 	"fmt"
+	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/labels"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -36,6 +39,7 @@ import (
 	networkinginformers "k8s.io/client-go/informers/extensions/v1beta1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -114,7 +118,8 @@ func (c *Controller) Start(ctx context.Context) {
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	ingressLister networkinglisters.IngressLister
+	ingressLister   networkinglisters.IngressLister
+	namespaceLister corelisters.NamespaceLister
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -132,7 +137,9 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(
 	d *driver.KubernetesDriver,
-	ingressInformer networkinginformers.IngressInformer) *Controller {
+	alb2Informer v1.ALB2Informer,
+	ingressInformer networkinginformers.IngressInformer,
+	namespaceLister corelisters.NamespaceLister) *Controller {
 
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
@@ -150,7 +157,8 @@ func NewController(
 	)
 
 	controller := &Controller{
-		ingressLister: ingressInformer.Lister(),
+		ingressLister:   ingressInformer.Lister(),
+		namespaceLister: namespaceLister,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"Ingresses",
@@ -169,9 +177,32 @@ func NewController(
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
 			}
+			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
+				return
+			}
 			controller.handleObject(new)
 		},
 		DeleteFunc: controller.handleObject,
+	})
+	alb2Informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(old, new interface{}) {
+			newAlb2 := new.(*alb2v1.ALB2)
+			oldAlb2 := old.(*alb2v1.ALB2)
+			if oldAlb2.ResourceVersion == newAlb2.ResourceVersion {
+				return
+			}
+			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) {
+				return
+			}
+			newProjects := ctl.GetOwnProjects(newAlb2)
+			oldProjects := ctl.GetOwnProjects(oldAlb2)
+			newAddProjects := funk.SubtractString(newProjects, oldProjects)
+			klog.Infof("own projects: %v, new add projects: %v", newProjects, newAddProjects)
+			ingresses := controller.GetProjectIngresses(newAddProjects)
+			for _, ingress := range ingresses {
+				controller.handleObject(ingress)
+			}
+		},
 	})
 
 	return controller
@@ -200,7 +231,9 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	} else {
 		// ensure legacy ingresses will be transformed
 		for _, ing := range ings {
-			c.enqueue(ing)
+			if c.needEnqueueObject(ing) {
+				c.enqueue(ing)
+			}
 		}
 	}
 	<-stopCh
@@ -216,6 +249,7 @@ func (c *Controller) enqueue(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
+	klog.Infof("enqueue %s", key)
 	c.workqueue.AddRateLimited(key)
 }
 
@@ -254,7 +288,9 @@ func (c *Controller) handleObject(obj interface{}) {
 	annotations := object.GetAnnotations()
 	if annotations["kubernetes.io/ingress.class"] == "" ||
 		annotations["kubernetes.io/ingress.class"] == config.Get("NAME") {
-		c.enqueue(object)
+		if c.needEnqueueObject(object) {
+			c.enqueue(object)
+		}
 	}
 }
 
@@ -724,4 +760,68 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 		}
 	}
 	return nil
+}
+
+func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
+	klog.Infof("check if ingress %s/%s need enqueue", obj.GetNamespace(), obj.GetName())
+	defer func() {
+		klog.Infof("check ingress %s/%s result: %t", obj.GetNamespace(), obj.GetName(), rv)
+	}()
+	alb, err := c.KubernetesDriver.LoadAlbResource(config.Get("NAMESPACE"), config.Get("NAME"))
+	if err != nil {
+		klog.Errorf("get alb res failed, %+v", err)
+		rv = false
+		return
+	}
+	projects := ctl.GetOwnProjects(alb)
+	if funk.Contains(projects, m.ProjectALL) {
+		rv = true
+		return
+	}
+	if ns := obj.GetNamespace(); ns != "" {
+		nsCr, err := c.namespaceLister.Get(ns)
+		if err != nil {
+			klog.Errorf("get namespace failed, %+v", err)
+			rv = false
+			return
+		}
+		domain := config.Get("DOMAIN")
+		if project := nsCr.Labels[fmt.Sprintf("%s/project", domain)]; project != "" {
+			if funk.Contains(projects, project) {
+				rv = true
+				return
+			}
+		}
+	}
+	rv = false
+	return
+}
+
+func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1beta1.Ingress {
+	if funk.ContainsString(projects, m.ProjectALL) {
+		ingress, err := c.ingressLister.Ingresses("").List(labels.Everything())
+		if err != nil {
+			klog.Error(err)
+			return nil
+		}
+		return ingress
+	}
+	var allIngresses []*networkingv1beta1.Ingress
+	for _, project := range projects {
+		sel := labels.Set{fmt.Sprintf("%s/project", config.Get("DOMAIN")): project}.AsSelector()
+		nss, err := c.namespaceLister.List(sel)
+		if err != nil {
+			klog.Error(err)
+			return nil
+		}
+		for _, ns := range nss {
+			ingress, err := c.ingressLister.Ingresses(ns.Name).List(labels.Everything())
+			if err != nil {
+				klog.Error(err)
+				return nil
+			}
+			allIngresses = append(allIngresses, ingress...)
+		}
+	}
+	return allIngresses
 }

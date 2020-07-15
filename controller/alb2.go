@@ -4,9 +4,12 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/thoas/go-funk"
+	"strings"
 	"sync"
 	"time"
 
@@ -258,4 +261,29 @@ func IsLocker(kd *driver.KubernetesDriver) (bool, error) {
 		return false, ErrAlbInUse
 	}
 	return false, nil
+}
+
+func GetOwnProjects(alb *alb2v1.ALB2) (rv []string) {
+	klog.Infof("get alb %s projects %+v", alb.Name, alb.Labels)
+	defer func() {
+		klog.Infof("alb %s, own projects: %+v", alb.Name, rv)
+	}()
+	domain := config.Get("DOMAIN")
+	prefix := fmt.Sprintf("project.%s/", domain)
+	// legacy: project.cpaas.io/name=ALL_ALL
+	// new: project.cpaas.io/ALL_ALL=true
+	var projects []string
+	for k, v := range alb.Labels {
+		if strings.HasPrefix(k, prefix) {
+			if k == fmt.Sprintf("project.%s/name", domain) {
+				projects = append(projects, v)
+			} else if v == "true" {
+				if project := strings.TrimPrefix(k, prefix); project != "" {
+					projects = append(projects, project)
+				}
+			}
+		}
+	}
+	rv = funk.UniqString(projects)
+	return
 }
