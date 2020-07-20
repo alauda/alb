@@ -12,3 +12,7 @@ const (
 	TypeBind    = "bind"
 	TypeIngress = "ingress"
 )
+
+const (
+	ProjectALL = "ALL_ALL"
+)
