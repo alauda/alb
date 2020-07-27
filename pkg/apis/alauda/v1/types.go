@@ -62,6 +62,7 @@ type FrontendSpec struct {
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`
 	CertificateName string        `json:"certificate_name"`
+	BackendProtocol string        `json:"backendProtocol"`
 }
 
 type FrontendStatus struct {

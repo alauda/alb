@@ -163,6 +163,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		if frontend.Protocol != ProtocolTCP {
 			defaultPolicy.Rule = frontend.RawName
 			defaultPolicy.DSL = DEFAULT_RULE
+			defaultPolicy.BackendProtocol = frontend.BackendProtocol
 		}
 		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
 			defaultPolicy.Upstream = frontend.BackendGroup.Name

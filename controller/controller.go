@@ -75,12 +75,13 @@ type Certificate struct {
 }
 
 type Frontend struct {
-	RawName        string            `json:"-"`
-	LoadBalancerID string            `json:"load_balancer_id"`
-	Port           int               `json:"port"`
-	Protocol       string            `json:"protocol"`
-	Rules          RuleList          `json:"rules"`
-	Services       []*BackendService `json:"services"`
+	RawName         string            `json:"-"`
+	LoadBalancerID  string            `json:"load_balancer_id"`
+	Port            int               `json:"port"`
+	Protocol        string            `json:"protocol"`
+	Rules           RuleList          `json:"rules"`
+	Services        []*BackendService `json:"services"`
+	BackendProtocol string            `json:"backend_protocol"`
 
 	BackendGroup    *BackendGroup `json:"-"`
 	CertificateName string        `json:"certificate_name"`

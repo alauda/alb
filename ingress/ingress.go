@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -391,6 +392,9 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 	if ingress.Spec.Backend == nil {
 		return false
 	}
+	annotations := ingress.GetAnnotations()
+	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+
 	needSave := false
 	if ft.ServiceGroup == nil ||
 		len(ft.ServiceGroup.Services) == 0 {
@@ -404,6 +408,7 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 				},
 			},
 		}
+		ft.BackendProtocol = backendProtocol
 		ft.Source = &alb2v1.Source{
 			Type:      m.TypeIngress,
 			Name:      ingress.Name,
@@ -586,11 +591,11 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			if defaultSSLStrategy == BothSSLStrategy && ingSSLStrategy != "false" {
 				needFtTypes.Add(m.ProtoHTTPS)
 				needFtTypes.Add(m.ProtoHTTP)
-				hostCertMap["443"] = defaultSSLCert
+				hostCertMap[strconv.Itoa(IngressHTTPSPort)] = defaultSSLCert
 			} else if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") ||
 				(defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
 				needFtTypes.Add(m.ProtoHTTPS)
-				hostCertMap["443"] = defaultSSLCert
+				hostCertMap[strconv.Itoa(IngressHTTPSPort)] = defaultSSLCert
 			} else {
 				needFtTypes.Add(m.ProtoHTTP)
 			}
@@ -608,18 +613,18 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		}
 	}
 	if httpFt != nil && httpFt.Protocol != m.ProtoHTTP {
-		err = fmt.Errorf("Port 80 is not an HTTP port, protocol: %s", httpFt.Protocol)
+		err = fmt.Errorf("Port %d is not an HTTP port, protocol: %s", IngressHTTPPort, httpFt.Protocol)
 		klog.Error(err)
 		return err
 	}
 	if httpsFt != nil {
 		if httpsFt.Protocol != m.ProtoHTTPS {
-			err = fmt.Errorf("Port 443 is not an HTTPS port, protocol: %s", httpsFt.Protocol)
+			err = fmt.Errorf("Port %d is not an HTTPS port, protocol: %s", IngressHTTPSPort, httpsFt.Protocol)
 			klog.Error(err)
 			return err
 		}
 		if httpsFt.CertificateName != "" && httpsFt.CertificateName != strings.Replace(defaultSSLCert, "/", "_", 1) {
-			klog.Warning("Port 443 already has ssl cert conflict with default ssl cert")
+			klog.Warningf("Port %d already has ssl cert conflict with default ssl cert", IngressHTTPSPort)
 		}
 	}
 
@@ -732,7 +737,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 	}
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {
-		if f.Port == 80 || f.Port == 443 {
+		if f.Port == IngressHTTPPort || f.Port == IngressHTTPSPort {
 			ft = f
 			if ft.Source != nil &&
 				ft.Source.Type == m.TypeIngress &&
@@ -740,6 +745,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 				ft.Source.Name == name {
 				ft.ServiceGroup = nil
 				ft.Source = nil
+				ft.BackendProtocol = ""
 				err = c.KubernetesDriver.UpsertFrontends(alb, ft)
 				if err != nil {
 					klog.Errorf("upsert ft failed: %s", err)
