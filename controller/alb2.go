@@ -16,6 +16,41 @@ import (
 	"k8s.io/klog"
 )
 
+func MergeRule(arl *m.Rule) *Rule {
+	rule := &Rule{
+		RuleID:          arl.Name,
+		Priority:        arl.Priority,
+		Type:            arl.Type,
+		Domain:          arl.Domain,
+		URL:             arl.URL,
+		DSL:             arl.DSL,
+		DSLX:            arl.DSLX,
+		Description:     arl.Description,
+		CertificateName: arl.CertificateName,
+		RewriteTarget:   arl.RewriteTarget,
+		EnableCORS:      arl.EnableCORS,
+		BackendProtocol: arl.BackendProtocol,
+		RedirectURL:     arl.RedirectURL,
+		RedirectCode:    arl.RedirectCode,
+		VHost:           arl.VHost,
+	}
+	if arl.ServiceGroup != nil {
+		rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
+		rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
+		for _, svc := range arl.ServiceGroup.Services {
+			if rule.Services == nil {
+				rule.Services = []*BackendService{}
+			}
+			rule.Services = append(rule.Services, &BackendService{
+				ServiceID:     svc.ServiceID(),
+				ContainerPort: svc.Port,
+				Weight:        svc.Weight,
+			})
+		}
+	}
+	return rule
+}
+
 func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 	lb := &LoadBalancer{
 		Name:           alb.Name,
@@ -45,37 +80,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			klog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
 		}
 		for _, arl := range aft.Rules {
-			rule := &Rule{
-				RuleID:          arl.Name,
-				Priority:        arl.Priority,
-				Type:            arl.Type,
-				Domain:          arl.Domain,
-				URL:             arl.URL,
-				DSL:             arl.DSL,
-				DSLX:            arl.DSLX,
-				Description:     arl.Description,
-				CertificateName: arl.CertificateName,
-				RewriteTarget:   arl.RewriteTarget,
-				EnableCORS:      arl.EnableCORS,
-				BackendProtocol: arl.BackendProtocol,
-				RedirectURL:     arl.RedirectURL,
-				RedirectCode:    arl.RedirectCode,
-				VHost:           arl.VHost,
-			}
-			if arl.ServiceGroup != nil {
-				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
-				rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
-				for _, svc := range arl.ServiceGroup.Services {
-					if rule.Services == nil {
-						rule.Services = []*BackendService{}
-					}
-					rule.Services = append(rule.Services, &BackendService{
-						ServiceID:     svc.ServiceID(),
-						ContainerPort: svc.Port,
-						Weight:        svc.Weight,
-					})
-				}
-			}
+			rule := MergeRule(arl)
 			ft.Rules = append(ft.Rules, rule)
 		}
 		if aft.ServiceGroup != nil {
@@ -276,15 +281,26 @@ func GetOwnProjects(alb *alb2v1.ALB2) (rv []string) {
 	var projects []string
 	for k, v := range alb.Labels {
 		if strings.HasPrefix(k, prefix) {
-			if k == fmt.Sprintf("project.%s/name", domain) {
-				projects = append(projects, v)
-			} else if v == "true" {
-				if project := strings.TrimPrefix(k, prefix); project != "" {
-					projects = append(projects, project)
-				}
+			if project := getProjectFromLabel(k, v); project != "" {
+				projects = append(projects, project)
 			}
 		}
 	}
 	rv = funk.UniqString(projects)
 	return
+}
+
+func getProjectFromLabel(k, v string) string {
+	domain := config.Get("DOMAIN")
+	prefix := fmt.Sprintf("project.%s/", domain)
+	if k == fmt.Sprintf("project.%s/name", domain) {
+		return v
+	} else {
+		if v == "true" {
+			if project := strings.TrimPrefix(k, prefix); project != "" {
+				return project
+			}
+		}
+	}
+	return ""
 }

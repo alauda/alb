@@ -435,6 +435,8 @@ func (c *Controller) updateRule(
 	host string,
 	ingresPath networkingv1beta1.HTTPIngressPath,
 ) error {
+	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
+
 	annotations := ingress.GetAnnotations()
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
 	vhost := annotations[ALBVHostAnnotation]
@@ -444,16 +446,20 @@ func (c *Controller) updateRule(
 		redirectURL  string
 		redirectCode int
 	)
+	if annotations[ALBPermanentRedirectAnnotation] != "" && annotations[ALBTemporalRedirectAnnotation] != "" {
+		klog.Errorf("cannot use PermanentRedirect and TemporalRedirect at same time, ingress %s", ingInfo)
+		return nil
+	}
 	if annotations[ALBPermanentRedirectAnnotation] != "" {
 		redirectURL = annotations[ALBPermanentRedirectAnnotation]
 		redirectCode = 301
-	} else if annotations[ALBTemporalRedirectAnnotation] != "" {
+	}
+	if annotations[ALBTemporalRedirectAnnotation] != "" {
 		redirectURL = annotations[ALBTemporalRedirectAnnotation]
 		redirectCode = 302
 	}
 	certs := make(map[string]string)
 
-	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
 		klog.Errorf("Unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo)
 		return nil
