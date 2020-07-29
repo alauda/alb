@@ -4,7 +4,6 @@ import (
 	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"sort"
@@ -61,6 +60,17 @@ func (p Policies) Len() int           { return len(p) }
 func (p Policies) Less(i, j int) bool { return p[i].Priority > p[j].Priority }
 func (p Policies) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+func NewNginxController(kd *driver.KubernetesDriver) *NginxController {
+	return &NginxController{
+		TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
+		NewConfigPath: config.Get("NEW_CONFIG_PATH"),
+		OldConfigPath: config.Get("OLD_CONFIG_PATH"),
+		NewPolicyPath: config.Get("NEW_POLICY_PATH"),
+		BackendType:   kd.GetType(),
+		BinaryPath:    config.Get("NGINX_BIN_PATH"),
+		Driver:        kd}
+}
+
 func (nc *NginxController) GetLoadBalancerType() string {
 	return "Nginx"
 }
@@ -79,35 +89,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		}
 		for _, rule := range frontend.Rules {
 			// for compatible
-			if rule.DSL == "" && (rule.Domain != "" || rule.URL != "") {
-				klog.Info("transfer rule to dsl")
-				if rule.Domain != "" && rule.URL != "" {
-					if strings.HasPrefix(rule.URL, "^") {
-						rule.DSL = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", rule.Domain, rule.URL)
-					} else {
-						rule.DSL = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", rule.Domain, rule.URL)
-					}
-				} else {
-					if rule.Domain != "" {
-						rule.DSL = fmt.Sprintf("(EQ HOST %s)", rule.Domain)
-					} else {
-						if strings.HasPrefix(rule.URL, "^") {
-							rule.DSL = fmt.Sprintf("(REGEX URL %s)", rule.URL)
-						} else {
-							rule.DSL = fmt.Sprintf("(STARTS_WITH URL %s)", rule.URL)
-						}
-					}
-				}
-				if rule.DSL != "" && rule.DSLX == nil {
-					dslx, err := utils.DSL2DSLX(rule.DSL)
-					if err != nil {
-						klog.Warning(err)
-					} else {
-						rule.DSLX = dslx
-					}
-				}
-			}
-
+			rule.FillupDSL()
 			if rule.DSL == "" && rule.DSLX == nil {
 				klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
 				continue
@@ -117,7 +99,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy := Policy{}
 			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
 				policy.Subsystem = SubsystemHTTP
-			} else if frontend.Protocol == ProtocolTCP {
+			} else {
+				//ProtocolTCP
 				policy.Subsystem = SubsystemStream
 			}
 			policy.Rule = rule.RuleID
@@ -157,12 +140,14 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		defaultPolicy.Priority = -1
 		if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
 			defaultPolicy.Subsystem = SubsystemHTTP
-		} else if frontend.Protocol == ProtocolTCP {
+		} else {
+			//ProtocolTCP
 			defaultPolicy.Subsystem = SubsystemStream
 		}
 		if frontend.Protocol != ProtocolTCP {
 			defaultPolicy.Rule = frontend.RawName
 			defaultPolicy.DSL = DEFAULT_RULE
+			defaultPolicy.BackendProtocol = frontend.BackendProtocol
 		}
 		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
 			defaultPolicy.Upstream = frontend.BackendGroup.Name
@@ -328,6 +313,8 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 		err = nc.start()
 	} else if configChanged || getLastReloadStatus(StatusFileParentPath) == FAILED {
 		err = nc.reload()
+	} else {
+		klog.V(3).Info("no need to manipulate nginx")
 	}
 
 	return err

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"k8s.io/klog"
 	"os/exec"
+	"strings"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
@@ -75,12 +76,13 @@ type Certificate struct {
 }
 
 type Frontend struct {
-	RawName        string            `json:"-"`
-	LoadBalancerID string            `json:"load_balancer_id"`
-	Port           int               `json:"port"`
-	Protocol       string            `json:"protocol"`
-	Rules          RuleList          `json:"rules"`
-	Services       []*BackendService `json:"services"`
+	RawName         string            `json:"-"`
+	LoadBalancerID  string            `json:"load_balancer_id"`
+	Port            int               `json:"port"`
+	Protocol        string            `json:"protocol"`
+	Rules           RuleList          `json:"rules"`
+	Services        []*BackendService `json:"services"`
+	BackendProtocol string            `json:"backend_protocol"`
 
 	BackendGroup    *BackendGroup `json:"-"`
 	CertificateName string        `json:"certificate_name"`
@@ -137,6 +139,37 @@ type Rule struct {
 	Services              []*BackendService `json:"services"`
 
 	BackendGroup *BackendGroup `json:"-"`
+}
+
+func (rl Rule) FillupDSL() {
+	if rl.DSL == "" && (rl.Domain != "" || rl.URL != "") {
+		klog.Info("transfer rl to dsl")
+		if rl.Domain != "" && rl.URL != "" {
+			if strings.HasPrefix(rl.URL, "^") {
+				rl.DSL = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", rl.Domain, rl.URL)
+			} else {
+				rl.DSL = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", rl.Domain, rl.URL)
+			}
+		} else {
+			if rl.Domain != "" {
+				rl.DSL = fmt.Sprintf("(EQ HOST %s)", rl.Domain)
+			} else {
+				if strings.HasPrefix(rl.URL, "^") {
+					rl.DSL = fmt.Sprintf("(REGEX URL %s)", rl.URL)
+				} else {
+					rl.DSL = fmt.Sprintf("(STARTS_WITH URL %s)", rl.URL)
+				}
+			}
+		}
+		if rl.DSL != "" && rl.DSLX == nil {
+			dslx, err := utils.DSL2DSLX(rl.DSL)
+			if err != nil {
+				klog.Warning(err)
+			} else {
+				rl.DSLX = dslx
+			}
+		}
+	}
 }
 
 func (rl Rule) GetPriority() int {
@@ -209,14 +242,7 @@ var (
 func GetController(kd *driver.KubernetesDriver) (Controller, error) {
 	switch config.Get("LB_TYPE") {
 	case config.Nginx:
-		return &NginxController{
-			TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
-			NewConfigPath: config.Get("NEW_CONFIG_PATH"),
-			OldConfigPath: config.Get("OLD_CONFIG_PATH"),
-			NewPolicyPath: config.Get("NEW_POLICY_PATH"),
-			BackendType:   kd.GetType(),
-			BinaryPath:    config.Get("NGINX_BIN_PATH"),
-			Driver:        kd}, nil
+		return NewNginxController(kd), nil
 	default:
 		return nil, fmt.Errorf("Unsupport lb type %s only support nginx. Will support elb, slb, clb in the future", config.Get("LB_TYPE"))
 	}
