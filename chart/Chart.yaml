@@ -1,0 +1,4 @@
+name: alauda-alb2
+version: "v2.13-b.9"
+description: alauda loadbalancer version 2
+apiVersion: v1
