@@ -1,0 +1,32 @@
+loadbalancerName: alb2-name
+address: 127.0.0.1
+domains: []
+nodeSelector: {}
+loadbalancerType: nginx
+replicas: 3
+enablePrometheus: "true"
+enablePortprobe: "true"
+enableIPV6: "false"
+enableIngress: "true"
+defaultSSLCert: ""
+defaultSSLStrategy: Never
+ingressHTTPPort: 80
+ingressHTTPSPort: 443
+global:
+  labelBaseDomain: alauda.io
+  namespace: alauda-system
+  registry:
+    address: harbor.alauda.cn
+  images:
+    alb2:
+      repository: acp/alb2
+      tag: "v2.13-12-g240709c"
+resources:
+  limits:
+    cpu: "2"
+    memory: 2Gi
+  requests:
+    cpu: 512m
+    memory: 256Mi
+project: ""
+projects: []

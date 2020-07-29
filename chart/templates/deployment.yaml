@@ -1,0 +1,101 @@
+kind: Deployment
+apiVersion: apps/v1
+spec:
+  selector:
+    matchLabels:
+      service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
+      service_name: alb2-{{ .Values.loadbalancerName }}
+  replicas: {{ .Values.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    spec:
+      hostNetwork: true
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  alb2.{{ .Values.global.labelBaseDomain }}/type: local
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+          key: node-role.kubernetes.io/master
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - key: node.kubernetes.io/unschedulable
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - securityContext:
+            privileged: true
+          name: alb2
+          image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
+          terminationMessagePolicy: File
+          env:
+            - name: NAME
+              value: {{ .Values.loadbalancerName }}
+            - name: NAMESPACE
+              value: {{ .Values.global.namespace }}
+            - name: DOMAIN
+              value: {{ .Values.global.labelBaseDomain }}
+            - name: ENABLE_GC
+              value: "true"
+            - name: ENABLE_PROMETHEUS
+              value: "{{ .Values.enablePrometheus }}"
+            - name: ENABLE_PORTPROBE
+              value: "{{ .Values.enablePortprobe }}"
+            - name: ENABLE_IPV6
+              value: "{{ .Values.enableIPV6 }}"
+            - name: SERVE_INGRESS
+              value: "{{ .Values.enableIngress }}"
+            - name: DEFAULT-SSL-CERTIFICATE
+              value: "{{ .Values.defaultSSLCert }}"
+            - name: DEFAULT-SSL-STRATEGY
+              value: "{{ .Values.defaultSSLStrategy }}"
+            - name: INGRESS_HTTP_PORT
+              value: "{{ .Values.ingressHTTPPort }}"
+            - name: INGRESS_HTTPS_PORT
+              value: "{{ .Values.ingressHTTPSPort }}"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          imagePullPolicy: Always
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+          - name: tweak-conf
+            mountPath: /alb/tweak/
+      volumes:
+      - name: tweak-conf
+        configMap:
+          name: {{ .Values.loadbalancerName }}
+          items:
+          - key: http
+            path: http.conf
+          - key: http_server
+            path: http_server.conf
+          - key: upstream
+            path: upstream.conf
+          - key: stream
+            path: stream.conf
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        alb2.{{ .Values.global.labelBaseDomain }}/type: local
+        service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
+        service_name: alb2-{{ .Values.loadbalancerName }}
+        {{ .Values.global.labelBaseDomain }}/product: "Platform-Center"
+metadata:
+  name: {{ .Values.loadbalancerName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    service_name: alb2-{{ .Values.loadbalancerName }}

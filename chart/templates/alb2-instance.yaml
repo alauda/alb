@@ -1,0 +1,18 @@
+{{ $fullProjects := append .Values.projects .Values.project | uniq }}
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: {{ .Values.loadbalancerName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- range $fullProjects }}
+    {{ if . }}
+    project.{{ $.Values.global.labelBaseDomain }}/{{ . }}: "true"
+    {{ end}}
+    {{- end}}
+spec:
+  address: {{ .Values.address }}
+  bind_address: ''
+  domains: {{ .Values.Domains }}
+  iaas_id: ''
+  type: {{ .Values.loadbalancerType }}
