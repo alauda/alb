@@ -1,6 +1,6 @@
-diff -Nur openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openresty-1.15.8.3.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua
---- openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:08:39.000000000 +0800
-+++ openresty-1.15.8.3.patched/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua	2019-08-12 14:07:33.000000000 +0800
+diff -Nur openresty-1.17.8.2/bundle/lua-resty-core-0.1.19/lib/ngx/ssl.lua openresty-1.17.8.2.patched/bundle/lua-resty-core-0.1.19/lib/ngx/ssl.lua
+--- openresty-1.17.8.2/bundle/lua-resty-core-0.1.19/lib/ngx/ssl.lua	2020-07-04 03:34:40.000000000 +0800
++++ openresty-1.17.8.2.patched/bundle/lua-resty-core-0.1.19/lib/ngx/ssl.lua	2020-07-31 11:01:16.746023495 +0800
 @@ -25,6 +25,7 @@
  local ngx_lua_ffi_ssl_set_der_private_key
  local ngx_lua_ffi_ssl_raw_server_addr
@@ -12,13 +12,13 @@ diff -Nur openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openre
 @@ -53,6 +54,9 @@
      int ngx_http_lua_ffi_ssl_server_name(ngx_http_request_t *r, char **name,
          size_t *namelen, char **err);
- 
+
 +    int ngx_http_lua_ffi_ssl_server_port(ngx_http_request_t *r,
 +        int *port, char **err);
 +
      int ngx_http_lua_ffi_ssl_raw_client_addr(ngx_http_request_t *r, char **addr,
          size_t *addrlen, int *addrtype, char **err);
- 
+
 @@ -87,6 +91,7 @@
          C.ngx_http_lua_ffi_ssl_set_der_private_key
      ngx_lua_ffi_ssl_raw_server_addr = C.ngx_http_lua_ffi_ssl_raw_server_addr
@@ -27,10 +27,17 @@ diff -Nur openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openre
      ngx_lua_ffi_ssl_raw_client_addr = C.ngx_http_lua_ffi_ssl_raw_client_addr
      ngx_lua_ffi_cert_pem_to_der = C.ngx_http_lua_ffi_cert_pem_to_der
      ngx_lua_ffi_priv_key_pem_to_der = C.ngx_http_lua_ffi_priv_key_pem_to_der
-@@ -263,6 +268,27 @@
- end
- 
- 
+@@ -256,6 +261,27 @@
+     end
+
+     if rc == FFI_DECLINED then
++        return nil
++    end
++
++    return nil, ffi_str(errmsg[0])
++end
++
++
 +function _M.server_port()
 +    local r = get_request()
 +    if not r then
@@ -45,22 +52,15 @@ diff -Nur openresty-1.15.8.3/bundle/lua-resty-core-0.1.17/lib/ngx/ssl.lua openre
 +    end
 +
 +    if rc == FFI_DECLINED then
-+        return nil
-+    end
-+
-+    return nil, ffi_str(errmsg[0])
-+end
-+
-+
- function _M.raw_client_addr()
-     local r = get_request()
-     if not r then
-diff -Nur openresty-1.15.8.3/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c openresty-1.15.8.3.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c
---- openresty-1.15.8.3/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:08:39.000000000 +0800
-+++ openresty-1.15.8.3.patched/bundle/ngx_lua-0.10.15/src/ngx_http_lua_ssl_certby.c	2019-08-12 14:07:33.000000000 +0800
-@@ -882,6 +882,39 @@
- 
- 
+         return nil
+     end
+
+diff -Nur openresty-1.17.8.2/bundle/ngx_lua-0.10.17/src/ngx_http_lua_ssl_certby.c openresty-1.17.8.2.patched/bundle/ngx_lua-0.10.17/src/ngx_http_lua_ssl_certby.c
+--- openresty-1.17.8.2/bundle/ngx_lua-0.10.17/src/ngx_http_lua_ssl_certby.c	2020-07-04 03:23:40.000000000 +0800
++++ openresty-1.17.8.2.patched/bundle/ngx_lua-0.10.17/src/ngx_http_lua_ssl_certby.c	2020-07-31 10:59:15.982256853 +0800
+@@ -855,6 +855,39 @@
+
+
  int
 +ngx_http_lua_ffi_ssl_server_port(ngx_http_request_t *r,
 +    int *port, char **err)
