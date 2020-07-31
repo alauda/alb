@@ -1,4 +1,4 @@
-.PHONY: clean run lint unitest test build-ci build-nginx build push bundle version
+.PHONY: clean run lint unitest test build-ci build-nginx build bundle version
 
 CI_IMAGE=index.alauda.cn/alaudaorg/alb-nginx-test:t2
 
@@ -32,11 +32,8 @@ build-ci:
 	docker build -t ${CI_IMAGE} -f Dockerfile.ci .
 
 build-nginx: version
-	docker buildx build --platform linux/amd64,linux/arm64 -t index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION` -f Dockerfile.nginx .  --push
+	docker buildx build --platform linux/amd64,linux/arm64 -t halfcrazy/alb-nginx:`cat VERSION` -f Dockerfile.nginx .  --push
 
 build: build-nginx
 
-push:
-	docker push index.alauda.cn/alaudaorg/alb-nginx:`cat VERSION`
-
-bundle: test build push
+bundle: test build

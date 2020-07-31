@@ -16,10 +16,6 @@ local ngx_worker = ngx.worker
 local ngx_config = ngx.config
 
 local subsystem = ngx_config.subsystem
-local ipc
-if subsystem == "http" then
-    ipc = require "ngx.ipc"
-end
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")
@@ -137,9 +133,6 @@ local function fetch_policy()
             ngx_shared[subsystem .. "_policy"]:set(port, common.json_encode(policies))
         end
     end
-    if subsystem == "http" and backend_group_changed then
-        ipc.broadcast(sync_topic, "update")
-    end
 end
 
 if ngx_worker.id() == 0 then
@@ -153,11 +146,6 @@ end
 
 -- worker keep upstream peer balanced
 balancer.sync_backends()
-if subsystem == "http" then
-    ipc.receive(sync_topic, function(data)
-        balancer.sync_backends()
-    end)
-end
 local _, err = ngx_timer.every(sync_policy_interval, balancer.sync_backends)
 if err then
     ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))

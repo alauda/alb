@@ -10,9 +10,11 @@ RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_IMAGE_TAG="3.11"
-ARG RESTY_VERSION="1.15.8.3"
-ARG RESTY_OPENSSL_VERSION="1.1.1c"
-ARG RESTY_PCRE_VERSION="8.43"
+ARG RESTY_VERSION="1.17.8.2"
+ARG RESTY_OPENSSL_VERSION="1.1.1g"
+ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
+ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
+ARG RESTY_PCRE_VERSION="8.44"
 ARG RESTY_J="1"
 ARG RESTY_CONFIG_OPTIONS="\
     --with-compat \
@@ -32,6 +34,7 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-http_ssl_module \
     --with-http_stub_status_module \
     --with-http_sub_module \
+    --with-http_v2_module \
     --with-http_xslt_module=dynamic \
     --with-ipv6 \
     --with-mail \
@@ -45,13 +48,12 @@ ARG RESTY_CONFIG_OPTIONS="\
     --build=ALB \
     "
 
-ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/ngx_lua_ipc-master"
+ARG RESTY_CONFIG_OPTIONS_MORE=""
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
 ARG RESTY_ADD_PACKAGE_RUNDEPS=""
-ARG RESTY_EVAL_PRE_CONFIGURE="curl -fSL https://github.com/slact/ngx_lua_ipc/archive/master.zip -o ngx_lua_ipc.zip \
-  && unzip -q ngx_lua_ipc.zip && rm -rf ngx_lua_ipc.zip"
+ARG RESTY_EVAL_PRE_CONFIGURE=""
 ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm \
     && ln -s /usr/local/openresty/bin/resty /usr/local/bin/resty \
     && opm install thibaultcha/lua-resty-mlcache \
@@ -62,15 +64,17 @@ ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm 
     && make && make install && cd -"
 
 # These are not intended to be user-specified
-ARG _RESTY_CONFIG_DEPS="--with-openssl=/tmp/openssl-${RESTY_OPENSSL_VERSION} --with-pcre \
-    --with-cc-opt='-DNGX_LUA_ABORT_AT_PANIC -I/usr/local/openresty/pcre/include' \
-    --with-ld-opt='-L/usr/local/openresty/pcre/lib -Wl,-rpath,/usr/local/openresty/pcre/lib' \
+ARG _RESTY_CONFIG_DEPS="--with-pcre \
+    --with-cc-opt='-DNGX_LUA_ABORT_AT_PANIC -I/usr/local/openresty/pcre/include -I/usr/local/openresty/openssl/include' \
+    --with-ld-opt='-L/usr/local/openresty/pcre/lib -L/usr/local/openresty/openssl/lib -Wl,-rpath,/usr/local/openresty/pcre/lib:/usr/local/openresty/openssl/lib' \
     "
 
 LABEL resty_image_base="${RESTY_IMAGE_BASE}"
 LABEL resty_image_tag="${RESTY_IMAGE_TAG}"
 LABEL resty_version="${RESTY_VERSION}"
 LABEL resty_openssl_version="${RESTY_OPENSSL_VERSION}"
+LABEL resty_openssl_patch_version="${RESTY_OPENSSL_PATCH_VERSION}"
+LABEL resty_openssl_url_base="${RESTY_OPENSSL_URL_BASE}"
 LABEL resty_pcre_version="${RESTY_PCRE_VERSION}"
 LABEL resty_config_options="${RESTY_CONFIG_OPTIONS}"
 LABEL resty_config_options_more="${RESTY_CONFIG_OPTIONS_MORE}"
@@ -114,8 +118,28 @@ RUN \
     && update-ca-certificates \
     && cd /tmp \
     && if [ -n "${RESTY_EVAL_PRE_CONFIGURE}" ]; then eval $(echo ${RESTY_EVAL_PRE_CONFIGURE}); fi \
-    && curl -fSL https://www.openssl.org/source/openssl-${RESTY_OPENSSL_VERSION}.tar.gz -o openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
+    && cd /tmp \
+    && curl -fSL "${RESTY_OPENSSL_URL_BASE}/openssl-${RESTY_OPENSSL_VERSION}.tar.gz" -o openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
     && tar xzf openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
+    && cd openssl-${RESTY_OPENSSL_VERSION} \
+    && if [ $(echo ${RESTY_OPENSSL_VERSION} | cut -c 1-5) = "1.1.1" ] ; then \
+        echo 'patching OpenSSL 1.1.1 for OpenResty' \
+        && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/openssl-${RESTY_OPENSSL_PATCH_VERSION}-sess_set_get_cb_yield.patch | patch -p1 ; \
+    fi \
+    && if [ $(echo ${RESTY_OPENSSL_VERSION} | cut -c 1-5) = "1.1.0" ] ; then \
+        echo 'patching OpenSSL 1.1.0 for OpenResty' \
+        && curl -s https://raw.githubusercontent.com/openresty/openresty/ed328977028c3ec3033bc25873ee360056e247cd/patches/openssl-1.1.0j-parallel_build_fix.patch | patch -p1 \
+        && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/openssl-${RESTY_OPENSSL_PATCH_VERSION}-sess_set_get_cb_yield.patch | patch -p1 ; \
+    fi \
+    && ./config \
+      no-threads shared zlib -g \
+      enable-ssl3 enable-ssl3-method \
+      --prefix=/usr/local/openresty/openssl \
+      --libdir=lib \
+      -Wl,-rpath,/usr/local/openresty/openssl/lib \
+    && make -j${RESTY_J} \
+    && make -j${RESTY_J} install_sw \
+    && cd /tmp \
     && curl -fSL https://ftp.pcre.org/pub/pcre/pcre-${RESTY_PCRE_VERSION}.tar.gz -o pcre-${RESTY_PCRE_VERSION}.tar.gz \
     && tar xzf pcre-${RESTY_PCRE_VERSION}.tar.gz \
     && cd /tmp/pcre-${RESTY_PCRE_VERSION} \
@@ -132,23 +156,15 @@ RUN \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
     && cd /tmp/openresty-${RESTY_VERSION} \
     && patch -p1 < /tmp/patch/ssl_server_port.patch \
-    && if [[ "1.1.1" == $(echo -e "${RESTY_OPENSSL_VERSION}\n1.1.1" | sort -V | head -n1) ]] ; then \
-        echo 'patching Nginx for OpenSSL 1.1.1' \
-        && cd bundle/nginx-1.15.8 \
-        && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/nginx-1.15.8-ssl_cert_cb_yield.patch | patch -p1 \
-        && curl -s https://raw.githubusercontent.com/openresty/openresty/master/patches/nginx-1.15.8-ssl_sess_cb_yield.patch | patch -p1 \
-        && cd ../.. ; \
-    fi \
     && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
     && if [ -n "${RESTY_EVAL_POST_MAKE}" ]; then eval $(echo ${RESTY_EVAL_POST_MAKE}); fi \
     && rm -rf \
-        openssl-${RESTY_OPENSSL_VERSION} \
-        openssl-${RESTY_OPENSSL_VERSION}.tar.gz \
-        openresty-${RESTY_VERSION}.tar.gz openresty-${RESTY_VERSION} \
+        openssl-${RESTY_OPENSSL_VERSION}.tar.gz openssl-${RESTY_OPENSSL_VERSION} \
         pcre-${RESTY_PCRE_VERSION}.tar.gz pcre-${RESTY_PCRE_VERSION} \
+        openresty-${RESTY_VERSION}.tar.gz openresty-${RESTY_VERSION} \
     && apk del .build-deps \
     && addgroup -S nginx \
     && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx
