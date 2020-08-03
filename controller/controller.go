@@ -132,6 +132,7 @@ type Rule struct {
 	VHost           string  `json:"vhost"`
 	// CertificateName = namespace_secretname
 	CertificateName       string            `json:"certificate_name"`
+	RewriteBase           string            `json:"rewrite_base"`
 	RewriteTarget         string            `json:"rewrite_target"`
 	Description           string            `json:"description"`
 	SessionAffinityPolicy string            `json:"session_affinity_policy"`

@@ -46,7 +46,10 @@ if matched_policy ~= nil then
     ngx_var.custom_host = vhost
   end
   local rewrite_target = matched_policy["rewrite_target"]
-  local policy_url = matched_policy["url"]
+  local policy_url = matched_policy["rewrite_base"]
+  if policy_url == "" then
+    policy_url = matched_policy["url"]
+  end
   if rewrite_target ~= "" then
     if policy_url == "" then
       policy_url = "/"

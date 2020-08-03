@@ -482,6 +482,7 @@ func (c *Controller) updateRule(
 			rule.Source.Namespace == ingress.Namespace &&
 			strings.ToLower(rule.Domain) == host &&
 			rule.URL == url &&
+			rule.RewriteBase == url &&
 			rule.RewriteTarget == rewriteTarget &&
 			rule.CertificateName == certs[host] &&
 			rule.EnableCORS == enableCORS &&
