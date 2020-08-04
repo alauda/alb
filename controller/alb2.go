@@ -27,6 +27,7 @@ func MergeRule(arl *m.Rule) *Rule {
 		DSLX:            arl.DSLX,
 		Description:     arl.Description,
 		CertificateName: arl.CertificateName,
+		RewriteBase:     arl.RewriteBase,
 		RewriteTarget:   arl.RewriteTarget,
 		EnableCORS:      arl.EnableCORS,
 		BackendProtocol: arl.BackendProtocol,

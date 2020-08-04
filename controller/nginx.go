@@ -38,6 +38,7 @@ type Policy struct {
 	InternalDSL     []interface{} `json:"internal_dsl"`
 	Upstream        string        `json:"upstream"`
 	URL             string        `json:"url"`
+	RewriteBase     string        `json:"rewrite_base"`
 	RewriteTarget   string        `json:"rewrite_target"`
 	Priority        int           `json:"priority"`
 	Subsystem       string        `json:"subsystem"`
@@ -125,6 +126,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.Upstream = rule.BackendGroup.Name
 			// for rewrite
 			policy.URL = rule.URL
+			policy.RewriteBase = rule.RewriteBase
 			policy.RewriteTarget = rule.RewriteTarget
 			policy.EnableCORS = rule.EnableCORS
 			policy.BackendProtocol = rule.BackendProtocol

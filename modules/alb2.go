@@ -86,6 +86,7 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 			URL:             url,
 			DSL:             dsl,
 			DSLX:            dslx,
+			RewriteBase:     url,
 			RewriteTarget:   rewriteTarget,
 			BackendProtocol: backendProtocol,
 			CertificateName: certificateName,

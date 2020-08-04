@@ -141,6 +141,8 @@ type RuleSpec struct {
 	VHost           string        `json:"vhost"`
 	RedirectCode    int           `json:"redirectCode"`
 	// +optional
+	RewriteBase string `json:"rewrite_base,omitempty"`
+	// +optional
 	RewriteTarget string `json:"rewrite_target,omitempty"`
 }
 
