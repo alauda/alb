@@ -4,6 +4,7 @@ local pcall = pcall
 local string_sub = string.sub
 local getmetatable = getmetatable
 local pairs = pairs
+local table_insert = table.insert
 
 local _M = {}
 
@@ -51,6 +52,55 @@ function _M.tablelength(T)
         count = count + 1
     end
     return count
+end
+
+function _M.get_table_diff_keys(t1, t2)
+    local keys = {}
+    if type(t1) ~= "table" or type(t2) ~= "table" then
+        return keys
+    end
+    local hash = {}
+    for k1, v1 in pairs(t1) do
+        local found = false
+        for k2, v2 in pairs(t2) do
+            if k1 == k2 then
+                found = true
+            end
+            if not _M.table_equals(v1, v2) then
+                hash[k1] = true
+            end
+        end
+        if not found then
+            hash[k1] = true
+        end
+    end
+    for k1, v1 in pairs(t2) do
+        local found = false
+        for k2, v2 in pairs(t1) do
+            if k1 == k2 then
+                found = true
+            end
+            if not _M.table_equals(v1, v2) then
+                hash[k1] = true
+            end
+        end
+        if not found then
+            hash[k1] = true
+        end
+    end
+    for key, _ in pairs(hash) do
+        table_insert(keys, key)
+    end
+    return keys
+end
+
+function _M.table_contains(t, v)
+    for _, val in ipairs(t) do
+        if v == val then
+            return true
+        end
+    end
+    return false
 end
 
 -- given an Nginx variable i.e $request_uri

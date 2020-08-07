@@ -19,20 +19,6 @@ local subsystem = ngx_config.subsystem
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")
-local sync_topic = "sync_upstream"
-
-local function clean_cache(port_map_changed, cert_map_changed)
-    if subsystem == "http" and cert_map_changed then
-        ngx_log(ngx.INFO, "clean cert cache")
-        ngx_shared[subsystem .. "_certs_cache"]:flush_all()
-        cache.cert_cache:purge()
-    end
-    if port_map_changed then
-        ngx_log(ngx.INFO, "clean rule cache")
-        ngx_shared[subsystem .. "_policy"]:flush_all()
-        cache.rule_cache:purge()
-    end
-end
 
 local function fetch_policy()
     local f, err = io.open(policy_path, "r")
@@ -57,13 +43,12 @@ local function fetch_policy()
         return
     end
     ngx_shared[subsystem .. "_raw"]:set("raw", data)
-    local port_map_changed = old_dict_data == nil or not common.table_equals(dict_data["port_map"], old_dict_data["port_map"])
-    local backend_group_changed =  old_dict_data == nil or not common.table_equals(dict_data["backend_group"], old_dict_data["backend_group"])
-    local cert_map_changed = old_dict_data == nil or not common.table_equals(dict_data["certificate_map"], old_dict_data["certificate_map"])
-    if port_map_changed or backend_group_changed or cert_map_changed then
-        ngx_log(ngx.INFO, "policy changed, update", " p:", port_map_changed, " b:", backend_group_changed, " c:", cert_map_changed)
+    local changed_port_maps = {}
+    local changed_cert_maps = {}
+    if old_dict_data ~= nil then
+        changed_port_maps = common.get_table_diff_keys(dict_data["port_map"], old_dict_data["port_map"])
+        changed_cert_maps = common.get_table_diff_keys(dict_data["certificate_map"], old_dict_data["certificate_map"])
     end
-    clean_cache(port_map_changed, cert_map_changed)
     local all_ports_policies = dict_data["port_map"]
     local backend_group = dict_data["backend_group"]
     local certificate_map = dict_data["certificate_map"]
@@ -73,7 +58,30 @@ local function fetch_policy()
     if subsystem == "http" then
         ngx_shared[subsystem .. "_certs_cache"]:set("certificate_map", common.json_encode(certificate_map, true))
         for domain, certs in pairs(certificate_map) do
-            ngx_shared[subsystem .. "_certs_cache"]:set(string_lower(domain), common.json_encode(certs))
+            local lower_domain = string_lower(domain)
+            local clean_cache = false
+            if common.table_contains(changed_cert_maps, domain) then
+                clean_cache = true
+                ngx_shared[subsystem .. "_certs_cache"]:delete(lower_domain)
+            end
+            ngx_shared[subsystem .. "_certs_cache"]:set(lower_domain, common.json_encode(certs))
+            if clean_cache then
+                cache.cert_cache:delete(lower_domain)
+            end
+        end
+        -- NOTE: remove extra data
+        for _, changed_domain in ipairs(changed_cert_maps) do
+            local found = false
+            for domain, _ in pairs(certificate_map) do
+                if changed_domain == domain then
+                    found = true
+                end
+            end
+            if not found then
+                local lower_domain = string_lower(changed_domain)
+                ngx_shared[subsystem .. "_certs_cache"]:delete(lower_domain)
+                cache.cert_cache:delete(lower_domain)
+            end
         end
     end
 
@@ -130,7 +138,28 @@ local function fetch_policy()
             --]
         end
         if t == subsystem then
+            local clean_cache = false
+            if common.table_contains(changed_port_maps, port) then
+                clean_cache = true
+                ngx_shared[subsystem .. "_policy"]:delete(port)
+            end
             ngx_shared[subsystem .. "_policy"]:set(port, common.json_encode(policies))
+            if clean_cache then
+                cache.rule_cache:delete(port)
+            end
+        end
+    end
+    -- NOTE: remove extra data
+    for _, changed_port in ipairs(changed_port_maps) do
+        local found = false
+        for port, _ in pairs(all_ports_policies) do
+            if changed_port == port then
+                found = true
+            end
+        end
+        if not found then
+            ngx_shared[subsystem .. "_policy"]:delete(changed_port)
+            cache.rule_cache:delete(changed_port)
         end
     end
 end
