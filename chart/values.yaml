@@ -7,6 +7,7 @@ replicas: 3
 enablePrometheus: "true"
 enablePortprobe: "true"
 enableIPV6: "false"
+enableHTTP2: "true"
 enableIngress: "true"
 defaultSSLCert: ""
 defaultSSLStrategy: Never

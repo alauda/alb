@@ -59,6 +59,11 @@ data:
     ssl_ciphers TLS13-AES-256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES-128-GCM-SHA256:TLS13-AES-128-CCM-8-SHA256:TLS13-AES-128-CCM-SHA256:EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:DH+AESGCM:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
     ssl_dhparam /etc/ssl/dhparam.pem;
     ssl_ecdh_curve secp384r1;
+
+    http2_max_field_size            4k;
+    http2_max_header_size           16k;
+    http2_max_requests              1000;
+    http2_max_concurrent_streams    128;
   http_server: |
     # fix http://jira.alaudatech.com/browse/DEV-15515, use lua instead
     set              $custom_host    $http_host;

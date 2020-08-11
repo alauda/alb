@@ -53,6 +53,8 @@ spec:
               value: "{{ .Values.enablePortprobe }}"
             - name: ENABLE_IPV6
               value: "{{ .Values.enableIPV6 }}"
+            - name: ENABLE_HTTP2
+              value: "{{ .Values.enableHTTP2 }}"
             - name: SERVE_INGRESS
               value: "{{ .Values.enableIngress }}"
             - name: DEFAULT-SSL-CERTIFICATE
