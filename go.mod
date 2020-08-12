@@ -6,10 +6,9 @@ require (
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/set v0.2.1
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
-	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
-	github.com/pkg/errors v0.8.0 // indirect
+	github.com/opencontainers/runc v1.0.0-rc92
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.3.2

@@ -65,6 +65,8 @@ spec:
               value: "{{ .Values.ingressHTTPPort }}"
             - name: INGRESS_HTTPS_PORT
               value: "{{ .Values.ingressHTTPSPort }}"
+            - name: SCENARIO
+              value: "{{ .Values.global.platformscenario }}"
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:

@@ -162,6 +162,12 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
 		EnableIPV6:       config.Get("ENABLE_IPV6") == "true",
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
+		CPUNum:           "auto",
+	}
+	if config.Get("SCENARIO") == "base" {
+		result.CPUNum = strconv.Itoa(utils.NumCPU())
+	} else {
+		result.CPUNum = "auto"
 	}
 	var listenTCPPorts []int
 	var err error
