@@ -56,6 +56,7 @@ var optionalFields = []string{
 	"SERVE_INGRESS",
 	"INGRESS_HTTP_PORT",
 	"INGRESS_HTTPS_PORT",
+	"ENABLE_HTTP2",
 }
 
 var nginxRequiredFields = []string{

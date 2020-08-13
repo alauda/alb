@@ -101,9 +101,9 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
-        listen      {{$port}} ssl;
+        listen      {{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }};
         {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} ssl;
+        listen      [::]:{{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }};
         {{end}}
         server_name _;
 

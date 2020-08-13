@@ -233,6 +233,7 @@ type Config struct {
 	TweakHash        string
 	EnablePrometheus bool
 	EnableIPV6       bool
+	EnableHTTP2      bool
 }
 
 var (
