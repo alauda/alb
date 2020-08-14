@@ -21,10 +21,10 @@ ENV INGRESS_HTTP_PORT 80
 ENV INGRESS_HTTPS_PORT 443
 ENV GODEBUG=netdns=cgo
 
-RUN apk add jq iproute2 logrotate openssl tcpdump tshark
+RUN apk add jq iproute2 logrotate openssl tcpdump tshark tini
 
 
-CMD ["/run.sh"]
+CMD ["/sbin/tini", "--", "/run.sh"]
 
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
