@@ -289,12 +289,8 @@ func (c *Controller) handleObject(obj interface{}) {
 		klog.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 	klog.Infof("Processing object: %s", object.GetName())
-	annotations := object.GetAnnotations()
-	if annotations["kubernetes.io/ingress.class"] == "" ||
-		annotations["kubernetes.io/ingress.class"] == config.Get("NAME") {
-		if c.needEnqueueObject(object) {
-			c.enqueue(object)
-		}
+	if c.needEnqueueObject(object) {
+		c.enqueue(object)
 	}
 }
 
@@ -783,6 +779,11 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 	defer func() {
 		klog.Infof("check ingress %s/%s result: %t", obj.GetNamespace(), obj.GetName(), rv)
 	}()
+	annotations := obj.GetAnnotations()
+	if !(annotations["kubernetes.io/ingress.class"] == "" ||
+		annotations["kubernetes.io/ingress.class"] == config.Get("NAME")) {
+		return false
+	}
 	alb, err := c.KubernetesDriver.LoadAlbResource(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		klog.Errorf("get alb res failed, %+v", err)
