@@ -607,6 +607,10 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	// default backend we will not create rules but save service to frontend's servicegroup
 	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
+	if isDefaultBackend {
+		needFtTypes.Add(m.ProtoHTTP)
+	}
+	klog.Infof("needFtTypes, %s", needFtTypes.String())
 	for _, f := range alb.Frontends {
 		if needFtTypes.Has(m.ProtoHTTP) && f.Port == IngressHTTPPort {
 			httpFt = f
@@ -654,6 +658,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	needSaveHTTP := false
 	if isDefaultBackend {
 		needSaveHTTP = c.setFtDefault(ingress, httpFt)
+		klog.Infof("need save default service for ft: %s, %t", httpFt.Name, needSaveHTTP)
 	}
 	// make sure we have a fronted before we create rules
 	if needFtTypes.Has(m.ProtoHTTP) && (newHTTPFrontend || needSaveHTTP) {
