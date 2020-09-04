@@ -10,6 +10,9 @@ metadata:
     project.{{ $.Values.global.labelBaseDomain }}/{{ . }}: "true"
     {{ end}}
     {{- end}}
+    {{ if .Values.enablePortProject }}
+    {{ .Values.global.labelBaseDomain }}/role: "port"
+    {{ end}}
 spec:
   address: {{ .Values.address }}
   bind_address: ''

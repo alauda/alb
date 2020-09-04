@@ -198,8 +198,8 @@ func NewController(
 			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) {
 				return
 			}
-			newProjects := ctl.GetOwnProjects(newAlb2)
-			oldProjects := ctl.GetOwnProjects(oldAlb2)
+			newProjects := ctl.GetOwnProjects(newAlb2.Name, newAlb2.Labels)
+			oldProjects := ctl.GetOwnProjects(oldAlb2.Name, oldAlb2.Labels)
 			newAddProjects := funk.SubtractString(newProjects, oldProjects)
 			klog.Infof("own projects: %v, new add projects: %v", newProjects, newAddProjects)
 			ingresses := controller.GetProjectIngresses(newAddProjects)
@@ -789,34 +789,48 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		annotations["kubernetes.io/ingress.class"] == config.Get("NAME")) {
 		return false
 	}
-	alb, err := c.KubernetesDriver.LoadAlbResource(config.Get("NAMESPACE"), config.Get("NAME"))
+	alb, err := c.KubernetesDriver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		klog.Errorf("get alb res failed, %+v", err)
-		rv = false
-		return
+		return false
 	}
-	projects := ctl.GetOwnProjects(alb)
-	if funk.Contains(projects, m.ProjectALL) {
-		rv = true
-		return
-	}
-	if ns := obj.GetNamespace(); ns != "" {
-		nsCr, err := c.namespaceLister.Get(ns)
-		if err != nil {
-			klog.Errorf("get namespace failed, %+v", err)
-			rv = false
-			return
-		}
-		domain := config.Get("DOMAIN")
-		if project := nsCr.Labels[fmt.Sprintf("%s/project", domain)]; project != "" {
-			if funk.Contains(projects, project) {
-				rv = true
-				return
+	belongProject := c.GetIngressBelongProject(obj)
+	role := ctl.GetAlbRoleType(alb.Labels)
+	if role == ctl.RolePort {
+		hasHTTPPort := false
+		hasHTTPSPort := false
+		httpPortProjects := []string{}
+		httpsPortProjects := []string{}
+		for _, ft := range alb.Frontends {
+			if ft.Port == IngressHTTPPort {
+				hasHTTPPort = true
+				httpPortProjects = ctl.GetOwnProjects(ft.Name, ft.Lables)
+			} else if ft.Port == IngressHTTPSPort {
+				hasHTTPSPort = true
+				httpsPortProjects = ctl.GetOwnProjects(ft.Name, ft.Lables)
+			}
+			if hasHTTPSPort && hasHTTPPort {
+				break
 			}
 		}
+		// for role=port alb user should create http and https ports before using ingress
+		if !(hasHTTPPort && hasHTTPSPort) {
+			return false
+		}
+		if (funk.Contains(httpPortProjects, m.ProjectALL) || funk.Contains(httpPortProjects, belongProject)) &&
+			(funk.Contains(httpsPortProjects, m.ProjectALL) || funk.Contains(httpsPortProjects, belongProject)) {
+			return true
+		}
+	} else {
+		projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
+		if funk.Contains(projects, m.ProjectALL) {
+			return true
+		}
+		if funk.Contains(projects, belongProject) {
+			return true
+		}
 	}
-	rv = false
-	return
+	return false
 }
 
 func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1beta1.Ingress {
@@ -846,4 +860,19 @@ func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1beta1
 		}
 	}
 	return allIngresses
+}
+
+func (c *Controller) GetIngressBelongProject(obj metav1.Object) string {
+	if ns := obj.GetNamespace(); ns != "" {
+		nsCr, err := c.namespaceLister.Get(ns)
+		if err != nil {
+			klog.Errorf("get namespace failed, %+v", err)
+			return ""
+		}
+		domain := config.Get("DOMAIN")
+		if project := nsCr.Labels[fmt.Sprintf("%s/project", domain)]; project != "" {
+			return project
+		}
+	}
+	return ""
 }

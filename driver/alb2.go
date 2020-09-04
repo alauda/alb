@@ -190,6 +190,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	}
 	alb2.UID = alb2Res.UID
 	alb2.Spec = alb2Res.Spec
+	alb2.Labels = alb2Res.Labels
 	cm, err := kd.LoadConfigmap(namespace, name)
 	if err != nil {
 		klog.Error(err)
@@ -206,6 +207,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		ft := &m.Frontend{
 			UID:          res.UID,
 			Name:         res.Name,
+			Lables:       res.Labels,
 			FrontendSpec: res.Spec,
 			Rules:        []*m.Rule{},
 			LB:           &alb2,
