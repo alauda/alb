@@ -234,6 +234,7 @@ type Config struct {
 	EnablePrometheus bool
 	EnableIPV6       bool
 	EnableHTTP2      bool
+	CPUNum           string
 }
 
 var (
