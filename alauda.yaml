@@ -14,9 +14,10 @@ steps:
             dockerfile: "Dockerfile.nginx.local",
             context: ".",
             address: "acp/alb2",
-            tag: env.VERSION
+            tag: env.VERSION,
+            disableArmBuildOnPR: true
           ).setArg("commit_id", env.COMMIT_ID).setArg("app_version", env.VERSION)
-          image.startWithoutArm().push().buildArm()
+          image.start().push()
 
 - name: Update chart
   container: "devops"
