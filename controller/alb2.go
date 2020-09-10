@@ -296,7 +296,9 @@ const (
 )
 
 func GetAlbRoleType(labels map[string]string) string {
-	if labels["role"] == "" || labels["role"] == RoleInstance {
+	domain := config.Get("DOMAIN")
+	roleLabel := fmt.Sprintf("%s/role", domain)
+	if labels[roleLabel] == "" || labels[roleLabel] == RoleInstance {
 		return RoleInstance
 	}
 	return RolePort
