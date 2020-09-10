@@ -12,6 +12,7 @@ import (
 
 type AlaudaLoadBalancer struct {
 	UID       types.UID
+	Labels    map[string]string
 	Spec      alb2v1.ALB2Spec
 	Name      string
 	Namespace string
@@ -51,8 +52,9 @@ func (alb *AlaudaLoadBalancer) ListDomains() []string {
 }
 
 type Frontend struct {
-	UID  types.UID
-	Name string
+	UID    types.UID
+	Lables map[string]string
+	Name   string
 	alb2v1.FrontendSpec
 	Rules []*Rule
 

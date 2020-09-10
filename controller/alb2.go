@@ -4,7 +4,6 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
-	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -270,17 +269,17 @@ func IsLocker(kd *driver.KubernetesDriver) (bool, error) {
 	return false, nil
 }
 
-func GetOwnProjects(alb *alb2v1.ALB2) (rv []string) {
-	klog.Infof("get alb %s projects %+v", alb.Name, alb.Labels)
+func GetOwnProjects(name string, labels map[string]string) (rv []string) {
+	klog.Infof("get %s own projects %+v", name, labels)
 	defer func() {
-		klog.Infof("alb %s, own projects: %+v", alb.Name, rv)
+		klog.Infof("%s, own projects: %+v", name, rv)
 	}()
 	domain := config.Get("DOMAIN")
 	prefix := fmt.Sprintf("project.%s/", domain)
 	// legacy: project.cpaas.io/name=ALL_ALL
 	// new: project.cpaas.io/ALL_ALL=true
 	var projects []string
-	for k, v := range alb.Labels {
+	for k, v := range labels {
 		if strings.HasPrefix(k, prefix) {
 			if project := getProjectFromLabel(k, v); project != "" {
 				projects = append(projects, project)
@@ -289,6 +288,20 @@ func GetOwnProjects(alb *alb2v1.ALB2) (rv []string) {
 	}
 	rv = funk.UniqString(projects)
 	return
+}
+
+const (
+	RoleInstance = "instance"
+	RolePort     = "port"
+)
+
+func GetAlbRoleType(labels map[string]string) string {
+	domain := config.Get("DOMAIN")
+	roleLabel := fmt.Sprintf("%s/role", domain)
+	if labels[roleLabel] == "" || labels[roleLabel] == RoleInstance {
+		return RoleInstance
+	}
+	return RolePort
 }
 
 func getProjectFromLabel(k, v string) string {

@@ -9,6 +9,7 @@ enablePortprobe: "true"
 enableIPV6: "false"
 enableHTTP2: "true"
 enableIngress: "true"
+enablePortProject: false
 defaultSSLCert: ""
 defaultSSLStrategy: Never
 ingressHTTPPort: 80
