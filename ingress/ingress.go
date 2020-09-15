@@ -414,6 +414,7 @@ func (c *Controller) updateRule(
 
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
+			// NOTE: 与前端约定保密字典用_，全局证书用/分割
 			certs[strings.ToLower(host)] = fmt.Sprintf("%s_%s", ingress.GetNamespace(), tls.SecretName)
 		}
 	}
@@ -421,7 +422,7 @@ func (c *Controller) updateRule(
 	for host, cert := range sslMap {
 		// should not override spec.tls
 		if certs[strings.ToLower(host)] == "" {
-			certs[strings.ToLower(host)] = strings.ReplaceAll(cert, "/", "_")
+			certs[strings.ToLower(host)] = cert
 		}
 	}
 
@@ -537,7 +538,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	certs := make(map[string]string)
 	for host, cert := range sslMap {
 		if certs[strings.ToLower(host)] == "" {
-			certs[strings.ToLower(host)] = strings.ReplaceAll(cert, "/", "_")
+			certs[strings.ToLower(host)] = cert
 		}
 	}
 
@@ -596,7 +597,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			klog.Error(err)
 			return err
 		}
-		if httpsFt.CertificateName != "" && httpsFt.CertificateName != strings.Replace(defaultSSLCert, "/", "_", 1) {
+		if httpsFt.CertificateName != "" && httpsFt.CertificateName != defaultSSLCert {
 			klog.Warningf("Port %d already has ssl cert conflict with default ssl cert", IngressHTTPSPort)
 		}
 	}
@@ -637,7 +638,6 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	if needFtTypes.Has(m.ProtoHTTPS) {
 		needUpdate := false
 		if httpsFt.CertificateName == "" && defaultSSLCert != "" {
-			httpsFt.CertificateName = strings.Replace(defaultSSLCert, "/", "_", 1)
 			needUpdate = true
 		}
 		if newHTTPSFrontend || needUpdate {

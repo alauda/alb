@@ -196,9 +196,11 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		isHTTPS := ft.Protocol == ProtocolHTTPS
 		if isHTTP || isHTTPS {
 			if isHTTPS && ft.CertificateName != "" {
-				slice := strings.Split(ft.CertificateName, "_")
-				secretNs := slice[0]
-				secretName := slice[1]
+				secretNs, secretName, err := ParseCertificateName(ft.CertificateName)
+				if err != nil {
+					klog.Errorf("invalid certificateName, %s", ft.CertificateName)
+					continue
+				}
 				cert, err := getCertificate(driver, secretNs, secretName)
 				if err != nil {
 					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
@@ -209,9 +211,11 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			}
 			for _, rule := range ft.Rules {
 				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
-					slice := strings.Split(rule.CertificateName, "_")
-					secretNs := slice[0]
-					secretName := slice[1]
+					secretNs, secretName, err := ParseCertificateName(rule.CertificateName)
+					if err != nil {
+						klog.Errorf("invalid certificateName, %s", rule.CertificateName)
+						continue
+					}
 					cert, err := getCertificate(driver, secretNs, secretName)
 					if err != nil {
 						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
@@ -362,4 +366,23 @@ func workerLimit() int {
 		return n
 	}
 	return 4
+}
+
+func ParseCertificateName(n string) (string, string, error) {
+	// backward compatibility
+	if strings.Contains(n, "_") {
+		slice := strings.Split(n, "_")
+		if len(slice) != 2 {
+			return "", "", errors.New("invalid certificate name")
+		}
+		return slice[0], slice[1], nil
+	}
+	if strings.Contains(n, "/") {
+		slice := strings.Split(n, "/")
+		if len(slice) != 2 {
+			return "", "", fmt.Errorf("invalid certificate name, %s", n)
+		}
+		return slice[0], slice[1], nil
+	}
+	return "", "", fmt.Errorf("invalid certificate name, %s", n)
 }
