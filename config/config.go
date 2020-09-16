@@ -58,6 +58,7 @@ var optionalFields = []string{
 	"INGRESS_HTTPS_PORT",
 	"ENABLE_HTTP2",
 	"SCENARIO",
+	"WORKER_LIMIT",
 }
 
 var nginxRequiredFields = []string{

@@ -162,12 +162,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
 		EnableIPV6:       config.Get("ENABLE_IPV6") == "true",
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
-		CPUNum:           "auto",
-	}
-	if config.Get("SCENARIO") == "base" {
-		result.CPUNum = strconv.Itoa(utils.NumCPU())
-	} else {
-		result.CPUNum = "auto"
+		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
 	}
 	var listenTCPPorts []int
 	var err error
@@ -359,4 +354,12 @@ func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*C
 		Cert: string(secret.Data[apiv1.TLSCertKey]),
 		Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
 	}, nil
+}
+
+func workerLimit() int {
+	n := config.GetInt("WORKER_LIMIT")
+	if n > 0 {
+		return n
+	}
+	return 4
 }
