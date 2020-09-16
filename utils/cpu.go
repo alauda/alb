@@ -15,19 +15,19 @@ import (
 // If CPU cgroups limits are configured, use cfs_quota_us / cfs_period_us
 // as formula
 //  https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
-func NumCPU() int {
+func NumCPU(limit int) int {
 	cpus := runtime.NumCPU()
 
 	cgroupPath, err := libcontainercgroups.FindCgroupMountpoint("", "cpu")
 	if err != nil {
-		return cpus
+		return min(cpus, limit)
 	}
 
 	cpuQuota := readCgroupFileToInt64(cgroupPath, "cpu.cfs_quota_us")
 	cpuPeriod := readCgroupFileToInt64(cgroupPath, "cpu.cfs_period_us")
 
 	if cpuQuota == -1 || cpuPeriod == -1 {
-		return cpus
+		return min(cpus, limit)
 	}
 
 	return int(math.Ceil(float64(cpuQuota) / float64(cpuPeriod)))
@@ -45,4 +45,11 @@ func readCgroupFileToInt64(cgroupPath, cgroupFile string) int64 {
 	}
 
 	return -1
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
