@@ -30,7 +30,7 @@ func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string, certificat
 		LB: alb,
 	}
 	if certificateName != "" {
-		ft.CertificateName = strings.Replace(certificateName, "/", "_", 1)
+		ft.CertificateName = certificateName
 	}
 	alb.Frontends = append(alb.Frontends, ft)
 	return ft, nil

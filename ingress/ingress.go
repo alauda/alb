@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -51,54 +50,6 @@ import (
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-)
-
-const (
-	// SuccessSynced is used as part of the Event 'reason' when a Ingress is synced
-	SuccessSynced = "Synced"
-	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
-	// to sync due to a Deployment of the same name already existing.
-	ErrResourceExists = "ErrResourceExists"
-
-	// MessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	MessageResourceExists = "Resource %q already exists and is not managed by Foo"
-	// MessageResourceSynced is the message used for an Event fired when a Ingress
-	// is synced successfully
-	MessageResourceSynced = "Ingress synced successfully"
-
-	// ALBRewriteTargetAnnotation is the ingress annotation to define rewrite rule for alb
-	ALBRewriteTargetAnnotation = "nginx.ingress.kubernetes.io/rewrite-target"
-	// ALBEnableCORSAnnotation is the ingress annotation to enable cors for alb
-	ALBEnableCORSAnnotation = "nginx.ingress.kubernetes.io/enable-cors"
-	// ALBBackendProtocolAnnotation is the ingress annotation to define backend protocol
-	ALBBackendProtocolAnnotation = "nginx.ingress.kubernetes.io/backend-protocol"
-
-	// ALBTemporalRedirectAnnotation allows you to return a temporal redirect (Return Code 302) instead of sending data to the upstream.
-	ALBTemporalRedirectAnnotation = "nginx.ingress.kubernetes.io/temporal-redirect"
-	// ALBPermanentRedirectAnnotation allows to return a permanent redirect instead of sending data to the upstream.
-	ALBPermanentRedirectAnnotation = "nginx.ingress.kubernetes.io/permanent-redirect"
-
-	// ALBVHostAnnotation allows user to override the request Host
-	ALBVHostAnnotation = "nginx.ingress.kubernetes.io/upstream-vhost"
-)
-
-var (
-	AlwaysSSLStrategy  = "Always"
-	NeverSSLStrategy   = "Never"
-	RequestSSLStrategy = "Request"
-	BothSSLStrategy    = "Both"
-	DefaultSSLStrategy = RequestSSLStrategy
-
-	ValidBackendProtocol = map[string]bool{
-		"http":  true,
-		"https": true,
-	}
-	// ALBSSLStrategyAnnotation allows you to use default ssl certificate for a http ingress
-	ALBSSLStrategyAnnotation = fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
-
-	IngressHTTPPort  = config.GetInt("INGRESS_HTTP_PORT")
-	IngressHTTPSPort = config.GetInt("INGRESS_HTTPS_PORT")
 )
 
 func (c *Controller) Start(ctx context.Context) {
@@ -463,7 +414,15 @@ func (c *Controller) updateRule(
 
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
-			certs[host] = fmt.Sprintf("%s_%s", ingress.GetNamespace(), tls.SecretName)
+			// NOTE: 与前端约定保密字典用_，全局证书用/分割
+			certs[strings.ToLower(host)] = fmt.Sprintf("%s_%s", ingress.GetNamespace(), tls.SecretName)
+		}
+	}
+	sslMap := parseSSLAnnotation(annotations[ALBSSLAnnotation])
+	for host, cert := range sslMap {
+		// should not override spec.tls
+		if certs[strings.ToLower(host)] == "" {
+			certs[strings.ToLower(host)] = cert
 		}
 	}
 
@@ -575,9 +534,16 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
 	defaultSSLCert := config.Get("DEFAULT-SSL-CERTIFICATE")
 	ingSSLStrategy := ingress.Annotations[ALBSSLStrategyAnnotation]
+	sslMap := parseSSLAnnotation(ingress.Annotations[ALBSSLAnnotation])
+	certs := make(map[string]string)
+	for host, cert := range sslMap {
+		if certs[strings.ToLower(host)] == "" {
+			certs[strings.ToLower(host)] = cert
+		}
+	}
+
 	var httpFt *m.Frontend
 	var httpsFt *m.Frontend
-	hostCertMap := make(map[string]string)
 	needFtTypes := set.New(set.NonThreadSafe)
 	for _, r := range ingress.Spec.Rules {
 		foundTLS := false
@@ -585,27 +551,28 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			for _, host := range tls.Hosts {
 				if strings.ToLower(r.Host) == strings.ToLower(host) {
 					needFtTypes.Add(m.ProtoHTTPS)
-					hostCertMap[strings.ToLower(host)] = tls.SecretName
 					foundTLS = true
 				}
 			}
+		}
+		if certs[strings.ToLower(r.Host)] != "" {
+			needFtTypes.Add(m.ProtoHTTPS)
+			foundTLS = true
 		}
 		if foundTLS == false {
 			if defaultSSLStrategy == BothSSLStrategy && ingSSLStrategy != "false" {
 				needFtTypes.Add(m.ProtoHTTPS)
 				needFtTypes.Add(m.ProtoHTTP)
-				hostCertMap[strconv.Itoa(IngressHTTPSPort)] = defaultSSLCert
 			} else if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") ||
 				(defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
 				needFtTypes.Add(m.ProtoHTTPS)
-				hostCertMap[strconv.Itoa(IngressHTTPSPort)] = defaultSSLCert
 			} else {
 				needFtTypes.Add(m.ProtoHTTP)
 			}
 		}
 	}
 	// default backend we will not create rules but save service to frontend's servicegroup
-	isDefaultBackend := len(ingress.Spec.Rules) == 0 && ingress.Spec.Backend != nil
+	isDefaultBackend := isDefaultBackend(ingress)
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	if isDefaultBackend {
 		needFtTypes.Add(m.ProtoHTTP)
@@ -630,7 +597,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 			klog.Error(err)
 			return err
 		}
-		if httpsFt.CertificateName != "" && httpsFt.CertificateName != strings.Replace(defaultSSLCert, "/", "_", 1) {
+		if httpsFt.CertificateName != "" && httpsFt.CertificateName != defaultSSLCert {
 			klog.Warningf("Port %d already has ssl cert conflict with default ssl cert", IngressHTTPSPort)
 		}
 	}
@@ -671,7 +638,6 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 	if needFtTypes.Has(m.ProtoHTTPS) {
 		needUpdate := false
 		if httpsFt.CertificateName == "" && defaultSSLCert != "" {
-			httpsFt.CertificateName = strings.Replace(defaultSSLCert, "/", "_", 1)
 			needUpdate = true
 		}
 		if newHTTPSFrontend || needUpdate {
