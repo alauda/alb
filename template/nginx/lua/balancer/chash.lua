@@ -1,6 +1,6 @@
 local balancer_resty = require "balancer.resty"
 local resty_chash = require "resty.chash"
-local common = require "common"
+local common = require "utils.common"
 
 local _M = balancer_resty:new({ factory = resty_chash, name = "chash" })
 

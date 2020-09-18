@@ -8,8 +8,8 @@ local tonumber = tonumber
 local string_find = string.find
 local string_sub = string.sub
 local table_remove = table.remove
-local table_insert = table.insert
 local string_format = string.format
+local ip_util = require "utils.ip"
 local ngx_re = ngx.re
 local ngx_var = ngx.var
 local ngx_req = ngx.req
@@ -116,60 +116,51 @@ local function toboolean(arg)
     return true
 end
 
-local function ip_split(str)
-    local parts = {}
-    local index = string_find(str, "%.", 1)
-    while(index ~= nil) do
-        local part = string_sub(str, 1, index - 1)
-        table_insert(parts, part)
-        str = string_sub(str, index + 1)
-        index = string_find(str, "%.", 1)
-    end
-    table_insert(parts, str)
-    return parts
-end
-
-local function is_str_ip(str)
-    local parts = ip_split(str)
-
-    if(#parts ~= 4) then
-        return false
-    end
-
-    for _, part in ipairs(parts) do
-        local num = tonumber(part)
-        if(num) then
-            if(num < 0 or num > 255) then
-                return false
-            end
-        else
-            return false
-        end
-    end
-    return true
-end
-
-local function ip_range(matcher, start, finish)
-    local m = ip_split(matcher)
-    local s = ip_split(start)
-    local f = ip_split(finish)
-    local function ip_sum(ip)
-        return ((tonumber(ip[1]) * 256 + tonumber(ip[2])) * 256 + tonumber(ip[3])) * 256 + tonumber(ip[4])
-    end
-    return ip_sum(s) <= ip_sum(m) and  ip_sum(m) <= ip_sum(f)
-end
-
 local function range(matcher, start, finish)
     if(matcher == nil) then
         return false, nil
     end
-    if(tonumber(matcher) and tonumber(start) and tonumber(finish)) then
-        return (tonumber(start) <= tonumber(matcher) and tonumber(matcher) <= tonumber(finish)), nil
-    elseif(is_str_ip(matcher) and is_str_ip(start) and is_str_ip(finish)) then
-        return ip_range(matcher, start, finish)
-    else
-        return (start <= matcher and matcher <= finish), nil
+    local tm = type(matcher)
+    local ts = type(start)
+    local tf = type(finish)
+    if not(tm == ts and tm == tf) then
+        return false, "not same type"
     end
+
+    if not(tm == "number" or tm == "string") then
+        return false, "only number type and string type can compare"
+    end
+    if tm == "number" then
+        return (tonumber(start) <= tonumber(matcher) and tonumber(matcher) <= tonumber(finish)), nil
+    end
+    -- ip compare
+    if ip_util.parse_ipv4(matcher) then
+        local ip4_m = ip_util.parse_ipv4(matcher)
+        local ip4_s = ip_util.parse_ipv4(start)
+        local ip4_e = ip_util.parse_ipv4(finish)
+        if not(ip4_s and ip4_e) then
+            return false, "invalid ip address"
+        end
+        return ip4_s <= ip4_m and ip4_m <= ip4_e, nil
+    elseif ip_util.parse_ipv6(matcher) then
+        local ip6_m = ip_util.parse_ipv6(matcher)
+        local ip6_s = ip_util.parse_ipv6(start)
+        local ip6_e = ip_util.parse_ipv6(finish)
+        if not(ip6_s and ip6_e) then
+            return false, "invalid ip address"
+        end
+
+        for i = 1, 4 do
+            if ip6_s[i] < ip6_m[i] and ip6_m[i] < ip6_e[i] then
+                return true
+            elseif ip6_s[i] > ip6_m[i] or ip6_m[i] > ip6_e[i] then
+                return false
+            end
+        end
+        return true, nil
+    end
+    -- string compare
+    return (start <= matcher and matcher <= finish), nil
 end
 
 -- all operations return boolean, err

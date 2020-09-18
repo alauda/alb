@@ -1,6 +1,6 @@
 local balancer_resty = require "balancer.resty"
 local resty_roundrobin = require "resty.roundrobin"
-local common = require "common"
+local common = require "utils.common"
 
 local _M = balancer_resty:new({ factory = resty_roundrobin, name = "round_robin" })
 
