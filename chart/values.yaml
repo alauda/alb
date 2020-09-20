@@ -26,7 +26,7 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: "v2.13-12-g240709c"
+      tag: "v2.15-20-gb40b506"
 resources:
   limits:
     cpu: "2"
