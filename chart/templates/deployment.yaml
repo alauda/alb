@@ -14,6 +14,7 @@ spec:
   template:
     spec:
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
       affinity:
