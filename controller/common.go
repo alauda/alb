@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/types"
 	"math"
 	"math/rand"
 	"os"
@@ -173,6 +174,13 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		}
 		klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
 	}
+	var portInfo map[string][]string
+	if GetAlbRoleType(loadbalancer.Labels) == RolePort {
+		portInfo, err = getPortInfo(driver)
+		if err != nil {
+			klog.Errorf("get port project info failed, %v", err)
+		}
+	}
 	for _, ft := range loadbalancer.Frontends {
 		conflict := false
 		for _, port := range listenTCPPorts {
@@ -191,6 +199,24 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 				continue
 			}
 		}
+		if GetAlbRoleType(loadbalancer.Labels) == RolePort && portInfo != nil {
+			// current projects
+			portProjects := GetOwnProjects(ft.RawName, ft.Labels)
+			// desired projects
+			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
+			if err != nil {
+				klog.Errorf("get port %s desired projects failed, %v", ft.Port, err)
+				goto OUT
+			}
+			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
+				// diff need update
+				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ft.RawName, types.JSONPatchType, payload); err != nil {
+					klog.Errorf("patch port %s project failed", ft.RawName, err)
+				}
+			}
+		}
+	OUT:
 		klog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
 		isHTTP := ft.Protocol == ProtocolHTTP
 		isHTTPS := ft.Protocol == ProtocolHTTPS
@@ -385,4 +411,87 @@ func ParseCertificateName(n string) (string, string, error) {
 		return slice[0], slice[1], nil
 	}
 	return "", "", fmt.Errorf("invalid certificate name, %s", n)
+}
+
+func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
+	cm, err := driver.Client.CoreV1().ConfigMaps(config.Get("NAMESPACE")).Get(
+		fmt.Sprintf("%s-port-info", config.Get("NAME")), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	type PortProject []struct {
+		Port     string   `json:"port"`
+		Projects []string `json:"projects"`
+	}
+	if cm.Data["range"] != "" {
+		var body PortProject
+		if err := json.Unmarshal([]byte(cm.Data["range"]), &body); err != nil {
+			return nil, err
+		}
+		var rv = make(map[string][]string)
+		for _, i := range body {
+			rv[i.Port] = i.Projects
+		}
+		return rv, nil
+	}
+	return nil, fmt.Errorf("invalid port-info format, %v", cm.Data)
+}
+
+func getPortProject(port int, info map[string][]string) ([]string, error) {
+	for k, v := range info {
+		if strings.Contains(k, "-") {
+			// port range
+			parts := strings.Split(k, "-")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid port range %s", k)
+			}
+			s, e := parts[0], parts[1]
+			start, err := strconv.Atoi(s)
+			if err != nil {
+				return nil, err
+			}
+			end, err := strconv.Atoi(e)
+			if err != nil {
+				return nil, err
+			}
+			if start >= end {
+				return nil, errors.New("ip range start should less than end")
+			}
+			if port >= start && port <= end {
+				return v, nil
+			}
+		} else {
+			// single port
+			single, err := strconv.Atoi(k)
+			if err != nil {
+				return nil, err
+			}
+			if single == port {
+				return v, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func generatePatchPortProjectPayload(labels map[string]string, desiredProjects []string) []byte {
+	newLabels := make(map[string]string)
+	//project.cpaas.io/ALL_ALL=true
+	for k, v := range labels {
+		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", config.Get("DOMAIN"))) {
+			newLabels[k] = v
+		}
+	}
+	for _, p := range desiredProjects {
+		newLabels[fmt.Sprintf("project.%s/%s", config.Get("DOMAIN"), p)] = "true"
+	}
+	patchPayloadTemplate :=
+		`[{
+        "op": "%s",
+        "path": "/metadata/labels",
+        "value": %s
+          }]`
+
+	raw, _ := json.Marshal(newLabels)
+	return []byte(fmt.Sprintf(patchPayloadTemplate, "replace", raw))
 }
