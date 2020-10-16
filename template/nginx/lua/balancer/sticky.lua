@@ -2,7 +2,7 @@ local balancer_resty = require("balancer.resty")
 local ck = require("resty.cookie")
 local ngx_balancer = require("ngx.balancer")
 local ngx = ngx
-local common = require("common")
+local common = require("utils.common")
 
 local _M = balancer_resty:new()
 local DEFAULT_COOKIE_NAME = "JSESSIONID"

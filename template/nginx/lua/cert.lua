@@ -4,7 +4,7 @@ local tonumber = tonumber
 local ssl = require "ngx.ssl"
 local ngx_shared = ngx.shared
 local ngx_config = ngx.config
-local common = require "common"
+local common = require "utils.common"
 local cache = require "cache"
 local conf = require "conf"
 

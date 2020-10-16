@@ -8,7 +8,7 @@ local balancer_sticky = require("balancer.sticky")
 local math_random = require("math").random
 local resty_chash = require("resty.chash")
 local ngx = ngx
-local util_get_nodes = require("common").get_nodes
+local util_get_nodes = require("utils.common").get_nodes
 
 local _M = balancer_sticky:new()
 
