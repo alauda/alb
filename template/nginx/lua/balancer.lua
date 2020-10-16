@@ -1,4 +1,4 @@
-local common = require "common"
+local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
 local chash = require "balancer.chash"
@@ -36,7 +36,19 @@ local function get_implementation(backend)
         ngx_log(ngx.ERR, "failed to get implementation")
     end
     return implementation
+end
+
+local function format_ipv6_endpoints(endpoints)
+    local formatted_endpoints = {}
+    for _, endpoint in ipairs(endpoints) do
+        local formatted_endpoint = endpoint
+        if not endpoint.address:match("^%d+.%d+.%d+.%d+$") then
+            formatted_endpoint.address = string.format("[%s]", endpoint.address)
+        end
+        table.insert(formatted_endpoints, formatted_endpoint)
     end
+    return formatted_endpoints
+end
 
 local function sync_backend(backend)
     if not backend.backends or #backend.backends == 0 then
@@ -74,7 +86,7 @@ local function sync_backend(backend)
         balancers[backend.name] = implementation:new(backend)
         return
     end
-    --backend.endpoints = format_ipv6_endpoints(backend.endpoints)
+    backend.backends = format_ipv6_endpoints(backend.backends)
 
     balancer:sync(backend)
 end
@@ -143,3 +155,4 @@ function _M.balance()
 end
 
 return _M
+

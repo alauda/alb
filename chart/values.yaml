@@ -6,7 +6,7 @@ loadbalancerType: nginx
 replicas: 3
 enablePrometheus: "true"
 enablePortprobe: "true"
-enableIPV6: "false"
+enableIPV6: "true"
 enableHTTP2: "true"
 enableIngress: "true"
 enablePortProject: false

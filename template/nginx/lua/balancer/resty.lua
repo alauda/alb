@@ -1,4 +1,4 @@
-local common = require "common"
+local common = require "utils.common"
 
 local string_format = string.format
 local ngx_log = ngx.log

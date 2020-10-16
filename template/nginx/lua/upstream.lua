@@ -10,7 +10,7 @@ local ngx = ngx
 local ngx_log = ngx.log
 local ngx_shared = ngx.shared
 local ngx_config = ngx.config
-local common = require "common"
+local common = require "utils.common"
 local dsl = require "dsl"
 local cache = require "cache"
 
