@@ -20,6 +20,13 @@ AlaudaPipeline {
             binding: "sonarqube",
             enabled: false,
         ],
+        sec: [
+            enabled: true,
+            block: false,
+            lang: 'go',
+            scanMod: 1,
+            customOpts: '',
+        ],
     ]
     env = [
         GO111MODULE: "on",
