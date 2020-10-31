@@ -4,6 +4,7 @@ domains: []
 nodeSelector: {}
 loadbalancerType: nginx
 replicas: 3
+enableGC: "false"
 enablePrometheus: "true"
 enablePortprobe: "true"
 enableIPV6: "true"
