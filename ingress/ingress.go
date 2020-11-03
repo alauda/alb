@@ -17,7 +17,9 @@ limitations under the License.
 package ingress
 
 import (
-	v1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	informerv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
+
 	"context"
 	"fmt"
 	"github.com/thoas/go-funk"
@@ -54,17 +56,52 @@ import (
 
 func (c *Controller) Start(ctx context.Context) {
 	interval := config.GetInt("INTERVAL")
-	for {
-		time.Sleep(time.Duration(interval) * time.Second)
+
+	wait.PollInfinite(time.Duration(interval)*time.Second, func() (bool, error) {
 		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 		if err != nil {
 			klog.Errorf("not leader: %s", err.Error())
-			continue
+			return false, nil
 		}
 		if isLeader {
-			break
+			return true, nil
 		}
-	}
+		return false, nil
+	})
+
+	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
+	go wait.Forever(func() {
+		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
+		if err != nil || !isLeader {
+			return
+		}
+		rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
+			fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")): "ingress",
+		}))
+		if err != nil {
+			return
+		}
+		processedIngress := make(map[string]bool)
+		for _, rl := range rules {
+			ingKey := rl.Labels[fmt.Sprintf("alb2.%s/source-name", config.Get("DOMAIN"))]
+			if ingKey != "" {
+				ns := ingKey[strings.LastIndex(ingKey, ".")+1:]
+				name := ingKey[:strings.LastIndex(ingKey, ".")]
+				processedIngress[ns+"/"+name] = true
+			}
+		}
+		ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
+		if err != nil {
+			return
+		}
+		for _, ing := range ings {
+			if !processedIngress[ing.Namespace+"/"+ing.Name] {
+				if c.needEnqueueObject(ing) {
+					c.enqueue(ing)
+				}
+			}
+		}
+	}, resyncPeriod)
 
 	if err := c.Run(1, ctx.Done()); err != nil {
 		klog.Errorf("Error running controller: %s", err.Error())
@@ -74,6 +111,7 @@ func (c *Controller) Start(ctx context.Context) {
 // Controller is the controller implementation for Foo resources
 type Controller struct {
 	ingressLister   networkinglisters.IngressLister
+	ruleLister      listerv1.RuleLister
 	namespaceLister corelisters.NamespaceLister
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
@@ -92,7 +130,8 @@ type Controller struct {
 // NewController returns a new sample controller
 func NewController(
 	d *driver.KubernetesDriver,
-	alb2Informer v1.ALB2Informer,
+	alb2Informer informerv1.ALB2Informer,
+	ruleInformer informerv1.RuleInformer,
 	ingressInformer networkinginformers.IngressInformer,
 	namespaceLister corelisters.NamespaceLister) *Controller {
 
@@ -113,6 +152,7 @@ func NewController(
 
 	controller := &Controller{
 		ingressLister:   ingressInformer.Lister(),
+		ruleLister:      ruleInformer.Lister(),
 		namespaceLister: namespaceLister,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
@@ -187,6 +227,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		// ensure legacy ingresses will be transformed
 		for _, ing := range ings {
 			if c.needEnqueueObject(ing) {
+				klog.Infof("enqueue unprocessed ing: %s/%s", ing.Namespace, ing.Name)
 				c.enqueue(ing)
 			}
 		}

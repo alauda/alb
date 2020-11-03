@@ -74,7 +74,7 @@ func main() {
 
 	klog.Info("SERVE_INGRESS:", config.GetBool("SERVE_INGRESS"))
 	if config.GetBool("SERVE_INGRESS") {
-		ingressController := ingress.NewController(drv, alb2Informer, ingressInformer, namespaceLister)
+		ingressController := ingress.NewController(drv, alb2Informer, ruleInformer, ingressInformer, namespaceLister)
 		go ingressController.Start(ctx)
 	}
 	go func() {

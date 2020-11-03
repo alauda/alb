@@ -16,6 +16,7 @@ defaultSSLStrategy: Never
 ingressHTTPPort: 80
 ingressHTTPSPort: 443
 workerLimit: 8
+RESYNC_PERIOD: 1800
 global:
   platformscenario: base
   labelBaseDomain: alauda.io
