@@ -59,6 +59,7 @@ var optionalFields = []string{
 	"ENABLE_HTTP2",
 	"SCENARIO",
 	"WORKER_LIMIT",
+	"RESYNC_PERIOD",
 }
 
 var nginxRequiredFields = []string{
