@@ -59,6 +59,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 		LoadBalancerID: alb.Spec.IaasID,
 		Frontends:      []*Frontend{},
 		TweakHash:      alb.TweakHash,
+		Labels:         alb.Labels,
 	}
 	if lb.BindAddress == "" {
 		lb.BindAddress = "*"
@@ -72,6 +73,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			Rules:           RuleList{},
 			CertificateName: aft.CertificateName,
 			BackendProtocol: aft.BackendProtocol,
+			Labels:          aft.Lables,
 		}
 		if ft.Protocol == "" {
 			ft.Protocol = ProtocolTCP

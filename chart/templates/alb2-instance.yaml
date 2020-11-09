@@ -13,6 +13,9 @@ metadata:
     {{ if .Values.enablePortProject }}
     {{ .Values.global.labelBaseDomain }}/role: "port"
     {{ end}}
+  annotations:
+    {{ .Values.global.labelBaseDomain }}/creator: {{ .Values.creator }}
+    {{ .Values.global.labelBaseDomain }}/display-name: {{ .Values.displayName }}
 spec:
   address: {{ .Values.address }}
   bind_address: ''

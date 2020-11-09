@@ -1,3 +1,4 @@
+---
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -104,3 +105,15 @@ data:
     tcp_nodelay                on;
   upstream: |
     keepalive 320;
+
+---
+apiVersion: v1
+data:
+  range: "[]"
+kind: ConfigMap
+metadata:
+  name: {{ .Values.loadbalancerName }}-port-info
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    port-info: "true"
+    name: {{ .Values.loadbalancerName }}

@@ -50,15 +50,16 @@ type Domain struct {
 }
 
 type LoadBalancer struct {
-	Name           string      `json:"name"`
-	Address        string      `json:"address"`
-	BindAddress    string      `json:"bind_address"`
-	LoadBalancerID string      `json:"iaas_id"`
-	Type           string      `json:"type"`
-	Version        int         `json:"version"`
-	Frontends      []*Frontend `json:"frontends"`
-	DomainInfo     []Domain    `json:"domain_info"`
-	TweakHash      string      `json:"-"`
+	Labels         map[string]string `json:"-"`
+	Name           string            `json:"name"`
+	Address        string            `json:"address"`
+	BindAddress    string            `json:"bind_address"`
+	LoadBalancerID string            `json:"iaas_id"`
+	Type           string            `json:"type"`
+	Version        int               `json:"version"`
+	Frontends      []*Frontend       `json:"frontends"`
+	DomainInfo     []Domain          `json:"domain_info"`
+	TweakHash      string            `json:"-"`
 }
 
 func (lb *LoadBalancer) String() string {
@@ -76,6 +77,7 @@ type Certificate struct {
 }
 
 type Frontend struct {
+	Labels          map[string]string `json:"-"`
 	RawName         string            `json:"-"`
 	LoadBalancerID  string            `json:"load_balancer_id"`
 	Port            int               `json:"port"`
