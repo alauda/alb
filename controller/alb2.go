@@ -73,6 +73,7 @@ func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
 			Rules:           RuleList{},
 			CertificateName: aft.CertificateName,
 			BackendProtocol: aft.BackendProtocol,
+			Labels:          aft.Lables,
 		}
 		if ft.Protocol == "" {
 			ft.Protocol = ProtocolTCP
