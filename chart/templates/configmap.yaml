@@ -6,6 +6,13 @@ metadata:
   namespace: {{ .Values.global.namespace }}
 data:
   http: |
+    log_format  http  '[$time_local] $remote_addr "$host" "$request" '
+                      '$status $upstream_status $upstream_addr '
+                      '"$http_user_agent" "$http_x_forwarded_for" '
+                      '$request_time $upstream_response_time';
+    access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
+    rewrite_log on;
+
     # Show alb info to identify error response
     server_tokens off;
     more_set_headers 'Via: 1.1 alb/{{ .Chart.Version }}';
