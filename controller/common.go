@@ -161,7 +161,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		CertificateMap:   make(map[string]Certificate),
 		TweakHash:        loadbalancer.TweakHash,
 		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
-		EnableIPV6:       config.Get("ENABLE_IPV6") == "true",
+		EnableIPV6:       checkIPV6(),
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
 		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
 	}
@@ -494,4 +494,16 @@ func generatePatchPortProjectPayload(labels map[string]string, desiredProjects [
 
 	raw, _ := json.Marshal(newLabels)
 	return []byte(fmt.Sprintf(patchPayloadTemplate, "replace", raw))
+}
+
+func checkIPV6() bool {
+	if config.Get("ENABLE_IPV6") == "true" {
+		if _, err := os.Stat("/proc/net/if_inet6"); err != nil {
+			if os.IsNotExist(err) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
