@@ -8,9 +8,9 @@ metadata:
 spec:
   ports:
   - name: metrics
-    port: 1936
+    port: {{ .Values.metricsPort }}
     protocol: TCP
-    targetPort: 1936
+    targetPort: {{ .Values.metricsPort }}
   selector:
     service_name: alb2-{{ .Values.loadbalancerName }}
   sessionAffinity: None

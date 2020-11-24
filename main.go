@@ -77,10 +77,12 @@ func main() {
 		ingressController := ingress.NewController(drv, alb2Informer, ruleInformer, ingressInformer, namespaceLister)
 		go ingressController.Start(ctx)
 	}
-	go func() {
-		// for profiling
-		http.ListenAndServe(":1937", nil)
-	}()
+	if config.Get("ENABLE_PROFILE") == "true" {
+		go func() {
+			// for profiling
+			http.ListenAndServe(":1937", nil)
+		}()
+	}
 
 	if config.Get("LB_TYPE") == config.Nginx {
 		go rotateLog()

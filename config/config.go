@@ -60,6 +60,8 @@ var optionalFields = []string{
 	"SCENARIO",
 	"WORKER_LIMIT",
 	"RESYNC_PERIOD",
+	"ENABLE_PROFILE",
+	"METRICS_PORT",
 }
 
 var nginxRequiredFields = []string{
