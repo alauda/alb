@@ -526,7 +526,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode, vhost)
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, redirectURL, redirectCode, vhost, DefaultPriority)
 	if err != nil {
 		klog.Error(err)
 		return err

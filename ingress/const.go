@@ -53,4 +53,6 @@ var (
 
 	IngressHTTPPort  = config.GetInt("INGRESS_HTTP_PORT")
 	IngressHTTPSPort = config.GetInt("INGRESS_HTTPS_PORT")
+
+	DefaultPriority = 5
 )

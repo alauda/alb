@@ -205,14 +205,14 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			// desired projects
 			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
 			if err != nil {
-				klog.Errorf("get port %s desired projects failed, %v", ft.Port, err)
+				klog.Errorf("get port %d desired projects failed, %v", ft.Port, err)
 				goto OUT
 			}
 			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
 				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ft.RawName, types.JSONPatchType, payload); err != nil {
-					klog.Errorf("patch port %s project failed", ft.RawName, err)
+					klog.Errorf("patch port %s project failed, %v", ft.RawName, err)
 				}
 			}
 		}

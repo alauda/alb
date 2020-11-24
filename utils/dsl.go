@@ -200,7 +200,7 @@ func generateDSLX(exp []interface{}) (v1.DSLX, error) {
 			if currentOP != OP_OR {
 				return nil, ErrUnsupportedExp
 			}
-			rest := testSubExp[1:len(testSubExp)]
+			rest := testSubExp[1:]
 			var terms []v1.DSLXTerm
 			for _, i := range rest {
 				trueSubExp, err := cast.ToStringSliceE(i)
@@ -279,7 +279,7 @@ func DSLX2Internal(dslx v1.DSLX) ([]interface{}, error) {
 					return nil, errors.New("invalid dslx values")
 				}
 				var term = []string{val[0], dsl.Type}
-				rest := val[1:len(val)]
+				rest := val[1:]
 				if dsl.Key != "" {
 					term = append(term, dsl.Key)
 				}
