@@ -70,6 +70,8 @@ spec:
               value: "{{ .Values.workerLimit }}"
             - name: SCENARIO
               value: "{{ .Values.global.platformscenario }}"
+            - name: RESYNC_PERIOD
+              value: "{{ .Values.resyncPeriod }}"
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:
