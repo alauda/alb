@@ -40,7 +40,8 @@ type Policy struct {
 	URL             string        `json:"url"`
 	RewriteBase     string        `json:"rewrite_base"`
 	RewriteTarget   string        `json:"rewrite_target"`
-	Priority        int           `json:"priority"`
+	Priority        int           `json:"-"`
+	RawPriority     int           `json:"-"`
 	Subsystem       string        `json:"subsystem"`
 	EnableCORS      bool          `json:"enable_cors"`
 	BackendProtocol string        `json:"backend_protocol"`
@@ -57,9 +58,19 @@ type NgxPolicy struct {
 
 type Policies []*Policy
 
-func (p Policies) Len() int           { return len(p) }
-func (p Policies) Less(i, j int) bool { return p[i].Priority > p[j].Priority }
-func (p Policies) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p Policies) Len() int { return len(p) }
+
+func (p Policies) Less(i, j int) bool {
+	if p[i].RawPriority > p[j].RawPriority {
+		return false
+	}
+	if p[i].RawPriority < p[j].RawPriority {
+		return true
+	}
+	return p[i].Priority > p[j].Priority
+}
+
+func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func NewNginxController(kd *driver.KubernetesDriver) *NginxController {
 	return &NginxController{
@@ -123,6 +134,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 				}
 			}
 			policy.Priority = rule.GetPriority()
+			policy.RawPriority = rule.GetRawPriority()
 			policy.Upstream = rule.BackendGroup.Name
 			// for rewrite
 			policy.URL = rule.URL
@@ -140,6 +152,7 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 		defaultPolicy := Policy{}
 		// default rule should have the minimum priority
 		defaultPolicy.Priority = -1
+		defaultPolicy.RawPriority = 999 // minimum number means higher priority
 		if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
 			defaultPolicy.Subsystem = SubsystemHTTP
 		} else {

@@ -175,6 +175,10 @@ func (rl Rule) FillupDSL() {
 	}
 }
 
+func (rl Rule) GetRawPriority() int {
+	return rl.Priority
+}
+
 func (rl Rule) GetPriority() int {
 	var (
 		dslx v1.DSLX
