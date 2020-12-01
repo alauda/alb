@@ -40,9 +40,9 @@ http {
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
     server {
-        listen 1936;
+        listen {{.MetricsPort}};
         {{if $.EnableIPV6}}
-        listen [::]:1936;
+        listen [::]:{{.MetricsPort}};
         {{end}}
 
         access_log off;

@@ -22,7 +22,11 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
+                  {{ if eq (int .Values.metricsPort) 1936 }}
                   alb2.{{ .Values.global.labelBaseDomain }}/type: local
+                  {{ else }}
+                  alb2.{{ .Values.global.labelBaseDomain }}/type: system
+                  {{ end }}
               topologyKey: kubernetes.io/hostname
       tolerations:
         - operator: Exists
@@ -58,6 +62,8 @@ spec:
               value: "{{ .Values.enableHTTP2 }}"
             - name: SERVE_INGRESS
               value: "{{ .Values.enableIngress }}"
+            - name: ENABLE_PROFILE
+              value: "{{ .Values.enableProfile }}"
             - name: DEFAULT-SSL-CERTIFICATE
               value: "{{ .Values.defaultSSLCert }}"
             - name: DEFAULT-SSL-STRATEGY
@@ -72,6 +78,8 @@ spec:
               value: "{{ .Values.global.platformscenario }}"
             - name: RESYNC_PERIOD
               value: "{{ .Values.resyncPeriod }}"
+            - name: METRICS_PORT
+              value: "{{ .Values.metricsPort }}"
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:
@@ -99,7 +107,11 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
+        {{ if eq (int .Values.metricsPort) 1936 }}
         alb2.{{ .Values.global.labelBaseDomain }}/type: local
+        {{else}}
+        alb2.{{ .Values.global.labelBaseDomain }}/type: system
+        {{end}}
         service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
         service_name: alb2-{{ .Values.loadbalancerName }}
         {{ .Values.global.labelBaseDomain }}/product: "Platform-Center"

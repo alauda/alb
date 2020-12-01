@@ -241,6 +241,7 @@ type Config struct {
 	EnableIPV6       bool
 	EnableHTTP2      bool
 	CPUNum           string
+	MetricsPort      int
 }
 
 var (
