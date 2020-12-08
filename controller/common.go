@@ -165,6 +165,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
 		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
 		MetricsPort:      config.GetInt("METRICS_PORT"),
+		Backlog:          config.GetInt("BACKLOG"),
 	}
 	var listenTCPPorts []int
 	var err error

@@ -19,6 +19,7 @@ metricsPort: 1936
 enableProfile: false
 workerLimit: 8
 resyncPeriod: 1800
+backlog: 1024
 global:
   platformscenario: base
   labelBaseDomain: alauda.io

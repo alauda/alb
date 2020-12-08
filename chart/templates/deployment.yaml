@@ -80,6 +80,8 @@ spec:
               value: "{{ .Values.resyncPeriod }}"
             - name: METRICS_PORT
               value: "{{ .Values.metricsPort }}"
+            - name: BACKLOG
+              value: "{{ .Values.backlog }}"
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:

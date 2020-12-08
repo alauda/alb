@@ -1,9 +1,13 @@
 local ngx_var = ngx.var
+local ngx_ctx = ngx.ctx
 local ngx_log = ngx.log
 local ngx_say = ngx.say
 local ngx_exit = ngx.exit
 
+local resty_var = require("resty.ngxvar")
 local upstream = require "upstream"
+
+ngx_ctx.var_req = resty_var.request()
 
 local t_upstream, _, errmsg = upstream.get_upstream(ngx_var.server_port)
 if t_upstream ~= nil then
