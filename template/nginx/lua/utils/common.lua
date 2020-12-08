@@ -5,6 +5,15 @@ local string_sub = string.sub
 local getmetatable = getmetatable
 local pairs = pairs
 local table_insert = table.insert
+local error = error
+local ngx = ngx
+local sub = ngx.re.sub
+local ffi = require("ffi")
+local C = ffi.C
+
+ffi.cdef[[
+    int memcmp(const void *s1, const void *s2, size_t n);
+]]
 
 local _M = {}
 
@@ -154,6 +163,21 @@ function _M.split_upstream_var(var)
     end
   end
   return t
+end
+
+function _M.has_prefix(s, prefix)
+    if type(s) ~= "string" or type(prefix) ~= "string" then
+        error("unexpected type: s:" .. type(s) .. ", prefix:" .. type(prefix))
+    end
+    if #s < #prefix then
+        return false
+    end
+    local rc = C.memcmp(s, prefix, #prefix)
+    return rc == 0
+end
+
+function _M.trim(s, prefix)
+    return sub(s, "^" .. prefix, "", "jo")
 end
 
 return _M

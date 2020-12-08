@@ -6,7 +6,6 @@ local sticky_cookie = require "balancer.sticky_balanced"
 local ngx = ngx
 local ngx_log = ngx.log
 local ngx_var = ngx.var
-local ngx_exit = ngx.exit
 local ngx_config = ngx.config
 local ngx_shared = ngx.shared
 local string_format = string.format

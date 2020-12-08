@@ -10,11 +10,8 @@ local string_sub = string.sub
 local table_remove = table.remove
 local string_format = string.format
 local ip_util = require "utils.ip"
-local resty_var = require("resty.ngxvar")
-local ngx_ctx = ngx.ctx
+local ngx = ngx
 local ngx_re = ngx.re
-local ngx_var = ngx.var
-local ngx_req = ngx.req
 local _M = {}
 
 local bool_op = {
@@ -30,7 +27,7 @@ local single_matcher = {
 
 local function parse_single_matcher(matcher)
     if(matcher == "HOST") then
-        local host = resty_var.fetch("host", ngx_ctx.var_req)
+        local host = ngx.ctx.alb_ctx.host
         -- https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.23
         -- client will add port to host if is not a default port
         local s = string_find(host, ":")
@@ -39,14 +36,13 @@ local function parse_single_matcher(matcher)
         end
         return host
     elseif(matcher == "URL") then
-        return resty_var.fetch("uri", ngx_ctx.var_req)
+        return ngx.ctx.alb_ctx.uri
     elseif(matcher == "SRC_IP") then
-        local h = ngx_req.get_headers()
-        local x_real_ip = h['x-real-ip']
+        local x_real_ip = ngx.ctx.alb_ctx["http_" .. "x-real-ip"]
         if x_real_ip then
           return x_real_ip
         end
-        local x_forwarded_for = h['x-forwarded-for']
+        local x_forwarded_for = ngx.ctx.alb_ctx["http_" .. "x-forwarded-for"]
         if x_forwarded_for then
           -- X-Forwarded-For: client, proxy1, proxy2
           local idx = string_find(x_forwarded_for, ",", 1, true)
@@ -56,7 +52,7 @@ local function parse_single_matcher(matcher)
             return x_forwarded_for
           end
         end
-        return resty_var.fetch("remote_addr", ngx_ctx.var_req)
+        return ngx.ctx.alb_ctx.remote_addr
     else
         return nil
     end
@@ -68,28 +64,15 @@ local dual_matcher = {
     COOKIE  = "COOKIE",
 }
 
-local function transform_hyphen(key)
-    if string_find(key, "-", 1, true) then
-        -- string.gsub cannot be JIT, use ngx.re.gsub
-        local newstr, _, _ = ngx_re.gsub(key, "-", "_")
-        return newstr
-    else
-        return key
-    end
-end
-
-
 local function parse_dual_matcher(matcher, key)
     if(matcher == "HEADER") then
-        return ngx_var["http_" .. transform_hyphen(key)]
+        return ngx.ctx.alb_ctx["http_" .. key]
     elseif(matcher == "PARAM") then
-        return ngx_req.get_uri_args()[key]
+        return ngx.ctx.alb_ctx["param_" .. key]
     elseif(matcher == "COOKIE") then
-        local cookie_name = "cookie_" .. key
-        return ngx_var[cookie_name]
-    else
-        return nil
+        return ngx.ctx.alb_ctx["cookie_" .. key]
     end
+    return nil
 end
 
 -- split args to matcher that to apply operation and args that left
