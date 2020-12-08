@@ -76,7 +76,8 @@ func (c *Controller) Start(ctx context.Context) {
 			return
 		}
 		rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
-			fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")): "ingress",
+			fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")):     "ingress",
+			fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
 		}))
 		if err != nil {
 			return
