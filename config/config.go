@@ -62,6 +62,7 @@ var optionalFields = []string{
 	"RESYNC_PERIOD",
 	"ENABLE_PROFILE",
 	"METRICS_PORT",
+	"BACKLOG",
 }
 
 var nginxRequiredFields = []string{

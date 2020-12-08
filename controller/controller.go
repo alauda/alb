@@ -242,6 +242,7 @@ type Config struct {
 	EnableHTTP2      bool
 	CPUNum           string
 	MetricsPort      int
+	Backlog          int
 }
 
 var (

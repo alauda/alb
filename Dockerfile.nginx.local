@@ -8,7 +8,7 @@ RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
 
-FROM halfcrazy/alb-nginx:832559bb84f22b423fd46b0536afac0f0215e89d
+FROM halfcrazy/alb-nginx:a373ec334b70b87c53b18604eb3914f70b4cf377
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new

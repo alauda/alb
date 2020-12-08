@@ -10,6 +10,8 @@ local string_sub = string.sub
 local table_remove = table.remove
 local string_format = string.format
 local ip_util = require "utils.ip"
+local resty_var = require("resty.ngxvar")
+local ngx_ctx = ngx.ctx
 local ngx_re = ngx.re
 local ngx_var = ngx.var
 local ngx_req = ngx.req
@@ -28,7 +30,7 @@ local single_matcher = {
 
 local function parse_single_matcher(matcher)
     if(matcher == "HOST") then
-        local host = ngx_var.host
+        local host = resty_var.fetch("host", ngx_ctx.var_req)
         -- https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.23
         -- client will add port to host if is not a default port
         local s = string_find(host, ":")
@@ -37,7 +39,7 @@ local function parse_single_matcher(matcher)
         end
         return host
     elseif(matcher == "URL") then
-        return ngx_var.uri
+        return resty_var.fetch("uri", ngx_ctx.var_req)
     elseif(matcher == "SRC_IP") then
         local h = ngx_req.get_headers()
         local x_real_ip = h['x-real-ip']
@@ -54,7 +56,7 @@ local function parse_single_matcher(matcher)
             return x_forwarded_for
           end
         end
-        return ngx_var.remote_addr
+        return resty_var.fetch("remote_addr", ngx_ctx.var_req)
     else
         return nil
     end

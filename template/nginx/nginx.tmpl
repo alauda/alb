@@ -67,9 +67,9 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "http"}}
     server {
-        listen      {{$port}} default_server;
+        listen      {{$port}} backlog={{$.Backlog}} default_server;
         {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} default_server;
+        listen      [::]:{{$port}} backlog={{$.Backlog}} default_server;
         {{end}}
         server_name _;
 
@@ -97,9 +97,9 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
-        listen      {{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }};
+        listen      {{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }} backlog={{$.Backlog}};
         {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }};
+        listen      [::]:{{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }} backlog={{$.Backlog}};
         {{end}}
         server_name _;
 

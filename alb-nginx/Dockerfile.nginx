@@ -8,6 +8,7 @@ LABEL maintainer="Evan Wies <evan@neomantra.net>"
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
 
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
+ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
 ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_IMAGE_TAG="3.12"
 ARG RESTY_VERSION="1.19.3.1"
@@ -48,12 +49,13 @@ ARG RESTY_CONFIG_OPTIONS="\
     --build=ALB \
     "
 
-ARG RESTY_CONFIG_OPTIONS_MORE=""
+ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}"
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
 ARG RESTY_ADD_PACKAGE_RUNDEPS=""
-ARG RESTY_EVAL_PRE_CONFIGURE=""
+ARG RESTY_EVAL_PRE_CONFIGURE="curl -fSL https://github.com/api7/lua-var-nginx-module/archive/v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz -o lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz \
+    && tar xzf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz && rm -rf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
 ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm \
     && ln -s /usr/local/openresty/bin/resty /usr/local/bin/resty \
     && opm install thibaultcha/lua-resty-mlcache \
@@ -61,7 +63,9 @@ ARG RESTY_EVAL_POST_MAKE="ln -s /usr/local/openresty/bin/opm /usr/local/bin/opm 
     && curl -fSL https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz -o lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
     && tar xzf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz && rm -rf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz \
     && cd lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION} \
-    && make && make install && cd -"
+    && make && make install && cd - \
+    && cd lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION} \
+    && cp -r lib/resty/* /usr/local/openresty/lualib/resty && cd -"
 
 # These are not intended to be user-specified
 ARG _RESTY_CONFIG_DEPS="--with-pcre \

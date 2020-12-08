@@ -1,12 +1,17 @@
 local string_lower = string.lower
 local ngx_var = ngx.var
+local ngx_ctx = ngx.ctx
 local ngx_header = ngx.header
 local ngx_re = ngx.re
 local ngx_req = ngx.req
 local ngx_log = ngx.log
 local ngx_exit = ngx.exit
 local ngx_redirect = ngx.redirect
+
+local resty_var = require("resty.ngxvar")
 local upstream = require "upstream"
+
+ngx_ctx.var_req = resty_var.request()
 
 local t_upstream, matched_policy, errmsg = upstream.get_upstream(ngx_var.server_port)
 if t_upstream ~= nil then
