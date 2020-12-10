@@ -10,7 +10,7 @@ function _M.new(self, backend)
     instance = self.factory:new(nodes),
   }
   if backend["session_affinity_policy"] == "sip-hash" then
-    o.hash_by = "remote_addr"
+    o.hash_by = "$remote_addr"
   end
   setmetatable(o, self)
   self.__index = self
