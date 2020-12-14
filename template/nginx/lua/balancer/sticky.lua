@@ -1,6 +1,5 @@
 local balancer_resty = require("balancer.resty")
 local ck = require("resty.cookie")
-local ngx_balancer = require("ngx.balancer")
 local ngx = ngx
 local common = require("utils.common")
 

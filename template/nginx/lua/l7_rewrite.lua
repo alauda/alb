@@ -1,17 +1,16 @@
 local string_lower = string.lower
+local ngx = ngx
 local ngx_var = ngx.var
-local ngx_ctx = ngx.ctx
 local ngx_header = ngx.header
 local ngx_re = ngx.re
-local ngx_req = ngx.req
 local ngx_log = ngx.log
 local ngx_exit = ngx.exit
 local ngx_redirect = ngx.redirect
 
-local resty_var = require("resty.ngxvar")
 local upstream = require "upstream"
+local var_proxy = require "var_proxy"
 
-ngx_ctx.var_req = resty_var.request()
+ngx.ctx.alb_ctx = var_proxy.new()
 
 local t_upstream, matched_policy, errmsg = upstream.get_upstream(ngx_var.server_port)
 if t_upstream ~= nil then
@@ -26,7 +25,7 @@ if matched_policy ~= nil then
   ngx_var.rule_name = matched_policy["rule"]
   local enable_cors = matched_policy["enable_cors"]
   if enable_cors == true then
-    if ngx_req.get_method() == 'OPTIONS' then
+    if ngx.ctx.alb_ctx.method == 'OPTIONS' then
       ngx_header['Access-Control-Allow-Origin'] = '*'
       ngx_header['Access-Control-Allow-Credentials'] = 'true'
       ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
@@ -59,8 +58,8 @@ if matched_policy ~= nil then
     if policy_url == "" then
       policy_url = "/"
     end
-    local new_uri = ngx_re.sub(ngx_var.uri, policy_url, rewrite_target, "jo")
-    ngx_req.set_uri(new_uri, false)
+    local new_uri = ngx_re.sub(ngx_ctx.alb_ctx.uri, policy_url, rewrite_target, "jo")
+    ngx.req.set_uri(new_uri, false)
   end
 elseif errmsg ~= nil then
   ngx_log(ngx.ERR, errmsg)
