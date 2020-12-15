@@ -27,6 +27,9 @@ if [ "$LB_TYPE" = "nginx" ]; then
 
     # improve keep-alive performance by not slow start tcp windows
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0
+
+    # disable coredump
+    ulimit -c 0
 fi
 
 
