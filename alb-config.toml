@@ -4,6 +4,7 @@ SCHEDULER = "kubernetes"
 KUBERNETES_TIMEOUT = 30
 INTERVAL = 10
 CERTIFICATE_DIRECTORY = "/alb/certificates"
+TWEAK_DIRECTORY = "/alb/tweak/"
 RECORD_POST_BODY = false
 USE_ENDPOINT = true
 USE_POD_HOST_IP = true
