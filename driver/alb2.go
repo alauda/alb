@@ -11,6 +11,7 @@ import (
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
+	"alauda.io/alb2/utils/dirhash"
 	"github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -191,12 +192,14 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	alb2.UID = alb2Res.UID
 	alb2.Spec = alb2Res.Spec
 	alb2.Labels = alb2Res.Labels
-	cm, err := kd.LoadConfigmap(namespace, name)
+
+	// NOTE: calculate hash by tweak dir
+	hash, err := dirhash.HashDir(config.Get("TWEAK_DIRECTORY"), ".conf", dirhash.DefaultHash)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
-	alb2.TweakHash = cm.ResourceVersion
+	alb2.TweakHash = hash
 
 	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
