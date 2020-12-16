@@ -30,13 +30,6 @@ spec:
               topologyKey: kubernetes.io/hostname
       tolerations:
         - operator: Exists
-          effect: NoSchedule
-          key: node-role.kubernetes.io/master
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - key: node.kubernetes.io/unschedulable
-          operator: Exists
-          effect: NoSchedule
       containers:
         - securityContext:
             privileged: true
