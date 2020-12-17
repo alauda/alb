@@ -39,6 +39,7 @@ http {
     }
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
+    {{if eq $.Phase "running"}}
     server {
         listen {{.MetricsPort}};
         {{if $.EnableIPV6}}
@@ -63,6 +64,7 @@ http {
             client_max_body_size 10m;
         }
     }
+    {{end}}
 
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "http"}}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"alauda.io/alb2/modules"
 	"crypto/md5"
 	"crypto/tls"
 	"encoding/hex"
@@ -166,6 +167,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
 		MetricsPort:      config.GetInt("METRICS_PORT"),
 		Backlog:          config.GetInt("BACKLOG"),
+		Phase:            config.Get("PHASE"),
 	}
 	var listenTCPPorts []int
 	var err error
@@ -272,6 +274,10 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		result.Frontends[ft.Port] = ft
 		sort.Sort(result.BackendGroup)
 	} // end of  _, ft := range loadbalancer.Frontends
+
+	if len(result.Frontends) > 0 {
+		result.Phase = modules.PhaseRunning
+	}
 
 	return result
 }

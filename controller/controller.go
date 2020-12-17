@@ -243,6 +243,7 @@ type Config struct {
 	CPUNum           string
 	MetricsPort      int
 	Backlog          int
+	Phase            string
 }
 
 var (

@@ -2,6 +2,7 @@ package main
 
 import (
 	"alauda.io/alb2/driver"
+	"alauda.io/alb2/modules"
 	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	"context"
 	"flag"
@@ -11,6 +12,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"k8s.io/klog"
@@ -25,6 +28,21 @@ func main() {
 	flag.Parse()
 	defer klog.Flush()
 	klog.Info("ALB start.")
+	config.Set("PHASE", modules.PhaseStarting)
+
+	sigs := make(chan os.Signal, 1)
+	// register a signal notifier for SIGTERM
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		if sig == syscall.SIGINT {
+			klog.Info("receive SIGINT, shutting down")
+			os.Exit(0)
+		} else {
+			klog.Info("receive SIGTERM preparing for terminating")
+			config.Set("PHASE", modules.PhaseTerminating)
+		}
+	}()
 
 	err := config.ValidateConfig()
 	if err != nil {
