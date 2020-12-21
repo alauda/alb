@@ -26,6 +26,7 @@ AlaudaPipeline {
             lang: 'go',
             scanMod: 1,
             customOpts: '',
+            disableOnPR: true,
         ],
     ]
     env = [
