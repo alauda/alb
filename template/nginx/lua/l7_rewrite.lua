@@ -58,7 +58,7 @@ if matched_policy ~= nil then
     if policy_url == "" then
       policy_url = "/"
     end
-    local new_uri = ngx_re.sub(ngx_ctx.alb_ctx.uri, policy_url, rewrite_target, "jo")
+    local new_uri = ngx_re.sub(ngx.ctx.alb_ctx.uri, policy_url, rewrite_target, "jo")
     ngx.req.set_uri(new_uri, false)
   end
 elseif errmsg ~= nil then
