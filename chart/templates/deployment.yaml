@@ -85,6 +85,15 @@ spec:
           volumeMounts:
           - name: tweak-conf
             mountPath: /alb/tweak/
+          - name: shared-data
+            mountPath: /var/log/nginx
+        - name: log-sidecar
+          image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alpine.repository }}:{{ .Values.global.images.alpine.tag }}"
+          volumeMounts:
+          - name: shared-data
+            mountPath: /var/log/nginx
+          command: [ "/usr/bin/tail", "-F", "/var/log/nginx/access.log" ]
+
       volumes:
       - name: tweak-conf
         configMap:
@@ -98,6 +107,8 @@ spec:
             path: upstream.conf
           - key: stream
             path: stream.conf
+      - name: shared-data
+        emptyDir: { }
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
