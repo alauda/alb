@@ -574,7 +574,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		return err
 	}
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
-	defaultSSLCert := config.Get("DEFAULT-SSL-CERTIFICATE")
+	defaultSSLCert := strings.ReplaceAll(config.Get("DEFAULT-SSL-CERTIFICATE"), "/", "_")
 	ingSSLStrategy := ingress.Annotations[ALBSSLStrategyAnnotation]
 	sslMap := parseSSLAnnotation(ingress.Annotations[ALBSSLAnnotation])
 	certs := make(map[string]string)
