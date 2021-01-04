@@ -32,6 +32,11 @@ global:
       support_arm: true
       repository: acp/alb2
       tag: v3.0.4
+    alpine:
+      repository: 3rdparty/alpine
+      tag: 3.12
+      code: ""
+      support_arm: true
 resources:
   limits:
     cpu: "2"
