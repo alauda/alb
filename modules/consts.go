@@ -16,3 +16,9 @@ const (
 const (
 	ProjectALL = "ALL_ALL"
 )
+
+const (
+	PhaseStarting    = "starting"
+	PhaseRunning     = "running"
+	PhaseTerminating = "terminating"
+)

@@ -80,6 +80,12 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           imagePullPolicy: Always
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.metricsPort }}
+            initialDelaySeconds: 6
+            periodSeconds: 1
           resources:
 {{ toYaml .Values.resources | indent 12 }}
           volumeMounts:
