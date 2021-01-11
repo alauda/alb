@@ -70,9 +70,12 @@ func (c *Controller) Start(ctx context.Context) {
 	})
 
 	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
+	klog.Infof("start periodicity sync with period: %s", resyncPeriod)
 	go wait.Forever(func() {
+		klog.Info("doing a periodicity sync")
 		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 		if err != nil || !isLeader {
+			klog.Warningf("not leader, skip periodicity sync")
 			return
 		}
 		rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
@@ -80,6 +83,7 @@ func (c *Controller) Start(ctx context.Context) {
 			fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
 		}))
 		if err != nil {
+			klog.Warningf("failed list rules: %v", err)
 			return
 		}
 		processedIngress := make(map[string]bool)
@@ -93,6 +97,7 @@ func (c *Controller) Start(ctx context.Context) {
 		}
 		ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
 		if err != nil {
+			klog.Warningf("failed list ingress: %v", err)
 			return
 		}
 		for _, ing := range ings {
@@ -102,6 +107,7 @@ func (c *Controller) Start(ctx context.Context) {
 				}
 			}
 		}
+		klog.Info("finish a periodicity sync")
 	}, resyncPeriod)
 
 	if err := c.Run(1, ctx.Done()); err != nil {
