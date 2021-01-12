@@ -8,6 +8,9 @@ import (
 
 func parseSSLAnnotation(sslAnno string) map[string]string {
 	// alb.networking.{domain}/tls: qq.com=cpaas-system/dex.tls,qq1.com=cpaas-system/dex1.tls
+	if sslAnno == "" {
+		return nil
+	}
 	rv := make(map[string]string)
 	parts := strings.Split(sslAnno, ",")
 	for _, p := range parts {
