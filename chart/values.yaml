@@ -47,3 +47,4 @@ resources:
 project: ""
 projects: []
 displayName: ""
+antiAffinityKey: "local"

@@ -22,11 +22,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  {{ if eq (int .Values.metricsPort) 1936 }}
-                  alb2.{{ .Values.global.labelBaseDomain }}/type: local
-                  {{ else }}
-                  alb2.{{ .Values.global.labelBaseDomain }}/type: system
-                  {{ end }}
+                  alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.global.antiAffinityKey }}
               topologyKey: kubernetes.io/hostname
       tolerations:
         - operator: Exists
@@ -119,11 +115,7 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        {{ if eq (int .Values.metricsPort) 1936 }}
-        alb2.{{ .Values.global.labelBaseDomain }}/type: local
-        {{else}}
-        alb2.{{ .Values.global.labelBaseDomain }}/type: system
-        {{end}}
+        alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.global.antiAffinityKey }}
         service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
         service_name: alb2-{{ .Values.loadbalancerName }}
         {{ .Values.global.labelBaseDomain }}/product: "Platform-Center"
