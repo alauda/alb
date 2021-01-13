@@ -84,6 +84,7 @@ http {
 
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
 
             {{if $.EnablePrometheus}}
             log_by_lua_block {
@@ -120,6 +121,8 @@ http {
 
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+
             {{if $.EnablePrometheus}}
             log_by_lua_block {
                 require("metrics").log()
