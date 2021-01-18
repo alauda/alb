@@ -18,7 +18,7 @@ AlaudaPipeline {
         ],
         sonar: [
             binding: "sonarqube",
-            enabled: false,
+            enabled: true,
         ],
         sec: [
             enabled: true,
