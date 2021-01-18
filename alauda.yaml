@@ -1,23 +1,32 @@
 steps:
-- name: Docker and Sonar
-  parallel:
-    - name: Code Scan
-      container: tools
-      groovy:
-        - |+
-          deploy.scan().startACPSonar(null, "-D sonar.projectVersion=${env.VERSION}")
-    - name: ALB2 Image
-      container: tools
-      groovy:
-        - |+
-          def image = deploy.dockerBuildWithRegister(
-            dockerfile: "Dockerfile.nginx.local",
-            context: ".",
-            address: "acp/alb2",
-            tag: env.VERSION,
-            disableArmBuildOnPR: true
-          ).setArg("commit_id", env.COMMIT_ID).setArg("app_version", env.VERSION)
-          image.start().push()
+- name: Unit test
+  container: "golang"
+  groovy:
+  - |+
+    try {
+      sh script: "make test", label: "unit tests..."
+    } finally {
+      junit allowEmptyResults: true, testResults: 'pkg/**/*.xml'
+    }
+
+- name: Code Scan
+  container: tools
+  groovy:
+    - |+
+      deploy.scan().startACPSonar(null, "-D sonar.projectVersion=${env.VERSION}")
+
+- name: ALB2 Image
+  container: tools
+  groovy:
+    - |+
+      def image = deploy.dockerBuildWithRegister(
+        dockerfile: "Dockerfile.nginx.local",
+        context: ".",
+        address: "acp/alb2",
+        tag: env.VERSION,
+        disableArmBuildOnPR: true
+      ).setArg("commit_id", env.COMMIT_ID).setArg("app_version", env.VERSION)
+      image.start().push()
 
 - name: Update chart
   container: "devops"
