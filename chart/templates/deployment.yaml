@@ -22,7 +22,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.global.antiAffinityKey }}
+                  alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.antiAffinityKey }}
               topologyKey: kubernetes.io/hostname
       tolerations:
         - operator: Exists
@@ -115,7 +115,7 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.global.antiAffinityKey }}
+        alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.antiAffinityKey }}
         service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
         service_name: alb2-{{ .Values.loadbalancerName }}
         {{ .Values.global.labelBaseDomain }}/product: "Platform-Center"
