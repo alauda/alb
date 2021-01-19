@@ -31,7 +31,6 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/fatih/set"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -70,9 +69,12 @@ func (c *Controller) Start(ctx context.Context) {
 	})
 
 	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
+	klog.Infof("start periodicity sync with period: %s", resyncPeriod)
 	go wait.Forever(func() {
+		klog.Info("doing a periodicity sync")
 		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 		if err != nil || !isLeader {
+			klog.Warningf("not leader, skip periodicity sync")
 			return
 		}
 		rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
@@ -80,28 +82,47 @@ func (c *Controller) Start(ctx context.Context) {
 			fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
 		}))
 		if err != nil {
+			klog.Warningf("failed list rules: %v", err)
 			return
 		}
-		processedIngress := make(map[string]bool)
+		httpProcessedIngress := make(map[string]bool)
+		httpsProcessedIngress := make(map[string]bool)
 		for _, rl := range rules {
 			ingKey := rl.Labels[fmt.Sprintf("alb2.%s/source-name", config.Get("DOMAIN"))]
+			var proto string
+			if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPPort)) {
+				proto = m.ProtoHTTP
+			} else if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPSPort)) {
+				proto = m.ProtoHTTPS
+			}
 			if ingKey != "" {
 				ns := ingKey[strings.LastIndex(ingKey, ".")+1:]
 				name := ingKey[:strings.LastIndex(ingKey, ".")]
-				processedIngress[ns+"/"+name] = true
+				if proto == m.ProtoHTTP {
+					httpProcessedIngress[ns+"/"+name] = true
+				} else if proto == m.ProtoHTTPS {
+					httpsProcessedIngress[ns+"/"+name] = true
+				}
 			}
 		}
 		ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
 		if err != nil {
+			klog.Warningf("failed list ingress: %v", err)
 			return
 		}
 		for _, ing := range ings {
-			if !processedIngress[ing.Namespace+"/"+ing.Name] {
+			needFtTypes := getIngressFtTypes(ing)
+			if needFtTypes.Has(m.ProtoHTTP) && !httpProcessedIngress[ing.Namespace+"/"+ing.Name] {
+				if c.needEnqueueObject(ing) {
+					c.enqueue(ing)
+				}
+			} else if needFtTypes.Has(m.ProtoHTTP) && !httpsProcessedIngress[ing.Namespace+"/"+ing.Name] {
 				if c.needEnqueueObject(ing) {
 					c.enqueue(ing)
 				}
 			}
 		}
+		klog.Info("finish a periodicity sync")
 	}, resyncPeriod)
 
 	if err := c.Run(1, ctx.Done()); err != nil {
@@ -573,9 +594,8 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		klog.Error(err)
 		return err
 	}
-	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
+
 	defaultSSLCert := strings.ReplaceAll(config.Get("DEFAULT-SSL-CERTIFICATE"), "/", "_")
-	ingSSLStrategy := ingress.Annotations[ALBSSLStrategyAnnotation]
 	sslMap := parseSSLAnnotation(ingress.Annotations[ALBSSLAnnotation])
 	certs := make(map[string]string)
 	for host, cert := range sslMap {
@@ -584,35 +604,8 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		}
 	}
 
-	var httpFt *m.Frontend
-	var httpsFt *m.Frontend
-	needFtTypes := set.New(set.NonThreadSafe)
-	for _, r := range ingress.Spec.Rules {
-		foundTLS := false
-		for _, tls := range ingress.Spec.TLS {
-			for _, host := range tls.Hosts {
-				if strings.ToLower(r.Host) == strings.ToLower(host) {
-					needFtTypes.Add(m.ProtoHTTPS)
-					foundTLS = true
-				}
-			}
-		}
-		if certs[strings.ToLower(r.Host)] != "" {
-			needFtTypes.Add(m.ProtoHTTPS)
-			foundTLS = true
-		}
-		if foundTLS == false {
-			if defaultSSLStrategy == BothSSLStrategy && ingSSLStrategy != "false" {
-				needFtTypes.Add(m.ProtoHTTPS)
-				needFtTypes.Add(m.ProtoHTTP)
-			} else if (defaultSSLStrategy == AlwaysSSLStrategy && ingSSLStrategy != "false") ||
-				(defaultSSLStrategy == RequestSSLStrategy && ingSSLStrategy == "true") {
-				needFtTypes.Add(m.ProtoHTTPS)
-			} else {
-				needFtTypes.Add(m.ProtoHTTP)
-			}
-		}
-	}
+	needFtTypes := getIngressFtTypes(ingress)
+
 	// default backend we will not create rules but save service to frontend's servicegroup
 	isDefaultBackend := isDefaultBackend(ingress)
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
@@ -620,6 +613,8 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 		needFtTypes.Add(m.ProtoHTTP)
 	}
 	klog.Infof("needFtTypes, %s", needFtTypes.String())
+	var httpFt *m.Frontend
+	var httpsFt *m.Frontend
 	for _, f := range alb.Frontends {
 		if needFtTypes.Has(m.ProtoHTTP) && f.Port == IngressHTTPPort {
 			httpFt = f
@@ -724,6 +719,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 							host,
 							p.Path,
 						)
+						return err
 					} else {
 						klog.Infof(
 							"Update %s rule success for ingress %s/%s with host=%s, path=%s",
