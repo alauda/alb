@@ -116,7 +116,7 @@ func (c *Controller) Start(ctx context.Context) {
 				if c.needEnqueueObject(ing) {
 					c.enqueue(ing)
 				}
-			} else if needFtTypes.Has(m.ProtoHTTP) && !httpsProcessedIngress[ing.Namespace+"/"+ing.Name] {
+			} else if needFtTypes.Has(m.ProtoHTTPS) && !httpsProcessedIngress[ing.Namespace+"/"+ing.Name] {
 				if c.needEnqueueObject(ing) {
 					c.enqueue(ing)
 				}
