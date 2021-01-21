@@ -96,12 +96,19 @@ func (c *Controller) Start(ctx context.Context) {
 				proto = m.ProtoHTTPS
 			}
 			if ingKey != "" {
-				ns := ingKey[strings.LastIndex(ingKey, ".")+1:]
-				name := ingKey[:strings.LastIndex(ingKey, ".")]
-				if proto == m.ProtoHTTP {
-					httpProcessedIngress[ns+"/"+name] = true
-				} else if proto == m.ProtoHTTPS {
-					httpsProcessedIngress[ns+"/"+name] = true
+				ingNs := ingKey[strings.LastIndex(ingKey, ".")+1:]
+				ingName := ingKey[:strings.LastIndex(ingKey, ".")]
+				if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
+					if errors.IsNotFound(err) {
+						klog.Info("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
+						c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(rl.Name, &metav1.DeleteOptions{})
+					}
+				} else {
+					if proto == m.ProtoHTTP {
+						httpProcessedIngress[ingNs+"/"+ingName] = true
+					} else if proto == m.ProtoHTTPS {
+						httpsProcessedIngress[ingNs+"/"+ingName] = true
+					}
 				}
 			}
 		}
@@ -187,7 +194,11 @@ func NewController(
 	klog.Info("Setting up event handlers")
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
+		AddFunc: func(obj interface{}) {
+			newIngress := obj.(*networkingv1beta1.Ingress)
+			klog.Info("receive ingress %s/%s create event", newIngress.Namespace, newIngress.Name)
+			controller.handleObject(obj)
+		},
 		UpdateFunc: func(old, new interface{}) {
 			newIngress := new.(*networkingv1beta1.Ingress)
 			oldIngress := old.(*networkingv1beta1.Ingress)
@@ -197,9 +208,14 @@ func NewController(
 			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
 				return
 			}
+			klog.Info("receive ingress %s/%s update event", newIngress.Namespace, newIngress.Name)
 			controller.handleObject(new)
 		},
-		DeleteFunc: controller.handleObject,
+		DeleteFunc: func(obj interface{}) {
+			oldIngress := obj.(*networkingv1beta1.Ingress)
+			klog.Info("receive ingress %s/%s delete event", oldIngress.Namespace, oldIngress.Name)
+			controller.handleObject(obj)
+		},
 	})
 	alb2Informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
