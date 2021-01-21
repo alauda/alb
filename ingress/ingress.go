@@ -100,7 +100,7 @@ func (c *Controller) Start(ctx context.Context) {
 				ingName := ingKey[:strings.LastIndex(ingKey, ".")]
 				if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
 					if errors.IsNotFound(err) {
-						klog.Info("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
+						klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
 						c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(rl.Name, &metav1.DeleteOptions{})
 					}
 				} else {
@@ -196,7 +196,7 @@ func NewController(
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newIngress := obj.(*networkingv1beta1.Ingress)
-			klog.Info("receive ingress %s/%s create event", newIngress.Namespace, newIngress.Name)
+			klog.Infof("receive ingress %s/%s create event", newIngress.Namespace, newIngress.Name)
 			controller.handleObject(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
@@ -208,12 +208,12 @@ func NewController(
 			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
 				return
 			}
-			klog.Info("receive ingress %s/%s update event", newIngress.Namespace, newIngress.Name)
+			klog.Infof("receive ingress %s/%s update event", newIngress.Namespace, newIngress.Name)
 			controller.handleObject(new)
 		},
 		DeleteFunc: func(obj interface{}) {
 			oldIngress := obj.(*networkingv1beta1.Ingress)
-			klog.Info("receive ingress %s/%s delete event", oldIngress.Namespace, oldIngress.Name)
+			klog.Infof("receive ingress %s/%s delete event", oldIngress.Namespace, oldIngress.Name)
 			controller.handleObject(obj)
 		},
 	})
