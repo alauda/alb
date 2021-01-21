@@ -17,6 +17,7 @@ if t_upstream ~= nil then
   ngx_var.upstream = t_upstream
 end
 if matched_policy ~= nil then
+  ngx.ctx.matched_policy = matched_policy
   local redirect_url = matched_policy["redirect_url"]
   local redirect_code = matched_policy["redirect_code"]
   if redirect_url ~= "" then
@@ -34,11 +35,6 @@ if matched_policy ~= nil then
       ngx_header['Content-Type'] = 'text/plain charset=UTF-8'
       ngx_header['Content-Length'] = '0'
       ngx_exit(ngx.HTTP_NO_CONTENT)
-    else
-      ngx_header['Access-Control-Allow-Origin']= '*'
-      ngx_header['Access-Control-Allow-Credentials'] = 'true'
-      ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
-      ngx_header['Access-Control-Allow-Headers'] = 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization'
     end
   end
   local backend_protocol = matched_policy["backend_protocol"]
