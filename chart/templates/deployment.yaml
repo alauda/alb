@@ -49,6 +49,8 @@ spec:
               value: "{{ .Values.enableIPV6 }}"
             - name: ENABLE_HTTP2
               value: "{{ .Values.enableHTTP2 }}"
+            - name: ENABLE_GZIP
+              value: "{{ .Values.enableGzip }}"
             - name: SERVE_INGRESS
               value: "{{ .Values.enableIngress }}"
             - name: ENABLE_PROFILE

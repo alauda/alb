@@ -228,24 +228,6 @@ func (bgs BackendGroups) Less(i, j int) bool {
 	return bgs[i].Name > bgs[j].Name
 }
 
-type Config struct {
-	Name             string
-	Address          string
-	BindAddress      string
-	LoadBalancerID   string
-	Frontends        map[int]*Frontend
-	BackendGroup     BackendGroups
-	CertificateMap   map[string]Certificate
-	TweakHash        string
-	EnablePrometheus bool
-	EnableIPV6       bool
-	EnableHTTP2      bool
-	CPUNum           string
-	MetricsPort      int
-	Backlog          int
-	Phase            string
-}
-
 var (
 	//ErrStandAlone will be return if do something that not allowed in stand mode
 	ErrStandAlone = errors.New("operation is not allowed in stand alone mode")

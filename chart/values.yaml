@@ -7,10 +7,13 @@ replicas: 3
 enableGC: "false"
 enablePrometheus: "true"
 enablePortprobe: "true"
+enablePortProject: false
+
 enableIPV6: "true"
 enableHTTP2: "true"
 enableIngress: "true"
-enablePortProject: false
+enableGzip: "true"
+
 defaultSSLCert: ""
 defaultSSLStrategy: Never
 ingressHTTPPort: 80
