@@ -1,9 +1,7 @@
 user  nginx;
 worker_rlimit_nofile 100000;
 worker_processes     {{.CPUNum}};
-{{if eq $.CPUNum "auto"}}
 worker_cpu_affinity  auto;
-{{end}}
 
 error_log  /var/log/nginx/error.log notice;
 pid        /var/run/nginx.pid;
