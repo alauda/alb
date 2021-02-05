@@ -34,7 +34,7 @@ end
 -- @ret: errmsg
 function _M.get_upstream(port)
     local upstream = "default"
-    cache.rule_cache:update()
+    cache.rule_cache:update(0.1)
     local policies, err = cache.rule_cache:get(port, nil, get_port_policies, port)
     if err then
         ngx.log(ngx.ERR, "get mlcache failed, " .. err)

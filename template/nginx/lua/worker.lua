@@ -16,6 +16,12 @@ local ngx_worker = ngx.worker
 local ngx_config = ngx.config
 
 local subsystem = ngx_config.subsystem
+if subsystem == "http" then
+    require "init_l7"
+else
+    require "init_l4"
+end
+
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")

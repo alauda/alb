@@ -27,7 +27,6 @@ http {
 
     init_by_lua_block {
             require "resty.core"
-            require "init_l7"
             ok, res = pcall(require, "balancer")
             if not ok then
               error("require failed: " .. tostring(res))
@@ -150,7 +149,6 @@ stream {
 
     init_by_lua_block {
             require "resty.core"
-            require "init_l4"
             ok, res = pcall(require, "balancer")
             if not ok then
               error("require failed: " .. tostring(res))
