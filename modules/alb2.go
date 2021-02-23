@@ -72,7 +72,7 @@ func RandomStr(pixff string, length int) string {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, redirectURL string, redirectCode int, vhost string, priority int) (*Rule, error) {
+	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int) (*Rule, error) {
 	var (
 		dsl  string
 		dslx alb2v1.DSLX
@@ -84,20 +84,22 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 	r := Rule{
 		Name: RandomStr(ft.Name, 4),
 		RuleSpec: alb2v1.RuleSpec{
-			Domain:          domain,
-			URL:             url,
-			DSL:             dsl,
-			DSLX:            dslx,
-			Priority:        priority,
-			RewriteBase:     url,
-			RewriteTarget:   rewriteTarget,
-			BackendProtocol: backendProtocol,
-			CertificateName: certificateName,
-			EnableCORS:      enableCORS,
-			RedirectURL:     redirectURL,
-			RedirectCode:    redirectCode,
-			VHost:           vhost,
-			Description:     ingressInfo,
+			Domain:           domain,
+			URL:              url,
+			DSL:              dsl,
+			DSLX:             dslx,
+			Priority:         priority,
+			RewriteBase:      url,
+			RewriteTarget:    rewriteTarget,
+			BackendProtocol:  backendProtocol,
+			CertificateName:  certificateName,
+			EnableCORS:       enableCORS,
+			CORSAllowHeaders: corsAllowHeaders,
+			CORSAllowOrigin:  corsAllowOrigin,
+			RedirectURL:      redirectURL,
+			RedirectCode:     redirectCode,
+			VHost:            vhost,
+			Description:      ingressInfo,
 		},
 		FT: ft,
 	}

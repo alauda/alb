@@ -33,21 +33,23 @@ type NginxController struct {
 }
 
 type Policy struct {
-	Rule            string        `json:"rule"`
-	DSL             string        `json:"dsl"`
-	InternalDSL     []interface{} `json:"internal_dsl"`
-	Upstream        string        `json:"upstream"`
-	URL             string        `json:"url"`
-	RewriteBase     string        `json:"rewrite_base"`
-	RewriteTarget   string        `json:"rewrite_target"`
-	Priority        int           `json:"-"`
-	RawPriority     int           `json:"-"`
-	Subsystem       string        `json:"subsystem"`
-	EnableCORS      bool          `json:"enable_cors"`
-	BackendProtocol string        `json:"backend_protocol"`
-	RedirectURL     string        `json:"redirect_url"`
-	RedirectCode    int           `json:"redirect_code"`
-	VHost           string        `json:"vhost"`
+	Rule             string        `json:"rule"`
+	DSL              string        `json:"dsl"`
+	InternalDSL      []interface{} `json:"internal_dsl"`
+	Upstream         string        `json:"upstream"`
+	URL              string        `json:"url"`
+	RewriteBase      string        `json:"rewrite_base"`
+	RewriteTarget    string        `json:"rewrite_target"`
+	Priority         int           `json:"-"`
+	RawPriority      int           `json:"-"`
+	Subsystem        string        `json:"subsystem"`
+	EnableCORS       bool          `json:"enable_cors"`
+	CORSAllowHeaders string        `json:"cors_allow_headers"`
+	CORSAllowOrigin  string        `json:"cors_allow_origin"`
+	BackendProtocol  string        `json:"backend_protocol"`
+	RedirectURL      string        `json:"redirect_url"`
+	RedirectCode     int           `json:"redirect_code"`
+	VHost            string        `json:"vhost"`
 }
 
 type NgxPolicy struct {
@@ -141,6 +143,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.RewriteBase = rule.RewriteBase
 			policy.RewriteTarget = rule.RewriteTarget
 			policy.EnableCORS = rule.EnableCORS
+			policy.CORSAllowHeaders = rule.CORSAllowHeaders
+			policy.CORSAllowOrigin = rule.CORSAllowOrigin
 			policy.BackendProtocol = rule.BackendProtocol
 			policy.RedirectURL = rule.RedirectURL
 			policy.RedirectCode = rule.RedirectCode

@@ -23,6 +23,10 @@ const (
 	ALBRewriteTargetAnnotation = "nginx.ingress.kubernetes.io/rewrite-target"
 	// ALBEnableCORSAnnotation is the ingress annotation to enable cors for alb
 	ALBEnableCORSAnnotation = "nginx.ingress.kubernetes.io/enable-cors"
+	// ALBCORSAllowHeadersAnnotation is the ingress annotation to configure cors allow headers
+	ALBCORSAllowHeadersAnnotation = "nginx.ingress.kubernetes.io/cors-allow-headers"
+	// ALBCORSAllowOriginAnnotation is the ingress annotation to configure cors allow origin
+	ALBCORSAllowOriginAnnotation = "nginx.ingress.kubernetes.io/cors-allow-origin"
 	// ALBBackendProtocolAnnotation is the ingress annotation to define backend protocol
 	ALBBackendProtocolAnnotation = "nginx.ingress.kubernetes.io/backend-protocol"
 
