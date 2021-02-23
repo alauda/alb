@@ -147,7 +147,6 @@ local function fetch_policy()
             local clean_cache = false
             if common.table_contains(changed_port_maps, port) then
                 clean_cache = true
-                ngx_shared[subsystem .. "_policy"]:delete(port)
             end
             ngx_shared[subsystem .. "_policy"]:set(port, common.json_encode(policies))
             if clean_cache then
