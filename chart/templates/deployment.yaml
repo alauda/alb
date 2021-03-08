@@ -41,6 +41,8 @@ spec:
               value: {{ .Values.global.labelBaseDomain }}
             - name: ENABLE_GC
               value: "{{ .Values.enableGC }}"
+            - name: ENABLE_GC_APP_RULE
+              value: "{{ .Values.enableGCAppRule }}"
             - name: ENABLE_PROMETHEUS
               value: "{{ .Values.enablePrometheus }}"
             - name: ENABLE_PORTPROBE

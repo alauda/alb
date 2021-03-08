@@ -5,6 +5,7 @@ nodeSelector: {}
 loadbalancerType: nginx
 replicas: 3
 enableGC: "false"
+enableGCAppRule: "true"
 enablePrometheus: "true"
 enablePortprobe: "true"
 enableIPV6: "true"
