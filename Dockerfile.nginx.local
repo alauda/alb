@@ -1,4 +1,4 @@
-FROM golang:1.14 AS builder
+FROM golang:1.16 AS builder
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
@@ -8,7 +8,7 @@ RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
 
-FROM halfcrazy/alb-nginx:24f70ee93d1d08035749fb9b077b69554f09e95e
+FROM harbor-b.alauda.cn/acp/alb-nginx:v3.4.0
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
@@ -48,3 +48,5 @@ COPY --from=builder /migrate_priority /alb/migrate_priority
 COPY alauda /etc/logrotate.d/alauda
 # some lua module may not upload to opm or not the latest version
 COPY ./3rd-lua-module/lib/resty/ /usr/local/openresty/site/lualib/resty/
+
+RUN chmod 755 -R /alb
