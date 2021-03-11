@@ -9,12 +9,6 @@ steps:
       junit allowEmptyResults: true, testResults: 'pkg/**/*.xml'
     }
 
-- name: Code Scan
-  container: tools
-  groovy:
-    - |+
-      deploy.scan().startACPSonar(null, "-D sonar.projectVersion=${env.VERSION}")
-
 - name: ALB2 Image
   container: tools
   groovy:
