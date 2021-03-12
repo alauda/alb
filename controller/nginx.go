@@ -354,11 +354,15 @@ func (nc *NginxController) reload() error {
 }
 
 func (nc *NginxController) GC() error {
-	if config.Get("ENABLE_GC") != "true" {
+	gcOpt := GCOptions{
+		GCServiceRule: config.Get("ENABLE_GC") == "true",
+		GCAppRule:     config.Get("ENABLE_GC_APP_RULE") == "true",
+	}
+	if !gcOpt.GCServiceRule && !gcOpt.GCAppRule {
 		return nil
 	}
 	start := time.Now()
 	klog.Info("begin gc rule")
 	defer klog.Infof("end gc rule, spend time %s", time.Since(start))
-	return GCRule(nc.Driver)
+	return GCRule(nc.Driver, gcOpt)
 }

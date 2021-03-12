@@ -107,7 +107,8 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 
 type Rule struct {
 	alb2v1.RuleSpec
-	Name string
+	Name   string
+	Labels map[string]string
 
 	FT *Frontend
 }
