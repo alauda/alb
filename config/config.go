@@ -64,6 +64,7 @@ var optionalFields = []string{
 	"ENABLE_PROFILE",
 	"METRICS_PORT",
 	"BACKLOG",
+	"ENABLE_GZIP",
 }
 
 var nginxRequiredFields = []string{
