@@ -4,9 +4,8 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
-	"fmt"
-
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"fmt"
 
 	"github.com/thoas/go-funk"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +13,12 @@ import (
 	"k8s.io/klog"
 )
 
-func GCRule(kd *driver.KubernetesDriver) error {
+type GCOptions struct {
+	GCAppRule     bool
+	GCServiceRule bool
+}
+
+func GCRule(kd *driver.KubernetesDriver, opt GCOptions) error {
 	alb, err := kd.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		klog.Error(err)
@@ -22,6 +26,9 @@ func GCRule(kd *driver.KubernetesDriver) error {
 	}
 	for _, ft := range alb.Frontends {
 		if funk.ContainsString([]string{m.ProtoTCP, m.ProtoUDP}, ft.Protocol) {
+			if !opt.GCServiceRule {
+				continue
+			}
 			// protocol tcp or udp has no rules
 			if ft.Source != nil && ft.Source.Type == m.TypeBind && ft.ServiceGroup != nil && len(ft.ServiceGroup.Services) == 1 {
 				svc := ft.ServiceGroup.Services[0]
@@ -51,6 +58,24 @@ func GCRule(kd *driver.KubernetesDriver) error {
 			}
 		} else {
 			for _, rl := range ft.Rules {
+				if opt.GCAppRule {
+					orphaned, err := kd.RuleIsOrphanedByApplication(rl)
+					if err != nil {
+						klog.Warningf("verify if the rule %s is orphaned error: %v, ignored", rl.Name, err)
+					} else if orphaned {
+						// Delete the orphaned rule
+						klog.Infof("Delete the orphaned application rule %s in gc", rl.Name)
+						err := kd.ALBClient.CrdV1().Rules(config.Get("NAMESPACE")).Delete(rl.Name, &metav1.DeleteOptions{})
+						if err != nil {
+							klog.Error(err)
+							continue
+						}
+					}
+				}
+
+				if !opt.GCServiceRule {
+					continue
+				}
 				if rl.RedirectURL != "" {
 					// for redirect rule, service is meaningless
 					continue

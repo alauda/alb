@@ -1,3 +1,4 @@
+{{ $cfg := .NginxParam }}
 user  nginx;
 worker_rlimit_nofile 100000;
 worker_processes     {{.CPUNum}};
@@ -25,6 +26,16 @@ http {
     include       /usr/local/openresty/nginx/conf/mime.types;
     include       /alb/tweak/http.conf;
 
+    {{ if $cfg.EnableGzip }}
+    gzip on;
+    gzip_comp_level {{ $cfg.GzipLevel }};
+    gzip_http_version 1.1;
+    gzip_min_length {{ $cfg.GzipMinLength}};
+    gzip_types {{ $cfg.GzipTypes }};
+    gzip_proxied any;
+    gzip_vary on;
+    {{ end }}
+
     init_by_lua_block {
             require "resty.core"
             ok, res = pcall(require, "balancer")
@@ -39,9 +50,9 @@ http {
 
     {{if eq $.Phase "running"}}
     server {
-        listen {{.MetricsPort}};
-        {{if $.EnableIPV6}}
-        listen [::]:{{.MetricsPort}};
+        listen {{$cfg.MetricsPort}};
+        {{if $cfg.EnableIPV6}}
+        listen [::]:{{$cfg.MetricsPort}};
         {{end}}
 
         access_log off;
@@ -67,9 +78,9 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "http"}}
     server {
-        listen      {{$port}} backlog={{$.Backlog}} default_server;
+        listen      {{$port}} backlog={{$cfg.Backlog}} default_server;
         {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} backlog={{$.Backlog}} default_server;
+        listen      [::]:{{$port}} backlog={{$cfg.Backlog}} default_server;
         {{end}}
         server_name _;
 
@@ -84,7 +95,7 @@ http {
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
 
-            {{if $.EnablePrometheus}}
+            {{if $cfg.EnablePrometheus}}
             log_by_lua_block {
                 require("metrics").log()
             }
@@ -98,9 +109,9 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
-        listen      {{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }} backlog={{$.Backlog}};
+        listen      {{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} ssl {{ if $.EnableHTTP2 }}http2{{ end }} backlog={{$.Backlog}};
+        listen      [::]:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
         server_name _;
 
@@ -121,7 +132,7 @@ http {
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
 
-            {{if $.EnablePrometheus}}
+            {{if $cfg.EnablePrometheus}}
             log_by_lua_block {
                 require("metrics").log()
             }
@@ -162,7 +173,7 @@ stream {
     {{if eq $ft.Protocol "tcp"}}
     server {
         listen {{$port}};
-        {{if $.EnableIPV6}}
+        {{if $cfg.EnableIPV6}}
         listen [::]:{{$port}};
         {{end}}
 

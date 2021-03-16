@@ -153,21 +153,16 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 	cfgLocker.Lock()
 	defer cfgLocker.Unlock()
 	result := Config{
-		Name:             loadbalancer.Name,
-		Address:          loadbalancer.Address,
-		BindAddress:      loadbalancer.BindAddress,
-		LoadBalancerID:   loadbalancer.LoadBalancerID,
-		Frontends:        make(map[int]*Frontend),
-		BackendGroup:     []*BackendGroup{},
-		CertificateMap:   make(map[string]Certificate),
-		TweakHash:        loadbalancer.TweakHash,
-		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
-		EnableIPV6:       checkIPV6(),
-		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
-		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
-		MetricsPort:      config.GetInt("METRICS_PORT"),
-		Backlog:          config.GetInt("BACKLOG"),
-		Phase:            config.Get("PHASE"),
+		Name:           loadbalancer.Name,
+		Address:        loadbalancer.Address,
+		BindAddress:    loadbalancer.BindAddress,
+		LoadBalancerID: loadbalancer.LoadBalancerID,
+		Frontends:      make(map[int]*Frontend),
+		BackendGroup:   []*BackendGroup{},
+		CertificateMap: make(map[string]Certificate),
+		TweakHash:      loadbalancer.TweakHash,
+		Phase:          config.Get("PHASE"),
+		NginxParam:     newNginxParam(),
 	}
 	var listenTCPPorts []int
 	var err error

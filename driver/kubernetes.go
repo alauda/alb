@@ -1,27 +1,33 @@
 package driver
 
 import (
-	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	"errors"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
+	"net"
+	"sort"
+	"strings"
+
 	v1types "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"net"
-	"sort"
 
 	"alauda.io/alb2/config"
+	"alauda.io/alb2/modules"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
+	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 )
 
 type KubernetesDriver struct {
+	DynamicClient  dynamic.Interface
 	Client         kubernetes.Interface
 	ALBClient      albclient.Interface
 	ALB2Lister     v1.ALB2Lister
@@ -34,6 +40,7 @@ type KubernetesDriver struct {
 func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 	var client kubernetes.Interface
 	var albClient albclient.Interface
+	var dynamicClient dynamic.Interface
 	if isFake {
 		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
@@ -63,9 +70,12 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		dynamicClient, err = dynamic.NewForConfig(cf)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &KubernetesDriver{Client: client, ALBClient: albClient}, nil
+	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient}, nil
 }
 
 func (kd *KubernetesDriver) GetType() string {
@@ -114,6 +124,38 @@ func (kd *KubernetesDriver) GetClusterIPAddress(svc *v1types.Service, port int) 
 }
 
 // GetNodePortAddr return addresses of a NodePort service by using host ip and node port
+func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (bool, error) {
+	var appName, appNamespace string
+	appNameLabelKey := fmt.Sprintf("app.%s/name", config.Get("DOMAIN"))
+	for k, v := range rule.Labels {
+		if strings.HasPrefix(k, appNameLabelKey) {
+			vv := strings.Split(v, ".")
+			if len(vv) < 1 {
+				// Invalid application label, assume it's not an application component.
+				return false, nil
+			}
+			appName, appNamespace = vv[0], vv[1]
+			break
+		}
+	}
+	if appName == "" {
+		// No application label found, the rule doesn't belong to an application.
+		return false, nil
+	}
+	_, err := kd.DynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "app.k8s.io",
+		Version:  "v1beta1",
+		Resource: "applications",
+	}).Namespace(appNamespace).Get(appName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// The owner application is not found, the rule is orphaned.
+		return true, nil
+	}
+
+	return false, err
+}
+
+// GetNodePortAddr return addresses of a NodePort service by using host ip and nodeport.
 // TODO: remove or use lister
 func (kd *KubernetesDriver) GetNodePortAddress(svc *v1types.Service, port int) (*Service, error) {
 	service := &Service{
@@ -284,26 +326,26 @@ func (kd *KubernetesDriver) GetServiceByName(namespace, name string, servicePort
 }
 
 // IsPodReady returns true if a pod is ready; false otherwise.
-func IsPodReady(pod *corev1.Pod) bool {
+func IsPodReady(pod *v1types.Pod) bool {
 	return isPodReadyConditionTrue(pod.Status)
 }
 
 // IsPodReadyConditionTrue returns true if a pod is ready; false otherwise.
-func isPodReadyConditionTrue(status corev1.PodStatus) bool {
+func isPodReadyConditionTrue(status v1types.PodStatus) bool {
 	condition := getPodReadyCondition(status)
-	return condition != nil && condition.Status == corev1.ConditionTrue
+	return condition != nil && condition.Status == v1types.ConditionTrue
 }
 
 // GetPodReadyCondition extracts the pod ready condition from the given status and returns that.
 // Returns nil if the condition is not present.
-func getPodReadyCondition(status corev1.PodStatus) *corev1.PodCondition {
-	_, condition := getPodCondition(&status, corev1.PodReady)
+func getPodReadyCondition(status v1types.PodStatus) *v1types.PodCondition {
+	_, condition := getPodCondition(&status, v1types.PodReady)
 	return condition
 }
 
 // GetPodCondition extracts the provided condition from the given status and returns that.
 // Returns nil and -1 if the condition is not present, and the index of the located condition.
-func getPodCondition(status *corev1.PodStatus, conditionType corev1.PodConditionType) (int, *corev1.PodCondition) {
+func getPodCondition(status *v1types.PodStatus, conditionType v1types.PodConditionType) (int, *v1types.PodCondition) {
 	if status == nil {
 		return -1, nil
 	}
@@ -312,7 +354,7 @@ func getPodCondition(status *corev1.PodStatus, conditionType corev1.PodCondition
 
 // GetPodConditionFromList extracts the provided condition from the given list of condition and
 // returns the index of the condition and the condition. Returns -1 and nil if the condition is not present.
-func getPodConditionFromList(conditions []corev1.PodCondition, conditionType corev1.PodConditionType) (int, *corev1.PodCondition) {
+func getPodConditionFromList(conditions []v1types.PodCondition, conditionType v1types.PodConditionType) (int, *v1types.PodCondition) {
 	if conditions == nil {
 		return -1, nil
 	}

@@ -48,6 +48,7 @@ var optionalFields = []string{
 	"MY_POD_NAME",
 	"ROTATE_INTERVAL",
 	"ENABLE_GC",
+	"ENABLE_GC_APP_RULE",
 	"ENABLE_IPV6",
 	"ENABLE_PROMETHEUS",
 	"ENABLE_PORTPROBE",
@@ -63,6 +64,7 @@ var optionalFields = []string{
 	"ENABLE_PROFILE",
 	"METRICS_PORT",
 	"BACKLOG",
+	"ENABLE_GZIP",
 }
 
 var nginxRequiredFields = []string{

@@ -41,6 +41,8 @@ spec:
               value: {{ .Values.global.labelBaseDomain }}
             - name: ENABLE_GC
               value: "{{ .Values.enableGC }}"
+            - name: ENABLE_GC_APP_RULE
+              value: "{{ .Values.enableGCAppRule }}"
             - name: ENABLE_PROMETHEUS
               value: "{{ .Values.enablePrometheus }}"
             - name: ENABLE_PORTPROBE
@@ -49,6 +51,8 @@ spec:
               value: "{{ .Values.enableIPV6 }}"
             - name: ENABLE_HTTP2
               value: "{{ .Values.enableHTTP2 }}"
+            - name: ENABLE_GZIP
+              value: "{{ .Values.enableGzip }}"
             - name: SERVE_INGRESS
               value: "{{ .Values.enableIngress }}"
             - name: ENABLE_PROFILE

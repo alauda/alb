@@ -125,21 +125,23 @@ type DSLXTerm struct {
 type DSLX []DSLXTerm
 
 type RuleSpec struct {
-	Description     string        `json:"description"`
-	Domain          string        `json:"domain"`
-	DSL             string        `json:"dsl"`
-	DSLX            DSLX          `json:"dslx"`
-	Priority        int           `json:"priority"`
-	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
-	Source          *Source       `json:"source,omitempty"`
-	Type            string        `json:"type"`
-	URL             string        `json:"url"`
-	CertificateName string        `json:"certificate_name"`
-	EnableCORS      bool          `json:"enableCORS"`
-	BackendProtocol string        `json:"backendProtocol"`
-	RedirectURL     string        `json:"redirectURL"`
-	VHost           string        `json:"vhost"`
-	RedirectCode    int           `json:"redirectCode"`
+	Description      string        `json:"description"`
+	Domain           string        `json:"domain"`
+	DSL              string        `json:"dsl"`
+	DSLX             DSLX          `json:"dslx"`
+	Priority         int           `json:"priority"`
+	ServiceGroup     *ServiceGroup `json:"serviceGroup,omitempty"`
+	Source           *Source       `json:"source,omitempty"`
+	Type             string        `json:"type"`
+	URL              string        `json:"url"`
+	CertificateName  string        `json:"certificate_name"`
+	EnableCORS       bool          `json:"enableCORS"`
+	CORSAllowHeaders string        `json:"corsAllowHeaders"`
+	CORSAllowOrigin  string        `json:"corsAllowOrigin"`
+	BackendProtocol  string        `json:"backendProtocol"`
+	RedirectURL      string        `json:"redirectURL"`
+	VHost            string        `json:"vhost"`
+	RedirectCode     int           `json:"redirectCode"`
 	// +optional
 	RewriteBase string `json:"rewrite_base,omitempty"`
 	// +optional

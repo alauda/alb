@@ -33,21 +33,23 @@ type NginxController struct {
 }
 
 type Policy struct {
-	Rule            string        `json:"rule"`
-	DSL             string        `json:"dsl"`
-	InternalDSL     []interface{} `json:"internal_dsl"`
-	Upstream        string        `json:"upstream"`
-	URL             string        `json:"url"`
-	RewriteBase     string        `json:"rewrite_base"`
-	RewriteTarget   string        `json:"rewrite_target"`
-	Priority        int           `json:"-"`
-	RawPriority     int           `json:"-"`
-	Subsystem       string        `json:"subsystem"`
-	EnableCORS      bool          `json:"enable_cors"`
-	BackendProtocol string        `json:"backend_protocol"`
-	RedirectURL     string        `json:"redirect_url"`
-	RedirectCode    int           `json:"redirect_code"`
-	VHost           string        `json:"vhost"`
+	Rule             string        `json:"rule"`
+	DSL              string        `json:"dsl"`
+	InternalDSL      []interface{} `json:"internal_dsl"`
+	Upstream         string        `json:"upstream"`
+	URL              string        `json:"url"`
+	RewriteBase      string        `json:"rewrite_base"`
+	RewriteTarget    string        `json:"rewrite_target"`
+	Priority         int           `json:"-"`
+	RawPriority      int           `json:"-"`
+	Subsystem        string        `json:"subsystem"`
+	EnableCORS       bool          `json:"enable_cors"`
+	CORSAllowHeaders string        `json:"cors_allow_headers"`
+	CORSAllowOrigin  string        `json:"cors_allow_origin"`
+	BackendProtocol  string        `json:"backend_protocol"`
+	RedirectURL      string        `json:"redirect_url"`
+	RedirectCode     int           `json:"redirect_code"`
+	VHost            string        `json:"vhost"`
 }
 
 type NgxPolicy struct {
@@ -141,6 +143,8 @@ func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Conf
 			policy.RewriteBase = rule.RewriteBase
 			policy.RewriteTarget = rule.RewriteTarget
 			policy.EnableCORS = rule.EnableCORS
+			policy.CORSAllowHeaders = rule.CORSAllowHeaders
+			policy.CORSAllowOrigin = rule.CORSAllowOrigin
 			policy.BackendProtocol = rule.BackendProtocol
 			policy.RedirectURL = rule.RedirectURL
 			policy.RedirectCode = rule.RedirectCode
@@ -354,11 +358,15 @@ func (nc *NginxController) reload() error {
 }
 
 func (nc *NginxController) GC() error {
-	if config.Get("ENABLE_GC") != "true" {
+	gcOpt := GCOptions{
+		GCServiceRule: config.Get("ENABLE_GC") == "true",
+		GCAppRule:     config.Get("ENABLE_GC_APP_RULE") == "true",
+	}
+	if !gcOpt.GCServiceRule && !gcOpt.GCAppRule {
 		return nil
 	}
 	start := time.Now()
 	klog.Info("begin gc rule")
 	defer klog.Infof("end gc rule, spend time %s", time.Since(start))
-	return GCRule(nc.Driver)
+	return GCRule(nc.Driver, gcOpt)
 }

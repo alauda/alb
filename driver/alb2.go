@@ -225,6 +225,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 			rule := &m.Rule{
 				RuleSpec: r.Spec,
 				Name:     r.Name,
+				Labels:   r.Labels,
 				FT:       ft,
 			}
 			ft.Rules = append(ft.Rules, rule)
