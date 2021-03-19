@@ -38,7 +38,7 @@ global:
       tag: v3.4-15-g06491c1
     alpine:
       repository: 3rdparty/alpine
-      tag: 3.12
+      tag: 3.13.2
       code: ""
       support_arm: true
 resources:
