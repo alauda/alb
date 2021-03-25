@@ -16,10 +16,11 @@ AlaudaPipeline{
             credentials: 'cpaas-system-global-credentials-acp-alauda-gitlab'
         ],
         docker: [
-            repository: "harbor-b.alauda.cn/acp/alb2",
-            credentials: "acp-harbor-b",
+            repository: "acp/alb2",
+            credentials: "alaudak8s",
             context: ".",
             dockerfile: "Dockerfile.nginx.local",
+            disableArmBuildOnPR: true
         ],
         sonar: [
             binding: "sonarqube"
