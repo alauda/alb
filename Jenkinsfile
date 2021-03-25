@@ -1,39 +1,35 @@
 library "alauda-cicd"
+
 def language = "golang"
-AlaudaPipeline {
+
+AlaudaPipeline{
     config = [
-        agent: 'golang-and-devops',
-        folder: 'src/alb2',
+        agent: 'golang-1.13',
+        folder: '.',
         chart: [
-            [
-                enabled: false
-            ]
+            pipeline: "chart-alb2",
+            project: "acp",
+            chart: "alauda-alb2",
+            component: "alb2",
         ],
         scm: [
-            credentials: 'acp-acp-bitbucket-new'
+            credentials: 'cpaas-system-global-credentials-acp-alauda-gitlab'
         ],
         docker: [
+            repository: "acp/alb2",
             credentials: "alaudak8s",
-            enabled: false,
+            context: ".",
+            dockerfile: "Dockerfile.nginx.local",
+            disableArmBuildOnPR: true
         ],
         sonar: [
-            binding: "sonarqube",
-            enabled: true,
-        ],
-        sec: [
-            enabled: true,
-            block: false,
-            lang: 'go',
-            scanMod: 1,
-            customOpts: '',
-            disableOnPR: true,
+            binding: "sonarqube"
         ],
     ]
     env = [
-        GO111MODULE: "on",
-        GOPROXY: "https://goproxy.cn,direct",
-    ]
-    steps = [
+        GOPATH: "",
+        
+        GOPROXY: "https://athens.acp.alauda.cn",
     ]
     yaml = "alauda.yaml"
 }
