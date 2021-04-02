@@ -32,7 +32,7 @@ build-ci:
 	docker build -t ${CI_IMAGE} -f Dockerfile.ci .
 
 build-nginx: version
-	docker buildx build --platform linux/amd64,linux/arm64 -t harbor-b.alauda.cn/acp/alb-nginx:`cat VERSION` -f Dockerfile.nginx .  --push
+	docker buildx build --platform linux/amd64,linux/arm64 -t harbor-b.alauda.cn/acp/alb-nginx:`cat VERSION` -f Dockerfile .  --push
 
 build: build-nginx
 
