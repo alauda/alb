@@ -791,6 +791,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 					rule.Source.Namespace == namespace &&
 					rule.Source.Name == name {
 
+					klog.Infof("delete-rules ns:%s name:%s reason: ingress-delete", namespace, name)
 					err = c.KubernetesDriver.DeleteRule(rule)
 					if err != nil {
 						klog.Errorf("upsert ft failed: %s", err)

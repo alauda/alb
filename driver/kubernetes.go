@@ -11,6 +11,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -24,6 +25,7 @@ import (
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
+	dynamicfakeclient "k8s.io/client-go/dynamic/fake"
 )
 
 type KubernetesDriver struct {
@@ -45,6 +47,7 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
 		albClient = albfakeclient.NewSimpleClientset()
+		dynamicClient = dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
 	} else {
 		var cf *rest.Config
 		var err error
@@ -130,7 +133,7 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 	for k, v := range rule.Labels {
 		if strings.HasPrefix(k, appNameLabelKey) {
 			vv := strings.Split(v, ".")
-			if len(vv) < 1 {
+			if len(vv) != 2 {
 				// Invalid application label, assume it's not an application component.
 				return false, nil
 			}
