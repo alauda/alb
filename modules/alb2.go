@@ -1,11 +1,13 @@
 package modules
 
 import (
-	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"alauda.io/alb2/utils"
 	"fmt"
 	"math/rand"
 	"strings"
+
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
+	"github.com/thoas/go-funk"
 
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -69,6 +71,14 @@ func RandomStr(pixff string, length int) string {
 		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
 	}
 	return pixff + "-" + string(result)
+}
+
+func (ft *Frontend) IsTcpOrUdp() bool {
+	return funk.ContainsString([]string{ProtoTCP, ProtoUDP}, ft.Protocol)
+}
+
+func (ft *Frontend) IsHttpOrHttps() bool {
+	return funk.ContainsString([]string{ProtoHTTP, ProtoHTTPS}, ft.Protocol)
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,

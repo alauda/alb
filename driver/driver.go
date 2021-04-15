@@ -1,8 +1,12 @@
 package driver
 
 import (
-	"alauda.io/alb2/config"
+	"context"
 	"fmt"
+	"alauda.io/alb2/config"
+	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/klog"
 )
@@ -67,4 +71,37 @@ func GetDriver() (*KubernetesDriver, error) {
 func SetDebug() {
 	klog.Info("Set Debug")
 	config.Set("TEST", "true")
+}
+
+func InitDriver(driver *KubernetesDriver, ctx context.Context) {
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(driver.Client, 0)
+	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
+	ingressSynced := ingressInformer.Informer().HasSynced
+	serviceInformer := kubeInformerFactory.Core().V1().Services()
+	serviceLister := serviceInformer.Lister()
+	serviceSynced := serviceInformer.Informer().HasSynced
+	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
+	endpointLister := endpointInformer.Lister()
+	endpointSynced := endpointInformer.Informer().HasSynced
+	kubeInformerFactory.Start(ctx.Done())
+
+	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0,
+		albinformers.WithNamespace(config.Get("NAMESPACE")))
+	alb2Informer := albInformerFactory.Crd().V1().ALB2s()
+	alb2Lister := alb2Informer.Lister()
+	alb2Synced := alb2Informer.Informer().HasSynced
+	frontendInformer := albInformerFactory.Crd().V1().Frontends()
+	frontendLister := frontendInformer.Lister()
+	frontendSynced := frontendInformer.Informer().HasSynced
+	ruleInformer := albInformerFactory.Crd().V1().Rules()
+	ruleLister := ruleInformer.Lister()
+	ruleSynced := ruleInformer.Informer().HasSynced
+	albInformerFactory.Start(ctx.Done())
+
+	driver.FillUpListers(serviceLister, endpointLister, alb2Lister, frontendLister, ruleLister)
+
+	klog.Info("Waiting for informer caches to sync")
+	if ok := cache.WaitForCacheSync(ctx.Done(), ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
+		klog.Fatalf("failed to wait for caches to sync")
+	}
 }

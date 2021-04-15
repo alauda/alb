@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"alauda.io/alb2/config"
 	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	alb2scheme "alauda.io/alb2/pkg/client/clientset/versioned/scheme"
-
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -56,8 +57,12 @@ func loadData(dir, prefix string) ([]runtime.Object, error) {
 }
 
 func TestLoadAlb(t *testing.T) {
-	t.Skip("skip")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	os.Setenv("DOMAIN", "alauda.io")
+	config.Set("TWEAK_DIRECTORY", "./texture") // set TWEAK_DIRECTORY to a exist path, make calculate hash happy
+
 	a := assert.New(t)
 	driver, err := GetKubernetesDriver(true)
 	a.NoError(err)
@@ -67,7 +72,10 @@ func TestLoadAlb(t *testing.T) {
 	a.NoError(err)
 	driver.ALBClient = albfakeclient.NewSimpleClientset(crdDataset...)
 	driver.Client = fake.NewSimpleClientset(nativeDataset...)
+	InitDriver(driver, ctx)
+
 	alb, err := driver.LoadALBbyName("default", "test1")
 	a.NoError(err)
 	a.NotNil(alb)
 }
+
