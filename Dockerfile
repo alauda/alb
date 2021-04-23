@@ -1,6 +1,5 @@
-# Dockerfile for HK env
-
 FROM golang:1.16 AS builder
+
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
@@ -10,7 +9,8 @@ RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
 RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
 RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
 
-FROM harbor-b.alauda.cn/3rdparty/alb-nginx:v3.5.0
+
+FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.5.1
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
@@ -28,8 +28,6 @@ ENV METRICS_PORT 1936
 ENV RESYNC_PERIOD 1800
 ENV ENABLE_GC false
 ENV BACKLOG 2048
-
-RUN apk add jq iproute2 logrotate openssl tcpdump tshark tini
 
 
 CMD ["/sbin/tini", "--", "/run.sh"]
