@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"time"
 
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -37,15 +38,15 @@ type FrontendsGetter interface {
 
 // FrontendInterface has methods to work with Frontend resources.
 type FrontendInterface interface {
-	Create(*v1.Frontend) (*v1.Frontend, error)
-	Update(*v1.Frontend) (*v1.Frontend, error)
-	UpdateStatus(*v1.Frontend) (*v1.Frontend, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
-	Get(name string, options metav1.GetOptions) (*v1.Frontend, error)
-	List(opts metav1.ListOptions) (*v1.FrontendList, error)
-	Watch(opts metav1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Frontend, err error)
+	Create(ctx context.Context, frontend *v1.Frontend, opts metav1.CreateOptions) (*v1.Frontend, error)
+	Update(ctx context.Context, frontend *v1.Frontend, opts metav1.UpdateOptions) (*v1.Frontend, error)
+	UpdateStatus(ctx context.Context, frontend *v1.Frontend, opts metav1.UpdateOptions) (*v1.Frontend, error)
+	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Frontend, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*v1.FrontendList, error)
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Frontend, err error)
 	FrontendExpansion
 }
 
@@ -64,20 +65,20 @@ func newFrontends(c *CrdV1Client, namespace string) *frontends {
 }
 
 // Get takes name of the frontend, and returns the corresponding frontend object, and an error if there is any.
-func (c *frontends) Get(name string, options metav1.GetOptions) (result *v1.Frontend, err error) {
+func (c *frontends) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Frontend, err error) {
 	result = &v1.Frontend{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("frontends").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of Frontends that match those selectors.
-func (c *frontends) List(opts metav1.ListOptions) (result *v1.FrontendList, err error) {
+func (c *frontends) List(ctx context.Context, opts metav1.ListOptions) (result *v1.FrontendList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -88,13 +89,13 @@ func (c *frontends) List(opts metav1.ListOptions) (result *v1.FrontendList, err 
 		Resource("frontends").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested frontends.
-func (c *frontends) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (c *frontends) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -105,87 +106,90 @@ func (c *frontends) Watch(opts metav1.ListOptions) (watch.Interface, error) {
 		Resource("frontends").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a frontend and creates it.  Returns the server's representation of the frontend, and an error, if there is any.
-func (c *frontends) Create(frontend *v1.Frontend) (result *v1.Frontend, err error) {
+func (c *frontends) Create(ctx context.Context, frontend *v1.Frontend, opts metav1.CreateOptions) (result *v1.Frontend, err error) {
 	result = &v1.Frontend{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("frontends").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(frontend).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a frontend and updates it. Returns the server's representation of the frontend, and an error, if there is any.
-func (c *frontends) Update(frontend *v1.Frontend) (result *v1.Frontend, err error) {
+func (c *frontends) Update(ctx context.Context, frontend *v1.Frontend, opts metav1.UpdateOptions) (result *v1.Frontend, err error) {
 	result = &v1.Frontend{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("frontends").
 		Name(frontend.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(frontend).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *frontends) UpdateStatus(frontend *v1.Frontend) (result *v1.Frontend, err error) {
+func (c *frontends) UpdateStatus(ctx context.Context, frontend *v1.Frontend, opts metav1.UpdateOptions) (result *v1.Frontend, err error) {
 	result = &v1.Frontend{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("frontends").
 		Name(frontend.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(frontend).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the frontend and deletes it. Returns an error if one occurs.
-func (c *frontends) Delete(name string, options *metav1.DeleteOptions) error {
+func (c *frontends) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("frontends").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *frontends) DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error {
+func (c *frontends) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("frontends").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched frontend.
-func (c *frontends) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.Frontend, err error) {
+func (c *frontends) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Frontend, err error) {
 	result = &v1.Frontend{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("frontends").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

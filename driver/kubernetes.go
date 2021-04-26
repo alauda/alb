@@ -6,6 +6,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"context"
 
 	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +20,6 @@ import (
 	corev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/modules"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
@@ -149,7 +149,7 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 		Group:    "app.k8s.io",
 		Version:  "v1beta1",
 		Resource: "applications",
-	}).Namespace(appNamespace).Get(appName, metav1.GetOptions{})
+	}).Namespace(appNamespace).Get(context.TODO(),appName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// The owner application is not found, the rule is orphaned.
 		return true, nil
@@ -180,7 +180,7 @@ func (kd *KubernetesDriver) GetNodePortAddress(svc *v1types.Service, port int) (
 		return nil, errors.New("Port NOT Found")
 	}
 
-	podList, err := kd.Client.CoreV1().Pods(svc.Namespace).List(metav1.ListOptions{
+	podList, err := kd.Client.CoreV1().Pods(svc.Namespace).List(context.TODO(),metav1.ListOptions{
 		LabelSelector: labels.Set(svc.Spec.Selector).String(),
 	})
 	if err != nil {

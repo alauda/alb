@@ -26,8 +26,10 @@ import (
 )
 
 // ALB2Lister helps list ALB2s.
+// All objects returned here must be treated as read-only.
 type ALB2Lister interface {
 	// List lists all ALB2s in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ALB2, err error)
 	// ALB2s returns an object that can list and get ALB2s.
 	ALB2s(namespace string) ALB2NamespaceLister
@@ -58,10 +60,13 @@ func (s *aLB2Lister) ALB2s(namespace string) ALB2NamespaceLister {
 }
 
 // ALB2NamespaceLister helps list and get ALB2s.
+// All objects returned here must be treated as read-only.
 type ALB2NamespaceLister interface {
 	// List lists all ALB2s in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.ALB2, err error)
 	// Get retrieves the ALB2 from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.ALB2, error)
 	ALB2NamespaceListerExpansion
 }

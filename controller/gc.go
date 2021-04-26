@@ -1,12 +1,13 @@
 package controller
 
 import (
+	"context"
+	"fmt"
+
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"fmt"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
@@ -196,14 +197,14 @@ func GCRule(kd *driver.KubernetesDriver, opt GCOptions) error {
 				continue
 			}
 			ftRes.Spec.ServiceGroup.Services = []alb2v1.Service{}
-			if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Update(ftRes); err != nil {
+			if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Update(context.TODO(), ftRes, metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}
 		}
 
 		if action.Kind == DeleteRule {
 			klog.Infof("gc delete-rule ns:%s name:%s reason:%s", action.Namespace, action.Name, action.Reason.String())
-			err := kd.ALBClient.CrdV1().Rules(action.Namespace).Delete(action.Name, &metav1.DeleteOptions{})
+			err := kd.ALBClient.CrdV1().Rules(action.Namespace).Delete(context.TODO(), action.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Error(err)
 			}

@@ -1,21 +1,21 @@
 package driver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"time"
 
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-
 	"alauda.io/alb2/utils/dirhash"
 	"github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
@@ -35,13 +35,13 @@ func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB
 }
 
 func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
-	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(alb)
+	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(context.TODO(), alb, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 		return err
 	}
 	newAlb.Status = alb.Status
-	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(newAlb)
+	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(context.TODO(), newAlb, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 		return err
@@ -83,7 +83,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 			}
 			ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
 			UpdateSourceLabels(ftRes.Labels, ft.Source)
-			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(ftRes)
+			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(context.TODO(), ftRes, metav1.CreateOptions{})
 			if err != nil {
 				klog.Error(err)
 				return err
@@ -96,7 +96,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 	ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
 	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
-	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(ftRes)
+	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(context.TODO(), ftRes, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -126,7 +126,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 		Spec: rule.RuleSpec,
 	}
 	UpdateSourceLabels(ruleRes.Labels, rule.Source)
-	_, err := kd.ALBClient.CrdV1().Rules(ruleRes.Namespace).Create(ruleRes)
+	_, err := kd.ALBClient.CrdV1().Rules(ruleRes.Namespace).Create(context.TODO(), ruleRes, metav1.CreateOptions{})
 	if err != nil {
 		klog.Error(err)
 	}
@@ -134,7 +134,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 }
 
 func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
-	err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Delete(rule.Name, &metav1.DeleteOptions{})
+	err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Delete(context.TODO(), rule.Name, metav1.DeleteOptions{})
 	if err != nil {
 		klog.Error(err)
 	}
@@ -148,7 +148,7 @@ func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
 	}
 
 	oldRule.Spec = rule.RuleSpec
-	_, err = kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Update(oldRule)
+	_, err = kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Update(context.TODO(), oldRule, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,7 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) e
 	if string(patch) == "{}" {
 		return nil
 	}
-	if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ft.Name, types.MergePatchType, patch, "status"); err != nil {
+	if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
 		return err
 	}
 
@@ -327,7 +327,7 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) e
 }
 
 func (kd *KubernetesDriver) LoadConfigmap(namespace, lbname string) (*corev1.ConfigMap, error) {
-	cm, err := kd.Client.CoreV1().ConfigMaps(namespace).Get(lbname, metav1.GetOptions{})
+	cm, err := kd.Client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), lbname, metav1.GetOptions{})
 	if err != nil {
 		klog.Error(err)
 		return nil, err

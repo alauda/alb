@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	alaudav1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var alb2sResource = schema.GroupVersionResource{Group: "crd.alauda.io", Version:
 var alb2sKind = schema.GroupVersionKind{Group: "crd.alauda.io", Version: "v1", Kind: "ALB2"}
 
 // Get takes name of the aLB2, and returns the corresponding aLB2 object, and an error if there is any.
-func (c *FakeALB2s) Get(name string, options v1.GetOptions) (result *alaudav1.ALB2, err error) {
+func (c *FakeALB2s) Get(ctx context.Context, name string, options v1.GetOptions) (result *alaudav1.ALB2, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(alb2sResource, c.ns, name), &alaudav1.ALB2{})
 
@@ -50,7 +52,7 @@ func (c *FakeALB2s) Get(name string, options v1.GetOptions) (result *alaudav1.AL
 }
 
 // List takes label and field selectors, and returns the list of ALB2s that match those selectors.
-func (c *FakeALB2s) List(opts v1.ListOptions) (result *alaudav1.ALB2List, err error) {
+func (c *FakeALB2s) List(ctx context.Context, opts v1.ListOptions) (result *alaudav1.ALB2List, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(alb2sResource, alb2sKind, c.ns, opts), &alaudav1.ALB2List{})
 
@@ -72,14 +74,14 @@ func (c *FakeALB2s) List(opts v1.ListOptions) (result *alaudav1.ALB2List, err er
 }
 
 // Watch returns a watch.Interface that watches the requested aLB2s.
-func (c *FakeALB2s) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeALB2s) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(alb2sResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a aLB2 and creates it.  Returns the server's representation of the aLB2, and an error, if there is any.
-func (c *FakeALB2s) Create(aLB2 *alaudav1.ALB2) (result *alaudav1.ALB2, err error) {
+func (c *FakeALB2s) Create(ctx context.Context, aLB2 *alaudav1.ALB2, opts v1.CreateOptions) (result *alaudav1.ALB2, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(alb2sResource, c.ns, aLB2), &alaudav1.ALB2{})
 
@@ -90,7 +92,7 @@ func (c *FakeALB2s) Create(aLB2 *alaudav1.ALB2) (result *alaudav1.ALB2, err erro
 }
 
 // Update takes the representation of a aLB2 and updates it. Returns the server's representation of the aLB2, and an error, if there is any.
-func (c *FakeALB2s) Update(aLB2 *alaudav1.ALB2) (result *alaudav1.ALB2, err error) {
+func (c *FakeALB2s) Update(ctx context.Context, aLB2 *alaudav1.ALB2, opts v1.UpdateOptions) (result *alaudav1.ALB2, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(alb2sResource, c.ns, aLB2), &alaudav1.ALB2{})
 
@@ -102,7 +104,7 @@ func (c *FakeALB2s) Update(aLB2 *alaudav1.ALB2) (result *alaudav1.ALB2, err erro
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeALB2s) UpdateStatus(aLB2 *alaudav1.ALB2) (*alaudav1.ALB2, error) {
+func (c *FakeALB2s) UpdateStatus(ctx context.Context, aLB2 *alaudav1.ALB2, opts v1.UpdateOptions) (*alaudav1.ALB2, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(alb2sResource, "status", c.ns, aLB2), &alaudav1.ALB2{})
 
@@ -113,7 +115,7 @@ func (c *FakeALB2s) UpdateStatus(aLB2 *alaudav1.ALB2) (*alaudav1.ALB2, error) {
 }
 
 // Delete takes name of the aLB2 and deletes it. Returns an error if one occurs.
-func (c *FakeALB2s) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeALB2s) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(alb2sResource, c.ns, name), &alaudav1.ALB2{})
 
@@ -121,15 +123,15 @@ func (c *FakeALB2s) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeALB2s) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(alb2sResource, c.ns, listOptions)
+func (c *FakeALB2s) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(alb2sResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &alaudav1.ALB2List{})
 	return err
 }
 
 // Patch applies the patch and returns the patched aLB2.
-func (c *FakeALB2s) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *alaudav1.ALB2, err error) {
+func (c *FakeALB2s) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *alaudav1.ALB2, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(alb2sResource, c.ns, name, pt, data, subresources...), &alaudav1.ALB2{})
 
