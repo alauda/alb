@@ -1,0 +1,53 @@
+loadbalancerName: alb2-name
+address: 127.0.0.1
+domains: []
+nodeSelector: {}
+loadbalancerType: nginx
+replicas: 3
+enableGC: "false"
+enableGCAppRule: "true"
+enablePrometheus: "true"
+enablePortprobe: "true"
+enablePortProject: false
+enableIPV6: "true"
+enableHTTP2: "true"
+enableIngress: "true"
+enableGzip: "true"
+defaultSSLCert: ""
+defaultSSLStrategy: Never
+ingressHTTPPort: 80
+ingressHTTPSPort: 443
+metricsPort: 1936
+enableProfile: false
+workerLimit: 8
+resyncPeriod: 1800
+backlog: 2048
+global:
+  platformscenario: base
+  labelBaseDomain: alauda.io
+  namespace: alauda-system
+  registry:
+    address: harbor.alauda.cn
+  images:
+    alb2:
+      code: gitlab-ce.alauda.cn/container-platform/alb2
+      support_arm: true
+      repository: acp/alb2
+      tag: v3.5-5-gbd0fa12
+    alpine:
+      repository: 3rdparty/alpine
+      tag: 3.13.5
+      code: ""
+      support_arm: true
+      thirdparty: true
+resources:
+  limits:
+    cpu: "2"
+    memory: 2Gi
+  requests:
+    cpu: 200m
+    memory: 128Mi
+project: ""
+projects: []
+displayName: ""
+antiAffinityKey: "local"
