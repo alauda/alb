@@ -36,9 +36,10 @@ global:
       tag: v3.5-5-gbd0fa12
     alpine:
       repository: 3rdparty/alpine
-      tag: 3.13.2
+      tag: 3.13.5
       code: ""
       support_arm: true
+      thirdparty: true
 resources:
   limits:
     cpu: "2"
