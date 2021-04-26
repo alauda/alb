@@ -19,8 +19,11 @@ set -o nounset
 set -o pipefail
 set -x
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-CODEGEN_PKG=$GOPATH/src/k8s.io/code-generator
+CFD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+ALB2_ROOT=${CFD}/..
+# use `go get k8s.io/code-generator@v0.19.11-rc.0` to install correspond code_generator first
+CODEGEN_PKG=$GOPATH/pkg/mod/k8s.io/code-generator@v0.19.11-rc.0
+
 
 
 # generate the code with:
@@ -30,8 +33,10 @@ CODEGEN_PKG=$GOPATH/src/k8s.io/code-generator
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,lister,informer" \
   alauda.io/alb2/pkg/client alauda.io/alb2/pkg/apis \
   "alauda:v1"  \
-  --go-header-file ${SCRIPT_ROOT}/hack/boilerplate.go.txt
-#  --output-base "$(dirname ${BASH_SOURCE})/../.."
+  --go-header-file ${ALB2_ROOT}/hack/boilerplate.go.txt \
+  --output-base "${ALB2_ROOT}/code_gen"
+cp -r ${ALB2_ROOT}/code_gen/alauda.io/alb2/pkg/* ${ALB2_ROOT}/pkg
+rm -rf ${ALB2_ROOT}/code_gen 
 
 # To use your own boilerplate text append:
 #   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt

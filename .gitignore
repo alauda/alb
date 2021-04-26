@@ -10,6 +10,8 @@ gen
 config/haproxy/*
 alb
 alb2
+migrate_priority
+migrate_v26tov28
 *.DS_Store
 haproxy.cfg.new
 policy.new
@@ -17,3 +19,4 @@ VERSION
 test.json
 coverage-all.out
 alb-nginx/luacov.stats.out
+temp/

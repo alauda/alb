@@ -26,8 +26,10 @@ import (
 )
 
 // FrontendLister helps list Frontends.
+// All objects returned here must be treated as read-only.
 type FrontendLister interface {
 	// List lists all Frontends in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Frontend, err error)
 	// Frontends returns an object that can list and get Frontends.
 	Frontends(namespace string) FrontendNamespaceLister
@@ -58,10 +60,13 @@ func (s *frontendLister) Frontends(namespace string) FrontendNamespaceLister {
 }
 
 // FrontendNamespaceLister helps list and get Frontends.
+// All objects returned here must be treated as read-only.
 type FrontendNamespaceLister interface {
 	// List lists all Frontends in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Frontend, err error)
 	// Get retrieves the Frontend from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.Frontend, error)
 	FrontendNamespaceListerExpansion
 }

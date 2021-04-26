@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"alauda.io/alb2/modules"
+	"context"
 	"crypto/md5"
 	"crypto/tls"
 	"encoding/hex"
@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/types"
 	"math"
 	"math/rand"
 	"os"
@@ -21,14 +20,15 @@ import (
 	"sync"
 	"time"
 
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/modules"
+	"alauda.io/alb2/utils"
 	"github.com/thoas/go-funk"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-
-	"alauda.io/alb2/config"
-	"alauda.io/alb2/driver"
-	"alauda.io/alb2/utils"
 )
 
 var (
@@ -210,7 +210,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
-				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ft.RawName, types.JSONPatchType, payload); err != nil {
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.RawName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
 					klog.Errorf("patch port %s project failed, %v", ft.RawName, err)
 				}
 			}
@@ -372,7 +372,7 @@ func RandomStr(pixff string, length int) string {
 }
 
 func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, error) {
-	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(name, metav1.GetOptions{})
+	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -418,6 +418,7 @@ func ParseCertificateName(n string) (string, string, error) {
 
 func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
 	cm, err := driver.Client.CoreV1().ConfigMaps(config.Get("NAMESPACE")).Get(
+		context.TODO(),
 		fmt.Sprintf("%s-port-info", config.Get("NAME")), metav1.GetOptions{})
 	if err != nil {
 		return nil, err

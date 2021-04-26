@@ -1,13 +1,14 @@
 package main
 
 import (
-	"alauda.io/alb2/utils"
+	"context"
 	"flag"
 	"fmt"
 	"strings"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
+	"alauda.io/alb2/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 )
@@ -28,7 +29,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	allRules, err := k8sDriver.ALBClient.CrdV1().Rules(Namespace).List(metav1.ListOptions{
+	allRules, err := k8sDriver.ALBClient.CrdV1().Rules(Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("alb2.%s/name=%s", Domain, Name),
 	})
 	if err != nil {
@@ -45,7 +46,7 @@ func main() {
 		rl.Spec.DSLX = dslx
 		klog.Infof("convert rule %s/%s dsl: %s to dslx: %+v", rl.Namespace, rl.Name, rl.Spec.DSL, dslx)
 		if *dryRun == false {
-			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(&rl); err != nil {
+			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl,metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}
 		}

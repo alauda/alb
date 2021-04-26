@@ -8,7 +8,7 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/thoas/go-funk"
-
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -82,14 +82,14 @@ func (ft *Frontend) IsHttpOrHttps() bool {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int) (*Rule, error) {
+	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1beta1.PathType) (*Rule, error) {
 	var (
 		dsl  string
 		dslx alb2v1.DSLX
 	)
 	if domain != "" || url != "" {
 		dsl = GetDSL(domain, url)
-		dslx = GetDSLX(domain, url)
+		dslx = GetDSLX(domain, url, pathType)
 	}
 	r := Rule{
 		Name: RandomStr(ft.Name, 4),
@@ -136,6 +136,7 @@ func (rl Rule) AllowNoAddr() bool {
 	return false
 }
 
+// Deprecated: instead by GetDSLX.
 func GetDSL(domain, url string) string {
 	var dsl string
 	if domain != "" && url != "" {
@@ -164,26 +165,44 @@ func GetDSL(domain, url string) string {
 	return dsl
 }
 
-func GetDSLX(domain, url string) alb2v1.DSLX {
+func GetDSLX(domain, url string, pathType networkingv1beta1.PathType) alb2v1.DSLX {
 	var dslx alb2v1.DSLX
 	if url != "" {
-		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
-			if !strings.HasPrefix(url, "^") {
-				url = "^" + url
-			}
+		if pathType == networkingv1beta1.PathTypeExact {
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
-					{utils.OP_REGEX, url},
+					{utils.OP_EQ, url},
 				},
 				Type: utils.KEY_URL,
 			})
-		} else {
+		} else if pathType == networkingv1beta1.PathTypePrefix {
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_STARTS_WITH, url},
 				},
 				Type: utils.KEY_URL,
 			})
+		} else {
+			// path is regex
+			if strings.ContainsAny(url, "^$():?[]*\\") {
+				if !strings.HasPrefix(url, "^") {
+					url = "^" + url
+				}
+
+				dslx = append(dslx, alb2v1.DSLXTerm{
+					Values: [][]string{
+						{utils.OP_REGEX, url},
+					},
+					Type: utils.KEY_URL,
+				})
+			} else {
+				dslx = append(dslx, alb2v1.DSLXTerm{
+					Values: [][]string{
+						{utils.OP_STARTS_WITH, url},
+					},
+					Type: utils.KEY_URL,
+				})
+			}
 		}
 	}
 	if domain != "" {

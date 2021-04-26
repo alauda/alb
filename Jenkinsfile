@@ -29,7 +29,7 @@ AlaudaPipeline{
     env = [
         GOPATH: "",
         
-        GOPROXY: "https://athens.acp.alauda.cn",
+        GOPROXY: "https://athens.alauda.cn",
     ]
     yaml = "alauda.yaml"
 }

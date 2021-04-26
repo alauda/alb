@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	time "time"
 
 	alaudav1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -61,13 +62,13 @@ func NewFilteredRuleInformer(client versioned.Interface, namespace string, resyn
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CrdV1().Rules(namespace).List(options)
+				return client.CrdV1().Rules(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CrdV1().Rules(namespace).Watch(options)
+				return client.CrdV1().Rules(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&alaudav1.Rule{},

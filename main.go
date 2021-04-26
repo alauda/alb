@@ -1,13 +1,8 @@
 package main
 
 import (
-	"alauda.io/alb2/driver"
-	"alauda.io/alb2/modules"
-	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	"context"
 	"flag"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -16,8 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/modules"
+	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller"
 	"alauda.io/alb2/ingress"
@@ -61,7 +60,7 @@ func main() {
 	namespaceInformer := kubeInformerFactory.Core().V1().Namespaces()
 	namespaceLister := namespaceInformer.Lister()
 	namespaceSynced := namespaceInformer.Informer().HasSynced
-	ingressInformer := kubeInformerFactory.Extensions().V1beta1().Ingresses()
+	ingressInformer := kubeInformerFactory.Networking().V1beta1().Ingresses()
 	ingressSynced := ingressInformer.Informer().HasSynced
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	serviceLister := serviceInformer.Lister()

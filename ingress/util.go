@@ -1,12 +1,13 @@
 package ingress
 
 import (
+	"strings"
+
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/modules"
 	"github.com/fatih/set"
-	networkingv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/klog"
-	"strings"
 )
 
 func parseSSLAnnotation(sslAnno string) map[string]string {

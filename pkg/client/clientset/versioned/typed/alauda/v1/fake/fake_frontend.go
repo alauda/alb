@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	alaudav1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var frontendsResource = schema.GroupVersionResource{Group: "crd.alauda.io", Vers
 var frontendsKind = schema.GroupVersionKind{Group: "crd.alauda.io", Version: "v1", Kind: "Frontend"}
 
 // Get takes name of the frontend, and returns the corresponding frontend object, and an error if there is any.
-func (c *FakeFrontends) Get(name string, options v1.GetOptions) (result *alaudav1.Frontend, err error) {
+func (c *FakeFrontends) Get(ctx context.Context, name string, options v1.GetOptions) (result *alaudav1.Frontend, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(frontendsResource, c.ns, name), &alaudav1.Frontend{})
 
@@ -50,7 +52,7 @@ func (c *FakeFrontends) Get(name string, options v1.GetOptions) (result *alaudav
 }
 
 // List takes label and field selectors, and returns the list of Frontends that match those selectors.
-func (c *FakeFrontends) List(opts v1.ListOptions) (result *alaudav1.FrontendList, err error) {
+func (c *FakeFrontends) List(ctx context.Context, opts v1.ListOptions) (result *alaudav1.FrontendList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(frontendsResource, frontendsKind, c.ns, opts), &alaudav1.FrontendList{})
 
@@ -72,14 +74,14 @@ func (c *FakeFrontends) List(opts v1.ListOptions) (result *alaudav1.FrontendList
 }
 
 // Watch returns a watch.Interface that watches the requested frontends.
-func (c *FakeFrontends) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeFrontends) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(frontendsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a frontend and creates it.  Returns the server's representation of the frontend, and an error, if there is any.
-func (c *FakeFrontends) Create(frontend *alaudav1.Frontend) (result *alaudav1.Frontend, err error) {
+func (c *FakeFrontends) Create(ctx context.Context, frontend *alaudav1.Frontend, opts v1.CreateOptions) (result *alaudav1.Frontend, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(frontendsResource, c.ns, frontend), &alaudav1.Frontend{})
 
@@ -90,7 +92,7 @@ func (c *FakeFrontends) Create(frontend *alaudav1.Frontend) (result *alaudav1.Fr
 }
 
 // Update takes the representation of a frontend and updates it. Returns the server's representation of the frontend, and an error, if there is any.
-func (c *FakeFrontends) Update(frontend *alaudav1.Frontend) (result *alaudav1.Frontend, err error) {
+func (c *FakeFrontends) Update(ctx context.Context, frontend *alaudav1.Frontend, opts v1.UpdateOptions) (result *alaudav1.Frontend, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(frontendsResource, c.ns, frontend), &alaudav1.Frontend{})
 
@@ -102,7 +104,7 @@ func (c *FakeFrontends) Update(frontend *alaudav1.Frontend) (result *alaudav1.Fr
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeFrontends) UpdateStatus(frontend *alaudav1.Frontend) (*alaudav1.Frontend, error) {
+func (c *FakeFrontends) UpdateStatus(ctx context.Context, frontend *alaudav1.Frontend, opts v1.UpdateOptions) (*alaudav1.Frontend, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(frontendsResource, "status", c.ns, frontend), &alaudav1.Frontend{})
 
@@ -113,7 +115,7 @@ func (c *FakeFrontends) UpdateStatus(frontend *alaudav1.Frontend) (*alaudav1.Fro
 }
 
 // Delete takes name of the frontend and deletes it. Returns an error if one occurs.
-func (c *FakeFrontends) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeFrontends) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(frontendsResource, c.ns, name), &alaudav1.Frontend{})
 
@@ -121,15 +123,15 @@ func (c *FakeFrontends) Delete(name string, options *v1.DeleteOptions) error {
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeFrontends) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(frontendsResource, c.ns, listOptions)
+func (c *FakeFrontends) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(frontendsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &alaudav1.FrontendList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched frontend.
-func (c *FakeFrontends) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *alaudav1.Frontend, err error) {
+func (c *FakeFrontends) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *alaudav1.Frontend, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(frontendsResource, c.ns, name, pt, data, subresources...), &alaudav1.Frontend{})
 

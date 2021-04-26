@@ -17,40 +17,37 @@ limitations under the License.
 package ingress
 
 import (
-	informerv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
-	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
-
 	"context"
 	"fmt"
-	"github.com/thoas/go-funk"
-	"k8s.io/apimachinery/pkg/labels"
 	"os"
 	"reflect"
 	"strings"
 	"time"
-
-	"k8s.io/klog"
-
-	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	networkinginformers "k8s.io/client-go/informers/extensions/v1beta1"
-	scheme "k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
-	networkinglisters "k8s.io/client-go/listers/extensions/v1beta1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
 	"alauda.io/alb2/driver"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	informerv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
+	"github.com/thoas/go-funk"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	networkinginformers "k8s.io/client-go/informers/networking/v1beta1"
+	scheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corelisters "k8s.io/client-go/listers/core/v1"
+	networkinglisters "k8s.io/client-go/listers/networking/v1beta1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 )
 
 func (c *Controller) Start(ctx context.Context) {
@@ -101,7 +98,7 @@ func (c *Controller) Start(ctx context.Context) {
 				if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
 					if errors.IsNotFound(err) {
 						klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
-						c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(rl.Name, &metav1.DeleteOptions{})
+						c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(ctx, rl.Name, metav1.DeleteOptions{})
 					}
 				} else {
 					if proto == m.ProtoHTTP {
@@ -568,7 +565,11 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority)
+	pathType := networkingv1beta1.PathTypeImplementationSpecific
+	if ingresPath.PathType != nil {
+		pathType = *ingresPath.PathType
+	}
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType)
 	if err != nil {
 		klog.Error(err)
 		return err

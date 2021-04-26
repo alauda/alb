@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/thoas/go-funk"
 	"strings"
 	"sync"
+
+	"github.com/spf13/viper"
+	"github.com/thoas/go-funk"
 )
 
 const (
