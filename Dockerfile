@@ -1,4 +1,4 @@
-FROM build-harbor.alauda.cn/3rdparty/golang:1.16.3 AS builder
+FROM build-harbor.alauda.cn/3rdparty/golang:v1.16.3 AS builder
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
