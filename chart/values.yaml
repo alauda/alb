@@ -33,7 +33,7 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: v3.5-21-g4ea97ec
+      tag: v3.5-22-g84eed2f
     alpine:
       repository: 3rdparty/alpine
       tag: 3.13.5
