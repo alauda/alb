@@ -71,7 +71,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 					Name:      ft.Name,
 					Labels:    map[string]string{},
 					OwnerReferences: []metav1.OwnerReference{
-						metav1.OwnerReference{
+						{
 							APIVersion: alb2v1.SchemeGroupVersion.String(),
 							Kind:       alb2v1.ALB2Kind,
 							Name:       alb.Name,
@@ -115,7 +115,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): rule.FT.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				metav1.OwnerReference{
+				{
 					APIVersion: alb2v1.SchemeGroupVersion.String(),
 					Kind:       alb2v1.FrontendKind,
 					Name:       rule.FT.Name,

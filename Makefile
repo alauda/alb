@@ -3,10 +3,10 @@ GO_IMAGE=index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.12.9-alpine3.9.4
 UNAME:=$(shell uname)
 
 ifeq ($(UNAME),Linux)
-    SED = sed
+	SED = sed
 endif
 ifeq ($(UNAME),Darwin)
-    SED = gsed
+	SED = gsed
 endif
 
 .PHONY: version
@@ -27,8 +27,10 @@ release: push
 	docker push index.alauda.cn/claas/alb2:`cat VERSION`
 
 test:
-	go test -cover -v ./... -json > test.json
 	go test -v -coverprofile=coverage-all.out ./...
+
+get-all-test-coverage: test
+	go tool cover -func=coverage-all.out
 
 gen-code:
 	rm -rf pkg/client

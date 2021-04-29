@@ -4,15 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"alauda.io/alb2/config"
-	drv "alauda.io/alb2/driver"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
+	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestRule_GetPriority(t *testing.T) {
@@ -119,10 +115,7 @@ func TestGCRule(t *testing.T) {
 		description   string
 		options       GCOptions
 		cfg           map[string]string
-		albs          []v1.ALB2
-		frontends     []v1.Frontend
-		rules         []v1.Rule
-		services      []k8sv1.Service
+		fakeResource  test_utils.FakeResource
 		expectActions []GCAction
 	}
 
@@ -159,28 +152,32 @@ func TestGCRule(t *testing.T) {
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
-			albs:    defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
-						},
-					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "tcp",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name: "ft-default-backend-service-whcih-should-not-exist",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "tcp",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
+									Namespace: "ns-1",
+									Type:      "bind",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name: "ft-default-backend-service-whcih-should-not-exist",
+										},
+									},
 								},
 							},
 						},
@@ -196,42 +193,48 @@ func TestGCRule(t *testing.T) {
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
-			albs:    defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
-						},
-					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "tcp",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "ft-service-1",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "tcp",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
 									Namespace: "ns-1",
+									Type:      "bind",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "ft-service-1",
+											Namespace: "ns-1",
+										},
+									},
 								},
 							},
 						},
 					},
 				},
-			},
-			services: []k8sv1.Service{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-service-1",
-						Namespace: "ns-1",
-						Annotations: map[string]string{
-							"alb2.alauda.io/bindkey": "[]",
+				K8s: test_utils.FakeK8sResource{
+					Services: []k8sv1.Service{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-service-1",
+								Namespace: "ns-1",
+								Annotations: map[string]string{
+									"alb2.alauda.io/bindkey": "[]",
+								},
+							},
 						},
 					},
 				},
@@ -244,51 +247,55 @@ func TestGCRule(t *testing.T) {
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
-			albs:    defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
-						},
-					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "http",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "ft-service-1",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "http",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
 									Namespace: "ns-1",
+									Type:      "bind",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "ft-service-1",
+											Namespace: "ns-1",
+										},
+									},
 								},
 							},
 						},
 					},
-				},
-			},
-			rules: []v1.Rule{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name":     "alb-1",
-							"alb2.alauda.io/frontend": "ft-1",
-							"app.alauda.io/name":      "appname.nsname",
-						},
-					},
-					Spec: v1.RuleSpec{
-						Source: &v1.Source{
-							Name:      "rule-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
+					Rules: []v1.Rule{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name":     "alb-1",
+									"alb2.alauda.io/frontend": "ft-1",
+									"app.alauda.io/name":      "appname.nsname",
+								},
+							},
+							Spec: v1.RuleSpec{
+								Source: &v1.Source{
+									Name:      "rule-source-1",
+									Namespace: "ns-1",
+									Type:      "bind",
+								},
+							},
 						},
 					},
 				},
@@ -302,62 +309,66 @@ func TestGCRule(t *testing.T) {
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
-			albs:    defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
-						},
-					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "http",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "ft-service-1",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "http",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
 									Namespace: "ns-1",
+									Type:      "bind",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "ft-service-1",
+											Namespace: "ns-1",
+										},
+									},
 								},
 							},
 						},
 					},
-				},
-			},
-			rules: []v1.Rule{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name":     "alb-1",
-							"alb2.alauda.io/frontend": "ft-1",
-						},
-					},
-					Spec: v1.RuleSpec{
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "rule-svc-1",
-									Namespace: "ns-1",
-								},
-								{
-									Name:      "rule-svc-2",
-									Namespace: "ns-1",
+					Rules: []v1.Rule{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name":     "alb-1",
+									"alb2.alauda.io/frontend": "ft-1",
 								},
 							},
-						},
-						Source: &v1.Source{
-							Name:      "rule-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
+							Spec: v1.RuleSpec{
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "rule-svc-1",
+											Namespace: "ns-1",
+										},
+										{
+											Name:      "rule-svc-2",
+											Namespace: "ns-1",
+										},
+									},
+								},
+								Source: &v1.Source{
+									Name:      "rule-source-1",
+									Namespace: "ns-1",
+									Type:      "bind",
+								},
+							},
 						},
 					},
 				},
@@ -370,80 +381,86 @@ func TestGCRule(t *testing.T) {
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
-			albs:    defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "http",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
+									Namespace: "ns-1",
+									Type:      "bind",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "ft-service-1",
+											Namespace: "ns-1",
+										},
+									},
+								},
+							},
 						},
 					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "http",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "ft-service-1",
+					Rules: []v1.Rule{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name":     "alb-1",
+									"alb2.alauda.io/frontend": "ft-1",
+								},
+							},
+							Spec: v1.RuleSpec{
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "rule-svc-1",
+											Namespace: "ns-1",
+										},
+										{
+											Name:      "rule-svc-2",
+											Namespace: "ns-1",
+										},
+									},
+								},
+								Source: &v1.Source{
+									Name:      "rule-source-1",
 									Namespace: "ns-1",
+									Type:      "bind",
 								},
 							},
 						},
 					},
 				},
-			},
-			rules: []v1.Rule{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name":     "alb-1",
-							"alb2.alauda.io/frontend": "ft-1",
-						},
-					},
-					Spec: v1.RuleSpec{
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "rule-svc-1",
-									Namespace: "ns-1",
-								},
-								{
-									Name:      "rule-svc-2",
-									Namespace: "ns-1",
+				K8s: test_utils.FakeK8sResource{
+					Services: []k8sv1.Service{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-svc-1",
+								Namespace: "ns-1",
+								Annotations: map[string]string{
+									"alb2.alauda.io/bindkey": "[]",
 								},
 							},
 						},
-						Source: &v1.Source{
-							Name:      "rule-source-1",
-							Namespace: "ns-1",
-							Type:      "bind",
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-svc-2",
+								Namespace: "ns-1",
+							},
 						},
-					},
-				},
-			},
-			services: []k8sv1.Service{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-svc-1",
-						Namespace: "ns-1",
-						Annotations: map[string]string{
-							"alb2.alauda.io/bindkey": "[]",
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-svc-2",
-						Namespace: "ns-1",
 					},
 				},
 			},
@@ -453,62 +470,66 @@ func TestGCRule(t *testing.T) {
 			expectActions: []GCAction{},
 			options:       defaultGCOptions,
 			cfg:           defaultConfig,
-			albs:          defaultAlbs,
-			frontends: []v1.Frontend{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ft-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name": "alb-1",
-						},
-					},
-					Spec: v1.FrontendSpec{
-						Port:     12345,
-						Protocol: "http",
-						Source: &v1.Source{
-							Name:      "ft-source-1",
-							Namespace: "ns-1",
-							Type:      "ingress",
-						},
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "ft-service-1",
+			fakeResource: test_utils.FakeResource{
+				Alb: test_utils.FakeALBResource{
+					Albs: defaultAlbs,
+					Frontends: []v1.Frontend{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ft-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name": "alb-1",
+								},
+							},
+							Spec: v1.FrontendSpec{
+								Port:     12345,
+								Protocol: "http",
+								Source: &v1.Source{
+									Name:      "ft-source-1",
 									Namespace: "ns-1",
+									Type:      "ingress",
+								},
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "ft-service-1",
+											Namespace: "ns-1",
+										},
+									},
 								},
 							},
 						},
 					},
-				},
-			},
-			rules: []v1.Rule{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "rule-1",
-						Namespace: "ns-1",
-						Labels: map[string]string{
-							"alb2.alauda.io/name":     "alb-1",
-							"alb2.alauda.io/frontend": "ft-1",
-						},
-					},
-					Spec: v1.RuleSpec{
-						ServiceGroup: &v1.ServiceGroup{
-							Services: []v1.Service{
-								{
-									Name:      "rule-svc-1",
-									Namespace: "ns-1",
-								},
-								{
-									Name:      "rule-svc-2",
-									Namespace: "ns-1",
+					Rules: []v1.Rule{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "rule-1",
+								Namespace: "ns-1",
+								Labels: map[string]string{
+									"alb2.alauda.io/name":     "alb-1",
+									"alb2.alauda.io/frontend": "ft-1",
 								},
 							},
-						},
-						Source: &v1.Source{
-							Name:      "rule-source-1",
-							Namespace: "ns-1",
-							Type:      "ingress",
+							Spec: v1.RuleSpec{
+								ServiceGroup: &v1.ServiceGroup{
+									Services: []v1.Service{
+										{
+											Name:      "rule-svc-1",
+											Namespace: "ns-1",
+										},
+										{
+											Name:      "rule-svc-2",
+											Namespace: "ns-1",
+										},
+									},
+								},
+								Source: &v1.Source{
+									Name:      "rule-source-1",
+									Namespace: "ns-1",
+									Type:      "ingress",
+								},
+							},
 						},
 					},
 				},
@@ -517,40 +538,13 @@ func TestGCRule(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		for key, val := range testCase.cfg {
-			config.Set(key, val)
-		}
-
 		a := assert.New(t)
-		driver, err := drv.GetKubernetesDriver(true)
-		a.NoError(err)
-		a.NoError(err)
+		defer cancel()
+		drv, _ := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
 
-		var albList v1.ALB2List = v1.ALB2List{
-			Items: testCase.albs,
-		}
-
-		var ftList v1.FrontendList = v1.FrontendList{
-			Items: testCase.frontends,
-		}
-
-		var ruleList v1.RuleList = v1.RuleList{
-			Items: testCase.rules,
-		}
-
-		serviceList := k8sv1.ServiceList{
-			Items: testCase.services,
-		}
-
-		crdDataset := []runtime.Object{&albList, &ftList, &ruleList}
-		nativeDataset := []runtime.Object{&serviceList}
-		driver.ALBClient = albfakeclient.NewSimpleClientset(crdDataset...)
-		driver.Client = fake.NewSimpleClientset(nativeDataset...)
-		drv.InitDriver(driver, ctx)
-
-		actions, err := calculateGCActions(driver, GCOptions{
+		actions, err := calculateGCActions(drv, GCOptions{
 			GCAppRule:     true,
 			GCServiceRule: true,
 		})

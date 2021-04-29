@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
 	"os"
@@ -14,7 +13,7 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-
+	"alauda.io/alb2/utils"
 	"k8s.io/klog"
 )
 
@@ -220,28 +219,43 @@ func (nc *NginxController) FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 }
 
 func (nc *NginxController) GenerateConf() error {
-	services, err := nc.Driver.ListService()
+	nginxConfig, ngxPolicies, err := nc.GenerateNginxConfig()
 	if err != nil {
 		return err
 	}
-	loadbalancers, err := nc.FetchLoadBalancersInfo()
+
+	nc.WriteConfig(nginxConfig, ngxPolicies)
+
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (nc *NginxController) GenerateNginxConfig() (nginxConfig Config, nginxPolicy NgxPolicy, err error) {
+	services, err := nc.Driver.ListService()
+	if err != nil {
+		return Config{}, NgxPolicy{}, err
+	}
+	loadbalancers, err := nc.FetchLoadBalancersInfo()
+	if err != nil {
+		return Config{}, NgxPolicy{}, err
 	}
 
 	merge(loadbalancers, services)
 
 	if len(loadbalancers) == 0 {
-		return errors.New("no lb found")
+		return Config{}, NgxPolicy{}, errors.New("no lb found")
 	}
 	if len(loadbalancers[0].Frontends) == 0 {
 		klog.Info("No service bind to this nginx now")
 	}
 
-	nginxConfig, ngxPolicies := nc.generateNginxConfig(loadbalancers[0])
-	// klog.Infof("nginxConfig is %v", nginxConfig)
-	// klog.Infof("policy is %v", ngxPolicies)
+	nginxConfig, nginxPolicy = nc.generateNginxConfig(loadbalancers[0])
+	return nginxConfig, nginxPolicy, nil
+}
 
+func (nc *NginxController) WriteConfig(nginxConfig Config, ngxPolicies NgxPolicy) error {
 	policyBytes, err := json.Marshal(ngxPolicies)
 	if err != nil {
 		klog.Error()
