@@ -20,3 +20,4 @@ test.json
 coverage-all.out
 alb-nginx/luacov.stats.out
 temp/
+.wc/

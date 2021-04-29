@@ -11,15 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"alauda.io/alb2/driver"
-	"alauda.io/alb2/modules"
-	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller"
+	"alauda.io/alb2/driver"
 	"alauda.io/alb2/ingress"
+	"alauda.io/alb2/modules"
+	"k8s.io/klog"
 )
 
 func main() {
@@ -56,42 +53,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(drv.Client, 0)
-	namespaceInformer := kubeInformerFactory.Core().V1().Namespaces()
-	namespaceLister := namespaceInformer.Lister()
-	namespaceSynced := namespaceInformer.Informer().HasSynced
-	ingressInformer := kubeInformerFactory.Networking().V1beta1().Ingresses()
-	ingressSynced := ingressInformer.Informer().HasSynced
-	serviceInformer := kubeInformerFactory.Core().V1().Services()
-	serviceLister := serviceInformer.Lister()
-	serviceSynced := serviceInformer.Informer().HasSynced
-	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
-	endpointLister := endpointInformer.Lister()
-	endpointSynced := endpointInformer.Informer().HasSynced
-	kubeInformerFactory.Start(ctx.Done())
-
-	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(drv.ALBClient, 0,
-		albinformers.WithNamespace(config.Get("NAMESPACE")))
-	alb2Informer := albInformerFactory.Crd().V1().ALB2s()
-	alb2Lister := alb2Informer.Lister()
-	alb2Synced := alb2Informer.Informer().HasSynced
-	frontendInformer := albInformerFactory.Crd().V1().Frontends()
-	frontendLister := frontendInformer.Lister()
-	frontendSynced := frontendInformer.Informer().HasSynced
-	ruleInformer := albInformerFactory.Crd().V1().Rules()
-	ruleLister := ruleInformer.Lister()
-	ruleSynced := ruleInformer.Informer().HasSynced
-	albInformerFactory.Start(ctx.Done())
-	drv.FillUpListers(serviceLister, endpointLister, alb2Lister, frontendLister, ruleLister)
-
-	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(ctx.Done(), namespaceSynced, ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
-		klog.Fatalf("failed to wait for caches to sync")
-	}
+	informers, _ := driver.InitInformers(drv, ctx, driver.InitInformersOptions{ErrorIfWaitSyncFail: false})
+	drv.FillUpListers(
+		informers.K8s.Service.Lister(),
+		informers.K8s.Endpoint.Lister(),
+		informers.Alb.Alb.Lister(),
+		informers.Alb.Ft.Lister(),
+		informers.Alb.Rule.Lister())
 
 	klog.Info("SERVE_INGRESS:", config.GetBool("SERVE_INGRESS"))
 	if config.GetBool("SERVE_INGRESS") {
-		ingressController := ingress.NewController(drv, alb2Informer, ruleInformer, ingressInformer, namespaceLister)
+		ingressController := ingress.NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.Namespace.Lister())
 		go ingressController.Start(ctx)
 	}
 	if config.Get("ENABLE_PROFILE") == "true" {

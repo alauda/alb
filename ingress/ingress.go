@@ -423,7 +423,7 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 		len(ft.ServiceGroup.Services) == 0 {
 		ft.ServiceGroup = &alb2v1.ServiceGroup{
 			Services: []alb2v1.Service{
-				alb2v1.Service{
+				{
 					Namespace: ingress.Namespace,
 					Name:      ingress.Spec.Backend.ServiceName,
 					Port:      int(ingress.Spec.Backend.ServicePort.IntVal),
@@ -576,7 +576,7 @@ func (c *Controller) updateRule(
 	}
 	rule.ServiceGroup = &alb2v1.ServiceGroup{
 		Services: []alb2v1.Service{
-			alb2v1.Service{
+			{
 				Namespace: ingress.Namespace,
 				Name:      ingresPath.Backend.ServiceName,
 				Port:      int(ingresPath.Backend.ServicePort.IntVal),
@@ -811,8 +811,9 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		klog.Infof("check ingress %s/%s result: %t", obj.GetNamespace(), obj.GetName(), rv)
 	}()
 	annotations := obj.GetAnnotations()
-	if !(annotations["kubernetes.io/ingress.class"] == "" ||
-		annotations["kubernetes.io/ingress.class"] == config.Get("NAME")) {
+
+	ingressClass := annotations["kubernetes.io/ingress.class"]
+	if ingressClass != "" && ingressClass != config.Get("NAME") {
 		return false
 	}
 	alb, err := c.KubernetesDriver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
