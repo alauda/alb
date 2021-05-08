@@ -94,7 +94,7 @@ spec:
           - name: shared-data
             mountPath: /var/log/nginx
         - name: log-sidecar
-          image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alpine.repository }}:{{ .Values.global.images.alpine.tag }}"
+          image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
           volumeMounts:
           - name: shared-data
             mountPath: /var/log/nginx

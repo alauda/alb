@@ -34,12 +34,7 @@ global:
       support_arm: true
       repository: acp/alb2
       tag: v3.5-28-g220e663
-    alpine:
-      repository: 3rdparty/alpine
-      tag: 3.13.5
-      code: ""
-      support_arm: true
-      thirdparty: true
+
 resources:
   limits:
     cpu: "2"
