@@ -66,71 +66,115 @@ func (c *Controller) Start(ctx context.Context) {
 	})
 
 	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
-	klog.Infof("start periodicity sync with period: %s", resyncPeriod)
-	go wait.Forever(func() {
-		klog.Info("doing a periodicity sync")
-		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
-		if err != nil || !isLeader {
-			klog.Warningf("not leader, skip periodicity sync")
-			return
-		}
-		rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
-			fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")):     "ingress",
-			fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
-		}))
-		if err != nil {
-			klog.Warningf("failed list rules: %v", err)
-			return
-		}
-		httpProcessedIngress := make(map[string]bool)
-		httpsProcessedIngress := make(map[string]bool)
-		for _, rl := range rules {
-			ingKey := rl.Labels[fmt.Sprintf("alb2.%s/source-name", config.Get("DOMAIN"))]
-			var proto string
-			if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPPort)) {
-				proto = m.ProtoHTTP
-			} else if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPSPort)) {
-				proto = m.ProtoHTTPS
+	if config.GetBool("FULL_SYNC") {
+		klog.Infof("start periodicity sync with period: %s", resyncPeriod)
+		go wait.Forever(func() {
+
+			isLeader, err := ctl.IsLocker(c.KubernetesDriver)
+			if err != nil || !isLeader {
+				klog.Warningf("not leader, skip periodicity sync")
+				return
 			}
-			if ingKey != "" {
-				ingNs := ingKey[strings.LastIndex(ingKey, ".")+1:]
-				ingName := ingKey[:strings.LastIndex(ingKey, ".")]
-				if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
-					if errors.IsNotFound(err) {
-						klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
-						c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(ctx, rl.Name, metav1.DeleteOptions{})
-					}
-				} else {
-					if proto == m.ProtoHTTP {
-						httpProcessedIngress[ingNs+"/"+ingName] = true
-					} else if proto == m.ProtoHTTPS {
-						httpsProcessedIngress[ingNs+"/"+ingName] = true
-					}
-				}
+
+			klog.Info("doing a periodicity sync")
+			ingressList, err := c.findUnSyncedIngress(ctx)
+			if err != nil {
+				klog.Errorf("find unsynced ingress fail: %v", err)
+				return
 			}
-		}
-		ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
-		if err != nil {
-			klog.Warningf("failed list ingress: %v", err)
-			return
-		}
-		for _, ing := range ings {
-			needFtTypes := getIngressFtTypes(ing)
-			if needFtTypes.Has(m.ProtoHTTP) && !httpProcessedIngress[ing.Namespace+"/"+ing.Name] {
-				if c.needEnqueueObject(ing) {
-					c.enqueue(ing)
-				}
-			} else if needFtTypes.Has(m.ProtoHTTPS) && !httpsProcessedIngress[ing.Namespace+"/"+ing.Name] {
+
+			for _, ing := range ingressList {
 				if c.needEnqueueObject(ing) {
 					c.enqueue(ing)
 				}
 			}
-		}
-		klog.Info("finish a periodicity sync")
-	}, resyncPeriod)
+
+		}, resyncPeriod)
+	} else {
+		klog.Infof("full sync disabled by config")
+	}
 
 	if err := c.Run(1, ctx.Done()); err != nil {
 		klog.Errorf("Error running controller: %s", err.Error())
+	}
+}
+
+func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1beta1.Ingress, error) {
+	ingressList := make([]*networkingv1beta1.Ingress, 0)
+
+	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
+		fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")):     "ingress",
+		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
+	}))
+	if err != nil {
+		klog.Errorf("failed list rules: %v", err)
+		return ingressList, err
+	}
+
+	klog.Infof("find-unsync rules-len: %d", len(rules))
+
+	httpProcessedIngress := make(map[string]string)
+	httpsProcessedIngress := make(map[string]string)
+	for _, rl := range rules {
+		ingKey := rl.Labels[fmt.Sprintf("alb2.%s/source-name", config.Get("DOMAIN"))]
+		var proto string
+		if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPPort)) {
+			proto = m.ProtoHTTP
+		} else if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPSPort)) {
+			proto = m.ProtoHTTPS
+		}
+		if ingKey != "" {
+			ingNs := ingKey[strings.LastIndex(ingKey, ".")+1:]
+			ingName := ingKey[:strings.LastIndex(ingKey, ".")]
+			if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
+				if errors.IsNotFound(err) {
+					klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
+					c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(ctx, rl.Name, metav1.DeleteOptions{})
+				}
+			} else {
+				sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
+				if proto == m.ProtoHTTP {
+					httpProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
+				} else if proto == m.ProtoHTTPS {
+					httpsProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
+				}
+			}
+		}
+	}
+
+	ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
+	if err != nil {
+		klog.Warningf("failed list ingress: %v", err)
+		return ingressList, err
+	}
+	klog.Infof("find-unsync ingress-len: %d", len(rules))
+
+	for _, ing := range ings {
+		needFtTypes := getIngressFtTypes(ing)
+
+		if needFtTypes.Has(m.ProtoHTTP) && !isIngressAlreadySynced(ing, httpProcessedIngress) {
+			ingressList = append(ingressList, ing)
+		} else if needFtTypes.Has(m.ProtoHTTPS) && !isIngressAlreadySynced(ing, httpsProcessedIngress) {
+			ingressList = append(ingressList, ing)
+		}
+	}
+
+	klog.Infof("find-unsync unsynced-ingress-len: %d", len(ingressList))
+	return ingressList, nil
+}
+
+func isIngressAlreadySynced(ing *networkingv1beta1.Ingress, processedIngress map[string]string) bool {
+	ingKey := ing.Namespace + "/" + ing.Name
+	if version, ok := processedIngress[ingKey]; ok {
+		if version == ing.ResourceVersion {
+			return true
+		} else {
+			klog.Infof("detect ingress %s change rule-v: %s ing-v: %s", ing.Name, version, ing.ResourceVersion)
+			return false
+		}
+	} else {
+		klog.Infof("detect ingress %s change rule-v: not exist ing-v: %s ", ing.Name, ing.ResourceVersion)
+		return false
 	}
 }
 
@@ -187,14 +231,24 @@ func NewController(
 		recorder:         recorder,
 		KubernetesDriver: d,
 	}
+	if config.GetBool("INCREMENT_SYNC") {
+		klog.Info("Setting up event handlers")
+		controller.setUpEventHandler(alb2Informer, ingressInformer)
+	} else {
+		klog.Infof("increment sync disabled by config")
+	}
 
-	klog.Info("Setting up event handlers")
+	return controller
+}
+
+func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
+	ingressInformer networkinginformers.IngressInformer) {
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newIngress := obj.(*networkingv1beta1.Ingress)
-			klog.Infof("receive ingress %s/%s create event", newIngress.Namespace, newIngress.Name)
-			controller.handleObject(obj)
+			klog.Infof("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion)
+			c.handleObject(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
 			newIngress := new.(*networkingv1beta1.Ingress)
@@ -205,13 +259,13 @@ func NewController(
 			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
 				return
 			}
-			klog.Infof("receive ingress %s/%s update event", newIngress.Namespace, newIngress.Name)
-			controller.handleObject(new)
+			klog.Infof("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion)
+			c.handleObject(new)
 		},
 		DeleteFunc: func(obj interface{}) {
 			oldIngress := obj.(*networkingv1beta1.Ingress)
-			klog.Infof("receive ingress %s/%s delete event", oldIngress.Namespace, oldIngress.Name)
-			controller.handleObject(obj)
+			klog.Infof("receive ingress %s/%s %s delete event", oldIngress.Namespace, oldIngress.Name, oldIngress.ResourceVersion)
+			c.handleObject(obj)
 		},
 	})
 	alb2Informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -228,14 +282,12 @@ func NewController(
 			oldProjects := ctl.GetOwnProjects(oldAlb2.Name, oldAlb2.Labels)
 			newAddProjects := funk.SubtractString(newProjects, oldProjects)
 			klog.Infof("own projects: %v, new add projects: %v", newProjects, newAddProjects)
-			ingresses := controller.GetProjectIngresses(newAddProjects)
+			ingresses := c.GetProjectIngresses(newAddProjects)
 			for _, ingress := range ingresses {
-				controller.handleObject(ingress)
+				c.handleObject(ingress)
 			}
 		},
 	})
-
-	return controller
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -262,7 +314,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 		// ensure legacy ingresses will be transformed
 		for _, ing := range ings {
 			if c.needEnqueueObject(ing) {
-				klog.Infof("enqueue unprocessed ing: %s/%s", ing.Namespace, ing.Name)
+				klog.Infof("enqueue unprocessed ing: %s/%s %s", ing.Namespace, ing.Name, ing.ResourceVersion)
 				c.enqueue(ing)
 			}
 		}
@@ -569,7 +621,10 @@ func (c *Controller) updateRule(
 	if ingresPath.PathType != nil {
 		pathType = *ingresPath.PathType
 	}
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType)
+
+	ingVersion := ingress.ResourceVersion
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType, ingVersion)
+
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -592,17 +647,17 @@ func (c *Controller) updateRule(
 	err = c.KubernetesDriver.CreateRule(rule)
 	if err != nil {
 		klog.Errorf(
-			"Create rule %+v for ingress %s failed: %s",
-			*rule, ingInfo, err.Error(),
+			"Create rule %+v for ingress %s %s failed: %s",
+			*rule, ingInfo, ingVersion, err.Error(),
 		)
 		return err
 	}
-	klog.Infof("Create rule %s for ingress %s success", rule.Name, ingInfo)
+	klog.Infof("Create rule %s for ingress %s %s success", rule.Name, ingInfo, ingVersion)
 	return nil
 }
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress) error {
-	klog.Infof("on ingress create or update, %s/%s", ingress.Namespace, ingress.Name)
+	klog.Infof("on ingress create or update, %s/%s %s", ingress.Namespace, ingress.Name, ingress.ResourceVersion)
 	// Detele old rule if it exist
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
@@ -733,20 +788,22 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress)
 					err = c.updateRule(ingress, ft, host, p)
 					if err != nil {
 						klog.Errorf(
-							"Update %s rule failed for ingress %s/%s with host=%s, path=%s",
+							"Update %s rule failed for ingress %s/%s %s with host=%s, path=%s",
 							proto,
 							ingress.Namespace,
 							ingress.Name,
+							ingress.ResourceVersion,
 							host,
 							p.Path,
 						)
 						return err
 					} else {
 						klog.Infof(
-							"Update %s rule success for ingress %s/%s with host=%s, path=%s",
+							"Update %s rule success for ingress %s/%s %s with host=%s, path=%s",
 							proto,
 							ingress.Namespace,
 							ingress.Name,
+							ingress.ResourceVersion,
 							host,
 							p.Path,
 						)
@@ -806,9 +863,9 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 }
 
 func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
-	klog.Infof("check if ingress %s/%s need enqueue", obj.GetNamespace(), obj.GetName())
+	klog.Infof("check if ingress %s/%s %s need enqueue", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
 	defer func() {
-		klog.Infof("check ingress %s/%s result: %t", obj.GetNamespace(), obj.GetName(), rv)
+		klog.Infof("check ingress %s/%s %s result: %t", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion(), rv)
 	}()
 	annotations := obj.GetAnnotations()
 

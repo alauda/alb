@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strings"
 
+	"alauda.io/alb2/config"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/thoas/go-funk"
@@ -82,7 +83,8 @@ func (ft *Frontend) IsHttpOrHttps() bool {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1beta1.PathType) (*Rule, error) {
+	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1beta1.PathType, ingressVersion string) (*Rule, error) {
+
 	var (
 		dsl  string
 		dslx alb2v1.DSLX
@@ -91,8 +93,11 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 		dsl = GetDSL(domain, url)
 		dslx = GetDSLX(domain, url, pathType)
 	}
+
+	sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
 	r := Rule{
-		Name: RandomStr(ft.Name, 4),
+		Name:        RandomStr(ft.Name, 4),
+		Annotations: map[string]string{sourceIngressVersion: ingressVersion},
 		RuleSpec: alb2v1.RuleSpec{
 			Domain:           domain,
 			URL:              url,
@@ -119,8 +124,9 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 
 type Rule struct {
 	alb2v1.RuleSpec
-	Name   string
-	Labels map[string]string
+	Name        string
+	Labels      map[string]string
+	Annotations map[string]string
 
 	FT *Frontend
 }

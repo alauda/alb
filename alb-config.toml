@@ -9,9 +9,11 @@ RECORD_POST_BODY = false
 USE_ENDPOINT = true
 USE_POD_HOST_IP = true
 RELOAD_TIMEOUT = 600
-
 #timeout for http request
 timeout = 30
+INCREMENT_SYNC = true
+FULL_SYNC = true
+RELOAD_NGINX = true
 
 # for test
 KUBERNETES_SERVER = "https://127.0.0.1:6443"
@@ -20,6 +22,8 @@ NAME = "test1"
 NAMESPACE = "default"
 NGINX_TEMPLATE_PATH = "template/nginx/nginx.tmpl"
 NEW_POLICY_PATH = "policy.new"
+INGRESS_HTTP_PORT= "80"
+INGRESS_HTTPS_PORT= "443"
 
 [labels]
 bindkey = "loadbalancer.%s/bind"
@@ -28,3 +32,4 @@ frontend = "alb2.%s/frontend"
 lock = "alb2.%s/locker"
 source_type = "alb2.%s/source-type"
 source_name = "alb2.%s/source-name"
+source_ingress_version = "alb2.%s/source-ingress-version"
