@@ -1,0 +1,21 @@
+name: alb
+restart_if_exists: true
+windows:
+    alb:
+        panes:
+            alb-run:
+                root: ./
+                cmds:
+                  - ./scripts/into-alb.sh
+                  - ./run.sh
+            alb-nginx-log:
+                root: ./
+                cmds:
+                  - ./scripts/alb-nginx-log.sh
+            alb-port-forward:
+                root: ./
+                cmds:
+                  - ./scripts/alb-port-forward.sh
+            shell:
+                root: ./
+                  - echo "ok"

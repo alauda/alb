@@ -114,6 +114,7 @@ func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 				fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     rule.FT.LB.Name,
 				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): rule.FT.Name,
 			},
+			Annotations: rule.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: alb2v1.SchemeGroupVersion.String(),

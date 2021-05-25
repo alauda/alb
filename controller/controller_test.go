@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"os"
+	"runtime"
 	"testing"
 
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -552,4 +554,12 @@ func TestGCRule(t *testing.T) {
 		a.ElementsMatch(actions, testCase.expectActions, testCase.description)
 
 	}
+}
+
+func TestIsSameFile(t *testing.T) {
+	_, current_go_path, _, _ := runtime.Caller(1)
+	exe_path, err := os.Executable()
+	assert.NoError(t, err)
+	assert.True(t, sameFiles(current_go_path, current_go_path))
+	assert.False(t, sameFiles(current_go_path, exe_path))
 }

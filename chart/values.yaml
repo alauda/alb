@@ -20,7 +20,7 @@ ingressHTTPSPort: 443
 metricsPort: 1936
 enableProfile: false
 workerLimit: 8
-resyncPeriod: 1800
+resyncPeriod: 300
 backlog: 2048
 global:
   platformscenario: base

@@ -2,9 +2,8 @@ package controller
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"crypto/tls"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -278,12 +277,12 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 }
 
 func sameFiles(file1, file2 string) bool {
-	sum1, err := fileMd5(file1)
+	sum1, err := fileSha256(file1)
 	if err != nil {
 		klog.Error(err.Error())
 		return false
 	}
-	sum2, err := fileMd5(file2)
+	sum2, err := fileSha256(file2)
 	if err != nil {
 		klog.Error(err.Error())
 		return false
@@ -292,15 +291,15 @@ func sameFiles(file1, file2 string) bool {
 	return sum1 == sum2
 }
 
-func fileMd5(file string) (string, error) {
+func fileSha256(file string) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		klog.Error(err.Error())
 		return "", err
 	}
-	md5h := md5.New()
-	io.Copy(md5h, f)
-	return fmt.Sprintf("%x", md5h.Sum(nil)), nil
+	sha256h := sha256.New()
+	io.Copy(sha256h, f)
+	return fmt.Sprintf("%x", sha256h.Sum(nil)), nil
 }
 
 func reverseStatus(status string) string {
@@ -355,11 +354,6 @@ func jsonEqual(a, b []byte) bool {
 
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-func GetMD5Hash(text string) string {
-	hasher := md5.New()
-	hasher.Write([]byte(text))
-	return hex.EncodeToString(hasher.Sum(nil))
-}
 func RandomStr(pixff string, length int) string {
 	result := make([]byte, length)
 	for i := 0; i < length; i++ {

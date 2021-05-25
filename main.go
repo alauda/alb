@@ -77,6 +77,33 @@ func main() {
 		go rotateLog()
 	}
 
+	klog.Infof("reload nginx %v", config.GetBool("RELOAD_NGINX"))
+	if config.GetBool("RELOAD_NGINX") {
+		reloadLogBalancer(drv)
+	}
+
+	// this program should running forever
+    select{}
+}
+
+func rotateLog() {
+	rotateInterval := config.GetInt("ROTATE_INTERVAL")
+	klog.Info("rotateLog start, rotate interval ", rotateInterval)
+	for {
+		klog.Info("start rorate log")
+		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()
+		if err != nil {
+			klog.Errorf("rotate log failed %s %v", output, err)
+		} else {
+			klog.Info("rotate log success")
+		}
+		time.Sleep(time.Duration(rotateInterval) * time.Minute)
+	}
+}
+
+// reload in every INTERVAL sec
+// it will gc rules,gernerate nginx config and reload nginx,adter that those cr really take effect.
+func reloadLogBalancer(drv *driver.KubernetesDriver) {
 	interval := config.GetInt("INTERVAL")
 	tmo := time.Duration(config.GetInt("RELOAD_TIMEOUT")) * time.Second
 	for {
@@ -134,20 +161,5 @@ func main() {
 		}
 
 		klog.Infof("End update reload loop, cost %s", time.Since(startTime))
-	}
-}
-
-func rotateLog() {
-	rotateInterval := config.GetInt("ROTATE_INTERVAL")
-	klog.Info("rotateLog start, rotate interval ", rotateInterval)
-	for {
-		klog.Info("start rorate log")
-		output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/alauda").CombinedOutput()
-		if err != nil {
-			klog.Errorf("rotate log failed %s %v", output, err)
-		} else {
-			klog.Info("rotate log success")
-		}
-		time.Sleep(time.Duration(rotateInterval) * time.Minute)
 	}
 }

@@ -2,13 +2,16 @@ package ingress
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 func TestNeedEnqueueObject(t *testing.T) {
@@ -121,4 +124,120 @@ func TestNeedEnqueueObject(t *testing.T) {
 		a.Equal(need, testCase.shouldEnqueue, testCase.description)
 
 	}
+}
+
+func TestFindUnSyncedIngress(t *testing.T) {
+
+	expect := []string{"ing-1", "ing-2"}
+	fakeResource := test_utils.FakeResource{
+		Alb: test_utils.FakeALBResource{
+			Rules: []albv1.Rule{
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "alb-1-00443-1",
+						Labels: map[string]string{
+							"alb2.alauda.io/source-type": "ingress",
+							"alb2.alauda.io/name":        "alb-1",
+							"alb2.alauda.io/source-name": "ing-1.ns-2",
+						},
+					},
+				},
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "alb-1-00080-2",
+						Annotations: map[string]string{
+							"alb2.alauda.io/source-ingress-version": "1",
+						},
+						Labels: map[string]string{
+							"alb2.alauda.io/source-type": "ingress",
+							"alb2.alauda.io/name":        "alb-1",
+							"alb2.alauda.io/source-name": "ing-2.ns-2",
+						},
+					},
+				},
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "alb-1-00080-3",
+						Annotations: map[string]string{
+							"alb2.alauda.io/source-ingress-version": "2",
+						},
+						Labels: map[string]string{
+							"alb2.alauda.io/source-type": "ingress",
+							"alb2.alauda.io/name":        "alb-1",
+							"alb2.alauda.io/source-name": "ing-3.ns-2",
+						},
+					},
+				},
+			},
+		},
+		K8s: test_utils.FakeK8sResource{
+			Ingresses: []networkingv1beta1.Ingress{
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace:       "ns-2",
+						Name:            "ing-1",
+						ResourceVersion: "1",
+					},
+					Spec: networkingv1beta1.IngressSpec{
+						Rules: []networkingv1beta1.IngressRule{
+							{
+								Host: "ingress-rule-1",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace:       "ns-2",
+						Name:            "ing-2",
+						ResourceVersion: "2",
+					},
+					Spec: networkingv1beta1.IngressSpec{
+						Rules: []networkingv1beta1.IngressRule{
+							{
+								Host: "ingress-rule-1",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Namespace:       "ns-2",
+						Name:            "ing-3",
+						ResourceVersion: "2",
+					},
+					Spec: networkingv1beta1.IngressSpec{
+						Rules: []networkingv1beta1.IngressRule{
+							{
+								Host: "ingress-rule-1",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	klog.InitFlags(nil)
+	defer klog.Flush()
+	ctx, cancel := context.WithCancel(context.Background())
+	a := assert.New(t)
+	defer cancel()
+	defaultConfig := test_utils.DEFAULT_CONFIG_FOR_TEST
+	defaultConfig["INCREMENT_SYNC"] = "false"
+	drv, informers := test_utils.InitFakeAlb(t, ctx, fakeResource, defaultConfig)
+
+	ingressController := NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.Namespace.Lister())
+	ingressList, err := ingressController.findUnSyncedIngress(ctx)
+	ingressNameList := make([]string, 0)
+	for _, ing := range ingressList {
+		ingressNameList = append(ingressNameList, ing.Name)
+	}
+
+	sort.Strings(ingressNameList)
+	a.NoError(err)
+	a.Equal(ingressNameList, expect)
 }
