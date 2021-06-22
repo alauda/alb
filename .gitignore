@@ -21,3 +21,5 @@ coverage-all.out
 alb-nginx/luacov.stats.out
 temp/
 .wc/
+scripts/e2e/.tmp
+.scannerwork
