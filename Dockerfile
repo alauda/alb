@@ -10,7 +10,7 @@ RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26
 RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
 
 
-FROM build-harbor.alauda.cn/3rdparty/alb-nginx:latest
+FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.0
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
