@@ -8,7 +8,7 @@ RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repos
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
 ARG RESTY_IMAGE_BASE="alpine"
-ARG RESTY_VERSION="1.19.3.1"
+ARG RESTY_VERSION="1.19.3.2"
 ARG RESTY_OPENSSL_VERSION="1.1.1k"
 ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
 ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
@@ -48,9 +48,8 @@ ARG RESTY_CONFIG_OPTIONS="\
 
 ARG RESTY_CONFIG_OPTIONS_MORE="--add-module=/tmp/lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}"
 ARG RESTY_LUAJIT_OPTIONS="--with-luajit-xcflags='-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT'"
-# User LuaJIT v2.1 latest source to fix http://jira.alauda.cn/browse/ACP-5137. 
-# Should be removed if openresty have newer version 
-ARG RESTR_LUAJIT_VERSION="787736990ac3b7d5ceaba2697c7d0f58f77bb782"
+# User openresty/luajit2 latest source to fix http://jira.alauda.cn/browse/ACP-5137. see more detail in README.md
+ARG RESTR_LUAJIT2_VERSION="886d5f895b8ae19def724677376322b1f7ae2d4a"
 
 ARG RESTY_ADD_PACKAGE_BUILDDEPS=""
 ARG RESTY_ADD_PACKAGE_RUNDEPS=""
@@ -149,18 +148,20 @@ RUN update-ca-certificates \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
+    && echo "start build openresty" \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
+    ## use custom luajit version,see more details in README.md
     && rm -fr /tmp/openresty-${RESTY_VERSION}/bundle/LuaJIT-2.1-20201027 \
-    && curl -fSL https://github.com/LuaJIT/LuaJIT/archive/${RESTR_LUAJIT_VERSION}.tar.gz -o LuaJIT-${RESTR_LUAJIT_VERSION}.tar.gz \
-    && tar xzf LuaJIT-${RESTR_LUAJIT_VERSION}.tar.gz \
-    && mv LuaJIT-${RESTR_LUAJIT_VERSION} /tmp/openresty-${RESTY_VERSION}/bundle/ \
+    && git clone https://github.com/openresty/luajit2 \
+    && cd ./luajit2 && git checkout ${RESTR_LUAJIT2_VERSION} && cd ../ && mv ./luajit2 /tmp/openresty-${RESTY_VERSION}/bundle/LuaJIT-2.1-20210623 \
     && cd /tmp/openresty-${RESTY_VERSION} \
     && eval ./configure -j${RESTY_J} ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install \
     && cd /tmp \
     && if [ -n "${RESTY_EVAL_POST_MAKE}" ]; then eval $(echo ${RESTY_EVAL_POST_MAKE}); fi \
+    && echo "build openresty over" \
     && rm -rf RESTY_OPENSSL_PATCH_VERSION\
         openssl-${RESTY_OPENSSL_VERSION}.tar.gz openssl-${RESTY_OPENSSL_VERSION} \
         pcre-${RESTY_PCRE_VERSION}.tar.gz pcre-${RESTY_PCRE_VERSION} \
