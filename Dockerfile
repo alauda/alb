@@ -5,9 +5,10 @@ ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
-RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
-RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
-RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
+# pie (position independent executables) for security
+RUN go build -buildmode=pie -ldflags "-w -s" -v -o /alb alauda.io/alb2
+RUN go build -buildmode=pie -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
+RUN go build -buildmode=pie -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
 
 
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.0
