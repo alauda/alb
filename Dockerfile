@@ -1,14 +1,13 @@
-FROM build-harbor.alauda.cn/3rdparty/golang:v1.16.3 AS builder
+FROM build-harbor.alauda.cn/base/build-golang:1.15-alpine AS builder
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
-RUN go build -ldflags "-w -s" -v -o /alb alauda.io/alb2
-RUN go build -ldflags "-w -s" -v -o /migrate_v26tov28 alauda.io/alb2/migrate/v26tov28
-RUN go build -ldflags "-w -s" -v -o /migrate_priority alauda.io/alb2/migrate/priority
-
+RUN apk add -vv file gcc musl-dev bash
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
+RUN go version && cat /etc/os-release && readelf -a /alb |grep BIND && ./scripts/checksec --file=/alb
 
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.0
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
@@ -43,8 +42,6 @@ RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
-COPY --from=builder /migrate_v26tov28 /alb/migrate_v26tov28
-COPY --from=builder /migrate_priority /alb/migrate_priority
 COPY alauda /etc/logrotate.d/alauda
 # some lua module may not upload to opm or not the latest version
 COPY ./3rd-lua-module/lib/resty/ /usr/local/openresty/site/lualib/resty/
