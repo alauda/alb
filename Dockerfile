@@ -1,13 +1,11 @@
-FROM build-harbor.alauda.cn/base/build-golang:1.15-alpine AS builder
+FROM build-harbor.alauda.cn/acp/base/golang:v116-alpine AS builder
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
-RUN apk add -vv file gcc musl-dev bash
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
-RUN go version && cat /etc/os-release && readelf -a /alb |grep BIND && ./scripts/checksec --file=/alb
 
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.0
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
