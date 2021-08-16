@@ -6,6 +6,7 @@ ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.0
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
@@ -32,6 +33,7 @@ CMD ["/sbin/tini", "--", "/run.sh"]
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
     mkdir -p /alb/tweak && \
+    mkdir -p /migrate && \
     mkdir -p /var/log/nginx
 COPY alauda /etc/logrotate.d/alauda
 
@@ -40,6 +42,7 @@ RUN chmod +x /run.sh
 COPY alb-config.toml /alb/alb-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
+COPY --from=builder /migrate/init-port-info /migrate/init-port-info
 COPY alauda /etc/logrotate.d/alauda
 # some lua module may not upload to opm or not the latest version
 COPY ./3rd-lua-module/lib/resty/ /usr/local/openresty/site/lualib/resty/
