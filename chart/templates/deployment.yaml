@@ -80,6 +80,13 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
           imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: {{ .Values.metricsPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /status
