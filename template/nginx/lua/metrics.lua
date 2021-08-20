@@ -29,7 +29,7 @@ function _M.init()
       "nginx_http_upstream_requests",  "Number of HTTP requests per upstream", {"port","rule","upstream_ip"})
 
     _metrics.upstream_requests_status = _prometheus:counter(
-      "nginx_http_upstream_requests",  "HTTP status code per rule per upstream", {"port","rule","upstream_ip","status"})
+      "nginx_http_upstream_requests_status",  "HTTP status code per rule per upstream", {"port","rule","upstream_ip","status"})
 end
 
 function _M.log()
