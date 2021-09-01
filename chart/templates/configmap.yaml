@@ -44,7 +44,8 @@ data:
     # keepalive to improve http performance
     keepalive_timeout  65;
 
-    sendfile        on;
+    sendfile        off;
+    sendfile_max_chunk 2147483647;
     aio             threads;
     tcp_nopush      on;
     tcp_nodelay     on;
