@@ -33,7 +33,7 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: v3.6-22-gfbab9e8
+      tag: v3.6-25-gd4da986
 resources:
   limits:
     cpu: "2"
