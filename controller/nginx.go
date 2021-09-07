@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"sort"
@@ -88,7 +89,7 @@ func (nc *NginxController) GetLoadBalancerType() string {
 	return "Nginx"
 }
 
-func (nc *NginxController) generateNginxConfig(loadbalancer *LoadBalancer) (Config, NgxPolicy) {
+func (nc *NginxController) generateNginxConfigAndAlbPolicy(loadbalancer *LoadBalancer) (Config, NgxPolicy) {
 	config := generateConfig(loadbalancer, nc.Driver)
 	ngxPolicy := NgxPolicy{
 		CertificateMap: config.CertificateMap,
@@ -219,11 +220,10 @@ func (nc *NginxController) FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
 }
 
 func (nc *NginxController) GenerateConf() error {
-	nginxConfig, ngxPolicies, err := nc.GenerateNginxConfig()
+	nginxConfig, ngxPolicies, err := nc.GenerateNginxConfigAndPolicy()
 	if err != nil {
 		return err
 	}
-
 	nc.WriteConfig(nginxConfig, ngxPolicies)
 
 	if err != nil {
@@ -232,30 +232,35 @@ func (nc *NginxController) GenerateConf() error {
 	return nil
 }
 
-func (nc *NginxController) GenerateNginxConfig() (nginxConfig Config, nginxPolicy NgxPolicy, err error) {
+func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig NginxTemplateConfig, nginxPolicy NgxPolicy, err error) {
 	services, err := nc.Driver.ListService()
 	if err != nil {
-		return Config{}, NgxPolicy{}, err
+		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
 	loadbalancers, err := nc.FetchLoadBalancersInfo()
 	if err != nil {
-		return Config{}, NgxPolicy{}, err
+		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
 
 	merge(loadbalancers, services)
 
 	if len(loadbalancers) == 0 {
-		return Config{}, NgxPolicy{}, errors.New("no lb found")
+		return NginxTemplateConfig{}, NgxPolicy{}, errors.New("no lb found")
 	}
 	if len(loadbalancers[0].Frontends) == 0 {
 		klog.Info("No service bind to this nginx now")
 	}
 
-	nginxConfig, nginxPolicy = nc.generateNginxConfig(loadbalancers[0])
-	return nginxConfig, nginxPolicy, nil
+	nginxConfig, nginxPolicy := nc.generateNginxConfigAndAlbPolicy(loadbalancers[0])
+
+	cfg, err := NewNginxTemplateConfigGenerator(nginxConfig).Generate()
+	if err != nil {
+		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
+	}
+	return cfg, nginxPolicy, nil
 }
 
-func (nc *NginxController) WriteConfig(nginxConfig Config, ngxPolicies NgxPolicy) error {
+func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
 	policyBytes, err := json.Marshal(ngxPolicies)
 	if err != nil {
 		klog.Error()
@@ -285,7 +290,7 @@ func (nc *NginxController) WriteConfig(nginxConfig Config, ngxPolicies NgxPolicy
 	}
 	policyWriter.Sync()
 
-	err = t.Execute(configWriter, nginxConfig)
+	err = t.Execute(configWriter, nginxTemplateConfig)
 	if err != nil {
 		klog.Error(err)
 		return err

@@ -112,7 +112,8 @@ data:
     tcp_nodelay                on;
   upstream: |
     keepalive 320;
-
+  bind_nic: |
+    {{.Values.bindNIC}}
 ---
 apiVersion: v1
 data:
