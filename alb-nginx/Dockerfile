@@ -1,13 +1,10 @@
-ARG RESTY_IMAGE_BASE="alpine"
+ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
 ARG RESTY_IMAGE_TAG="3.14.0"
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG} AS builder
-
-
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repositories
 
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
-ARG RESTY_IMAGE_BASE="alpine"
 ARG RESTY_VERSION="1.19.3.2"
 ARG RESTY_OPENSSL_VERSION="1.1.1k"
 ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
@@ -176,6 +173,14 @@ RUN chmod 755 -R /usr/local/openresty
 # that have been removed in our later layers.
 FROM scratch
 COPY --from=builder / /
+
+ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
+ARG RESTY_IMAGE_TAG="3.14.0"
+ARG RESTY_VERSION="1.19.3.2"
+
+LABEL resty_image_base="${RESTY_IMAGE_BASE}"
+LABEL resty_image_tag="${RESTY_IMAGE_TAG}"
+LABEL resty_version="${RESTY_VERSION}"
 
 # Add additional binaries into PATH for convenience
 ENV PATH=$PATH:/usr/local/openresty/luajit/bin/:/usr/local/openresty/nginx/sbin/:/usr/local/openresty/bin/
