@@ -20,4 +20,5 @@ require (
 	k8s.io/client-go v0.19.11-rc.0
 	k8s.io/klog v0.4.0
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
+
 )

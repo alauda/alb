@@ -120,6 +120,8 @@ spec:
             path: upstream.conf
           - key: stream
             path: stream.conf
+          - key: bind_nic
+            path: bind_nic.json
       - name: shared-data
         emptyDir: { }
     metadata:

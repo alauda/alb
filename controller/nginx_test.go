@@ -206,20 +206,39 @@ func TestGenerateNginxConfig(t *testing.T) {
 	drv, _ := test_utils.InitFakeAlb(t, ctx, fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
 
 	ctl := NewNginxController(drv)
-	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfig()
+	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	a.NoError(err)
 	nginxConfigStr, err := renderNginxConfig(nginxConfig)
 	a.NoError(err)
 	nginxPolicyJson, err := json.MarshalIndent(nginxPolicy, " ", " ")
 	nginxPolicyJsonStr := string(nginxPolicyJson)
 	a.NoError(err)
-	// TODO add more check in here
 	a.Contains(nginxConfigStr, "8000")
 	a.Contains(nginxPolicyJsonStr, "192.168.10.3")
 	a.NoError(err)
 }
 
-func renderNginxConfig(config Config) (string, error) {
+func TestRenderNginxConfig(t *testing.T) {
+	config := NginxTemplateConfig{
+		Frontends: map[int]FtConfig{
+			8081: {
+				Port:            8081,
+				Protocol:        "http",
+				IpV4BindAddress: []string{"192.168.0.1", "192.168.0.3"},
+				IpV6BindAddress: []string{"[::1]", "[::2]"},
+			},
+		},
+		NginxParam: NginxParam{EnableIPV6: true},
+	}
+	configStr, err := renderNginxConfig(config)
+	assert.Nil(t, err)
+	assert.Contains(t, configStr, "listen     192.168.0.1:8081")
+	assert.Contains(t, configStr, "listen     192.168.0.3:8081")
+	assert.Contains(t, configStr, "listen     [::1]:8081")
+	assert.Contains(t, configStr, "listen     [::2]:8081")
+}
+
+func renderNginxConfig(config NginxTemplateConfig) (string, error) {
 	// get the current test file abs path
 	_, filename, _, _ := runtime.Caller(0)
 	t, err := template.New("nginx.tmpl").ParseFiles(fmt.Sprintf("%s/../template/nginx/nginx.tmpl", filepath.Dir(filename)))

@@ -50,10 +50,14 @@ http {
 
     {{if eq $.Phase "running"}}
     server {
-        listen {{$cfg.MetricsPort}};
-        {{if $cfg.EnableIPV6}}
-        listen [::]:{{$cfg.MetricsPort}};
+        {{range $address := .Metis.IpV4BindAddress}}
+            listen     {{$address}}:{{$.Metis.Port}};
         {{end}}
+
+        {{range $address := .Metis.IpV6BindAddress}}
+            listen     {{$address}}:{{$.Metis.Port}};
+        {{end}}
+
 
         access_log off;
 
@@ -78,9 +82,12 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "http"}}
     server {
-        listen      {{$port}} backlog={{$cfg.Backlog}} default_server;
-        {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} backlog={{$cfg.Backlog}} default_server;
+        {{range $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$port}} backlog={{$cfg.Backlog}} default_server;
+        {{end}}
+
+        {{range  $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$port}} backlog={{$cfg.Backlog}} default_server;
         {{end}}
         server_name _;
 
@@ -109,10 +116,15 @@ http {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
-        listen      {{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
-        {{if $.EnableIPV6}}
-        listen      [::]:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+
+        {{range $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
+
+        {{range $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+        {{end}}
+
         server_name _;
 
         include       /alb/tweak/http_server.conf;
@@ -172,9 +184,13 @@ stream {
     {{range $port, $ft := .Frontends}}
     {{if eq $ft.Protocol "tcp"}}
     server {
-        listen {{$port}};
-        {{if $cfg.EnableIPV6}}
-        listen [::]:{{$port}};
+
+        {{range  $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$port}};
+        {{end}}
+
+        {{range  $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$port}};
         {{end}}
 
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;

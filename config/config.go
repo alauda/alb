@@ -194,6 +194,11 @@ func GetBool(key string) bool {
 	return v
 }
 
+func SetBool(key string, val bool) {
+	ConfigBool.Store(key, val)
+	viper.Set(key, val)
+}
+
 //GetInt reuturn int value of the key
 func GetInt(key string) int {
 	if val, ok := ConfigInt.Load(key); ok {
