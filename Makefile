@@ -41,7 +41,7 @@ gen-code:
 test-nginx-ci:
 	cd alb-nginx && ./actions/test-nginx-in-ci.sh
 
-test-nginx-local:
+test-nginx:
 	cd alb-nginx && ./actions/test-nginx.sh
 fmt:
 	go fmt ./...

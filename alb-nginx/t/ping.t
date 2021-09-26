@@ -23,7 +23,7 @@ server {
 {
   "certificate_map": {},
   "port_map": {
-    "1984": [
+    "80": [
       {
         "rule": "test-rule-1",
         "dsl":"(STARTS_WITH URL /ping)",
@@ -65,7 +65,7 @@ server {
   ]
 }
 --- server_port 
-1984
+80
 --- request
     GET /ping
 --- response
@@ -85,7 +85,7 @@ server {
 {
   "certificate_map": {},
   "port_map": {
-    "1985": [
+    "81": [
       {
         "rule": "",
         "dsl":"",
@@ -122,7 +122,7 @@ server {
   ]
 }
 --- server_port 
-1985
+81
 --- request
 GET /ping
 --- response
