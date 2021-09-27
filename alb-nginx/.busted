@@ -1,5 +1,0 @@
-return {
-  default = {
-    lpath = "./template/nginx/lua/?.lua"
-  }
-}

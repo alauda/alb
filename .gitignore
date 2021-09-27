@@ -23,3 +23,5 @@ temp/
 .wc/
 scripts/e2e/.tmp
 .scannerwork
+alb-nginx/t/servroot
+alb-nginx/t/.nvimlog

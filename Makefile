@@ -38,7 +38,11 @@ gen-code:
 	# fix code-generator wrong pluralize, skip fake_alb2 for test
 	# for osx, brew install gnu-sed
 	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs ${SED} 's/"alb2s"/"alaudaloadbalancer2"/g' -i
+test-nginx-ci:
+	cd alb-nginx && ./actions/test-nginx-in-ci.sh
 
+test-nginx:
+	cd alb-nginx && ./actions/test-nginx.sh
 fmt:
 	go fmt ./...
 
