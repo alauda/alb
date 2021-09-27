@@ -288,7 +288,7 @@ func (kd *KubernetesDriver) LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service,
 	return services, nil
 }
 
-func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) error {
+func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bool) error {
 	ft, err := kd.FrontendLister.Frontends(config.Get("NAMESPACE")).Get(ftName)
 	if err != nil {
 		return err
@@ -301,10 +301,21 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflict bool) e
 	if ft.Status.Instances == nil {
 		ft.Status.Instances = make(map[string]alb2v1.Instance)
 	}
+
+	preConflictState := false
+	if instance, ok := ft.Status.Instances[hostname]; ok {
+		preConflictState = instance.Conflict
+	}
+
+	if preConflictState == conflictState {
+		return nil
+	}
+
 	ft.Status.Instances[hostname] = alb2v1.Instance{
-		Conflict:  conflict,
+		Conflict:  conflictState,
 		ProbeTime: time.Now().Unix(),
 	}
+
 	bytesOrigin, err := json.Marshal(origin)
 	if err != nil {
 		return err
