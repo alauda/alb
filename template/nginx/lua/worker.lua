@@ -26,6 +26,11 @@ local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")
 
+local function set_default_value(table,key,defult_val)
+    if table[key] == nil then
+        table[key] = defult_val
+    end
+end
 local function fetch_policy()
     local f, err = io.open(policy_path, "r")
     if err then
@@ -101,6 +106,16 @@ local function fetch_policy()
                 if t ~= subsystem then
                     break
                 end
+
+                set_default_value(policy,"rewrite_base","")
+                set_default_value(policy,"rewrite_target","")
+                set_default_value(policy,"enable_cors",false)
+                set_default_value(policy,"cors_allow_headers","")
+                set_default_value(policy,"cors_allow_origin","")
+                set_default_value(policy,"backend_protocol","")
+                set_default_value(policy,"redirect_url","")
+                set_default_value(policy,"vhost","")
+
                 if (policy["dsl"] and policy["dsl"] ~= "") or policy["internal_dsl"] ~= common.null then
                     if policy["internal_dsl"] ~= common.null then
                         if #policy["internal_dsl"] == 1 then

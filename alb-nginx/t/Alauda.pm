@@ -75,7 +75,12 @@ stream {
 _END_
 
 
-    $block->set_value("config","");
+    my $config = $block->config;
+    if (defined $config) {
+        $block->set_value("config",$config);
+    }else {
+        $block->set_value("config","");
+    }
     my $http_config = $block->http_config;
     my $cfg = <<__END;
     include       /alb/tweak/http.conf;

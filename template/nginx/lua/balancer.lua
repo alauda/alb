@@ -2,7 +2,7 @@ local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
 local chash = require "balancer.chash"
-local sticky_cookie = require "balancer.sticky_balanced"
+local sticky = require "balancer.sticky_balanced"
 local ngx = ngx
 local ngx_log = ngx.log
 local ngx_var = ngx.var
@@ -18,7 +18,7 @@ local DEFAULT_LB_ALG = "round_robin"
 local IMPLEMENTATIONS = {
     round_robin = round_robin,
     chash = chash,
-    sticky_cookie = sticky_cookie,
+    sticky = sticky,
 }
 
 local function get_implementation(backend)
@@ -27,7 +27,9 @@ local function get_implementation(backend)
         if backend["session_affinity_policy"] == "sip-hash" then
             name = "chash"
         elseif backend["session_affinity_policy"] == "cookie" then
-            name = "sticky_cookie"
+            name = "sticky"
+        elseif backend["session_affinity_policy"] == "header" then
+            name = "sticky"
         end
     end
     local implementation = IMPLEMENTATIONS[name]

@@ -68,9 +68,11 @@ server {
 80
 --- request
     GET /ping
---- response
+--- response_body
 pong
 
+--- no_error_log
+[error]
 === TEST 2: tcp ping/pong should ok
 --- http_config
 server {
@@ -125,5 +127,7 @@ server {
 81
 --- request
 GET /ping
---- response
+--- response_body
 pong
+--- no_error_log
+[error]
