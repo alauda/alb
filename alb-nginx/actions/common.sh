@@ -11,16 +11,8 @@ _configmap_to_file() {
   cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream' - > $output_dir/stream.conf || true
 }
 
-init-test-nginx() {
-  mkdir -p /tmp
-  if [ ! -d /tmp/test-nginx ];
-  then
-    git clone https://github.com/woodgear/test-nginx.git -b  feature/more-curl-section /tmp/test-nginx
-  fi
-}
 
 test-nginx() {
-  init-test-nginx
   local filter=""
   if [ ! -z "$1" ]
   then
@@ -44,13 +36,10 @@ test-nginx() {
       -v /tmp/alb/tweak/:/alb/tweak \
       -v /tmp/test-nginx:/test-nginx \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
-      build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 prove -I / -I /test-nginx/lib/ -r t/$filter
+      build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 prove -I / -I /test-nginx/lib/ -r t/$filter 
 }
 
 test-nginx-exec() {
-  init-test-nginx
-  echo  alb is $ALB
-
   rm -rf /tmp/alb
   mkdir -p /tmp/alb/tweak
   _configmap_to_file /tmp/alb/tweak
@@ -78,14 +67,14 @@ test-nginx-in-ci() {
   export TEST_NGINX_RANDOMIZE=0
   export TEST_NGINX_SERVROOT=/t/servroot
   export TEST_NGINX_SLEEP=0.0001
-  rm -rf /test-nginx
-  git clone https://github.com/woodgear/test-nginx.git -b  feature/more-curl-section /test-nginx
   cp -r $ALB/3rd-lua-module/lib/resty/worker  /usr/local/openresty/site/lualib/resty
   mkdir -p /t/servroot
-  mkdir /alb
+  mkdir -p /alb
   cp -r $ALB/template /alb
-  mkdir /alb/tweak
+  mkdir -p /alb/tweak
   _configmap_to_file /alb/tweak
   openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048
+  cp ./alb-nginx/t/* /t
+  cd /
   prove -I / -I /test-nginx/lib/ -r t
 }
