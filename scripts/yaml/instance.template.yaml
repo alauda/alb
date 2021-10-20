@@ -324,6 +324,10 @@ spec:
   port: {{FtPort}}
   protocol: http
   serviceGroup:
-    services: []
+    services:
+      - name: echo-resty
+        namespace: default
+        port: 80
+        weight: 100
     session_affinity_attribute: ""
     session_affinity_policy: ""

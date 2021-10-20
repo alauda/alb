@@ -34,7 +34,6 @@ test-nginx() {
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
       -v $ALB/template/nginx/:/alb/template/nginx \
       -v /tmp/alb/tweak/:/alb/tweak \
-      -v /tmp/test-nginx:/test-nginx \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
       build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 prove -I / -I /test-nginx/lib/ -r t/$filter 
 }
@@ -55,7 +54,6 @@ test-nginx-exec() {
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
       -v $ALB/template/nginx/:/alb/template/nginx \
       -v /tmp/alb/tweak/:/alb/tweak \
-      -v /tmp/test-nginx:/test-nginx \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
       build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 sh
 }
