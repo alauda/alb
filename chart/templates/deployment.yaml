@@ -127,6 +127,7 @@ spec:
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        values_hash:  {{ .Values | toYaml | sha256sum }}
       labels:
         alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.antiAffinityKey }}
         service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
