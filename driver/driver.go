@@ -10,7 +10,7 @@ import (
 	albv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/informers/networking/v1beta1"
+	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 )
@@ -94,7 +94,7 @@ type Informers struct {
 }
 
 type K8sInformers struct {
-	Ingress   v1beta1.IngressInformer
+	Ingress   networkingV1.IngressInformer
 	Service   v1.ServiceInformer
 	Endpoint  v1.EndpointsInformer
 	Namespace v1.NamespaceInformer
@@ -116,7 +116,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	namespaceInformer := kubeInformerFactory.Core().V1().Namespaces()
 	namespaceSynced := namespaceInformer.Informer().HasSynced
 
-	ingressInformer := kubeInformerFactory.Networking().V1beta1().Ingresses()
+	ingressInformer := kubeInformerFactory.Networking().V1().Ingresses()
 	ingressSynced := ingressInformer.Informer().HasSynced
 
 	serviceInformer := kubeInformerFactory.Core().V1().Services()

@@ -1,0 +1,127 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: rules.crd.alauda.io
+spec:
+  group: crd.alauda.io
+  names:
+    kind: Rule
+    listKind: RuleList
+    plural: rules
+    shortNames:
+    - rl
+    singular: rule
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              backendProtocol:
+                type: string
+              certificate_name:
+                type: string
+              corsAllowHeaders:
+                type: string
+              corsAllowOrigin:
+                type: string
+              description:
+                type: string
+              domain:
+                type: string
+              dsl:
+                type: string
+              dslx:
+                items:
+                  properties:
+                    key:
+                      type: string
+                    type:
+                      type: string
+                    values:
+                      items:
+                        items:
+                          type: string
+                        type: array
+                      type: array
+                  type: object
+                type: array
+              enableCORS:
+                type: boolean
+              priority:
+                type: integer
+              redirectCode:
+                type: integer
+              redirectURL:
+                type: string
+              rewrite_base:
+                type: string
+              rewrite_target:
+                type: string
+              serviceGroup:
+                properties:
+                  services:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        port:
+                          type: integer
+                        weight:
+                          type: integer
+                      type: object
+                    type: array
+                  session_affinity_attribute:
+                    type: string
+                  session_affinity_policy:
+                    type: string
+                type: object
+              source:
+                description: Source is where the frontend or rule came from. It's
+                  type can be "bind" for those created for service annotations. And
+                  be "ingress" for those created for ingress resource
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type:
+                type: string
+              url:
+                type: string
+              vhost:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

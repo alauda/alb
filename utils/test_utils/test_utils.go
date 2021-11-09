@@ -11,7 +11,7 @@ import (
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -48,7 +48,7 @@ type FakeK8sResource struct {
 	Namespaces []k8sv1.Namespace
 	Services   []k8sv1.Service
 	EndPoints  []k8sv1.Endpoints
-	Ingresses  []networkingv1beta1.Ingress
+	Ingresses  []networkingv1.Ingress
 }
 
 func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) (driver *albdriver.KubernetesDriver, informers *albdriver.Informers) {
@@ -72,7 +72,7 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 		&k8sv1.NamespaceList{Items: fakeResource.K8s.Namespaces},
 		&k8sv1.ServiceList{Items: fakeResource.K8s.Services},
 		&k8sv1.EndpointsList{Items: fakeResource.K8s.EndPoints},
-		&networkingv1beta1.IngressList{Items: fakeResource.K8s.Ingresses},
+		&networkingv1.IngressList{Items: fakeResource.K8s.Ingresses},
 	}
 	drv.ALBClient = albFake.NewSimpleClientset(albDataset...)
 	drv.Client = fake.NewSimpleClientset(k8sDataset...)

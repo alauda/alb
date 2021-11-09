@@ -9,7 +9,7 @@ import (
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 )
@@ -174,15 +174,15 @@ func TestFindUnSyncedIngress(t *testing.T) {
 			},
 		},
 		K8s: test_utils.FakeK8sResource{
-			Ingresses: []networkingv1beta1.Ingress{
+			Ingresses: []networkingv1.Ingress{
 				{
 					ObjectMeta: k8smetav1.ObjectMeta{
 						Namespace:       "ns-2",
 						Name:            "ing-1",
 						ResourceVersion: "1",
 					},
-					Spec: networkingv1beta1.IngressSpec{
-						Rules: []networkingv1beta1.IngressRule{
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{
 							{
 								Host: "ingress-rule-1",
 							},
@@ -195,8 +195,8 @@ func TestFindUnSyncedIngress(t *testing.T) {
 						Name:            "ing-2",
 						ResourceVersion: "2",
 					},
-					Spec: networkingv1beta1.IngressSpec{
-						Rules: []networkingv1beta1.IngressRule{
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{
 							{
 								Host: "ingress-rule-1",
 							},
@@ -209,8 +209,8 @@ func TestFindUnSyncedIngress(t *testing.T) {
 						Name:            "ing-3",
 						ResourceVersion: "2",
 					},
-					Spec: networkingv1beta1.IngressSpec{
-						Rules: []networkingv1beta1.IngressRule{
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{
 							{
 								Host: "ingress-rule-1",
 							},

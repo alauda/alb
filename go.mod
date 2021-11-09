@@ -1,6 +1,6 @@
 module alauda.io/alb2
 
-go 1.14
+go 1.16
 
 require (
 	github.com/evanphx/json-patch v4.9.0+incompatible
