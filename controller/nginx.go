@@ -122,7 +122,7 @@ func (nc *NginxController) generateNginxConfigAndAlbPolicy(loadbalancer *LoadBal
 			if rule.DSLX == nil {
 				dslx, err := utils.DSL2DSLX(rule.DSL)
 				if err != nil {
-					klog.Error("convert dsl to dslx failed", err)
+					klog.Errorf("convert dsl to dslx failed rule %v dsl %v err %v", rule.RuleID, rule.DSL, err)
 				} else {
 					rule.DSLX = dslx
 				}

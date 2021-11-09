@@ -9,7 +9,7 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/thoas/go-funk"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -83,7 +83,7 @@ func (ft *Frontend) IsHttpOrHttps() bool {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1beta1.PathType, ingressVersion string) (*Rule, error) {
+	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string) (*Rule, error) {
 
 	var (
 		dsl  string
@@ -171,17 +171,17 @@ func GetDSL(domain, url string) string {
 	return dsl
 }
 
-func GetDSLX(domain, url string, pathType networkingv1beta1.PathType) alb2v1.DSLX {
+func GetDSLX(domain, url string, pathType networkingv1.PathType) alb2v1.DSLX {
 	var dslx alb2v1.DSLX
 	if url != "" {
-		if pathType == networkingv1beta1.PathTypeExact {
+		if pathType == networkingv1.PathTypeExact {
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_EQ, url},
 				},
 				Type: utils.KEY_URL,
 			})
-		} else if pathType == networkingv1beta1.PathTypePrefix {
+		} else if pathType == networkingv1.PathTypePrefix {
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_STARTS_WITH, url},

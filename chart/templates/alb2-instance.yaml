@@ -14,10 +14,10 @@ metadata:
     {{ .Values.global.labelBaseDomain }}/role: "port"
     {{ end}}
   annotations:
-    {{ .Values.global.labelBaseDomain }}/display-name: {{ .Values.displayName }}
+    {{ .Values.global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
 spec:
   address: {{ .Values.address }}
   bind_address: ''
-  domains: {{ .Values.Domains }}
+  domains: {{ .Values.domains }}
   iaas_id: ''
   type: {{ .Values.loadbalancerType }}

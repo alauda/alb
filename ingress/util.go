@@ -6,7 +6,7 @@ import (
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/modules"
 	"github.com/fatih/set"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog"
 )
 
@@ -37,11 +37,14 @@ func parseSSLAnnotation(sslAnno string) map[string]string {
 	return rv
 }
 
-func isDefaultBackend(ing *networkingv1beta1.Ingress) bool {
-	return len(ing.Spec.Rules) == 0 && ing.Spec.Backend != nil
+func isDefaultBackend(ing *networkingv1.Ingress) bool {
+	return len(ing.Spec.Rules) == 0 &&
+		ing.Spec.DefaultBackend != nil &&
+		ing.Spec.DefaultBackend.Resource == nil &&
+		ing.Spec.DefaultBackend.Service != nil
 }
 
-func getIngressFtTypes(ing *networkingv1beta1.Ingress) set.Interface {
+func getIngressFtTypes(ing *networkingv1.Ingress) set.Interface {
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
 	ingSSLStrategy := ing.Annotations[ALBSSLStrategyAnnotation]
 	sslMap := parseSSLAnnotation(ing.Annotations[ALBSSLAnnotation])

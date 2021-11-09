@@ -1,5 +1,7 @@
 package v1
 
+// +kubebuilder:validation:Optional
+
 import (
 	"fmt"
 
@@ -12,9 +14,11 @@ const (
 	RuleKind     = "Rule"
 )
 
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// +kubebuilder:resource:singular=alaudaloadbalancer2,path=alaudaloadbalancer2,shortName=alb2,scope=Namespaced
+// +kubebuilder:subresource:status
 type ALB2 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -48,7 +52,8 @@ type ALB2List struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// +kubebuilder:resource:shortName=ft,scope=Namespaced
+// +kubebuilder:subresource:status
 type Frontend struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -87,6 +92,7 @@ type FrontendList struct {
 // +genclient
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:shortName=rl,scope=Namespaced
 
 type Rule struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -33,17 +33,17 @@ import (
 	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	"github.com/thoas/go-funk"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	networkinginformers "k8s.io/client-go/informers/networking/v1beta1"
+	networkinginformers "k8s.io/client-go/informers/networking/v1"
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	networkinglisters "k8s.io/client-go/listers/networking/v1beta1"
+	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -99,8 +99,8 @@ func (c *Controller) Start(ctx context.Context) {
 	}
 }
 
-func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1beta1.Ingress, error) {
-	ingressList := make([]*networkingv1beta1.Ingress, 0)
+func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.Ingress, error) {
+	ingressList := make([]*networkingv1.Ingress, 0)
 
 	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
 		fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")):     "ingress",
@@ -163,7 +163,7 @@ func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1be
 	return ingressList, nil
 }
 
-func isIngressAlreadySynced(ing *networkingv1beta1.Ingress, processedIngress map[string]string) bool {
+func isIngressAlreadySynced(ing *networkingv1.Ingress, processedIngress map[string]string) bool {
 	ingKey := ing.Namespace + "/" + ing.Name
 	if version, ok := processedIngress[ingKey]; ok {
 		if version == ing.ResourceVersion {
@@ -246,13 +246,13 @@ func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			newIngress := obj.(*networkingv1beta1.Ingress)
+			newIngress := obj.(*networkingv1.Ingress)
 			klog.Infof("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion)
 			c.handleObject(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			newIngress := new.(*networkingv1beta1.Ingress)
-			oldIngress := old.(*networkingv1beta1.Ingress)
+			newIngress := new.(*networkingv1.Ingress)
+			oldIngress := old.(*networkingv1.Ingress)
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
 			}
@@ -263,7 +263,7 @@ func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
 			c.handleObject(new)
 		},
 		DeleteFunc: func(obj interface{}) {
-			oldIngress := obj.(*networkingv1beta1.Ingress)
+			oldIngress := obj.(*networkingv1.Ingress)
 			klog.Infof("receive ingress %s/%s %s delete event", oldIngress.Namespace, oldIngress.Name, oldIngress.ResourceVersion)
 			c.handleObject(obj)
 		},
@@ -463,8 +463,12 @@ func (c *Controller) syncHandler(key string) error {
 }
 
 // setFtDefault will set ingress default backend as frontend default service group
-func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Frontend) bool {
-	if ingress.Spec.Backend == nil {
+func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend) bool {
+	if !isDefaultBackend(ingress) {
+		return false
+	}
+	if ingress.Spec.DefaultBackend.Service.Port.Name != "" {
+		klog.Warningf("ingress ft-default-service: unsupported feature named port %s %s", ingress.Name, ft.Name)
 		return false
 	}
 	annotations := ingress.GetAnnotations()
@@ -477,8 +481,8 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 			Services: []alb2v1.Service{
 				{
 					Namespace: ingress.Namespace,
-					Name:      ingress.Spec.Backend.ServiceName,
-					Port:      int(ingress.Spec.Backend.ServicePort.IntVal),
+					Name:      ingress.Spec.DefaultBackend.Service.Name,
+					Port:      int(ingress.Spec.DefaultBackend.Service.Port.Number),
 					Weight:    100,
 				},
 			},
@@ -494,8 +498,8 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 		// ft has default service
 		if !ft.ServiceGroup.Services[0].Is(
 			ingress.Namespace,
-			ingress.Spec.Backend.ServiceName,
-			int(ingress.Spec.Backend.ServicePort.IntVal)) {
+			ingress.Spec.DefaultBackend.Service.Name,
+			int(ingress.Spec.DefaultBackend.Service.Port.Number)) {
 			klog.Warningf("frontend %s already has default service, conflict", ft.Name)
 			//TODO Add event here
 		}
@@ -505,10 +509,10 @@ func (c *Controller) setFtDefault(ingress *networkingv1beta1.Ingress, ft *m.Fron
 
 // updateRule update or create rules for a ingress
 func (c *Controller) updateRule(
-	ingress *networkingv1beta1.Ingress,
+	ingress *networkingv1.Ingress,
 	ft *m.Frontend,
 	host string,
-	ingresPath networkingv1beta1.HTTPIngressPath,
+	ingresPath networkingv1.HTTPIngressPath,
 ) error {
 	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
 
@@ -583,7 +587,7 @@ func (c *Controller) updateRule(
 			if rule.ServiceGroup != nil {
 				found := false
 				for _, svc := range rule.ServiceGroup.Services {
-					if svc.Name == ingresPath.Backend.ServiceName {
+					if svc.Name == ingresPath.Backend.Service.Name {
 						found = true
 						break
 					}
@@ -592,8 +596,8 @@ func (c *Controller) updateRule(
 					// when add a new service to service group we need to re calculate weight
 					newsvc := alb2v1.Service{
 						Namespace: ingress.Namespace,
-						Name:      ingresPath.Backend.ServiceName,
-						Port:      int(ingresPath.Backend.ServicePort.IntVal),
+						Name:      ingresPath.Backend.Service.Name,
+						Port:      int(ingresPath.Backend.Service.Port.Number),
 						Weight:    100,
 					}
 					rule.ServiceGroup.Services = append(rule.ServiceGroup.Services, newsvc)
@@ -617,7 +621,7 @@ func (c *Controller) updateRule(
 			return nil
 		}
 	}
-	pathType := networkingv1beta1.PathTypeImplementationSpecific
+	pathType := networkingv1.PathTypeImplementationSpecific
 	if ingresPath.PathType != nil {
 		pathType = *ingresPath.PathType
 	}
@@ -633,8 +637,8 @@ func (c *Controller) updateRule(
 		Services: []alb2v1.Service{
 			{
 				Namespace: ingress.Namespace,
-				Name:      ingresPath.Backend.ServiceName,
-				Port:      int(ingresPath.Backend.ServicePort.IntVal),
+				Name:      ingresPath.Backend.Service.Name,
+				Port:      int(ingresPath.Backend.Service.Port.Number),
 				Weight:    100,
 			},
 		},
@@ -656,7 +660,7 @@ func (c *Controller) updateRule(
 	return nil
 }
 
-func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1beta1.Ingress) error {
+func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) error {
 	klog.Infof("on ingress create or update, %s/%s %s", ingress.Namespace, ingress.Name, ingress.ResourceVersion)
 	// Detele old rule if it exist
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
@@ -917,7 +921,7 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 	return false
 }
 
-func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1beta1.Ingress {
+func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1.Ingress {
 	if funk.ContainsString(projects, m.ProjectALL) {
 		ingress, err := c.ingressLister.Ingresses("").List(labels.Everything())
 		if err != nil {
@@ -926,7 +930,7 @@ func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1beta1
 		}
 		return ingress
 	}
-	var allIngresses []*networkingv1beta1.Ingress
+	var allIngresses []*networkingv1.Ingress
 	for _, project := range projects {
 		sel := labels.Set{fmt.Sprintf("%s/project", config.Get("DOMAIN")): project}.AsSelector()
 		nss, err := c.namespaceLister.List(sel)

@@ -6,7 +6,7 @@ import (
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/stretchr/testify/assert"
-	networkingv1beta1 "k8s.io/api/networking/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 )
 
 func TestGetDSLX(t *testing.T) {
@@ -15,14 +15,14 @@ func TestGetDSLX(t *testing.T) {
 		description string
 		domain      string
 		url         string
-		pathType    networkingv1beta1.PathType
+		pathType    networkingv1.PathType
 		want        v1.DSLX
 	}{
 		{
 			description: "path is regex && type is impl spec, op should be rgex",
 			domain:      "alauda.io",
 			url:         "^/v1/*",
-			pathType:    networkingv1beta1.PathTypeImplementationSpecific,
+			pathType:    networkingv1.PathTypeImplementationSpecific,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
@@ -38,7 +38,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is regex && type is impl spec , op should be regex and add ^ prefix if it does not have",
 			domain:      "alauda.io",
 			url:         "/v1/*",
-			pathType:    networkingv1beta1.PathTypeImplementationSpecific,
+			pathType:    networkingv1.PathTypeImplementationSpecific,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
@@ -54,7 +54,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is regex && type is exact, op should be eq",
 			domain:      "alauda.io",
 			url:         "/v1/*",
-			pathType:    networkingv1beta1.PathTypeExact,
+			pathType:    networkingv1.PathTypeExact,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_EQ, "/v1/*"}},
@@ -70,7 +70,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is regex && type is prefix, op should be starts_with",
 			domain:      "alauda.io",
 			url:         "/v1/*",
-			pathType:    networkingv1beta1.PathTypePrefix,
+			pathType:    networkingv1.PathTypePrefix,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_STARTS_WITH, "/v1/*"}},
@@ -86,7 +86,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is not regex and type is impl spec,op should be starts_with",
 			domain:      "alauda.io",
 			url:         "/v1",
-			pathType:    networkingv1beta1.PathTypeImplementationSpecific,
+			pathType:    networkingv1.PathTypeImplementationSpecific,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_STARTS_WITH, "/v1"}},
@@ -102,7 +102,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is not regex and type is prefix,op should be starts_with",
 			domain:      "alauda.io",
 			url:         "/v1",
-			pathType:    networkingv1beta1.PathTypePrefix,
+			pathType:    networkingv1.PathTypePrefix,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_STARTS_WITH, "/v1"}},
@@ -118,7 +118,7 @@ func TestGetDSLX(t *testing.T) {
 			description: "path is not regex and type is exact,op should be eq",
 			domain:      "alauda.io",
 			url:         "/v1",
-			pathType:    networkingv1beta1.PathTypeExact,
+			pathType:    networkingv1.PathTypeExact,
 			want: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_EQ, "/v1"}},

@@ -1,5 +1,3 @@
-GOFILES_NOVENDOR=$(shell find . -type f -name '*.go' -not -path "./vendor/*")
-GO_IMAGE=index.alauda.cn/alaudaorg/alaudabase-alpine-go:1.12.9-alpine3.9.4
 UNAME:=$(shell uname)
 
 ifeq ($(UNAME),Linux)
@@ -9,22 +7,9 @@ ifeq ($(UNAME),Darwin)
 	SED = gsed
 endif
 
-.PHONY: version
-
-version:
-	git diff --quiet HEAD --
-	git describe --long > VERSION
-
-images: gen-code lint test version
-	docker buildx build --platform linux/amd64,linux/arm64 -t index.alauda.cn/alaudaorg/alb2:`cat VERSION` -f Dockerfile.nginx.local . --push
-	docker image prune -f
-
-push: images
-	docker push index.alauda.cn/alaudaorg/alb2:`cat VERSION`
-
-release: push
-	docker tag index.alauda.cn/alaudaorg/alb2:`cat VERSION` index.alauda.cn/claas/alb2:`cat VERSION`
-	docker push index.alauda.cn/claas/alb2:`cat VERSION`
+build:
+	CGO_ENABLED=0 go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o ./bin/alb alauda.io/alb2
+	CGO_ENABLED=0 go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
 test:
 	go test -v -coverprofile=coverage-all.out ./...
@@ -38,6 +23,13 @@ gen-code:
 	# fix code-generator wrong pluralize, skip fake_alb2 for test
 	# for osx, brew install gnu-sed
 	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs ${SED} 's/"alb2s"/"alaudaloadbalancer2"/g' -i
+
+install-controller-gen:
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen
+	# verified version is 0.7.0
+gen-crd:
+	rm -rf ./chart/crds &&  controller-gen  crd paths=./pkg/apis/alauda/v1  output:crd:dir=./chart/crds
+
 test-nginx-ci:
 	cd alb-nginx && ./actions/test-nginx-in-ci.sh
 
