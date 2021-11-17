@@ -11,7 +11,7 @@ local _metrics = {}
 local _prometheus
 
 function _M.init()
-    ngx_log(ngx.ERR, "init metrics")
+    ngx_log(ngx.INFO, "init metrics")
     table_clear(_metrics)
     _prometheus = prometheus.init("prometheus_metrics")
     _metrics.requests = _prometheus:counter(

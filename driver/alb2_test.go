@@ -76,4 +76,3 @@ func TestLoadAlb(t *testing.T) {
 	a.NoError(err)
 	a.NotNil(alb)
 }
-

@@ -46,7 +46,7 @@ func main() {
 		rl.Spec.DSLX = dslx
 		klog.Infof("convert rule %s/%s dsl: %s to dslx: %+v", rl.Namespace, rl.Name, rl.Spec.DSL, dslx)
 		if *dryRun == false {
-			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl,metav1.UpdateOptions{}); err != nil {
+			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl, metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}
 		}

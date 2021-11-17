@@ -5,6 +5,7 @@ worker_processes     {{.CPUNum}};
 worker_cpu_affinity  auto;
 worker_shutdown_timeout 240s;
 
+error_log  /dev/stderr notice;
 error_log  /var/log/nginx/error.log notice;
 pid        /var/run/nginx.pid;
 

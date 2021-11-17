@@ -87,7 +87,7 @@ func InitDriver(driver *KubernetesDriver, ctx context.Context) {
 		informers.Alb.Rule.Lister())
 }
 
-// the informers which will be use by alb
+// Informers will be used by alb
 type Informers struct {
 	K8s K8sInformers
 	Alb AlbInformers
@@ -107,7 +107,7 @@ type AlbInformers struct {
 }
 
 type InitInformersOptions struct {
-	ErrorIfWaitSyncFail bool // if errorIfWaitSyncFail set to false, and some error happens, it will ignore this error(just log) and still fillup Informers,
+	ErrorIfWaitSyncFail bool // if errorIfWaitSyncFail set to false, and some error happens, it will ignore this error(just log) and still fill-up Informers
 }
 
 func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitInformersOptions) (*Informers, error) {

@@ -21,6 +21,7 @@ metricsPort: 1936
 enableProfile: false
 workerLimit: 8
 resyncPeriod: 300
+syncPolicyInterval: 1
 backlog: 2048
 global:
   platformscenario: base
@@ -34,6 +35,11 @@ global:
       support_arm: true
       repository: acp/alb2
       tag: v3.7-18-g9779b38
+    nginx:
+      support_arm: true
+      repository: 3rdparty/alb-nginx
+      tag: v3.6.1
+      thirdparty: true
 resources:
   limits:
     cpu: "2"

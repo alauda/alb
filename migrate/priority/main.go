@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	allRules, err := k8sDriver.ALBClient.CrdV1().Rules(Namespace).List(context.TODO(),metav1.ListOptions{
+	allRules, err := k8sDriver.ALBClient.CrdV1().Rules(Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("alb2.%s/name=%s", Domain, Name),
 	})
 	if err != nil {
@@ -41,7 +41,7 @@ func main() {
 		rl.Spec.Priority = 5
 		klog.Infof("convert rule %s/%s priority: %d", rl.Namespace, rl.Name, rl.Spec.Priority)
 		if *dryRun == false {
-			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl,metav1.UpdateOptions{}); err != nil {
+			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl, metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}
 		}

@@ -279,12 +279,12 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 func sameFiles(file1, file2 string) bool {
 	sum1, err := fileSha256(file1)
 	if err != nil {
-		klog.Error(err.Error())
+		klog.Warning(err.Error())
 		return false
 	}
 	sum2, err := fileSha256(file2)
 	if err != nil {
-		klog.Error(err.Error())
+		klog.Warning(err.Error())
 		return false
 	}
 
@@ -294,7 +294,6 @@ func sameFiles(file1, file2 string) bool {
 func fileSha256(file string) (string, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		klog.Error(err.Error())
 		return "", err
 	}
 	sha256h := sha256.New()
