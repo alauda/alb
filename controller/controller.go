@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"k8s.io/klog"
-	"os/exec"
 	"strings"
 
 	"alauda.io/alb2/config"
@@ -38,8 +38,13 @@ type Controller interface {
 	GC() error
 }
 
-func CheckProcessAlive(process string) (string, error) {
-	out, err := exec.Command("/usr/bin/pgrep", "-f", process).CombinedOutput()
+func GetProcessId() (string, error) {
+	process := "/nginx/nginx-pid/nginx.pid"
+	out, err := ioutil.ReadFile(process)
+	if err != nil {
+		klog.Errorf("nginx process is not started: %s", err.Error())
+		return "", err
+	}
 	return string(out), err
 }
 
@@ -231,8 +236,8 @@ func (bgs BackendGroups) Less(i, j int) bool {
 }
 
 var (
-	//ErrStandAlone will be return if do something that not allowed in stand mode
-	ErrStandAlone = errors.New("operation is not allowed in stand alone mode")
+	//ErrStandAlone will be returned when do something that is not allowed in stand-alone mode
+	ErrStandAlone = errors.New("operation is not allowed in stand-alone mode")
 )
 
 func GetController(kd *driver.KubernetesDriver) (Controller, error) {

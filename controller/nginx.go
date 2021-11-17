@@ -318,16 +318,10 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 		}
 	}()
 
-	pids, err := CheckProcessAlive(nc.BinaryPath)
-	if err != nil && err.Error() != "exit status 1" {
-		klog.Errorf("failed to check nginx aliveness: %s", err.Error())
-		return err
-	}
-	pids = strings.Trim(pids, "\n ")
 	configChanged := !sameFiles(nc.NewConfigPath, nc.OldConfigPath)
 
 	// No change, Nginx running, skip
-	if !configChanged && len(pids) > 0 && getLastReloadStatus(StatusFileParentPath) == SUCCESS {
+	if !configChanged && getLastReloadStatus(StatusFileParentPath) == SUCCESS {
 		klog.Info("Config not changed and last reload success")
 		return nil
 	}
@@ -346,11 +340,15 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 		}
 	}
 
-	// Manipulate nginx
-	if len(pids) == 0 {
-		err = nc.start()
-	} else if configChanged || getLastReloadStatus(StatusFileParentPath) == FAILED {
-		err = nc.reload()
+	// nginx process runs in an independent container, guaranteed by kubernetes
+	nginxPid, err := GetProcessId()
+	if nginxPid == "" {
+		return err
+	}
+	nginxPid = strings.Trim(nginxPid, "\n ")
+
+	if configChanged || getLastReloadStatus(StatusFileParentPath) == FAILED {
+		err = nc.reload(nginxPid)
 	} else {
 		klog.V(3).Info("no need to manipulate nginx")
 	}
@@ -358,20 +356,11 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 	return err
 }
 
-func (nc *NginxController) start() error {
-	klog.Info("Run command nginx start")
-	output, err := exec.Command(nc.BinaryPath, "-c", nc.OldConfigPath).CombinedOutput()
+func (nc *NginxController) reload(nginxPid string) error {
+	klog.Info("Send HUP signal to reload nginx")
+	output, err := exec.Command("kill", "-HUP", nginxPid).CombinedOutput()
 	if err != nil {
-		klog.Errorf("start nginx failed: %s %v", output, err)
-	}
-	return err
-}
-
-func (nc *NginxController) reload() error {
-	klog.Info("Run command nginx -s reload")
-	output, err := exec.Command(nc.BinaryPath, "-s", "reload", "-c", nc.OldConfigPath).CombinedOutput()
-	if err != nil {
-		klog.Errorf("start nginx failed: %s %v", output, err)
+		klog.Errorf("reload nginx failed: %s %v", output, err)
 	}
 	return err
 }

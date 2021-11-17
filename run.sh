@@ -3,6 +3,7 @@
 sync
 
 mkdir -p /var/run/alb/last_status
+mkdir -p /etc/ssl/dhparam/
 chmod +x /alb/alb
 
 LB_TYPE=${LB_TYPE:-"nginx"}
@@ -30,14 +31,6 @@ if [ "$LB_TYPE" = "nginx" ]; then
 
     # disable coredump
     ulimit -c 0
-fi
-
-
-if [ "$LB_TYPE" = "nginx" ]; then
-    dhparam_file="/etc/ssl/dhparam.pem"
-    if [ ! -f "$dhparam_file" ]; then
-        openssl dhparam -dsaparam -out ${dhparam_file} 2048
-    fi
 fi
 
 /alb/alb $ARGS

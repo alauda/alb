@@ -8,18 +8,21 @@ unset https_proxy
 unset ALL_PROXY
 unset all_proxy
 
-# export ALB_ACTIONS_ROOT by youself. 
+# export ALB_ACTIONS_ROOT by yourself.
 # export ALB_ACTIONS_ROOT=$NS_HOME/share/alauda/alb-actions
 
 alb-test-qps() {
 	local defaultKindName=kind-alb-${RANDOM:0:5}
 	local defaultAlbImage="build-harbor.alauda.cn/acp/alb2:v3.6.0"
+	local defaultNginxImage="build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.1"
 
 	local kindName=${1-$defaultKindName}
-	local lbImage=${2-$defaultAlbImage}
+	local albImage=${2-$defaultAlbImage}
+	local nginxImage=${3-$defaultNginxImage}
 	echo $kindName
-	echo $lbImage
-	alb-init-kind-env $kindName $lbImage
+	echo $albImage
+	echo $nginxImage
+	alb-init-kind-env $kindName $albImage $nginxImage
 
 	alb-gen-rule $kindName alb-dev alb-dev-8080 default echo-resty > rule.json
 	kubectl apply -f ./rule.json
@@ -27,7 +30,7 @@ alb-test-qps() {
 	echo "kind ip" $kindIp
 	wait-curl-success  http://$kindIp:8080/rule-last
 	qps=$(ab-qps http://$kindIp:8080/rule-last)
-	echo "500 rule" qps $qps $now $lbImage
+	echo "500 rule" qps $qps $now $albImage $nginxImage
 	now=$(date "+%Y%m%d-%H:%M:%S")
 }
 
@@ -163,18 +166,21 @@ alb-init-kind-env() {
 	# 初始化一个装有alb的kind k8s集群，默认装有echo-resty,配置80端口的ft默认路由为echo-resty
 	local defaultKindName=kind-alb-${RANDOM:0:5}
 	local defaultAlbImage="build-harbor.alauda.cn/acp/alb2:v3.6.0"
+	local defaultNginxImage="build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.1"
 
 	local kindName=${1-$defaultKindName}
-	local lbImage=${2-$defaultAlbImage}
+	local albImage=${2-$defaultAlbImage}
+	local nginxImage=${3-$defaultNginxImage}
 	local lbName="alb-dev"
 	local ftPort="8080"
 	
 	local globalNs="cpaas-system"
 	# local debugLog="true"
 	local debugLog="false"
-	echo $kindName $lbImage
+	echo $kindName $albImage $nginxImage
     _initKind $kindName
-	_makesureImage $lbImage $kindName
+	_makesureImage $albImage $kindName
+	_makesureImage $nginxImage $kindName
 	_makesureImage "alpine:latest" $kindName
 
 
@@ -184,7 +190,7 @@ alb-init-kind-env() {
 	local echoRestyPath=/tmp/$kindName/echo-resty.yaml
 	cp "$ALB_ACTIONS_ROOT/yaml/echo-resty.yaml" $echoRestyPath
 
-	sed -i -e "s#{{alb-image}}#$lbImage#" $echoRestyPath
+	sed -i -e "s#{{alb-image}}#$albImage#" $echoRestyPath
 	kubectl apply -f $echoRestyPath
 	echo "init echo resty ok"
 
@@ -200,7 +206,8 @@ alb-init-kind-env() {
 	local instancePath=/tmp/$kindName/instance-${lbName}.yaml
 	cp $templatePath $instancePath
 	sed -i -e "s#{{LbName}}#$lbName#" $instancePath
-	sed -i -e "s#{{LbImage}}#$lbImage#" $instancePath 
+	sed -i -e "s#{{AlbImage}}#$albImage#" $instancePath
+	sed -i -e "s#{{NginxImage}}#$nginxImage#" $instancePath
 	sed -i -e "s#{{GlobalNs}}#$globalNs#" $instancePath
 	sed -i -e "s#{{FtPort}}#$ftPort#" $instancePath
 	sed -i -e "s#{{FtUid}}#$lbName#" $instancePath
