@@ -539,6 +539,9 @@ func (c *Controller) updateRule(
 		redirectURL = annotations[ALBTemporalRedirectAnnotation]
 		redirectCode = 302
 	}
+
+	ruleAnnotation := ctl.GenerateRuleAnnotationFromIngressAnnotation(ingress.Name, annotations)
+
 	certs := make(map[string]string)
 
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
@@ -627,7 +630,7 @@ func (c *Controller) updateRule(
 	}
 
 	ingVersion := ingress.ResourceVersion
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType, ingVersion)
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType, ingVersion, ruleAnnotation)
 
 	if err != nil {
 		klog.Error(err)

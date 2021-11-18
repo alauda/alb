@@ -16,7 +16,11 @@ import (
 )
 
 func MergeRule(arl *m.Rule) *Rule {
+
+	ruleConfig := RuleConfigFromRuleAnnotation(arl.Name, arl.Annotations)
+
 	rule := &Rule{
+		Config:           ruleConfig,
 		RuleID:           arl.Name,
 		Priority:         arl.Priority,
 		Type:             arl.Type,

@@ -34,6 +34,7 @@ type NginxController struct {
 
 type Policy struct {
 	Rule             string        `json:"rule"`
+	Config           *RuleConfig    `json:"config,omitempty"`
 	DSL              string        `json:"dsl"`
 	InternalDSL      []interface{} `json:"internal_dsl"`
 	Upstream         string        `json:"upstream"`
@@ -149,6 +150,7 @@ func (nc *NginxController) generateNginxConfigAndAlbPolicy(loadbalancer *LoadBal
 			policy.RedirectURL = rule.RedirectURL
 			policy.RedirectCode = rule.RedirectCode
 			policy.VHost = rule.VHost
+			policy.Config = rule.Config
 			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
 		}
 
