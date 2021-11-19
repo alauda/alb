@@ -1,12 +1,16 @@
 package controller
 
 import (
+	"alauda.io/alb2/config"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestRuleConfig(t *testing.T) {
+	config.Set("DOMAIN", "test")
+	ALBIngressRewriteResponseAnnotation := GetAlbIngressRewriteResponseAnnotation()
+	RuleRewriteResponseAnnotation := GetAlbRuleRewriteResponseAnnotation()
 	type TestCase struct {
 		ingressAnnotation    map[string]string
 		expectRuleAnnotation map[string]string
@@ -73,12 +77,12 @@ func TestRuleConfig(t *testing.T) {
 		map[string]string{RuleRewriteResponseAnnotation: `{"sth":"unrelated"}`},
 		nil,
 	}
+	_ = ruleCase1
+	_ = ruleCase2
 	ruleCases := []RuleTestCase{
 		ruleCase1,
 		ruleCase2,
 	}
-	_ = ruleCase1
-	_ = ruleCase2
 	for _, c := range ruleCases {
 		cfg := RuleConfigFromRuleAnnotation("", c.ruleAnnotation)
 		assert.Equal(t, cfg, c.expectRuleConfig)

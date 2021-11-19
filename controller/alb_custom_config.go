@@ -1,14 +1,19 @@
 package controller
 
 import (
+	"alauda.io/alb2/config"
 	"encoding/json"
 	"fmt"
 
 	"k8s.io/klog"
 )
 
-const ALBIngressRewriteResponseAnnotation = "alb.ingress.kubernetes.io/rewrite-response"
-const RuleRewriteResponseAnnotation = "alb.rule.kubernetes.io/rewrite-response"
+func GetAlbIngressRewriteResponseAnnotation() string {
+	return fmt.Sprintf("alb.ingress.%s/rewrite-response", config.Get("DOMAIN"))
+}
+func GetAlbRuleRewriteResponseAnnotation() string {
+	return fmt.Sprintf("alb.rule.%s/rewrite-response", config.Get("DOMAIN"))
+}
 
 type RuleConfig struct {
 	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
@@ -49,12 +54,12 @@ func GenerateRuleAnnotationFromIngressAnnotation(ingressName string, annotation 
 
 	ruleAnnotation := make(map[string]string)
 
-	if val, ok := annotation[ALBIngressRewriteResponseAnnotation]; ok {
+	if val, ok := annotation[GetAlbIngressRewriteResponseAnnotation()]; ok {
 		_, err := rewriteResponseConfigFromJson(val)
 		if err != nil {
 			klog.Errorf("ext ingress rewrite_response: invalid annotation in ingress %v annotation %v err %v", ingressName, val, err)
 		} else {
-			ruleAnnotation[RuleRewriteResponseAnnotation] = val
+			ruleAnnotation[GetAlbRuleRewriteResponseAnnotation()] = val
 		}
 	}
 	return ruleAnnotation
@@ -63,7 +68,7 @@ func GenerateRuleAnnotationFromIngressAnnotation(ingressName string, annotation 
 func RuleConfigFromRuleAnnotation(ruleName string, annotation map[string]string) *RuleConfig {
 	cfg := RuleConfig{}
 
-	if val, ok := annotation[RuleRewriteResponseAnnotation]; ok {
+	if val, ok := annotation[GetAlbRuleRewriteResponseAnnotation()]; ok {
 		rewriteCfg, err := rewriteResponseConfigFromJson(val)
 		if err != nil {
 			klog.Errorf("ext rule rewrite_response: invalid annotation in rule %v annotation %v err %v", ruleName, val, err)
