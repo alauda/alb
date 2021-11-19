@@ -6,8 +6,15 @@ use Test::Nginx::Socket::Lua::Stream -Base;
 
 
 add_block_preprocessor(sub {
-    my $block = shift;
+    warn "generate tweak conf";
+    system("bash -c 'source /alb/alb-nginx/actions/common.sh && mkdir -p /alb/tweak && ALB=/alb configmap_to_file /alb/tweak'");
 
+    warn "generate dhparam.pem";
+    if (! -f  "/etc/ssl/dhparam.pem") {
+        system("openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048");
+    }
+
+    my $block = shift;
     my $server_port= $block->server_port;
     if (defined $server_port) {
         warn "set server_port to $server_port";
@@ -81,7 +88,13 @@ _END_
     }else {
         $block->set_value("config","");
     }
-    my $http_config = $block->http_config;
+
+
+    my $http_config = "";
+    if (defined $block->http_config) {
+        $http_config = $block->http_config;
+    }
+
     my $cfg = <<__END;
     include       /alb/tweak/http.conf;
 
@@ -112,6 +125,7 @@ _END_
         server_name _;
 
         include       /alb/tweak/http_server.conf;
+        access_log /t/servroot/logs/access.log http;
 
         location / {
             set \$upstream default;
