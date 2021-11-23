@@ -7,13 +7,13 @@
 
 go-part() {
   local ALB_POD_NAME=$1
-  CGO_ENABLED=0 go build -v -o ./alb alauda.io/alb2
-  md5sum ./alb
-  tmux send-keys -t 1 C-c
-  kubectl cp $PWD/alb cpaas-system/$ALB_POD_NAME:/alb/alb
-  tmux send-keys -t 1 C-c 'md5sum /alb/alb' C-m
+  make build
+  md5sum ./bin/alb
+  tmux send-keys -t 2 C-c
+  kubectl cp $PWD/bin/alb cpaas-system/$ALB_POD_NAME:/alb/alb
+  tmux send-keys -t 2 C-c 'md5sum /alb/alb' C-m
   sleep 1s
-  tmux send-keys -t 1 C-c '/alb/alb 2>&1|grep ingress' C-m
+  tmux send-keys -t 2 C-c '/alb/alb 2>&1 | tee /alb.log' C-m
 }
 
 lua-part() {

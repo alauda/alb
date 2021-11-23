@@ -31,9 +31,8 @@ import (
 )
 
 var (
-	SUCCESS              = "success"
-	FAILED               = "failed"
-	StatusFileParentPath = "/var/run/alb/last_status"
+	SUCCESS = "success"
+	FAILED  = "failed"
 )
 
 func init() {

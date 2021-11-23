@@ -14,7 +14,9 @@ timeout = 30
 INCREMENT_SYNC = true
 FULL_SYNC = true
 RELOAD_NGINX = true
-
+ROTATE_LOG = true
+ROTATE_INTERVAL = 20
+STATUSFILE_PARENTPATH = "/var/run/alb/last_status"
 # for test
 KUBERNETES_SERVER = "https://127.0.0.1:6443"
 KUBERNETES_BEARERTOKEN = "dbf41d.ae570f0cc2527039"

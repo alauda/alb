@@ -1,4 +1,4 @@
 /.idea
 alauda_lb
 alauda_lb.iml
-.git
+.git/test/e2e/alb-config.toml

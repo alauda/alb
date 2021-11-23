@@ -1,6 +1,7 @@
 package ingress
 
 import (
+	"fmt"
 	"strings"
 
 	"alauda.io/alb2/config"
@@ -46,6 +47,10 @@ func isDefaultBackend(ing *networkingv1.Ingress) bool {
 
 func getIngressFtTypes(ing *networkingv1.Ingress) set.Interface {
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
+
+	ALBSSLStrategyAnnotation := fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+
 	ingSSLStrategy := ing.Annotations[ALBSSLStrategyAnnotation]
 	sslMap := parseSSLAnnotation(ing.Annotations[ALBSSLAnnotation])
 	certs := make(map[string]string)

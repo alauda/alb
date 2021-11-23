@@ -53,11 +53,13 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 		var err error
 		cf, err = rest.InClusterConfig()
 		if err != nil {
-			if config.Get("KUBERNETES_SERVER") != "" && config.Get("KUBERNETES_BEARERTOKEN") != "" {
-				// maybe run by docker directly, such as migrate
+			// only used for test
+			host := config.Get("KUBERNETES_SERVER")
+			if host != "" {
+				klog.Infof("driver: k8s host is %v", host)
 				tlsClientConfig := rest.TLSClientConfig{Insecure: true}
 				cf = &rest.Config{
-					Host:            config.Get("KUBERNETES_SERVER"),
+					Host:            host,
 					BearerToken:     config.Get("KUBERNETES_BEARERTOKEN"),
 					TLSClientConfig: tlsClientConfig,
 				}

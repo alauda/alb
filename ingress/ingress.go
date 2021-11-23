@@ -100,6 +100,10 @@ func (c *Controller) Start(ctx context.Context) {
 }
 
 func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.Ingress, error) {
+
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	ingressList := make([]*networkingv1.Ingress, 0)
 
 	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
@@ -514,6 +518,8 @@ func (c *Controller) updateRule(
 	host string,
 	ingresPath networkingv1.HTTPIngressPath,
 ) error {
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+
 	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
 
 	annotations := ingress.GetAnnotations()
@@ -665,7 +671,10 @@ func (c *Controller) updateRule(
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) error {
 	klog.Infof("on ingress create or update, %s/%s %s", ingress.Namespace, ingress.Name, ingress.ResourceVersion)
-	// Detele old rule if it exist
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
 	// then create new one
@@ -823,6 +832,9 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 }
 
 func (c *Controller) onIngressDelete(name, namespace string) error {
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	klog.Infof("on ingress delete, %s/%s", namespace, name)
 	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
@@ -856,7 +868,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 					rule.Source.Namespace == namespace &&
 					rule.Source.Name == name {
 
-					klog.Infof("delete-rules ns:%s name:%s reason: ingress-delete", namespace, name)
+					klog.Infof("delete-rules ns:%s ingress name:%s  rule name %s reason: ingress-delete", namespace, name, rule.Name)
 					err = c.KubernetesDriver.DeleteRule(rule)
 					if err != nil {
 						klog.Errorf("upsert ft failed: %s", err)
@@ -870,6 +882,9 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 }
 
 func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	klog.Infof("check if ingress %s/%s %s need enqueue", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
 	defer func() {
 		klog.Infof("check ingress %s/%s %s result: %t", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion(), rv)

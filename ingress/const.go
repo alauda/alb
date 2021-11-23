@@ -1,10 +1,5 @@
 package ingress
 
-import (
-	"alauda.io/alb2/config"
-	"fmt"
-)
-
 const (
 	// SuccessSynced is used as part of the Event 'reason' when a Ingress is synced
 	SuccessSynced = "Synced"
@@ -50,13 +45,5 @@ var (
 		"http":  true,
 		"https": true,
 	}
-	// ALBSSLStrategyAnnotation allows you to use default ssl certificate for a http ingress
-	ALBSSLStrategyAnnotation = fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
-	// ALBSSLAnnotation set https cert for host instead of using spec.tls
-	ALBSSLAnnotation = fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
-
-	IngressHTTPPort  = config.GetInt("INGRESS_HTTP_PORT")
-	IngressHTTPSPort = config.GetInt("INGRESS_HTTPS_PORT")
-
 	DefaultPriority = 5
 )
