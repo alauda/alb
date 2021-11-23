@@ -882,22 +882,32 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 }
 
 func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
+	reason := ""
+	logTag := fmt.Sprintf("sync-ingress needqueue ingress %s/%s rv %v", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
+	log := func(format string, a ...interface{}) {
+		klog.Infof(fmt.Sprintf("%s: %s", logTag, format), a...)
+	}
+
+	log("enter")
 	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
 	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
 
-	klog.Infof("check if ingress %s/%s %s need enqueue", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
 	defer func() {
-		klog.Infof("check ingress %s/%s %s result: %t", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion(), rv)
+		log("result %v reason %s", rv, reason)
 	}()
+
 	annotations := obj.GetAnnotations()
 
 	ingressClass := annotations["kubernetes.io/ingress.class"]
 	if ingressClass != "" && ingressClass != config.Get("NAME") {
+		reason = fmt.Sprintf("invalid class %s name %s", ingressClass, config.Get("NAME"))
 		return false
 	}
 	alb, err := c.KubernetesDriver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
-		klog.Errorf("get alb res failed, %+v", err)
+		msg := fmt.Sprintf("get alb res failed, %+v", err)
+		klog.Errorf("%s: %s", logTag, msg)
+		reason = msg
 		return false
 	}
 	belongProject := c.GetIngressBelongProject(obj)
@@ -921,21 +931,25 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		}
 		// for role=port alb user should create http and https ports before using ingress
 		if !(hasHTTPPort && hasHTTPSPort) {
+			reason = fmt.Sprintf("role port must have both http and https port ,http %v %v https %v %v", IngressHTTPPort, hasHTTPPort, IngressHTTPSPort, hasHTTPSPort)
 			return false
 		}
 		if (funk.Contains(httpPortProjects, m.ProjectALL) || funk.Contains(httpPortProjects, belongProject)) &&
 			(funk.Contains(httpsPortProjects, m.ProjectALL) || funk.Contains(httpsPortProjects, belongProject)) {
 			return true
 		}
-	} else {
-		projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
-		if funk.Contains(projects, m.ProjectALL) {
-			return true
-		}
-		if funk.Contains(projects, belongProject) {
-			return true
-		}
+		reason = fmt.Sprintf("role poer,project not match http %v https %v belong %v", httpPortProjects, httpsPortProjects, belongProject)
+		return false
 	}
+
+	projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
+	if funk.Contains(projects, m.ProjectALL) {
+		return true
+	}
+	if funk.Contains(projects, belongProject) {
+		return true
+	}
+	reason = fmt.Sprintf("role instance,project %v belog %v", projects, belongProject)
 	return false
 }
 

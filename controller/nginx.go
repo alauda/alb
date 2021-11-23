@@ -263,7 +263,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
-	policyBytes, err := json.Marshal(ngxPolicies)
+	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
 	if err != nil {
 		klog.Error()
 		return err
