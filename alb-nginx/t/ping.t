@@ -79,7 +79,7 @@ server {
     listen 9999;
     location /ping {
        content_by_lua_block {
-    	    ngx.say("pong");
+    	    ngx.print("pong");
       }
     }
 }
@@ -123,11 +123,6 @@ server {
     }
   ]
 }
---- server_port 
-81
---- request
-GET /ping
---- response_body
-pong
---- no_error_log
-[error]
+--- server_port: 81
+--- request: GET /ping
+--- response_body: pong

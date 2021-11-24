@@ -44,6 +44,7 @@ data:
     proxy_temp_file_write_size 64k;
     # keepalive to improve http performance
     keepalive_timeout  65;
+    proxy_next_upstream_tries   5;
 
     sendfile        off;
     sendfile_max_chunk 2147483647;
@@ -108,7 +109,7 @@ data:
     lua_shared_dict stream_alb_cache     20m;
     lua_shared_dict stream_raw     5m;
     lua_shared_dict stream_ipc_shared_dict 1m;
-
+    proxy_next_upstream_tries 5;
     proxy_connect_timeout      5s;
     proxy_timeout              60s;
     tcp_nodelay                on;

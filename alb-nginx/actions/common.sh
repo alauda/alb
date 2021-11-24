@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-_configmap_to_file() {
+configmap_to_file() {
   local output_dir=$1
   local configmap=$ALB/chart/templates/configmap.yaml
   echo $configmap
@@ -20,7 +20,7 @@ test-nginx() {
   fi
   rm -rf /tmp/alb
   mkdir -p /tmp/alb/tweak
-  _configmap_to_file /tmp/alb/tweak
+  configmap_to_file /tmp/alb/tweak
 
   openssl dhparam -dsaparam -out /tmp/alb/dhparam.pem 2048
 
@@ -30,30 +30,23 @@ test-nginx() {
       -e SYNC_POLICY_INTERVAL=1 \
       -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
       -v $ALB/alb-nginx/t:/t \
-      -v $ALB/alb-nginx/actions/:/actions \
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
-      -v $ALB/template/nginx/:/alb/template/nginx \
-      -v /tmp/alb/tweak/:/alb/tweak \
+      -v $ALB:/alb \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
       build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 prove -I / -I /test-nginx/lib/ -r t/$filter 
 }
 
 test-nginx-exec() {
-  rm -rf /tmp/alb
-  mkdir -p /tmp/alb/tweak
-  _configmap_to_file /tmp/alb/tweak
-  openssl dhparam -dsaparam -out /tmp/alb/dhparam.pem 2048
-
+  echo "run  'prove -I / -I /test-nginx/lib/' in this docker"
   docker run -it \
       -e TEST_NGINX_SLEEP=0.0001 \
       -e TEST_NGINX_VERBOSE=true \
       -e SYNC_POLICY_INTERVAL=1 \
       -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
       -v $ALB/alb-nginx/t:/t \
-      -v $ALB/alb-nginx/actions/:/actions \
+      -v $ALB:/alb \
+      -v $ALB/chart/:/alb/chart \
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
-      -v $ALB/template/nginx/:/alb/template/nginx \
-      -v /tmp/alb/tweak/:/alb/tweak \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
       build-harbor.alauda.cn/3rdparty/alb-nginx-test:v3.6.0 sh
 }
@@ -70,7 +63,7 @@ test-nginx-in-ci() {
   mkdir -p /alb
   cp -r $ALB/template /alb
   mkdir -p /alb/tweak
-  _configmap_to_file /alb/tweak
+  configmap_to_file /alb/tweak
   openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048
   cp ./alb-nginx/t/* /t
   cd /

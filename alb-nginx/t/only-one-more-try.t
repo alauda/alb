@@ -3,27 +3,20 @@ use warnings;
 use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
 
+log_level('warn');
 no_shuffle();
 no_root_location();
+
 run_tests();
 
 __DATA__
 
-=== TEST 1: http should only retry once
---- http_config
-server {
-    listen 9998;
-    location /ping {
-       content_by_lua_block {
-    	    ngx.say("pong");
-      }
-    }
-}
+=== TEST 1: http should only retry five time
 --- policy
 {
   "certificate_map": {},
   "port_map": {
-    "1984": [
+    "80": [
       {
         "rule": "test-rule-1",
         "dsl":"(STARTS_WITH URL /ping)",
@@ -80,29 +73,20 @@ server {
     }
   ]
 }
---- server_port
-1984
+--- server_port: 80
 --- request
     GET /ping
 --- access_log
-502 502 127.0.0.1
+502 502, 502, 502, 502, 502 127.0.0.1
 --- error_code: 502
 
-=== TEST 2: tcp should only retry once
---- http_config
-server {
-    listen 9998;
-    location /ping {
-       content_by_lua_block {
-    	    ngx.say("pong");
-      }
-    }
-}
+=== TEST 2: tcp should only retry 5 times
+--- ignore_response
 --- policy
 {
   "certificate_map": {},
   "port_map": {
-    "1985": [
+    "81": [
       {
         "rule": "",
         "dsl":"",
@@ -153,11 +137,14 @@ server {
     }
   ]
 }
---- server_port
-1985
+--- server_port: 81
 --- request
     GET /ping
---- no_response_code
-true
---- gre_error_log_count
-connect() failed (111: Connection refused) while connecting to upstream, client: 127.0.0.1, server: 0.0.0.0:1985, upstream: "127.0.0.1:9999
+--- grep_error_log eval
+qr/Connection refused/
+--- grep_error_log_out
+Connection refused
+Connection refused
+Connection refused
+Connection refused
+Connection refused
