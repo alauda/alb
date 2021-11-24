@@ -471,22 +471,25 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 	if !isDefaultBackend(ingress) {
 		return false
 	}
-	if ingress.Spec.DefaultBackend.Service.Port.Name != "" {
-		klog.Warningf("ingress ft-default-service: unsupported feature named port %s %s", ingress.Name, ft.Name)
-		return false
-	}
+
 	annotations := ingress.GetAnnotations()
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+	defaultBackendService := ingress.Spec.DefaultBackend.Service
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, defaultBackendService.Name, ToInStr(defaultBackendService.Port))
 
-	needSave := false
+	if err != nil {
+		klog.Errorf("ingress setFtDefault: get port in service %s %s fail %v", err, ingress.Namespace, defaultBackendService.Name)
+		return false
+	}
+
 	if ft.ServiceGroup == nil ||
 		len(ft.ServiceGroup.Services) == 0 {
 		ft.ServiceGroup = &alb2v1.ServiceGroup{
 			Services: []alb2v1.Service{
 				{
 					Namespace: ingress.Namespace,
-					Name:      ingress.Spec.DefaultBackend.Service.Name,
-					Port:      int(ingress.Spec.DefaultBackend.Service.Port.Number),
+					Name:      defaultBackendService.Name,
+					Port:      portInService,
 					Weight:    100,
 				},
 			},
@@ -497,18 +500,28 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 			Name:      ingress.Name,
 			Namespace: ingress.Namespace,
 		}
-		needSave = true
-	} else {
-		// ft has default service
-		if !ft.ServiceGroup.Services[0].Is(
+		return true
+	}
+
+	// ft has default service
+	originFtDefaultSvc := ft.ServiceGroup.Services[0]
+	if !originFtDefaultSvc.Is(
+		ingress.Namespace,
+		ingress.Spec.DefaultBackend.Service.Name,
+		portInService) {
+
+		klog.Warningf("frontend %s already has default service %s/%s %v ,new default service %s/%s %v ingress %s, conflict",
+			ft.Name,
+			originFtDefaultSvc.Namespace,
+			originFtDefaultSvc.Name,
+			originFtDefaultSvc.Port,
 			ingress.Namespace,
 			ingress.Spec.DefaultBackend.Service.Name,
-			int(ingress.Spec.DefaultBackend.Service.Port.Number)) {
-			klog.Warningf("frontend %s already has default service, conflict", ft.Name)
-			//TODO Add event here
-		}
+			portInService,
+			ingress.Name,
+		)
 	}
-	return needSave
+	return false
 }
 
 // updateRule update or create rules for a ingress
@@ -569,6 +582,11 @@ func (c *Controller) updateRule(
 		}
 	}
 
+	ingressBackend := ingresPath.Backend.Service
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, ingressBackend.Name, ToInStr(ingressBackend.Port))
+	if err != nil {
+		return fmt.Errorf("get port in svc %s/%s %v fail err %v", ingress.Namespace, ingressBackend.Name, ingressBackend.Port, err)
+	}
 	url := ingresPath.Path
 	for _, rule := range ft.Rules {
 		if rule.Source == nil {
@@ -605,8 +623,8 @@ func (c *Controller) updateRule(
 					// when add a new service to service group we need to re calculate weight
 					newsvc := alb2v1.Service{
 						Namespace: ingress.Namespace,
-						Name:      ingresPath.Backend.Service.Name,
-						Port:      int(ingresPath.Backend.Service.Port.Number),
+						Name:      ingressBackend.Name,
+						Port:      portInService,
 						Weight:    100,
 					}
 					rule.ServiceGroup.Services = append(rule.ServiceGroup.Services, newsvc)
@@ -618,7 +636,7 @@ func (c *Controller) updateRule(
 					}
 					rule.ServiceGroup.Services = newServices
 				}
-				err := c.KubernetesDriver.UpdateRule(rule)
+				err = c.KubernetesDriver.UpdateRule(rule)
 				if err != nil {
 					klog.Errorf(
 						"update rule %+v for ingress %s failed: %s",
@@ -647,7 +665,7 @@ func (c *Controller) updateRule(
 			{
 				Namespace: ingress.Namespace,
 				Name:      ingresPath.Backend.Service.Name,
-				Port:      int(ingresPath.Backend.Service.Port.Number),
+				Port:      portInService,
 				Weight:    100,
 			},
 		},
@@ -852,6 +870,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 				ft.Source.Type == m.TypeIngress &&
 				ft.Source.Namespace == namespace &&
 				ft.Source.Name == name {
+				// wipe default backend
 				ft.ServiceGroup = nil
 				ft.Source = nil
 				ft.BackendProtocol = ""

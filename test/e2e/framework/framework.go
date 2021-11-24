@@ -57,7 +57,7 @@ func CfgFromEnv() *rest.Config {
 }
 
 func EnvTestCfgToEnv(cfg *rest.Config) {
-	os.Setenv("KUBERNETES_SERVER", "http://"+cfg.Host)
+	_ = os.Setenv("KUBERNETES_SERVER", "http://"+cfg.Host)
 }
 
 func NewAlb(deployCfg Config) *Framework {
@@ -141,7 +141,7 @@ func NewAlb(deployCfg Config) *Framework {
 	}
 }
 
-// get the namespace which alb been deployed
+// GetNamespace get the namespace which alb been deployed
 func (f *Framework) GetNamespace() string {
 	return f.namespace
 }
@@ -214,7 +214,7 @@ func (f *Framework) waitAlbNormal() {
 
 func (f *Framework) Destroy() {
 	f.cancel()
-	f.k8sClient.CoreV1().Namespaces().Delete(context.Background(), f.namespace, metav1.DeleteOptions{})
+	f.DestroyNs(f.namespace)
 }
 
 func (f *Framework) WaitFile(file string, matcher func(string) bool) {
@@ -282,7 +282,7 @@ func (f *Framework) WaitIngressRule(ingresName, ingressNs string, size int) []al
 	return rules
 }
 
-func (f *Framework) EnsureNs(namespace string, project string) error {
+func (f *Framework) EnsureNs(namespace string, project string) {
 	f.k8sClient.CoreV1().Namespaces().Create(
 		f.ctx,
 		&corev1.Namespace{
@@ -295,7 +295,6 @@ func (f *Framework) EnsureNs(namespace string, project string) error {
 		},
 		metav1.CreateOptions{},
 	)
-	return nil
 }
 
 func (f *Framework) GetK8sClient() kubernetes.Interface {
@@ -304,6 +303,14 @@ func (f *Framework) GetK8sClient() kubernetes.Interface {
 
 func (f *Framework) DestroyNs(s string) {
 	f.k8sClient.CoreV1().Namespaces().Delete(context.Background(), s, metav1.DeleteOptions{})
+	// TODO could not delete ns...
+	//err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+	//	_, err := f.k8sClient.CoreV1().Namespaces().Get(context.Background(), s, metav1.GetOptions{})
+	//	beenDelete := errors.IsNotFound(err)
+	//	Logf("delete ns %s %v", s, beenDelete)
+	//	return beenDelete, nil
+	//})
+	//
 }
 
 func log(level string, format string, args ...interface{}) {
@@ -323,12 +330,12 @@ func Logf(format string, args ...interface{}) {
 type IngressCase struct {
 	Namespace string
 	Name      string
-	SvcPort   map[string]struct {
+	SvcPort   map[string]struct { // key svc.port.name which match ep.port.name
 		Protocol   corev1.Protocol
 		Port       int32
 		Target     intstr.IntOrString
 		TargetPort int32
-		TargetName string
+		TargetName string // the name match pod.port.name
 	}
 	Eps     []string
 	Ingress struct {
@@ -339,8 +346,8 @@ type IngressCase struct {
 	}
 }
 
-func (f *Framework) InitIngressCase(ingressCase IngressCase) error {
-	svcPort := []corev1.ServicePort{}
+func (f *Framework) InitIngressCase(ingressCase IngressCase) {
+	var svcPort []corev1.ServicePort
 	for name, p := range ingressCase.SvcPort {
 		svcPort = append(svcPort,
 			corev1.ServicePort{
@@ -361,7 +368,9 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) error {
 			Selector: map[string]string{"kube-app": ingressCase.Name},
 		},
 	}
-	_, err := f.GetK8sClient().CoreV1().Services(ingressCase.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	svc, err := f.GetK8sClient().CoreV1().Services(ingressCase.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	Logf("svc port %+v", svcPort)
+	Logf("created svc %+v", svc)
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 	subSetAddress := []corev1.EndpointAddress{}
 	for _, addres := range ingressCase.Eps {
@@ -370,12 +379,12 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) error {
 		})
 	}
 	subSetPort := []corev1.EndpointPort{}
-	for _, p := range ingressCase.SvcPort {
+	for svcPortName, p := range ingressCase.SvcPort {
 		subSetPort = append(subSetPort,
 			corev1.EndpointPort{
 				Port:     p.TargetPort,
 				Protocol: corev1.ProtocolTCP,
-				Name:     p.TargetName,
+				Name:     svcPortName,
 			},
 		)
 	}
@@ -433,5 +442,4 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) error {
 	}, metav1.CreateOptions{})
 
 	assert.Nil(ginkgo.GinkgoT(), err, "")
-	return nil
 }

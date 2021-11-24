@@ -67,7 +67,7 @@ func PolicyHasBackEnds(policyRaw string, ruleName string, expectBks string) bool
 	bks := gojsonq.New().FromInterface(backend).Find("backends")
 	bksStr := fmt.Sprintf("%v", bks)
 	match := expectBks == bksStr
-	Logf("compare rule %s match %v bks %s %s ", ruleName, match, expectBks, bksStr)
+	Logf("compare policy %s match %v bks %s %s ", ruleName, match, expectBks, bksStr)
 	return match
 }
 
@@ -77,6 +77,6 @@ func PolicyHasRule(policyRaw string, port int, ruleName string) bool {
 		From(fmt.Sprintf("port_map.%v", port)).
 		Where("rule", "=", ruleName).
 		Nth(1)
-	Logf("has rule port %v %v %s %v ", port, rule == nil, ruleName, rule)
+	Logf("has rule port %v %v %s %v ", port, rule != nil, ruleName, rule)
 	return rule != nil
 }
