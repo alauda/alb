@@ -10,6 +10,20 @@ unset all_proxy
 
 # export ALB_ACTIONS_ROOT by yourself.
 # export ALB_ACTIONS_ROOT=$NS_HOME/share/alauda/alb-actions
+install-envtest() {
+    echo "install envtest"
+    if [[ ! -d "/usr/local/kubebuilder" ]]; then
+        export K8S_VERSION=1.19.2
+        curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
+
+        mkdir -p /usr/local/kubebuilder
+        tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
+        rm envtest-bins.tar.gz
+    fi
+    if [[ ! "$PATH" =~ "/usr/local/kubebuilder"  ]]; then
+        echo "you need add /usr/local/kubebuilder to you PATH"
+    fi
+}
 
 alb-test-qps() {
 	local defaultKindName=kind-alb-${RANDOM:0:5}

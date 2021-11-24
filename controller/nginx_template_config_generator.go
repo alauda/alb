@@ -188,17 +188,24 @@ type BindNICConfig struct {
 	Nic []string `json:"nic"`
 }
 
-func fileExists(filename string) bool {
+func fileExists(filename string) (bool, error) {
 	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
 	}
-	return !info.IsDir()
+	return !info.IsDir(), nil
 }
 
 func GetBindNICConfig() (BindNICConfig, error) {
 	bindNICConfigFile := filepath.Join(config.Get("TWEAK_DIRECTORY"), "bind_nic.json")
-	if !fileExists(bindNICConfigFile) {
+	exist, err := fileExists(bindNICConfigFile)
+	if err != nil {
+		return BindNICConfig{Nic: []string{}}, err
+	}
+	if !exist {
 		return BindNICConfig{Nic: []string{}}, nil
 	}
 

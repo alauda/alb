@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
 	"sort"
 	"strings"
@@ -53,11 +54,13 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 		var err error
 		cf, err = rest.InClusterConfig()
 		if err != nil {
-			if config.Get("KUBERNETES_SERVER") != "" && config.Get("KUBERNETES_BEARERTOKEN") != "" {
-				// maybe run by docker directly, such as migrate
+			// only used for test
+			host := config.Get("KUBERNETES_SERVER")
+			if host != "" {
+				klog.Infof("driver: k8s host is %v", host)
 				tlsClientConfig := rest.TLSClientConfig{Insecure: true}
 				cf = &rest.Config{
-					Host:            config.Get("KUBERNETES_SERVER"),
+					Host:            host,
 					BearerToken:     config.Get("KUBERNETES_BEARERTOKEN"),
 					TLSClientConfig: tlsClientConfig,
 				}
@@ -210,37 +213,32 @@ func (kd *KubernetesDriver) GetNodePortAddress(svc *v1types.Service, port int) (
 	return service, nil
 }
 
-// GetEndPointAddress return a list of pod ip in the endpoint
-func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePort int) (*Service, error) {
+// GetEndPointAddress return a list of pod ip in the endpoint, we assume all protocol are tcp now.
+func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNum int) (*Service, error) {
 	svc, err := kd.ServiceLister.Services(namespace).Get(name)
+
 	if err != nil {
 		klog.Errorf("Failed to get svc %s.%s, error is %s.", name, namespace, err.Error())
 		return nil, err
 	}
-	var port int
-	for _, svcPort := range svc.Spec.Ports {
-		if servicePort == int(svcPort.Port) {
-			p := svcPort.TargetPort.IntValue()
-			if p == 0 {
-				p = servicePort
-			}
-			// set service port to target port
-			port = p
-			break
-		}
-	}
-
 	ep, err := kd.EndpointLister.Endpoints(namespace).Get(name)
+
 	if err != nil {
 		klog.Errorf("Failed to get ep %s.%s, error is %s.", name, namespace, err.Error())
+		return nil, err
+	}
+
+	containerPort, err := findContainerPort(svc, ep, svcPortNum)
+	if err != nil {
+		klog.Errorf("Failed to get container port error is %s.", err.Error())
 		return nil, err
 	}
 
 	service := &Service{
 		ServiceID:     fmt.Sprintf("%s.%s", name, namespace),
 		ServiceName:   name,
-		ServicePort:   servicePort,
-		ContainerPort: port,
+		ServicePort:   svcPortNum,
+		ContainerPort: containerPort,
 		Namespace:     namespace,
 		Backends:      make([]*Backend, 0),
 	}
@@ -250,7 +248,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 			service.Backends = append(service.Backends, &Backend{
 				InstanceID: addr.Hostname,
 				IP:         addr.IP,
-				Port:       port,
+				Port:       containerPort,
 			})
 		}
 	}
@@ -260,6 +258,36 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, servicePo
 		klog.Warningf("service %s has 0 backends, means has no health pods", name)
 	}
 	return service, nil
+}
+
+// findContainerPort via given svc and endpoints, we assume protocol are tcp now.
+//
+// endpoint-controller https://github.com/kubernetes/kubernetes/blob/e8cf412e5ec70081477ad6f126c7f7ef7449109c/pkg/controller/endpoint/endpoints_controller.go#L442-L442
+func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum int) (int, error) {
+	containerPort := 0
+	for _, svcPort := range svc.Spec.Ports {
+		if svcPortNum == int(svcPort.Port) {
+			svcPortName := svcPort.Name
+			if svcPort.TargetPort.Type == intstr.Int {
+				containerPort = int(svcPort.TargetPort.IntVal)
+				break
+			}
+
+			for _, subset := range ep.Subsets {
+				for _, epp := range subset.Ports {
+					if epp.Name == svcPortName {
+						containerPort = int(epp.Port)
+					}
+				}
+			}
+			break
+		}
+	}
+
+	if containerPort == 0 {
+		return 0, fmt.Errorf("could not find container port in svc %s/%s port %v svc.ports %v ep %v ", svc.Namespace, svc.Name, svcPortNum, svc.Spec.Ports, ep)
+	}
+	return containerPort, nil
 }
 
 // GetExternalNameAddress return a fqdn address for service
@@ -322,6 +350,27 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePor
 		klog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
 		return nil, errors.New("Unknown Service Type")
 	}
+}
+func (kd *KubernetesDriver) GetServicePortNumber(namespace, name string, port intstr.IntOrString) (int, error) {
+	svc, err := kd.ServiceLister.Services(namespace).Get(name)
+	if err != nil {
+		return 0, err
+	}
+	portInService := 0
+	for _, p := range svc.Spec.Ports {
+		if port.StrVal != "" && port.StrVal == p.Name {
+			portInService = int(p.Port)
+			break
+		}
+		if port.IntVal != 0 && port.IntVal == p.Port {
+			portInService = int(p.Port)
+			break
+		}
+	}
+	if portInService == 0 {
+		return 0, fmt.Errorf("could not find port %v in svc %s/%s %v", port, namespace, name, svc.Spec.Ports)
+	}
+	return portInService, nil
 }
 
 func (kd *KubernetesDriver) GetServiceByName(namespace, name string, servicePort int) (*Service, error) {

@@ -147,6 +147,9 @@ func locked(lockString, ownerID string) bool {
 }
 
 func needRelock(lockString string) bool {
+	if lockString == "" {
+		return true
+	}
 	var lock Lock
 	err := json.Unmarshal([]byte(lockString), &lock)
 	if err != nil {
@@ -175,7 +178,7 @@ var mutexLock sync.Mutex
 var holdUntil time.Time
 var waitUntil time.Time
 
-func TryLockAlb(kd *driver.KubernetesDriver) error {
+func TryLockAlbAndUpdateAlbStatus(kd *driver.KubernetesDriver) error {
 	now := time.Now()
 	klog.Infof("try lock alb, now: %s, holdUntil: %s, waitUntil: %s", now, holdUntil, waitUntil)
 	mutexLock.Lock()

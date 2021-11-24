@@ -25,8 +25,8 @@ const (
 type NginxController struct {
 	BackendType   string
 	TemplatePath  string
-	NewConfigPath string
-	OldConfigPath string
+	NewConfigPath string // in fact, the updated nginx.conf
+	OldConfigPath string // in fact, the current nginx.conf
 	NewPolicyPath string
 	BinaryPath    string
 	Driver        *driver.KubernetesDriver
@@ -263,7 +263,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
-	policyBytes, err := json.Marshal(ngxPolicies)
+	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
 	if err != nil {
 		klog.Error()
 		return err
@@ -305,12 +305,7 @@ func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, 
 }
 
 func (nc *NginxController) ReloadLoadBalancer() error {
-	if nc.BinaryPath == "" {
-		// set it to empty for local test
-		klog.Errorf("Nginx bin path is empty!!!")
-		return nil
-	}
-
+	StatusFileParentPath := config.Get("STATUSFILE_PARENTPATH")
 	var err error
 	defer func() {
 		if err != nil {
@@ -340,6 +335,11 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 			klog.Errorf("failed to replace config: %s", err.Error())
 			return err
 		}
+	}
+
+	if config.GetBool("E2E_TEST_CONTROLLER_ONLY") {
+		klog.Info("test mode, do not touch nginx")
+		return nil
 	}
 
 	// nginx process runs in an independent container, guaranteed by kubernetes

@@ -8,7 +8,6 @@
 out
 gen
 config/haproxy/*
-alb
 alb2
 migrate_priority
 migrate_v26tov28
@@ -28,3 +27,5 @@ alb-nginx/t/.nvimlog
 tweak
 loop.sh
 alb-nginx/actions/loop.sh
+test/e2e/alb-config.toml
+bin

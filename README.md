@@ -12,6 +12,8 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 ./alb-config.toml: viper config file.  
 ./run.sh:   alb image entry point.  
 ./3rd-lua-module: "some lua module may not upload to opm or not the latest version" used in alb-nginx  
+./test/e2e: env-test bootstrap e2e test  
+./alb: use this package to split Init and Start logic from main package
 ## git repo 
 https://gitlab-ce.alauda.cn/container-platform/alb2
 ## ci

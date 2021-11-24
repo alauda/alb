@@ -14,7 +14,6 @@ const (
 	RuleKind     = "Rule"
 )
 
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular=alaudaloadbalancer2,path=alaudaloadbalancer2,shortName=alb2,scope=Namespaced
@@ -63,7 +62,7 @@ type Frontend struct {
 }
 
 type FrontendSpec struct {
-	Port            int           `json:"port"`
+	Port            int           `json:"port"` // port in service
 	Protocol        string        `json:"protocol"`
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`

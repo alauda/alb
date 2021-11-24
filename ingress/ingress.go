@@ -100,6 +100,10 @@ func (c *Controller) Start(ctx context.Context) {
 }
 
 func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.Ingress, error) {
+
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	ingressList := make([]*networkingv1.Ingress, 0)
 
 	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
@@ -467,22 +471,25 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 	if !isDefaultBackend(ingress) {
 		return false
 	}
-	if ingress.Spec.DefaultBackend.Service.Port.Name != "" {
-		klog.Warningf("ingress ft-default-service: unsupported feature named port %s %s", ingress.Name, ft.Name)
-		return false
-	}
+
 	annotations := ingress.GetAnnotations()
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+	defaultBackendService := ingress.Spec.DefaultBackend.Service
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, defaultBackendService.Name, ToInStr(defaultBackendService.Port))
 
-	needSave := false
+	if err != nil {
+		klog.Errorf("ingress setFtDefault: get port in service %s %s fail %v", err, ingress.Namespace, defaultBackendService.Name)
+		return false
+	}
+
 	if ft.ServiceGroup == nil ||
 		len(ft.ServiceGroup.Services) == 0 {
 		ft.ServiceGroup = &alb2v1.ServiceGroup{
 			Services: []alb2v1.Service{
 				{
 					Namespace: ingress.Namespace,
-					Name:      ingress.Spec.DefaultBackend.Service.Name,
-					Port:      int(ingress.Spec.DefaultBackend.Service.Port.Number),
+					Name:      defaultBackendService.Name,
+					Port:      portInService,
 					Weight:    100,
 				},
 			},
@@ -493,18 +500,28 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 			Name:      ingress.Name,
 			Namespace: ingress.Namespace,
 		}
-		needSave = true
-	} else {
-		// ft has default service
-		if !ft.ServiceGroup.Services[0].Is(
+		return true
+	}
+
+	// ft has default service
+	originFtDefaultSvc := ft.ServiceGroup.Services[0]
+	if !originFtDefaultSvc.Is(
+		ingress.Namespace,
+		ingress.Spec.DefaultBackend.Service.Name,
+		portInService) {
+
+		klog.Warningf("frontend %s already has default service %s/%s %v ,new default service %s/%s %v ingress %s, conflict",
+			ft.Name,
+			originFtDefaultSvc.Namespace,
+			originFtDefaultSvc.Name,
+			originFtDefaultSvc.Port,
 			ingress.Namespace,
 			ingress.Spec.DefaultBackend.Service.Name,
-			int(ingress.Spec.DefaultBackend.Service.Port.Number)) {
-			klog.Warningf("frontend %s already has default service, conflict", ft.Name)
-			//TODO Add event here
-		}
+			portInService,
+			ingress.Name,
+		)
 	}
-	return needSave
+	return false
 }
 
 // updateRule update or create rules for a ingress
@@ -514,6 +531,8 @@ func (c *Controller) updateRule(
 	host string,
 	ingresPath networkingv1.HTTPIngressPath,
 ) error {
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+
 	ingInfo := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
 
 	annotations := ingress.GetAnnotations()
@@ -563,6 +582,11 @@ func (c *Controller) updateRule(
 		}
 	}
 
+	ingressBackend := ingresPath.Backend.Service
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, ingressBackend.Name, ToInStr(ingressBackend.Port))
+	if err != nil {
+		return fmt.Errorf("get port in svc %s/%s %v fail err %v", ingress.Namespace, ingressBackend.Name, ingressBackend.Port, err)
+	}
 	url := ingresPath.Path
 	for _, rule := range ft.Rules {
 		if rule.Source == nil {
@@ -599,8 +623,8 @@ func (c *Controller) updateRule(
 					// when add a new service to service group we need to re calculate weight
 					newsvc := alb2v1.Service{
 						Namespace: ingress.Namespace,
-						Name:      ingresPath.Backend.Service.Name,
-						Port:      int(ingresPath.Backend.Service.Port.Number),
+						Name:      ingressBackend.Name,
+						Port:      portInService,
 						Weight:    100,
 					}
 					rule.ServiceGroup.Services = append(rule.ServiceGroup.Services, newsvc)
@@ -612,7 +636,7 @@ func (c *Controller) updateRule(
 					}
 					rule.ServiceGroup.Services = newServices
 				}
-				err := c.KubernetesDriver.UpdateRule(rule)
+				err = c.KubernetesDriver.UpdateRule(rule)
 				if err != nil {
 					klog.Errorf(
 						"update rule %+v for ingress %s failed: %s",
@@ -641,7 +665,7 @@ func (c *Controller) updateRule(
 			{
 				Namespace: ingress.Namespace,
 				Name:      ingresPath.Backend.Service.Name,
-				Port:      int(ingresPath.Backend.Service.Port.Number),
+				Port:      portInService,
 				Weight:    100,
 			},
 		},
@@ -665,7 +689,10 @@ func (c *Controller) updateRule(
 
 func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) error {
 	klog.Infof("on ingress create or update, %s/%s %s", ingress.Namespace, ingress.Name, ingress.ResourceVersion)
-	// Detele old rule if it exist
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	c.onIngressDelete(ingress.Name, ingress.Namespace)
 
 	// then create new one
@@ -823,6 +850,9 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 }
 
 func (c *Controller) onIngressDelete(name, namespace string) error {
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	klog.Infof("on ingress delete, %s/%s", namespace, name)
 	alb, err := c.KubernetesDriver.LoadALBbyName(
 		config.Get("NAMESPACE"),
@@ -840,6 +870,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 				ft.Source.Type == m.TypeIngress &&
 				ft.Source.Namespace == namespace &&
 				ft.Source.Name == name {
+				// wipe default backend
 				ft.ServiceGroup = nil
 				ft.Source = nil
 				ft.BackendProtocol = ""
@@ -856,7 +887,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 					rule.Source.Namespace == namespace &&
 					rule.Source.Name == name {
 
-					klog.Infof("delete-rules ns:%s name:%s reason: ingress-delete", namespace, name)
+					klog.Infof("delete-rules ns:%s ingress name:%s  rule name %s reason: ingress-delete", namespace, name, rule.Name)
 					err = c.KubernetesDriver.DeleteRule(rule)
 					if err != nil {
 						klog.Errorf("upsert ft failed: %s", err)
@@ -870,19 +901,32 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 }
 
 func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
-	klog.Infof("check if ingress %s/%s %s need enqueue", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
+	reason := ""
+	logTag := fmt.Sprintf("sync-ingress needqueue ingress %s/%s rv %v", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
+	log := func(format string, a ...interface{}) {
+		klog.Infof(fmt.Sprintf("%s: %s", logTag, format), a...)
+	}
+
+	log("enter")
+	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
+	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+
 	defer func() {
-		klog.Infof("check ingress %s/%s %s result: %t", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion(), rv)
+		log("result %v reason %s", rv, reason)
 	}()
+
 	annotations := obj.GetAnnotations()
 
 	ingressClass := annotations["kubernetes.io/ingress.class"]
 	if ingressClass != "" && ingressClass != config.Get("NAME") {
+		reason = fmt.Sprintf("invalid class %s name %s", ingressClass, config.Get("NAME"))
 		return false
 	}
 	alb, err := c.KubernetesDriver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
-		klog.Errorf("get alb res failed, %+v", err)
+		msg := fmt.Sprintf("get alb res failed, %+v", err)
+		klog.Errorf("%s: %s", logTag, msg)
+		reason = msg
 		return false
 	}
 	belongProject := c.GetIngressBelongProject(obj)
@@ -906,21 +950,25 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		}
 		// for role=port alb user should create http and https ports before using ingress
 		if !(hasHTTPPort && hasHTTPSPort) {
+			reason = fmt.Sprintf("role port must have both http and https port ,http %v %v https %v %v", IngressHTTPPort, hasHTTPPort, IngressHTTPSPort, hasHTTPSPort)
 			return false
 		}
 		if (funk.Contains(httpPortProjects, m.ProjectALL) || funk.Contains(httpPortProjects, belongProject)) &&
 			(funk.Contains(httpsPortProjects, m.ProjectALL) || funk.Contains(httpsPortProjects, belongProject)) {
 			return true
 		}
-	} else {
-		projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
-		if funk.Contains(projects, m.ProjectALL) {
-			return true
-		}
-		if funk.Contains(projects, belongProject) {
-			return true
-		}
+		reason = fmt.Sprintf("role poer,project not match http %v https %v belong %v", httpPortProjects, httpsPortProjects, belongProject)
+		return false
 	}
+
+	projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
+	if funk.Contains(projects, m.ProjectALL) {
+		return true
+	}
+	if funk.Contains(projects, belongProject) {
+		return true
+	}
+	reason = fmt.Sprintf("role instance,project %v belog %v", projects, belongProject)
 	return false
 }
 

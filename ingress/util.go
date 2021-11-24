@@ -1,6 +1,8 @@
 package ingress
 
 import (
+	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strings"
 
 	"alauda.io/alb2/config"
@@ -46,6 +48,10 @@ func isDefaultBackend(ing *networkingv1.Ingress) bool {
 
 func getIngressFtTypes(ing *networkingv1.Ingress) set.Interface {
 	defaultSSLStrategy := config.Get("DEFAULT-SSL-STRATEGY")
+
+	ALBSSLStrategyAnnotation := fmt.Sprintf("alb.networking.%s/enable-https", config.Get("DOMAIN"))
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", config.Get("DOMAIN"))
+
 	ingSSLStrategy := ing.Annotations[ALBSSLStrategyAnnotation]
 	sslMap := parseSSLAnnotation(ing.Annotations[ALBSSLAnnotation])
 	certs := make(map[string]string)
@@ -83,4 +89,12 @@ func getIngressFtTypes(ing *networkingv1.Ingress) set.Interface {
 		}
 	}
 	return needFtTypes
+}
+
+func ToInStr(backendPort networkingv1.ServiceBackendPort) intstr.IntOrString {
+	intStrType := intstr.Int
+	if backendPort.Number == 0 {
+		intStrType = intstr.String
+	}
+	return intstr.IntOrString{Type: intStrType, IntVal: backendPort.Number, StrVal: backendPort.Name}
 }

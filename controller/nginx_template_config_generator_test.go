@@ -57,7 +57,6 @@ func TestBindIp(t *testing.T) {
 			[]string{},
 			[]string{},
 		}})
-	t.Logf("xx %v", v6)
 	assert.NoError(t, err)
 	assert.Equal(t, v4[0], "0.0.0.0")
 	assert.Equal(t, len(v6), 0)

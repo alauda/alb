@@ -159,6 +159,7 @@ func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.Frontend, error) {
 	sel := labels.Set{fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): lbname}.AsSelector()
 	resList, err := kd.FrontendLister.Frontends(namespace).List(sel)
+	klog.V(4).Infof("loadft alb %s/%s: sel %v len %v", namespace, lbname, sel, len(resList))
 	if err != nil {
 		klog.Error(err)
 		return nil, err
@@ -186,6 +187,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		Frontends: []*m.Frontend{},
 	}
 	alb2Res, err := kd.LoadAlbResource(namespace, name)
+	klog.V(4).Infof("loadalb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
