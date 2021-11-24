@@ -108,13 +108,13 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
 	ruleRes := &alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rule.Name,
-			Namespace: rule.FT.LB.Namespace,
+			Name:        rule.Name,
+			Namespace:   rule.FT.LB.Namespace,
+			Annotations: rule.Annotations,
 			Labels: map[string]string{
 				fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     rule.FT.LB.Name,
 				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): rule.FT.Name,
 			},
-			Annotations: rule.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: alb2v1.SchemeGroupVersion.String(),
@@ -224,10 +224,11 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 
 		for _, r := range ruleList {
 			rule := &m.Rule{
-				RuleSpec: r.Spec,
-				Name:     r.Name,
-				Labels:   r.Labels,
-				FT:       ft,
+				Annotations: r.Annotations,
+				RuleSpec:    r.Spec,
+				Name:        r.Name,
+				Labels:      r.Labels,
+				FT:          ft,
 			}
 			ft.Rules = append(ft.Rules, rule)
 		}

@@ -83,7 +83,7 @@ func (ft *Frontend) IsHttpOrHttps() bool {
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string) (*Rule, error) {
+	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string, annotations map[string]string) (*Rule, error) {
 
 	var (
 		dsl  string
@@ -93,11 +93,11 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 		dsl = GetDSL(domain, url)
 		dslx = GetDSLX(domain, url, pathType)
 	}
-
 	sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
+	annotations[sourceIngressVersion] = ingressVersion
 	r := Rule{
 		Name:        RandomStr(ft.Name, 4),
-		Annotations: map[string]string{sourceIngressVersion: ingressVersion},
+		Annotations: annotations,
 		RuleSpec: alb2v1.RuleSpec{
 			Domain:           domain,
 			URL:              url,
@@ -127,8 +127,7 @@ type Rule struct {
 	Name        string
 	Labels      map[string]string
 	Annotations map[string]string
-
-	FT *Frontend
+	FT          *Frontend
 }
 
 func (ft Frontend) AllowNoAddr() bool {

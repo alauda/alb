@@ -124,7 +124,9 @@ type BackendService struct {
 	Weight        int    `json:"weight"`
 }
 
+
 type Rule struct {
+	Config           *RuleConfig  `json:"config,omitempty"`
 	RuleID           string  `json:"rule_id"`
 	Priority         int     `json:"priority"`
 	Type             string  `json:"type"`

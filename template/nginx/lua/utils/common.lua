@@ -180,16 +180,34 @@ function _M.trim(s, prefix)
     return sub(s, "^" .. prefix, "", "jo")
 end
 
-function _M.dump(o)
-   if type(o) == 'table' then
-      local s = '{ '
-      for k,v in pairs(o) do
-         if type(k) ~= 'number' then k = '"'..k..'"' end
-         s = s .. '['..k..'] = ' .. _M.dump(v) .. ','
-      end
-      return s .. '} '
-   else
-      return tostring(o)
-   end
+-- @return bool
+-- @param table: {} lua table
+-- @param path: []string a array of string, use as nested access
+-- detect if a nested table has key path,return true if #path==0
+-- pure no side effect
+function _M.has_key(table, path)
+    local cur = table
+    for _, p in ipairs(path) do
+        if type(cur) == "table" and cur[p] ~= nil  then
+            cur = cur[p]
+        else
+            return false
+        end
+    end
+    return true
 end
+
+function _M.dump(o)
+    if type(o) == 'table' then
+        local s = '{ '
+        for k,v in pairs(o) do
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            s = s .. '['..k..'] = ' .. _M.dump(v) .. ','
+        end
+        return s .. '} '
+    else
+        return tostring(o)
+    end
+end
+
 return _M
