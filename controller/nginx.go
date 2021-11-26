@@ -34,7 +34,7 @@ type NginxController struct {
 
 type Policy struct {
 	Rule             string        `json:"rule"`
-	Config           *RuleConfig    `json:"config,omitempty"`
+	Config           *RuleConfig   `json:"config,omitempty"`
 	DSL              string        `json:"dsl"`
 	InternalDSL      []interface{} `json:"internal_dsl"`
 	Upstream         string        `json:"upstream"`

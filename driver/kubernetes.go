@@ -354,7 +354,7 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePor
 func (kd *KubernetesDriver) GetServicePortNumber(namespace, name string, port intstr.IntOrString) (int, error) {
 	// keep compatibility , make ingress such as redirect work
 	if port.Type == intstr.Int {
-		return int(port.IntVal),nil
+		return int(port.IntVal), nil
 	}
 	svc, err := kd.ServiceLister.Services(namespace).Get(name)
 	if err != nil {

@@ -124,23 +124,22 @@ type BackendService struct {
 	Weight        int    `json:"weight"`
 }
 
-
 type Rule struct {
-	Config           *RuleConfig  `json:"config,omitempty"`
-	RuleID           string  `json:"rule_id"`
-	Priority         int     `json:"priority"`
-	Type             string  `json:"type"`
-	Domain           string  `json:"domain"`
-	URL              string  `json:"url"`
-	DSL              string  `json:"dsl"`
-	DSLX             v1.DSLX `json:"dslx"`
-	EnableCORS       bool    `json:"enable_cors"`
-	CORSAllowHeaders string  `json:"cors_allow_headers"`
-	CORSAllowOrigin  string  `json:"cors_allow_origin"`
-	BackendProtocol  string  `json:"backend_protocol"`
-	RedirectURL      string  `json:"redirect_url"`
-	RedirectCode     int     `json:"redirect_code"`
-	VHost            string  `json:"vhost"`
+	Config           *RuleConfig `json:"config,omitempty"`
+	RuleID           string      `json:"rule_id"`
+	Priority         int         `json:"priority"`
+	Type             string      `json:"type"`
+	Domain           string      `json:"domain"`
+	URL              string      `json:"url"`
+	DSL              string      `json:"dsl"`
+	DSLX             v1.DSLX     `json:"dslx"`
+	EnableCORS       bool        `json:"enable_cors"`
+	CORSAllowHeaders string      `json:"cors_allow_headers"`
+	CORSAllowOrigin  string      `json:"cors_allow_origin"`
+	BackendProtocol  string      `json:"backend_protocol"`
+	RedirectURL      string      `json:"redirect_url"`
+	RedirectCode     int         `json:"redirect_code"`
+	VHost            string      `json:"vhost"`
 	// CertificateName = namespace_secretname
 	CertificateName       string            `json:"certificate_name"`
 	RewriteBase           string            `json:"rewrite_base"`

@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"github.com/onsi/ginkgo"
 	"github.com/thedevsaddam/gojsonq/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,4 +80,12 @@ func PolicyHasRule(policyRaw string, port int, ruleName string) bool {
 		Nth(1)
 	Logf("has rule port %v %v %s %v ", port, rule != nil, ruleName, rule)
 	return rule != nil
+}
+
+func GIt(text string, body interface{}, timeout ...float64) bool {
+	return ginkgo.It("alb-test-case "+text, body, timeout...)
+}
+
+func GFIt(text string, body interface{}, timeout ...float64) bool {
+	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
 }
