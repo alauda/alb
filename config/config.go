@@ -208,3 +208,11 @@ func GetInt(key string) int {
 	ConfigInt.Store(key, v)
 	return v
 }
+
+func GetLabelSourceType() string {
+	return fmt.Sprintf(Get("labels.source_type"), Get("DOMAIN"))
+}
+
+func GetLabelSourceIngressHash() string {
+	return fmt.Sprintf(Get("labels.source_name_hash"), Get("DOMAIN"))
+}

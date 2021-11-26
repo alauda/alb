@@ -5,6 +5,7 @@ import (
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
+	"alauda.io/alb2/utils/dirhash"
 	"context"
 	"fmt"
 	"github.com/onsi/ginkgo"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -30,6 +32,7 @@ type Framework struct {
 	ctx          context.Context
 	cancel       func() // use this function to stop alb
 	namespace    string // which ns this alb been deployed
+	productNs    string
 	albName      string
 	baseDir      string // dir of alb.log nginx.conf and policy.new
 	nginxCfgPath string
@@ -42,6 +45,7 @@ type Framework struct {
 
 type Config struct {
 	RandomBaseDir bool
+	RandomNs      bool
 	RestCfg       *rest.Config
 	InstanceMode  bool
 	Project       []string
@@ -62,7 +66,10 @@ func EnvTestCfgToEnv(cfg *rest.Config) {
 
 func NewAlb(deployCfg Config) *Framework {
 	cfg := deployCfg.RestCfg
-
+	if !(os.Getenv("DEV_MODE") == "true") {
+		deployCfg.RandomNs = true
+		deployCfg.RandomBaseDir = true
+	}
 	var baseDir = os.TempDir() + "/alb-e2e-test"
 	if deployCfg.RandomBaseDir {
 		var err error
@@ -72,11 +79,15 @@ func NewAlb(deployCfg Config) *Framework {
 		os.RemoveAll(baseDir)
 		os.MkdirAll(baseDir, os.ModePerm)
 	}
-	Logf("base dir %v", baseDir)
 
 	name := "alb-dev"
 	domain := "cpaas.io"
 	ns := "cpaas-system"
+	if deployCfg.RandomNs {
+		ns += "-" + random()
+	}
+	Logf("alb base dir is %v", baseDir)
+	Logf("alb deployed in %s", ns)
 
 	nginxCfgPath := baseDir + "/nginx.conf"
 	nginxPolicyPath := baseDir + "/policy.new"
@@ -214,7 +225,6 @@ func (f *Framework) waitAlbNormal() {
 
 func (f *Framework) Destroy() {
 	f.cancel()
-	f.DestroyNs(f.namespace)
 }
 
 func (f *Framework) WaitFile(file string, matcher func(string) bool) {
@@ -265,11 +275,11 @@ func (f *Framework) WaitIngressRule(ingresName, ingressNs string, size int) []al
 	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
 
 		selType := fmt.Sprintf("alb2.%s/source-type=ingress", f.domain)
-		selName := fmt.Sprintf("alb2.%s/source-name=%s.%s", f.domain, ingresName, ingressNs)
+		selName := fmt.Sprintf("alb2.%s/source-name-hash=%s", f.domain, dirhash.LabelSafetHash(fmt.Sprintf("%s.%s", ingresName, ingressNs)))
 		sel := selType + "," + selName
 		rules, err := f.albClient.CrdV1().Rules(f.namespace).List(f.ctx, metav1.ListOptions{LabelSelector: sel})
 		if err != nil {
-			Logf("get rule in %s sel %s fail %s", err)
+			Logf("get rule for ingress %s/%s sel -%s- fail %s", ingressNs, ingresName, sel, err)
 		}
 		if len(rules.Items) == size {
 			rulesChan <- rules.Items
@@ -282,12 +292,18 @@ func (f *Framework) WaitIngressRule(ingresName, ingressNs string, size int) []al
 	return rules
 }
 
-func (f *Framework) EnsureNs(namespace string, project string) {
+func (f *Framework) InitProductNs(nsprefix string, project string) {
+	ns := nsprefix
+	if f.deployCfg.RandomNs {
+		ns += "-" + random()
+	}
+	f.productNs = ns
+	Logf("init product ns %s", f.productNs)
 	f.k8sClient.CoreV1().Namespaces().Create(
 		f.ctx,
 		&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
+				Name: f.productNs,
 				Labels: map[string]string{
 					fmt.Sprintf("%s/project", f.domain): project,
 				},
@@ -297,20 +313,12 @@ func (f *Framework) EnsureNs(namespace string, project string) {
 	)
 }
 
-func (f *Framework) GetK8sClient() kubernetes.Interface {
-	return f.k8sClient
+func (f *Framework) GetProductNs() string {
+	return f.productNs
 }
 
-func (f *Framework) DestroyNs(s string) {
-	f.k8sClient.CoreV1().Namespaces().Delete(context.Background(), s, metav1.DeleteOptions{})
-	// TODO could not delete ns...
-	//err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
-	//	_, err := f.k8sClient.CoreV1().Namespaces().Get(context.Background(), s, metav1.GetOptions{})
-	//	beenDelete := errors.IsNotFound(err)
-	//	Logf("delete ns %s %v", s, beenDelete)
-	//	return beenDelete, nil
-	//})
-	//
+func (f *Framework) GetK8sClient() kubernetes.Interface {
+	return f.k8sClient
 }
 
 func log(level string, format string, args ...interface{}) {
@@ -442,4 +450,75 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 	}, metav1.CreateOptions{})
 
 	assert.Nil(ginkgo.GinkgoT(), err, "")
+}
+
+func (f *Framework) InitDefaultSvc(name string, ep []string) {
+	ns := f.productNs
+	f.k8sClient.CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{Port: 80},
+			}},
+	}, metav1.CreateOptions{})
+
+	addres := []corev1.EndpointAddress{}
+	for _, ip := range ep {
+		addres = append(addres, corev1.EndpointAddress{IP: ip})
+	}
+	f.k8sClient.CoreV1().Endpoints(ns).Create(f.ctx, &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+			Labels:    map[string]string{"kube-app": name},
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: addres,
+				Ports:     []corev1.EndpointPort{{Port: 80}},
+			},
+		},
+	}, metav1.CreateOptions{})
+}
+
+func (f *Framework) CreateIngress(name string, path string, svc string, port int) {
+	ns := f.productNs
+	_, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Create(context.Background(), &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
+				{
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     path,
+									PathType: (*networkingv1.PathType)(ToPointOfString(string(networkingv1.PathTypeImplementationSpecific))),
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: svc,
+											Port: networkingv1.ServiceBackendPort{
+												Number: int32(port),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	assert.Nil(ginkgo.GinkgoT(), err, "")
+}
+
+func random() string {
+	return fmt.Sprintf("%v", rand.Int())
 }

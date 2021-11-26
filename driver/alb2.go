@@ -53,8 +53,12 @@ func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
 	if source == nil {
 		return
 	}
-	labels[fmt.Sprintf(config.Get("labels.source_type"), config.Get("DOMAIN"))] = source.Type
-	labels[fmt.Sprintf(config.Get("labels.source_name"), config.Get("DOMAIN"))] = fmt.Sprintf("%s.%s", source.Name, source.Namespace)
+	labels[config.GetLabelSourceType()] = source.Type
+	labels[config.GetLabelSourceIngressHash()] = HashSource(source)
+}
+
+func HashSource(source *alb2v1.Source) string {
+	return dirhash.LabelSafetHash(fmt.Sprintf("%s.%s", source.Name, source.Namespace))
 }
 
 // UpsertFrontends will create new frontend if it not exist, otherwise update
@@ -82,7 +86,7 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 				Spec: ft.FrontendSpec,
 			}
 			ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
-			UpdateSourceLabels(ftRes.Labels, ft.Source)
+
 			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(context.TODO(), ftRes, metav1.CreateOptions{})
 			if err != nil {
 				klog.Error(err)
@@ -94,7 +98,6 @@ func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Fro
 		}
 	}
 	ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
-	UpdateSourceLabels(ftRes.Labels, ft.Source)
 	ftRes.Spec = ft.FrontendSpec
 	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(context.TODO(), ftRes, metav1.UpdateOptions{})
 	if err != nil {

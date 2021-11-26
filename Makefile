@@ -13,7 +13,7 @@ build:
 	CGO_ENABLED=0 go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o ./bin/alb alauda.io/alb2
 	CGO_ENABLED=0 go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
-test: unit-test
+test: lint unit-test 
 
 unit-test:
 	go test -v -coverprofile=coverage-all.out `go list ./... |grep -v e2e`
@@ -21,9 +21,14 @@ unit-test:
 envtest:
 	bash -c 'source ./scripts/alb-dev-actions.sh && install-envtest'
 
-e2e-envtest: envtest
+all-e2e-envtest: envtest
 	cp ./alb-config.toml ./test/e2e
-	ENV_TEST_KUBECONFIG=/tmp/env-test.kubecofnig ALB_LOG_LEVEL=9 ginkgo -v ./test/e2e
+	bash -c 'source ./scripts/alb-dev-actions.sh && alb-run-all-e2e-test'
+
+one-e2e-envtest: envtest
+	cp ./alb-config.toml ./test/e2e
+	# due the limit of alb we could only run one test each time
+	ENV_TEST_KUBECONFIG=/tmp/env-test.kubecofnig ALB_LOG_LEVEL=9 DEV_MODE=true ginkgo -v ./test/e2e
 
 get-all-test-coverage: test
 	go tool cover -func=coverage-all.out
@@ -61,6 +66,6 @@ fmt:
 	go fmt ./...
 
 lint:
-	gofmt -d ./
-	test -z $(gofmt -l ./)
+	gofmt -l .
+	[ "`gofmt -l .`" = "" ]
 	go vet .../..

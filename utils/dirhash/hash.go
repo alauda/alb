@@ -3,6 +3,7 @@ package dirhash
 
 import (
 	"crypto/sha256"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -97,4 +98,14 @@ func DirFiles(dir, suffix string) ([]string, error) {
 		return nil, err
 	}
 	return files, nil
+}
+
+// LabelSafetHash hash string into to label value safe string.
+// it will hash msg with sha256 and encoding with base32, so len of hash result is 52
+func LabelSafetHash(msg string) string {
+	h := sha256.New()
+	h.Write([]byte(msg))
+	sha256Result := h.Sum(nil)
+	str := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sha256Result)
+	return str
 }

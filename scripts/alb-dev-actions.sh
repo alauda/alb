@@ -257,3 +257,17 @@ _makesureImage() {
 	fi
 	kind load docker-image $image --name $kindName
 }
+
+alb-run-all-e2e-test() {
+  while IFS= read -r testcase _; do
+      echo "run test $testcase"
+      ginkgo -v -focus "$testcase" ./test/e2e
+      RESULT=$?
+      if [ $RESULT -eq 0 ]; then
+        echo success
+      else
+        echo "run $testcase fail"
+        exit 1
+      fi
+  done < <(ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case' |  sed -e  's/.*alb-test-case\s*//g' )
+}
