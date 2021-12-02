@@ -28,7 +28,6 @@ var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"frontend":             "alb2.%s/frontend",
 	"lock":                 "alb2.%s/locker",
 	"source_type":          "alb2.%s/source-type",
-	"source_name":          "alb2.%s/source-name",
 	"USE_ENDPOINT":         "true",
 	"DEFAULT-SSL-STRATEGY": "Request",
 }

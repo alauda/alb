@@ -82,12 +82,15 @@ func (c *Controller) Start(ctx context.Context) {
 				klog.Errorf("find unsynced ingress fail: %v", err)
 				return
 			}
-
+			count := 0
 			for _, ing := range ingressList {
 				if c.needEnqueueObject(ing) {
+					count++
+					klog.Infof("find-unsync: get a unsyncd ingress resync it %v %v %v", ing.Name, ing.Namespace, ing.ResourceVersion)
 					c.enqueue(ing)
 				}
 			}
+			klog.Infof("find-unsync unsynced-ingress-len: %d", count)
 
 		}, resyncPeriod)
 	} else {
@@ -105,43 +108,45 @@ func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.I
 	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
 
 	ingressList := make([]*networkingv1.Ingress, 0)
-
-	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(labels.SelectorFromSet(map[string]string{
-		fmt.Sprintf("alb2.%s/source-type", config.Get("DOMAIN")):     "ingress",
-		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): config.Get("NAME"),
-	}))
+	sel := labels.SelectorFromSet(map[string]string{
+		config.GetLabelSourceType(): m.TypeIngress,
+		config.GetLabelAlbName():    config.GetAlbName(),
+	})
+	rules, err := c.ruleLister.Rules(config.Get("NAMESPACE")).List(sel)
 	if err != nil {
 		klog.Errorf("failed list rules: %v", err)
 		return ingressList, err
 	}
 
-	klog.Infof("find-unsync rules-len: %d", len(rules))
+	klog.Infof("find-unsync rules-len: %d sel %v", len(rules), sel)
 
 	httpProcessedIngress := make(map[string]string)
 	httpsProcessedIngress := make(map[string]string)
 	for _, rl := range rules {
-		ingKey := rl.Labels[fmt.Sprintf("alb2.%s/source-name", config.Get("DOMAIN"))]
+		if rl.Spec.Source == nil || rl.Spec.Source.Type != m.TypeIngress {
+			klog.Errorf("ingress rule but type is not ingress %s %+v", rl.Name, rl.Spec.Source)
+			continue
+		}
 		var proto string
 		if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPPort)) {
 			proto = m.ProtoHTTP
 		} else if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPSPort)) {
 			proto = m.ProtoHTTPS
 		}
-		if ingKey != "" {
-			ingNs := ingKey[strings.LastIndex(ingKey, ".")+1:]
-			ingName := ingKey[:strings.LastIndex(ingKey, ".")]
-			if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
-				if errors.IsNotFound(err) {
-					klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
-					c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(ctx, rl.Name, metav1.DeleteOptions{})
-				}
-			} else {
-				sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
-				if proto == m.ProtoHTTP {
-					httpProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
-				} else if proto == m.ProtoHTTPS {
-					httpsProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
-				}
+		ingNs := rl.Spec.Source.Namespace
+		ingName := rl.Spec.Source.Name
+
+		if _, err := c.ingressLister.Ingresses(ingNs).Get(ingName); err != nil {
+			if errors.IsNotFound(err) {
+				klog.Infof("ingress %s/%s not exist, remove rule %s/%s", ingNs, ingName, rl.Namespace, rl.Name)
+				c.KubernetesDriver.ALBClient.CrdV1().Rules(rl.Namespace).Delete(ctx, rl.Name, metav1.DeleteOptions{})
+			}
+		} else {
+			sourceIngressVersion := config.GetLabelSourceIngressVersion()
+			if proto == m.ProtoHTTP {
+				httpProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
+			} else if proto == m.ProtoHTTPS {
+				httpsProcessedIngress[ingNs+"/"+ingName] = rl.Annotations[sourceIngressVersion]
 			}
 		}
 	}
@@ -151,19 +156,20 @@ func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.I
 		klog.Warningf("failed list ingress: %v", err)
 		return ingressList, err
 	}
-	klog.Infof("find-unsync ingress-len: %d", len(rules))
 
 	for _, ing := range ings {
 		needFtTypes := getIngressFtTypes(ing)
-
+		need := false
 		if needFtTypes.Has(m.ProtoHTTP) && !isIngressAlreadySynced(ing, httpProcessedIngress) {
-			ingressList = append(ingressList, ing)
+			need = true
 		} else if needFtTypes.Has(m.ProtoHTTPS) && !isIngressAlreadySynced(ing, httpsProcessedIngress) {
+			need = true
+		}
+		if need {
 			ingressList = append(ingressList, ing)
 		}
 	}
 
-	klog.Infof("find-unsync unsynced-ingress-len: %d", len(ingressList))
 	return ingressList, nil
 }
 
