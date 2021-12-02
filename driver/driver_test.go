@@ -102,7 +102,6 @@ func TestLoadALByName(t *testing.T) {
 		"frontend":        "alb2.%s/frontend",
 		"lock":            "alb2.%s/locker",
 		"source_type":     "alb2.%s/source-type",
-		"source_name":     "alb2.%s/source-name",
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

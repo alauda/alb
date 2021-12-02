@@ -199,7 +199,7 @@ func SetBool(key string, val bool) {
 	viper.Set(key, val)
 }
 
-//GetInt reuturn int value of the key
+//GetInt return int value of the key
 func GetInt(key string) int {
 	if val, ok := ConfigInt.Load(key); ok {
 		return val.(int)
@@ -213,6 +213,18 @@ func GetLabelSourceType() string {
 	return fmt.Sprintf(Get("labels.source_type"), Get("DOMAIN"))
 }
 
+func GetAlbName() string {
+	return Get("NAME")
+}
+
+func GetLabelAlbName() string {
+	return fmt.Sprintf(Get("labels.name"), Get("DOMAIN"))
+}
+
 func GetLabelSourceIngressHash() string {
 	return fmt.Sprintf(Get("labels.source_name_hash"), Get("DOMAIN"))
+}
+
+func GetLabelSourceIngressVersion() string {
+	return fmt.Sprintf(Get("labels.source_ingress_version"), Get("DOMAIN"))
 }

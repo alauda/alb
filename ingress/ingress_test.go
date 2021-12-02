@@ -127,9 +127,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 }
 
 func TestFindUnSyncedIngress(t *testing.T) {
-
 	expect := []string{"ing-1", "ing-2"}
-	fakeResource := test_utils.FakeResource{
+	var fakeResource = test_utils.FakeResource{
 		Alb: test_utils.FakeALBResource{
 			Rules: []albv1.Rule{
 				{
@@ -138,8 +137,14 @@ func TestFindUnSyncedIngress(t *testing.T) {
 						Name:      "alb-1-00443-1",
 						Labels: map[string]string{
 							"alb2.alauda.io/source-type": "ingress",
-							"alb2.alauda.io/name":        "alb-1",
-							"alb2.alauda.io/source-name": "ing-1.ns-2",
+							"alb2.alauda.io/name":        "test1",
+						},
+					},
+					Spec: albv1.RuleSpec{
+						Source: &albv1.Source{
+							Type:      "ingress",
+							Namespace: "ns-2",
+							Name:      "ing-1",
 						},
 					},
 				},
@@ -153,7 +158,13 @@ func TestFindUnSyncedIngress(t *testing.T) {
 						Labels: map[string]string{
 							"alb2.alauda.io/source-type": "ingress",
 							"alb2.alauda.io/name":        "alb-1",
-							"alb2.alauda.io/source-name": "ing-2.ns-2",
+						},
+					},
+					Spec: albv1.RuleSpec{
+						Source: &albv1.Source{
+							Type:      "ingress",
+							Namespace: "ns-2",
+							Name:      "ing-2",
 						},
 					},
 				},
@@ -167,7 +178,13 @@ func TestFindUnSyncedIngress(t *testing.T) {
 						Labels: map[string]string{
 							"alb2.alauda.io/source-type": "ingress",
 							"alb2.alauda.io/name":        "alb-1",
-							"alb2.alauda.io/source-name": "ing-3.ns-2",
+						},
+					},
+					Spec: albv1.RuleSpec{
+						Source: &albv1.Source{
+							Type:      "ingress",
+							Namespace: "ns-2",
+							Name:      "ing-3",
 						},
 					},
 				},
