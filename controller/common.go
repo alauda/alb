@@ -268,9 +268,7 @@ func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver)
 		sort.Sort(result.BackendGroup)
 	} // end of  _, ft := range loadbalancer.Frontends
 
-	if len(result.Frontends) > 0 {
-		result.Phase = modules.PhaseRunning
-	}
+	result.Phase = modules.PhaseRunning
 
 	return result
 }
