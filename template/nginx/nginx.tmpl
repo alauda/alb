@@ -10,6 +10,7 @@ error_log  /var/log/nginx/error.log notice;
 pid        /var/run/nginx.pid;
 
 env SYNC_POLICY_INTERVAL;
+env CLEAN_METRICS_INTERVAL;
 env SYNC_BACKEND_INTERVAL;
 env NEW_POLICY_PATH;
 env DEFAULT-SSL-STRATEGY;
@@ -51,12 +52,12 @@ http {
 
     {{if eq $.Phase "running"}}
     server {
-        {{range $address := .Metis.IpV4BindAddress}}
-            listen     {{$address}}:{{$.Metis.Port}};
+        {{range $address := .Metrics.IpV4BindAddress}}
+            listen     {{$address}}:{{$.Metrics.Port}};
         {{end}}
 
-        {{range $address := .Metis.IpV6BindAddress}}
-            listen     {{$address}}:{{$.Metis.Port}};
+        {{range $address := .Metrics.IpV6BindAddress}}
+            listen     {{$address}}:{{$.Metrics.Port}};
         {{end}}
 
 
@@ -69,6 +70,12 @@ http {
         location /metrics {
             content_by_lua_block {
                 require("metrics").collect()
+            }
+        }
+
+        location /clear {
+            content_by_lua_block {
+                require("metrics").clear()
             }
         }
 
