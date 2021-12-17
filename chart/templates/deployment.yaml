@@ -134,6 +134,8 @@ spec:
           env:
             - name: SYNC_POLICY_INTERVAL
               value: "{{ .Values.syncPolicyInterval }}"
+            - name: CLEAN_METRICS_INTERVAL
+              value: "{{ .Values.cleanMetricsInterval}}"
             - name: NEW_POLICY_PATH
               value: /etc/alb2/nginx/policy.new
             - name: DEFAULT-SSL-STRATEGY

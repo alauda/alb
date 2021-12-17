@@ -22,7 +22,7 @@ type FtConfig struct {
 	IpV6BindAddress []string
 }
 
-type MetisConfig struct {
+type MetricsConfig struct {
 	Port            int
 	IpV4BindAddress []string
 	IpV6BindAddress []string
@@ -32,7 +32,7 @@ type MetisConfig struct {
 type NginxTemplateConfig struct {
 	Name      string
 	Frontends map[int]FtConfig
-	Metis     MetisConfig
+	Metrics   MetricsConfig
 	TweakHash string
 	Phase     string
 	NginxParam
@@ -67,7 +67,7 @@ func (g NginxTemplateConfigGenerator) Generate() (NginxTemplateConfig, error) {
 		Frontends: fts,
 		TweakHash: g.config.TweakHash,
 		Phase:     g.config.Phase,
-		Metis: MetisConfig{
+		Metrics: MetricsConfig{
 			Port:            g.config.MetricsPort,
 			IpV4BindAddress: ipv4,
 			IpV6BindAddress: ipv6,

@@ -22,6 +22,7 @@ enableProfile: false
 workerLimit: 8
 resyncPeriod: 300
 syncPolicyInterval: 1
+cleanMetricsInterval: 2592000
 backlog: 2048
 global:
   platformscenario: base

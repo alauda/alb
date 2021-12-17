@@ -26,9 +26,11 @@ local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 -- /usr/local/openresty/nginx/conf/policy.new
 local policy_path = os_getenv("NEW_POLICY_PATH")
 
-local function set_default_value(table,key,defult_val)
+local clean_metrics_interval = tonumber(os_getenv("CLEAN_METRICS_INTERVAL"))
+
+local function set_default_value(table, key, default_val)
     if table[key] == nil then
-        table[key] = defult_val
+        table[key] = default_val
     end
 end
 local function fetch_policy()
@@ -198,4 +200,23 @@ balancer.sync_backends()
 local _, err = ngx_timer.every(sync_policy_interval, balancer.sync_backends)
 if err then
     ngx_log(ngx.ERR, string_format("error when setting up timer.every for sync_backends: %s", tostring(err)))
+end
+
+local clean_metrics
+clean_metrics = function(premature)
+    if premature then
+        return
+    end
+    if subsystem == "http" then
+        require("metrics").clear()
+    end
+end
+
+-- worker clean up metrics data for prometheus periodically
+if ngx_worker.id() == 0 then
+    -- master clean up metrics data
+    local _, err = ngx_timer.every(clean_metrics_interval, clean_metrics)
+    if err then
+        ngx_log(ngx.ERR, string_format("error when setting up timer.every for clean_metrics: %s", tostring(err)))
+    end
 end

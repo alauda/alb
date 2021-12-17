@@ -655,6 +655,28 @@ function Prometheus:reset(name)
   end
 end
 
+-- Clear all metrics in prometheus
+function Prometheus:clear()
+  if not self.initialized then
+    self:log_error("Prometheus module has not been initialized")
+    return
+  end
+
+  local keys = self.dict:get_keys(0)
+  for _, key in ipairs(keys) do
+    local value, err = self.dict:get(key)
+    if value then
+      self:set_key(key, nil)
+    else
+      self:log_error("Error getting '", key, "': ", err)
+    end
+  end
+  self.registered = {}
+  self:counter("nginx_metric_errors_total",
+    "Number of nginx-lua-prometheus errors")
+  self.dict:set("nginx_metric_errors_total", 0)
+end
+
 -- Prometheus compatible metric data as an array of strings.
 --
 -- Returns:

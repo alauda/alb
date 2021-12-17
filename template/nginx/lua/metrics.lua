@@ -52,4 +52,9 @@ function _M.collect()
    _prometheus:collect()
 end
 
+function _M.clear()
+   _prometheus:clear()
+   ngx_log(ngx.INFO, "clear prometheus metrics finished")
+end
+
 return _M

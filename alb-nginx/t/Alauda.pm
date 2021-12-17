@@ -44,6 +44,7 @@ add_block_preprocessor(sub {
 
     $block->set_value("main_config", <<'_END_');
 env SYNC_POLICY_INTERVAL;
+env CLEAN_METRICS_INTERVAL;
 env SYNC_BACKEND_INTERVAL;
 env NEW_POLICY_PATH;
 env DEFAULT-SSL-STRATEGY;

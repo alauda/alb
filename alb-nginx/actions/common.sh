@@ -28,6 +28,7 @@ test-nginx() {
       -e TEST_NGINX_SLEEP=0.0001 \
       -e TEST_NGINX_VERBOSE=true \
       -e SYNC_POLICY_INTERVAL=1 \
+      -e CLEAN_METRICS_INTERVAL=2592000 \
       -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
       -v $ALB/alb-nginx/t:/t \
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
@@ -42,6 +43,7 @@ test-nginx-exec() {
       -e TEST_NGINX_SLEEP=0.0001 \
       -e TEST_NGINX_VERBOSE=true \
       -e SYNC_POLICY_INTERVAL=1 \
+      -e CLEAN_METRICS_INTERVAL=2592000 \
       -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
       -v $ALB/alb-nginx/t:/t \
       -v $ALB:/alb \
@@ -54,6 +56,7 @@ test-nginx-exec() {
 test-nginx-in-ci() {
   export TEST_NGINX_VERBOSE=true
   export SYNC_POLICY_INTERVAL=1
+  export CLEAN_METRICS_INTERVAL=2592000
   export NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new
   export TEST_NGINX_RANDOMIZE=0
   export TEST_NGINX_SERVROOT=/t/servroot
