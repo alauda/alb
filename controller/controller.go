@@ -1,28 +1,19 @@
 package controller
 
 import (
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"alauda.io/alb2/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"k8s.io/klog"
-	"strings"
-
-	"alauda.io/alb2/config"
-	"alauda.io/alb2/driver"
 )
 
 const (
-	ProtocolHTTP  = "http"
-	ProtocolHTTPS = "https"
-	ProtocolTCP   = "tcp"
-	ProtocolUDP   = "udp"
-
 	SubsystemHTTP   = "http"
 	SubsystemStream = "stream"
-	SubsystemDgram  = "dgram"
 
 	PolicySIPHash = "sip-hash"
 	PolicyCookie  = "cookie"
@@ -55,16 +46,14 @@ type Domain struct {
 }
 
 type LoadBalancer struct {
-	Labels         map[string]string `json:"-"`
-	Name           string            `json:"name"`
-	Address        string            `json:"address"`
-	BindAddress    string            `json:"bind_address"`
-	LoadBalancerID string            `json:"iaas_id"`
-	Type           string            `json:"type"`
-	Version        int               `json:"version"`
-	Frontends      []*Frontend       `json:"frontends"`
-	DomainInfo     []Domain          `json:"domain_info"`
-	TweakHash      string            `json:"-"`
+	Labels     map[string]string `json:"-"`
+	Name       string            `json:"name"`
+	Address    string            `json:"address"`
+	Type       string            `json:"type"`
+	Version    int               `json:"version"`
+	Frontends  []*Frontend       `json:"frontends"`
+	DomainInfo []Domain          `json:"domain_info"`
+	TweakHash  string            `json:"-"`
 }
 
 func (lb *LoadBalancer) String() string {
@@ -83,20 +72,41 @@ type Certificate struct {
 
 type Frontend struct {
 	Labels          map[string]string `json:"-"`
-	RawName         string            `json:"-"`
-	LoadBalancerID  string            `json:"load_balancer_id"`
+	RawName         string            `json:"-"`        // ft name
+	AlbName         string            `json:"alb_name"` // alb name
 	Port            int               `json:"port"`
-	Protocol        string            `json:"protocol"`
+	Protocol        v1.FtProtocol     `json:"protocol"` // ft的协议 http/https/tcp/udp tcp和udp代表stream mode
 	Rules           RuleList          `json:"rules"`
-	Services        []*BackendService `json:"services"`
-	BackendProtocol string            `json:"backend_protocol"`
-
-	BackendGroup    *BackendGroup `json:"-"`
-	CertificateName string        `json:"certificate_name"`
+	Services        []*BackendService `json:"services"`         // ft的默认后端路由
+	BackendProtocol string            `json:"backend_protocol"` // 这个默认后端路由的协议
+	BackendGroup    *BackendGroup     `json:"-"`                // 默认后端路由的pod地址
+	CertificateName string            `json:"certificate_name"`
+	Conflict        bool              `json:"-"`
 }
 
 func (ft *Frontend) String() string {
-	return fmt.Sprintf("%s-%d-%s", ft.LoadBalancerID, ft.Port, ft.Protocol)
+	return fmt.Sprintf("%s-%d-%s", ft.AlbName, ft.Port, ft.Protocol)
+}
+
+func (ft *Frontend) IsTcpBaseProtocol() bool {
+	return ft.Protocol == v1.FtProtocolHTTP ||
+		ft.Protocol == v1.FtProtocolHTTPS ||
+		ft.Protocol == v1.FtProtocolTCP
+}
+
+func (ft *Frontend) IsStreamMode() bool {
+	return ft.Protocol == v1.FtProtocolTCP || ft.Protocol == v1.FtProtocolUDP
+}
+
+func (ft *Frontend) IsHttpMode() bool {
+	return ft.Protocol == v1.FtProtocolHTTP || ft.Protocol == v1.FtProtocolHTTPS
+}
+
+func (ft *Frontend) IsValidProtocol() bool {
+	return ft.Protocol == v1.FtProtocolHTTP ||
+		ft.Protocol == v1.FtProtocolHTTPS ||
+		ft.Protocol == v1.FtProtocolTCP ||
+		ft.Protocol == v1.FtProtocolUDP
 }
 
 type Backend struct {
@@ -108,6 +118,7 @@ type Backend struct {
 const (
 	ModeTCP  = "tcp"
 	ModeHTTP = "http"
+	ModeUDP  = "udp" // TODO add BACKEND MODE TYPE
 )
 
 type BackendGroup struct {
@@ -119,19 +130,19 @@ type BackendGroup struct {
 }
 
 type BackendService struct {
-	ServiceID     string `json:"service_id"`
-	ContainerPort int    `json:"container_port"`
-	Weight        int    `json:"weight"`
+	ServiceName string `json:"service_name"`
+	ServiceNs   string `json:"service_ns"`
+	ServicePort int    `json:"service_port"`
+	Weight      int    `json:"weight"`
 }
 
 type Rule struct {
 	Config           *RuleConfig `json:"config,omitempty"`
 	RuleID           string      `json:"rule_id"`
-	Priority         int         `json:"priority"`
+	Priority         int         `json:"priority"` // priority set by user
 	Type             string      `json:"type"`
 	Domain           string      `json:"domain"`
 	URL              string      `json:"url"`
-	DSL              string      `json:"dsl"`
 	DSLX             v1.DSLX     `json:"dslx"`
 	EnableCORS       bool        `json:"enable_cors"`
 	CORSAllowHeaders string      `json:"cors_allow_headers"`
@@ -141,46 +152,20 @@ type Rule struct {
 	RedirectCode     int         `json:"redirect_code"`
 	VHost            string      `json:"vhost"`
 	// CertificateName = namespace_secretname
-	CertificateName       string            `json:"certificate_name"`
-	RewriteBase           string            `json:"rewrite_base"`
-	RewriteTarget         string            `json:"rewrite_target"`
-	Description           string            `json:"description"`
+	CertificateName string `json:"certificate_name"`
+	RewriteBase     string `json:"rewrite_base"`
+	RewriteTarget   string `json:"rewrite_target"`
+	Description     string `json:"description"`
+
 	SessionAffinityPolicy string            `json:"session_affinity_policy"`
 	SessionAffinityAttr   string            `json:"session_affinity_attribute"`
-	Services              []*BackendService `json:"services"`
+	Services              []*BackendService `json:"services"` // 这条规则对应的后端服务
 
-	BackendGroup *BackendGroup `json:"-"`
+	BackendGroup *BackendGroup `json:"-"` // 这条规则对应的后端pod的ip
 }
 
-func (rl Rule) FillupDSL() {
-	if rl.DSL == "" && (rl.Domain != "" || rl.URL != "") {
-		klog.Info("transfer rl to dsl")
-		if rl.Domain != "" && rl.URL != "" {
-			if strings.HasPrefix(rl.URL, "^") {
-				rl.DSL = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", rl.Domain, rl.URL)
-			} else {
-				rl.DSL = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", rl.Domain, rl.URL)
-			}
-		} else {
-			if rl.Domain != "" {
-				rl.DSL = fmt.Sprintf("(EQ HOST %s)", rl.Domain)
-			} else {
-				if strings.HasPrefix(rl.URL, "^") {
-					rl.DSL = fmt.Sprintf("(REGEX URL %s)", rl.URL)
-				} else {
-					rl.DSL = fmt.Sprintf("(STARTS_WITH URL %s)", rl.URL)
-				}
-			}
-		}
-		if rl.DSL != "" && rl.DSLX == nil {
-			dslx, err := utils.DSL2DSLX(rl.DSL)
-			if err != nil {
-				klog.Warning(err)
-			} else {
-				rl.DSLX = dslx
-			}
-		}
-	}
+func (rl Rule) AllowNoAddr() bool {
+	return rl.RedirectURL != ""
 }
 
 func (rl Rule) GetRawPriority() int {
@@ -188,39 +173,10 @@ func (rl Rule) GetRawPriority() int {
 }
 
 func (rl Rule) GetPriority() int {
-	var (
-		dslx v1.DSLX
-		err  error
-	)
-	// rl.Priority is not used in acp, ignore
-	//if rl.Priority != 0 {
-	//	return rl.Priority
-	//}
-	if rl.DSLX != nil {
-		dslx = rl.DSLX
-	} else {
-		dslx, err = utils.DSL2DSLX(rl.DSL)
-		if err != nil {
-			return len(rl.DSL)
-		}
-	}
-
-	return dslx.Priority() + len(rl.DSL)
+	return rl.DSLX.Priority()
 }
 
 type RuleList []*Rule
-
-func (rl RuleList) Len() int {
-	return len(rl)
-}
-
-func (rl RuleList) Swap(i, j int) {
-	rl[i], rl[j] = rl[j], rl[i]
-}
-
-func (rl RuleList) Less(i, j int) bool {
-	return rl[i].Priority > rl[j].Priority
-}
 
 type BackendGroups []*BackendGroup
 

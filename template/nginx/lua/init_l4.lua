@@ -38,7 +38,7 @@ cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", {
                         channel, "': ", err)
             end
         end,
-        poll = function(timeout)
+        poll = function(timeout)  --luacheck: ignore
             return ev.poll()
         end,
     },

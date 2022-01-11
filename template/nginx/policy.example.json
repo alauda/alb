@@ -1,0 +1,66 @@
+{
+  "certificate_map": {
+    "443": {
+      "key": "",
+      "cert": ""
+    },
+    "a.b.com": {
+      "key": "",
+      "cert": ""
+    }
+  },
+  "stream": {
+    "tcp": {
+      "80": {
+        "rule": "rule1",
+        "upstream": "u1"
+      }
+    },
+    "udp": {
+      "80": {
+        "rule": "rule2",
+        "upstream": "u2"
+      }
+    }
+  },
+  "http": {
+    "tcp": {
+      "81": {
+        "rule": "rule2",
+        "upstream": "u2"
+      }
+    }
+  },
+  "backend_group": [
+    {
+      "name": "u1",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100
+        }
+      ]
+    },
+    {
+      "name": "u2",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100
+        }
+      ]
+    },
+    {
+      "name": "u3",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100
+        }
+      ]
+    }
+  ]
+}

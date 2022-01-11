@@ -1,6 +1,7 @@
 package config
 
 import (
+	"alauda.io/alb2/utils"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,15 +15,18 @@ const (
 )
 
 const (
-	SLB   = "slb"
-	ELB   = "elb"
-	CLB   = "clb"
 	Nginx = "nginx"
 )
 
 var ConfigString sync.Map
 var ConfigBool sync.Map
 var ConfigInt sync.Map
+
+func CleanCache() {
+	utils.CleanSyncMap(ConfigBool)
+	utils.CleanSyncMap(ConfigString)
+	utils.CleanSyncMap(ConfigInt)
+}
 
 var requiredFields = []string{
 	"NAME",
@@ -42,8 +46,6 @@ var optionalFields = []string{
 	"NGINX_BIN_PATH",
 	//for xiaoying
 	"RECORD_POST_BODY",
-	//USE_ENDPOINT MUST set to "true" if enable session affinity
-	"USE_ENDPOINT",
 	// set to "true" if want to use nodes which pods run on them
 	"USE_POD_HOST_IP",
 	"MY_POD_NAME",
@@ -145,17 +147,6 @@ func ValidateConfig() error {
 				return fmt.Errorf("no default ssl cert defined for nginx")
 			}
 		}
-	case ELB, SLB, CLB:
-		emptyRequiredEnv = checkEmpty(cloudLBRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
-
-		Set("USE_ENDPOINT", "")
-		if Get("NAME") == "" {
-			Set("NAME", "alb-xlb")
-		}
-
 	default:
 		return fmt.Errorf("Unsuported lb type %s", Get("LB_TYPE"))
 	}

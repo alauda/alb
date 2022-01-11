@@ -91,7 +91,7 @@ local function split_matcher_args(args)
     end
 end
 
-local function toboolean(arg)
+local function to_boolean(arg)
     if(arg == nil) then
         return false
     end
@@ -184,7 +184,24 @@ function _M.STARTS_WITH(matcher, args)
     if(#matcher < #args[1]) then
         return false, nil
     else
+        -- string.sub(s,1,j) returns a prefix of s with length j
         return string_sub(matcher, 1, #args[1]) == args[1], nil
+    end
+end
+
+function _M.ENDS_WITH(matcher, args)
+    if(matcher == nil) then
+        return false, nil
+    end
+    if(#args ~= 1) then
+        return false, string_format("ENDS_WITH except 1 arg, get %d: %s", #args, args)
+    end
+    if(#matcher < #args[1]) then
+        return false, nil
+    else
+        -- generic-host: args[1] is in format as *.foo.bar
+        -- string.sub(s, -i) returns a suffix of s with length i
+        return (string_sub(matcher, -(#args[1] - 1)) == string_sub(args[1], 2)) and (string_find(string_sub(matcher,1,#matcher-#args[1]),'%.') == nil), nil
     end
 end
 
@@ -198,7 +215,7 @@ function _M.REGEX(matcher, args)
 
     -- enable jit and cache to improve performance https://github.com/openresty/lua-nginx-module#ngxrematch
     local found, _ = ngx_re.match(matcher, args[1], "jo")
-    return toboolean(found), nil
+    return to_boolean(found), nil
 end
 
 function _M.EXIST(matcher, args)
@@ -208,7 +225,7 @@ function _M.EXIST(matcher, args)
     if(#args ~= 0) then
         return false, string_format("EXIST except 0 arg, get %d: %s", #args, args)
     end
-    return toboolean(matcher), nil
+    return to_boolean(matcher), nil
 end
 
 function _M.IN(matcher, args)

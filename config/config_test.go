@@ -81,10 +81,21 @@ func TestDefault(t *testing.T) {
 	Initialize()
 
 	a.Equal(30, GetInt("timeout"))
+	os.Setenv("INTERVAL", "10")
+	// read from env
 	a.Equal(10, GetInt("INTERVAL"))
-
+	os.Clearenv()
+	CleanCache()
+	// read from alb-config.yaml
+	a.Equal(5, GetInt("INTERVAL"))
 	a.Equal("/alb/certificates", Get("CERTIFICATE_DIRECTORY"))
 
 	a.False(GetBool("RECORD_POST_BODY"))
 	a.True(GetBool("USE_POD_HOST_IP"))
+}
+
+func TestConfig(t *testing.T) {
+	os.Setenv("ALB_LOCK_TIMEOUT", "100")
+	ret := GetInt("LOCK_TIMEOUT")
+	assert.Equal(t, ret, 100)
 }

@@ -1,7 +1,7 @@
 package ingress
 
 const (
-	// SuccessSynced is used as part of the Event 'reason' when a Ingress is synced
+	// SuccessSynced is used as part of the Event 'reason' when an Ingress is synced
 	SuccessSynced = "Synced"
 	// ErrResourceExists is used as part of the Event 'reason' when a Foo fails
 	// to sync due to a Deployment of the same name already existing.
@@ -10,7 +10,7 @@ const (
 	// MessageResourceExists is the message used for Events when a resource
 	// fails to sync due to a Deployment already existing
 	MessageResourceExists = "Resource %q already exists and is not managed by Foo"
-	// MessageResourceSynced is the message used for an Event fired when a Ingress
+	// MessageResourceSynced is the message used for an Event fired when an Ingress
 	// is synced successfully
 	MessageResourceSynced = "Ingress synced successfully"
 

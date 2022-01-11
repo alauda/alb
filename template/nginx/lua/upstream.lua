@@ -16,84 +16,57 @@ local cache = require "cache"
 
 local _M = {}
 
-local subsystem = ngx_config.subsystem
+local SUBSYSTEM = ngx_config.subsystem
 
-local function get_port_policies(port)
-    ngx_log(ngx.INFO, "refresh cache for port:", port)
-    local raw_policies = ngx_shared[subsystem .. "_policy"]:get(port)
+local function get_policies(key)
+    local shared_key = SUBSYSTEM .. "_policy"
+    ngx_log(ngx.INFO, string.format("refresh cache from ngx.share[%s][%s]", shared_key, key))
+    local raw_policies = ngx_shared[shared_key]:get(key)
     if raw_policies == nil then
-        return nil, "no policies found on this port:" .. port
+        return nil, string.format("no policies found on ngx.share[%s][%s] ", shared_key, key)
     end
     local policies = common.json_decode(raw_policies)
     return policies
 end
 
--- @param: port
--- @ret: upstream
--- @ret: matched_policy
--- @ret: errmsg
-function _M.get_upstream(port)
+-- @param: subsystem string http|stream
+-- @param: protocol  tcp|udp
+-- @param: port  number
+-- @ret: upstream string
+-- @ret: matched_policy table
+-- @ret: err_msg string
+function _M.get_upstream(subsystem, protocol, port)
     local upstream = "default"
     cache.rule_cache:update(0.1)
-    local policies, err = cache.rule_cache:get(port, nil, get_port_policies, port)
+    local key = cache.gen_rule_key(subsystem, protocol, port)
+    local policies, err = cache.rule_cache:get(key, nil, get_policies, key)
     if err then
-        ngx.log(ngx.ERR, "get mlcache failed, " .. err)
+        ngx.log(ngx.ERR, "get policy from cache failed, " .. err)
     end
 
     local errmsg = "unknown error"
-    if(policies) then
+    if (policies) then
         if subsystem == "http" then
-            do
-                --[
-                --  {
-                --    "priority": 100,
-                --    "rule": rule_name,
-                --    "upstream": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
-                --    "protocol": "http",
-                --    "url": "/s1",
-                --    "dsl": [
-                --      "AND",
-                --      [
-                --        "STARTS_WITH",
-                --        "URL",
-                --        "/s1"
-                --      ]
-                --    ],
-                --    "rewrite_target": "/server_addr"
-                --  }
-                --]
-            end
             for _, policy in ipairs(policies) do
-                if(policy ~= nil and policy["dsl"] ~= nil) then
+                if (policy ~= nil and policy["dsl"] ~= nil) then
                     local match, err = dsl.eval(policy["dsl"])
-                    if(match) then
+                    if (match) then
                         return policy["upstream"], policy, nil
                     end
 
-                    if(err ~= nil ) then
+                    if (err ~= nil) then
                         ngx.log(ngx.ERR, "eval dsl " .. common.json_encode(policy["dsl"]) .. " failed " .. err)
                     end
                 end
             end
         elseif subsystem == "stream" then
-            do
-                --[
-                --  {
-                --    "priority": 0,
-                --    "upstream": "calico-new-yz-alb-9997-tcp",
-                --    "protocol": "tcp",
-                --    "url": "",
-                --    "rewrite_target": ""
-                --  }
-                --]
-            end
             if next(policies) ~= nil then
-               return policies[1]["upstream"], policies[1], nil
+                return policies[1]["upstream"], policies[1], nil
             end
         end
 
         -- return 404 if no rule match
-        if(upstream == "default") then
+        if (upstream == "default") then
             errmsg = "Resource not found, no rule match"
         end
     else

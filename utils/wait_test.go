@@ -13,7 +13,7 @@ func TestUtilWithContextAndTimeout(t *testing.T) {
 		msgChan := make(chan string, 100)
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(120 * time.Millisecond)
 			cancel()
 			t.Logf("ctx is done")
 		}()
@@ -28,7 +28,7 @@ func TestUtilWithContextAndTimeout(t *testing.T) {
 		}
 		t.Logf("count is %v\n", count)
 		assert.Equal(t, count >= 4, true)
-		assert.Equal(t, count < 6, true)
+		assert.Equal(t, count < 8, true)
 		assert.Equal(t, isTimeout, false)
 	}
 	//  it should return with true , if f reach timeout

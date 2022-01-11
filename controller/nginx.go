@@ -1,25 +1,27 @@
 package controller
 
 import (
+	m "alauda.io/alb2/modules"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/thoas/go-funk"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/utils"
+	"context"
 	"k8s.io/klog"
-)
-
-const (
-	DEFAULT_RULE = "(STARTS_WITH URL /)"
 )
 
 type NginxController struct {
@@ -33,16 +35,15 @@ type NginxController struct {
 }
 
 type Policy struct {
-	Rule             string        `json:"rule"`
+	Rule             string        `json:"rule"` // the name of rule, corresponding with k8s rule cr
 	Config           *RuleConfig   `json:"config,omitempty"`
-	DSL              string        `json:"dsl"`
-	InternalDSL      []interface{} `json:"internal_dsl"`
-	Upstream         string        `json:"upstream"`
+	InternalDSL      []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule
+	Upstream         string        `json:"upstream"`     // name in backend group
 	URL              string        `json:"url"`
 	RewriteBase      string        `json:"rewrite_base"`
 	RewriteTarget    string        `json:"rewrite_target"`
-	Priority         int           `json:"-"`
-	RawPriority      int           `json:"-"`
+	Priority         int           `json:"-"` // priority calculate by the complex of dslx
+	RawPriority      int           `json:"-"` // priority set by user
 	Subsystem        string        `json:"subsystem"`
 	EnableCORS       bool          `json:"enable_cors"`
 	CORSAllowHeaders string        `json:"cors_allow_headers"`
@@ -55,8 +56,17 @@ type Policy struct {
 
 type NgxPolicy struct {
 	CertificateMap map[string]Certificate `json:"certificate_map"`
-	PortMap        map[int]Policies       `json:"port_map"`
+	Http           HttpPolicy             `json:"http"`
+	Stream         StreamPolicy           `json:"stream"`
 	BackendGroup   []*BackendGroup        `json:"backend_group"`
+}
+
+type HttpPolicy struct {
+	Tcp map[int]Policies `json:"tcp"`
+}
+type StreamPolicy struct {
+	Tcp map[int]Policies `json:"tcp"`
+	Udp map[int]Policies `json:"udp"`
 }
 
 type Policies []*Policy
@@ -90,137 +100,6 @@ func (nc *NginxController) GetLoadBalancerType() string {
 	return "Nginx"
 }
 
-func (nc *NginxController) generateNginxConfigAndAlbPolicy(loadbalancer *LoadBalancer) (Config, NgxPolicy) {
-	config := generateConfig(loadbalancer, nc.Driver)
-	ngxPolicy := NgxPolicy{
-		CertificateMap: config.CertificateMap,
-		PortMap:        make(map[int]Policies),
-		BackendGroup:   config.BackendGroup,
-	}
-	for port, frontend := range config.Frontends {
-		klog.V(3).Infof("Frontend is %+v", frontend)
-		if _, ok := ngxPolicy.PortMap[port]; !ok {
-			ngxPolicy.PortMap[port] = Policies{}
-		}
-		for _, rule := range frontend.Rules {
-			// for compatible
-			rule.FillupDSL()
-			if rule.DSL == "" && rule.DSLX == nil {
-				klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
-				continue
-			}
-
-			klog.V(3).Infof("Rule is %v", rule)
-			policy := Policy{}
-			if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
-				policy.Subsystem = SubsystemHTTP
-			} else {
-				//ProtocolTCP
-				policy.Subsystem = SubsystemStream
-			}
-			policy.Rule = rule.RuleID
-			policy.DSL = rule.DSL
-			if rule.DSLX == nil {
-				dslx, err := utils.DSL2DSLX(rule.DSL)
-				if err != nil {
-					klog.Errorf("convert dsl to dslx failed rule %v dsl %v err %v", rule.RuleID, rule.DSL, err)
-				} else {
-					rule.DSLX = dslx
-				}
-			}
-			if rule.DSLX != nil {
-				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
-				if err != nil {
-					klog.Error("convert dslx to internal failed", err)
-				} else {
-					policy.InternalDSL = internalDSL
-				}
-			}
-			policy.Priority = rule.GetPriority()
-			policy.RawPriority = rule.GetRawPriority()
-			policy.Upstream = rule.BackendGroup.Name
-			// for rewrite
-			policy.URL = rule.URL
-			policy.RewriteBase = rule.RewriteBase
-			policy.RewriteTarget = rule.RewriteTarget
-			policy.EnableCORS = rule.EnableCORS
-			policy.CORSAllowHeaders = rule.CORSAllowHeaders
-			policy.CORSAllowOrigin = rule.CORSAllowOrigin
-			policy.BackendProtocol = rule.BackendProtocol
-			policy.RedirectURL = rule.RedirectURL
-			policy.RedirectCode = rule.RedirectCode
-			policy.VHost = rule.VHost
-			policy.Config = rule.Config
-			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &policy)
-		}
-
-		// set default rule if exists
-		defaultPolicy := Policy{}
-		// default rule should have the minimum priority
-		defaultPolicy.Priority = -1
-		defaultPolicy.RawPriority = 999 // minimum number means higher priority
-		if frontend.Protocol == ProtocolHTTP || frontend.Protocol == ProtocolHTTPS {
-			defaultPolicy.Subsystem = SubsystemHTTP
-		} else {
-			//ProtocolTCP
-			defaultPolicy.Subsystem = SubsystemStream
-		}
-		if frontend.Protocol != ProtocolTCP {
-			defaultPolicy.Rule = frontend.RawName
-			defaultPolicy.DSL = DEFAULT_RULE
-			defaultPolicy.BackendProtocol = frontend.BackendProtocol
-		}
-		if frontend.BackendGroup != nil && frontend.BackendGroup.Backends != nil {
-			defaultPolicy.Upstream = frontend.BackendGroup.Name
-			ngxPolicy.PortMap[port] = append(ngxPolicy.PortMap[port], &defaultPolicy)
-		}
-		sort.Sort(ngxPolicy.PortMap[port])
-	}
-	return config, ngxPolicy
-}
-
-var loadBalancersCache []byte
-var nextFetchTime time.Time
-var infoLock sync.Mutex
-
-//FetchLoadBalancersInfo return loadbalancer info from cache, mirana2 or apiserver
-func (nc *NginxController) FetchLoadBalancersInfo() ([]*LoadBalancer, error) {
-	infoLock.Lock()
-	defer infoLock.Unlock()
-	if time.Now().Before(nextFetchTime) && loadBalancersCache != nil {
-		var lbs []*LoadBalancer
-		//make sure always return a copy of loadbalaners
-		err := json.Unmarshal(loadBalancersCache, &lbs)
-		if err != nil {
-			// should never happen
-			klog.Error(err)
-			panic(err)
-		}
-		return lbs, nil
-	}
-
-	alb, err := nc.Driver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
-	if err != nil {
-		klog.Error(err)
-		return []*LoadBalancer{}, nil
-	}
-
-	lb, err := MergeNew(alb)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-	var loadBalancers = []*LoadBalancer{
-		lb,
-	}
-
-	interval := config.GetInt("INTERVAL")
-	nextFetchTime = time.Now().Add(time.Duration(interval) * time.Second)
-	loadBalancersCache, _ = json.Marshal(loadBalancers)
-	klog.V(3).Infof("Get Loadbalancers: %s", string(loadBalancersCache))
-	return loadBalancers, err
-}
-
 func (nc *NginxController) GenerateConf() error {
 	nginxConfig, ngxPolicies, err := nc.GenerateNginxConfigAndPolicy()
 	if err != nil {
@@ -235,31 +114,451 @@ func (nc *NginxController) GenerateConf() error {
 }
 
 func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig NginxTemplateConfig, nginxPolicy NgxPolicy, err error) {
-	services, err := nc.Driver.ListService()
-	if err != nil {
-		return NginxTemplateConfig{}, NgxPolicy{}, err
-	}
-	loadbalancers, err := nc.FetchLoadBalancersInfo()
+
+	ns := config.Get("NAMESPACE")
+	name := config.Get("NAME")
+	alb, err := nc.getAlb(ns, name)
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
 
-	merge(loadbalancers, services)
-
-	if len(loadbalancers) == 0 {
-		return NginxTemplateConfig{}, NgxPolicy{}, errors.New("no lb found")
-	}
-	if len(loadbalancers[0].Frontends) == 0 {
+	if len(alb.Frontends) == 0 {
 		klog.Info("No service bind to this nginx now")
 	}
-
-	nginxConfig, nginxPolicy := nc.generateNginxConfigAndAlbPolicy(loadbalancers[0])
-
-	cfg, err := NewNginxTemplateConfigGenerator(nginxConfig).Generate()
+	detectAndMaskConflictPort(alb, nc.Driver)
+	migratePortProject(alb, nc.Driver)
+	nginxPolicy = nc.generateAlbPolicy(alb)
+	phase := config.Get("PHASE")
+	if phase != m.PhaseTerminating {
+		phase = m.PhaseRunning
+	}
+	cfg, err := GenerateNginxTemplateConfig(alb, phase, newNginxParam())
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
 	}
-	return cfg, nginxPolicy, nil
+	return *cfg, nginxPolicy, nil
+}
+
+// get alb which defined in controller package.
+func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error) {
+	// mAlb LoadBalancer struct from modules package.
+	// cAlb LoadBalancer struct from controller package.
+	kd := nc.Driver
+	mAlb, err := kd.LoadALBbyName(ns, name)
+	if err != nil {
+		klog.Error("load mAlb fail", err)
+		return nil, err
+	}
+
+	cAlb := &LoadBalancer{
+		Name:      mAlb.Name,
+		Address:   mAlb.Spec.Address,
+		Frontends: []*Frontend{},
+		TweakHash: mAlb.TweakHash,
+		Labels:    mAlb.Labels,
+	}
+
+	// mft frontend struct from modules package.
+	for _, mft := range mAlb.Frontends {
+		ft := &Frontend{
+			RawName:         mft.Name,
+			AlbName:         mAlb.Name,
+			Port:            mft.Port,
+			Protocol:        mft.Protocol,
+			Rules:           RuleList{},
+			CertificateName: mft.CertificateName,
+			BackendProtocol: mft.BackendProtocol,
+			Labels:          mft.Lables,
+		}
+		if !ft.IsValidProtocol() {
+			klog.Errorf("frontend %s %s has no valid protocol", ft.RawName, ft.Protocol)
+			ft.Protocol = albv1.FtProtocolTCP
+		}
+
+		if ft.Port <= 0 {
+			klog.Errorf("frontend %s has an invalid port %d", ft.RawName, ft.Port)
+			continue
+		}
+
+		// migrate rule
+		for _, arl := range mft.Rules {
+			ruleConfig := RuleConfigFromRuleAnnotation(arl.Name, arl.Annotations)
+			rule := &Rule{
+				Config:           ruleConfig,
+				RuleID:           arl.Name,
+				Priority:         arl.Priority,
+				Type:             arl.Type,
+				Domain:           strings.ToLower(arl.Domain),
+				URL:              arl.URL,
+				DSLX:             arl.DSLX,
+				Description:      arl.Description,
+				CertificateName:  arl.CertificateName,
+				RewriteBase:      arl.RewriteBase,
+				RewriteTarget:    arl.RewriteTarget,
+				EnableCORS:       arl.EnableCORS,
+				CORSAllowHeaders: arl.CORSAllowHeaders,
+				CORSAllowOrigin:  arl.CORSAllowOrigin,
+				BackendProtocol:  arl.BackendProtocol,
+				RedirectURL:      arl.RedirectURL,
+				RedirectCode:     arl.RedirectCode,
+				VHost:            arl.VHost,
+			}
+			if arl.ServiceGroup != nil {
+				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
+				rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
+				if rule.Services == nil {
+					rule.Services = []*BackendService{}
+				}
+				for _, svc := range arl.ServiceGroup.Services {
+					rule.Services = append(rule.Services, &BackendService{
+						ServiceNs:   svc.Namespace,
+						ServiceName: svc.Name,
+						ServicePort: svc.Port,
+						Weight:      svc.Weight,
+					})
+				}
+			}
+			ft.Rules = append(ft.Rules, rule)
+		}
+
+		if mft.ServiceGroup != nil {
+			ft.Services = []*BackendService{}
+			ft.BackendGroup = &BackendGroup{
+				Name:                     ft.String(),
+				SessionAffinityAttribute: mft.ServiceGroup.SessionAffinityAttribute,
+				SessionAffinityPolicy:    mft.ServiceGroup.SessionAffinityPolicy,
+			}
+
+			for _, svc := range mft.ServiceGroup.Services {
+				ft.Services = append(ft.Services, &BackendService{
+					ServiceNs:   svc.Namespace,
+					ServiceName: svc.Name,
+					ServicePort: svc.Port,
+					Weight:      svc.Weight,
+				})
+			}
+		}
+
+		cAlb.Frontends = append(cAlb.Frontends, ft)
+	}
+
+	services := nc.LoadServices(cAlb)
+
+	backendMap := make(map[string][]*driver.Backend)
+	for key, svc := range services {
+		if svc == nil {
+			continue
+		}
+		backendMap[key] = svc.Backends
+	}
+
+	for _, ft := range cAlb.Frontends {
+		var rules RuleList
+		protocol := m.FtProtocolToServiceProtocol(ft.Protocol)
+		for _, rule := range ft.Rules {
+			if len(rule.Services) == 0 {
+				klog.Warningf("rule %s has no active service.", rule.RuleID)
+			}
+			rule.BackendGroup = &BackendGroup{
+				Name:                     rule.RuleID,
+				Mode:                     ModeHTTP,
+				SessionAffinityPolicy:    rule.SessionAffinityPolicy,
+				SessionAffinityAttribute: rule.SessionAffinityAttr,
+			}
+			rule.BackendGroup.Backends = generateBackend(backendMap, rule.Services, protocol)
+			rules = append(rules, rule)
+		}
+		if len(rules) > 0 {
+			ft.Rules = rules
+		} else {
+			ft.Rules = RuleList{}
+		}
+
+		if len(ft.Services) == 0 {
+			klog.Infof("frontend %s has no default service.", ft.String())
+		}
+		if len(ft.Services) != 0 {
+			// set ft default services group.
+			ft.BackendGroup.Backends = generateBackend(backendMap, ft.Services, protocol)
+			if ft.Protocol == albv1.FtProtocolTCP {
+				ft.BackendGroup.Mode = ModeTCP
+			} else if ft.Protocol == albv1.FtProtocolUDP {
+				ft.BackendGroup.Mode = ModeUDP
+			}
+		}
+	}
+
+	klog.V(3).Infof("Get alb : %s", cAlb.String())
+	return cAlb, nil
+}
+
+func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
+	certificateMap := getCertMap(alb, nc.Driver)
+	backendGroup := pickAllBackendGroup(alb)
+
+	ngxPolicy := NgxPolicy{
+		CertificateMap: certificateMap,
+		Http:           HttpPolicy{Tcp: make(map[int]Policies)},
+		Stream:         StreamPolicy{Tcp: make(map[int]Policies), Udp: make(map[int]Policies)},
+		BackendGroup:   backendGroup,
+	}
+
+	for _, ft := range alb.Frontends {
+		if ft.Conflict {
+			continue
+		}
+		if ft.IsStreamMode() {
+			if ft.BackendGroup == nil || ft.BackendGroup.Backends == nil {
+				klog.Warningf("ft %s,stream mode ft must have backend group", ft.RawName)
+			}
+			if ft.Protocol == albv1.FtProtocolTCP {
+				policy := Policy{}
+				policy.Subsystem = SubsystemStream
+				policy.Upstream = ft.BackendGroup.Name
+				ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
+			}
+			if ft.Protocol == albv1.FtProtocolUDP {
+				policy := Policy{}
+				policy.Subsystem = SubsystemStream
+				policy.Upstream = ft.BackendGroup.Name
+				ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
+			}
+		}
+
+		if ft.IsHttpMode() {
+			if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
+				ngxPolicy.Http.Tcp[ft.Port] = Policies{}
+			}
+
+			for _, rule := range ft.Rules {
+				if rule.DSLX == nil {
+					klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
+					continue
+				}
+
+				klog.V(3).Infof("Rule is %v", rule)
+				policy := Policy{}
+				policy.Subsystem = SubsystemHTTP
+				policy.Rule = rule.RuleID
+				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
+				if err != nil {
+					klog.Error("convert dslx to internal failed", err)
+					continue
+				}
+				policy.InternalDSL = internalDSL
+
+				policy.Priority = rule.GetPriority()
+				policy.RawPriority = rule.GetRawPriority()
+				// policy-gen 设置rule的upstream
+				policy.Upstream = rule.BackendGroup.Name // IMPORTANT
+				// for rewrite
+				policy.URL = rule.URL
+				policy.RewriteBase = rule.RewriteBase
+				policy.RewriteTarget = rule.RewriteTarget
+				policy.EnableCORS = rule.EnableCORS
+				policy.CORSAllowHeaders = rule.CORSAllowHeaders
+				policy.CORSAllowOrigin = rule.CORSAllowOrigin
+				policy.BackendProtocol = rule.BackendProtocol
+				policy.RedirectURL = rule.RedirectURL
+				policy.RedirectCode = rule.RedirectCode
+				policy.VHost = rule.VHost
+				policy.Config = rule.Config
+				ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
+			}
+
+			// set default rule if ft have default backend.
+			if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
+				defaultPolicy := Policy{}
+				defaultPolicy.Rule = ft.RawName
+				defaultPolicy.Priority = -1     // default rule should have the minimum priority
+				defaultPolicy.RawPriority = 999 // minimum number means higher priority
+				defaultPolicy.Subsystem = SubsystemHTTP
+				defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
+				defaultPolicy.BackendProtocol = ft.BackendProtocol
+				defaultPolicy.Upstream = ft.BackendGroup.Name
+				ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
+			}
+			sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
+		}
+	}
+
+	return ngxPolicy
+}
+
+func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDriver) {
+	enablePortProbe := config.Get("ENABLE_PORTPROBE") == "true"
+	if !enablePortProbe {
+		return
+	}
+	var listenTCPPorts []int
+	listenTCPPorts, err := utils.GetListenTCPPorts()
+	if err != nil {
+		klog.Error(err)
+	}
+	klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
+
+	for _, ft := range alb.Frontends {
+		conflict := false
+		if ft.IsTcpBaseProtocol() {
+			for _, port := range listenTCPPorts {
+				if ft.Port == port {
+					conflict = true
+					ft.Conflict = true
+					klog.Errorf("skip port: %d has conflict", ft.Port)
+					break
+				}
+			}
+			if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
+				klog.Error(err)
+			}
+		}
+	}
+}
+
+func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]Certificate {
+	certMap := make(map[string]Certificate)
+	for _, ft := range alb.Frontends {
+		if ft.Conflict {
+			continue
+		}
+		isHTTP := ft.Protocol == albv1.FtProtocolHTTP
+		isHTTPS := ft.Protocol == albv1.FtProtocolHTTPS
+		if isHTTP || isHTTPS {
+			if isHTTPS && ft.CertificateName != "" {
+				secretNs, secretName, err := ParseCertificateName(ft.CertificateName)
+				if err != nil {
+					klog.Errorf("invalid certificateName, %s", ft.CertificateName)
+					continue
+				}
+				cert, err := getCertificate(driver, secretNs, secretName)
+				if err != nil {
+					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
+				} else {
+					// default cert for port ft.Port
+					certMap[strconv.Itoa(ft.Port)] = *cert
+				}
+			}
+			for _, rule := range ft.Rules {
+				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
+					secretNs, secretName, err := ParseCertificateName(rule.CertificateName)
+					if err != nil {
+						klog.Errorf("invalid certificateName, %s", rule.CertificateName)
+						continue
+					}
+					cert, err := getCertificate(driver, secretNs, secretName)
+					if err != nil {
+						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
+						continue
+					}
+					if existCert, ok := certMap[strings.ToLower(rule.Domain)]; ok {
+						if existCert.Cert != cert.Cert || existCert.Key != cert.Key {
+							klog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
+							continue
+						}
+					}
+					certMap[strings.ToLower(rule.Domain)] = *cert
+				}
+				rule.Domain = strings.ToLower(rule.Domain)
+			}
+		}
+	}
+	return certMap
+}
+
+func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
+	var portInfo map[string][]string
+	if GetAlbRoleType(alb.Labels) != RolePort {
+		return
+	}
+	portInfo, err := getPortInfo(driver)
+	if err != nil {
+		klog.Errorf("get port project info failed, %v", err)
+		return
+	}
+	for _, ft := range alb.Frontends {
+		if ft.Conflict {
+			continue
+		}
+		if GetAlbRoleType(alb.Labels) == RolePort && portInfo != nil {
+			// current projects
+			portProjects := GetOwnProjects(ft.RawName, ft.Labels)
+			// desired projects
+			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
+			if err != nil {
+				klog.Errorf("get port %d desired projects failed, %v", ft.Port, err)
+				return
+			}
+			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
+				// diff need update
+				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.RawName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
+					klog.Errorf("patch port %s project failed, %v", ft.RawName, err)
+				}
+			}
+		}
+	}
+}
+
+func pickAllBackendGroup(alb *LoadBalancer) BackendGroups {
+	backendGroup := BackendGroups{}
+	for _, ft := range alb.Frontends {
+		if ft.Conflict {
+			continue
+		}
+		for _, rule := range ft.Rules {
+			backendGroup = append(backendGroup, rule.BackendGroup)
+		}
+
+		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
+			// FIX: http://jira.alaudatech.com/browse/DEV-16954
+			// remove duplicate upstream
+			if !funk.Contains(backendGroup, ft.BackendGroup) {
+				backendGroup = append(backendGroup, ft.BackendGroup)
+			}
+		}
+	}
+	sort.Sort(backendGroup)
+	return backendGroup
+}
+
+func (nc *NginxController) LoadServices(alb *LoadBalancer) map[string]*driver.Service {
+	kd := nc.Driver
+	svcMap := make(map[string]*driver.Service)
+
+	getServiceWithCache := func(svc *BackendService, protocol corev1.Protocol, svcMap map[string]*driver.Service) error {
+		svcKey := generateServiceKey(svc.ServiceNs, svc.ServiceName, protocol, svc.ServicePort)
+		if _, ok := svcMap[svcKey]; !ok {
+			service, err := kd.GetServiceByName(svc.ServiceNs, svc.ServiceName, svc.ServicePort, protocol)
+			if service != nil {
+				svcMap[svcKey] = service
+			}
+			return err
+		}
+		return nil
+	}
+
+	for _, ft := range alb.Frontends {
+		protocol := m.FtProtocolToServiceProtocol(ft.Protocol)
+		for _, svc := range ft.Services {
+			err := getServiceWithCache(svc, protocol, svcMap)
+			if err != nil {
+				klog.Errorf("get backends for ft fail svc %s/%s port %d protocol %s ft %s err %v", svc.ServiceName, svc.ServiceNs, svc.ServicePort, protocol, ft.RawName, err)
+			}
+		}
+
+		for _, rule := range ft.Rules {
+			if rule.AllowNoAddr() {
+				continue
+			}
+			for _, svc := range rule.Services {
+				err := getServiceWithCache(svc, protocol, svcMap)
+				if err != nil {
+					klog.Errorf("get backends for rule fail svc %s/%s %d protocol %s rule %s err %v", svc.ServiceName, svc.ServiceNs, svc.ServicePort, protocol, rule.RuleID, err)
+				}
+			}
+		}
+	}
+	return svcMap
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {

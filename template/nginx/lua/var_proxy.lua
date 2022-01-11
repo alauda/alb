@@ -66,7 +66,7 @@ local mt = {
     end
 }
 
-function _M.new(self)
+function _M.new(self) --luacheck: ignore
     local req = resty_var.request()
     local method
     if subsystem == "http" then

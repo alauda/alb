@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,9 +46,11 @@ type Framework struct {
 type Config struct {
 	RandomBaseDir bool
 	RandomNs      bool
+	AlbName       string
 	RestCfg       *rest.Config
 	InstanceMode  bool
 	Project       []string
+	PortProbe     bool
 }
 
 func CfgFromEnv() *rest.Config {
@@ -79,8 +81,10 @@ func NewAlb(deployCfg Config) *Framework {
 		os.RemoveAll(baseDir)
 		os.MkdirAll(baseDir, os.ModePerm)
 	}
-
-	name := "alb-dev"
+	name := deployCfg.AlbName
+	if name == "" {
+		name = "alb-dev"
+	}
 	domain := "cpaas.io"
 	ns := "cpaas-system"
 	if deployCfg.RandomNs {
@@ -94,6 +98,12 @@ func NewAlb(deployCfg Config) *Framework {
 
 	os.WriteFile(nginxCfgPath, []byte(""), os.ModePerm) // give it a default empty nginx.conf
 	Logf("apiserver %s", cfg.Host)
+
+	if deployCfg.PortProbe {
+		os.Setenv("ENABLE_PORTPROBE", "true")
+	}
+
+	os.Setenv("ALB_LOCK_TIMEOUT", "5")
 	os.Setenv("KUBERNETES_SERVER", cfg.Host)
 	os.Setenv("KUBERNETES_BEARERTOKEN", cfg.BearerToken)
 	os.Setenv("NAME", name)
@@ -219,7 +229,7 @@ func (f *Framework) Init() {
 }
 
 func (f *Framework) waitAlbNormal() {
-	f.WaitNginxConfig("listen.*12345")
+	f.WaitNginxConfigStr("listen.*12345")
 	f.WaitPolicyRegex("12345")
 }
 
@@ -227,16 +237,17 @@ func (f *Framework) Destroy() {
 	f.cancel()
 }
 
-func (f *Framework) WaitFile(file string, matcher func(string) bool) {
+func (f *Framework) WaitFile(file string, matcher func(string) (bool, error)) {
 	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
 		fileCtx, err := os.ReadFile(file)
 		if err != nil {
 			return false, nil
 		}
-		if matcher(string(fileCtx)) {
-			return true, nil
+		ok, err := matcher(string(fileCtx))
+		if err != nil {
+			return false, err
 		}
-		return false, nil
+		return ok, nil
 	})
 	assert.Nil(ginkgo.GinkgoT(), err, "wait nginx config contains fail")
 }
@@ -246,27 +257,31 @@ func regexMatch(text string, matchStr string) bool {
 	return match
 }
 
-func (f *Framework) WaitNginxConfig(regexStr string) {
-	f.WaitFile(f.nginxCfgPath, func(raw string) bool {
+func (f *Framework) WaitNginxConfig(check func(raw string) (bool, error)) {
+	f.WaitFile(f.nginxCfgPath, check)
+}
+
+func (f *Framework) WaitNginxConfigStr(regexStr string) {
+	f.WaitFile(f.nginxCfgPath, func(raw string) (bool, error) {
 		match := regexMatch(raw, regexStr)
 		Logf("match regex %s in %s %v", regexStr, f.nginxCfgPath, match)
-		return match
+		return match, nil
 	})
 }
 
 func (f *Framework) WaitPolicyRegex(regexStr string) {
-	f.WaitFile(f.policyPath, func(raw string) bool {
+	f.WaitFile(f.policyPath, func(raw string) (bool, error) {
 		match := regexMatch(raw, regexStr)
 		Logf("match regex %s in %s %v", regexStr, f.policyPath, match)
-		return match
+		return match, nil
 	})
 }
 
 func (f *Framework) WaitPolicy(fn func(raw string) bool) {
-	f.WaitFile(f.policyPath, func(raw string) bool {
+	f.WaitFile(f.policyPath, func(raw string) (bool, error) {
 		match := fn(raw)
 		Logf("match in %s %v", f.policyPath, match)
-		return match
+		return match, nil
 	})
 }
 
@@ -519,6 +534,83 @@ func (f *Framework) CreateIngress(name string, path string, svc string, port int
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func random() string {
-	return fmt.Sprintf("%v", rand.Int())
+func (f *Framework) CreateFt(port int, protocol string, svcName string, svcNs string) {
+	name := fmt.Sprintf("%s-%05d", f.albName, port)
+	if protocol == "udp" {
+		name = name + "-udp"
+	}
+	ft := alb2v1.Frontend{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: f.namespace,
+			Name:      name,
+			Labels: map[string]string{
+				"alb2.cpaas.io/name": f.albName,
+			},
+		},
+		Spec: alb2v1.FrontendSpec{
+			Port:     port,
+			Protocol: alb2v1.FtProtocol(protocol),
+			ServiceGroup: &alb2v1.ServiceGroup{Services: []alb2v1.Service{
+				{
+					Name:      svcName,
+					Namespace: svcNs,
+					Port:      80,
+				},
+			}},
+		},
+	}
+	f.albClient.CrdV1().Frontends(f.namespace).Create(context.Background(), &ft, metav1.CreateOptions{})
+}
+
+func (f *Framework) WaitFtState(name string, check func(ft *alb2v1.Frontend) (bool, error)) *alb2v1.Frontend {
+	var ft *alb2v1.Frontend
+	var err error
+	err = wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+		ft, err = f.albClient.CrdV1().Frontends(f.GetNamespace()).Get(context.Background(), name, metav1.GetOptions{})
+		Logf("try get ft %s/%s ft %v", f.GetNamespace(), name, err)
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		ok, err := check(ft)
+		if err == nil {
+			return ok, nil
+		}
+		return ok, err
+	})
+	assert.NoError(ginkgo.GinkgoT(), err)
+	return ft
+}
+
+func (f *Framework) WaitFt(name string) *alb2v1.Frontend {
+	return f.WaitFtState(name, func(ft *alb2v1.Frontend) (bool, error) {
+		if ft != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+func (f *Framework) WaitAlbState(name string, check func(alb *alb2v1.ALB2) (bool, error)) *alb2v1.ALB2 {
+	var globalAlb *alb2v1.ALB2
+	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+		alb, err := f.albClient.CrdV1().ALB2s(f.GetNamespace()).Get(context.Background(), name, metav1.GetOptions{})
+		Logf("try get alb %s/%s alb %v", f.GetNamespace(), name, err)
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		ok, err := check(alb)
+		if err == nil {
+			globalAlb = alb
+			return ok, nil
+		}
+		return ok, err
+	})
+	assert.NoError(ginkgo.GinkgoT(), err)
+	return globalAlb
 }

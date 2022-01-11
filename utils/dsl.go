@@ -15,6 +15,7 @@ const (
 	OP_RANGE       = "RANGE"
 	OP_REGEX       = "REGEX"
 	OP_STARTS_WITH = "STARTS_WITH"
+	OP_ENDS_WITH   = "ENDS_WITH"
 
 	KEY_HOST   = "HOST"
 	KEY_URL    = "URL"
@@ -36,6 +37,7 @@ var (
 		OP_RANGE:       true,
 		OP_REGEX:       true,
 		OP_STARTS_WITH: true,
+		OP_ENDS_WITH:   true,
 	}
 	LogicalMatcher = map[string]bool{
 		OP_AND: true,

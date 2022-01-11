@@ -4,27 +4,31 @@ local tonumber = tonumber
 local string_format = string.format
 local string_lower = string.lower
 local common = require "utils.common"
-local dsl   = require "dsl"
+local dsl = require "dsl"
 local balancer = require "balancer"
 local cache = require "cache"
 local ngx = ngx
 local ngx_shared = ngx.shared
 local ngx_log = ngx.log
-local ngx_exit = ngx.exit
 local ngx_timer = ngx.timer
 local ngx_worker = ngx.worker
 local ngx_config = ngx.config
 
-local subsystem = ngx_config.subsystem
-if subsystem == "http" then
+local current_subsystem = ngx_config.subsystem
+
+local HTTP_SUBSYSTEM = "http"
+local STREAM_SUBSYSTEM = "stream"
+
+if current_subsystem == "http" then
     require "init_l7"
 else
     require "init_l4"
 end
 
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
+
 -- /usr/local/openresty/nginx/conf/policy.new
-local policy_path = os_getenv("NEW_POLICY_PATH")
+local POLICY_PATH = os_getenv("NEW_POLICY_PATH")
 
 local clean_metrics_interval = tonumber(os_getenv("CLEAN_METRICS_INTERVAL"))
 
@@ -33,156 +37,180 @@ local function set_default_value(table, key, default_val)
         table[key] = default_val
     end
 end
-local function fetch_policy()
-    local f, err = io.open(policy_path, "r")
+
+local function init_http_rule_dsl(rule)
+    set_default_value(rule, "rewrite_base", "")
+    set_default_value(rule, "rewrite_target", "")
+    set_default_value(rule, "enable_cors", false)
+    set_default_value(rule, "cors_allow_headers", "")
+    set_default_value(rule, "cors_allow_origin", "")
+    set_default_value(rule, "backend_protocol", "")
+    set_default_value(rule, "redirect_url", "")
+    set_default_value(rule, "vhost", "")
+    -- we already have internal_dsl
+    if rule["internal_dsl"] ~= common.null then
+        if #rule["internal_dsl"] == 1 then
+            rule["dsl"] = rule["internal_dsl"][1]
+        else
+            rule["dsl"] = rule["internal_dsl"]
+        end
+    elseif rule["dsl"] and rule["dsl"] ~= "" then
+        local tokenized_dsl, err = dsl.generate_ast(rule["dsl"])
+        if err then
+            ngx_log(ngx.ERR, "failed to generate ast for ", rule["dsl"], err)
+        else
+            rule["dsl"] = tokenized_dsl
+        end
+    end
+end
+
+--- convert a file path to it string content.
+--- if error, return [nil,string(an error message)].
+--- if success, return [string(file content),nil]
+---@param path string
+---@return string|nil,string|nil
+local function file_read_to_string(path)
+    local f, err = io.open(path, "r")
     if err then
-        ngx_log(ngx.ERR, err)
-        ngx_exit(ngx.ERROR)
+        return nil, err
     end
-    local data = f:read("*a")
-    if data == nil then
-        ngx_log(ngx.ERR, "read policy file failed")
-        return
-    end
+    local raw = f:read("*a")
     f:close()
-    local dict_data = common.json_decode(data)
-    if dict_data == nil then
-        ngx_log(ngx.ERR, "invalid policy file" .. data)
+    if raw == nil then
+        return nil, "could not read file content"
+    end
+    return raw, nil
+end
+
+local function update_stream_policy_cache(policy, old_policy, protocol)
+    for port, reason in pairs(common.get_table_diff_keys(policy, old_policy)) do
+        local key = cache.gen_rule_key(STREAM_SUBSYSTEM, protocol, port)
+        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
+            ngx_shared["stream_policy"]:delete(key)
+            cache.rule_cache:delete(key)
+        end
+        if reason == common.DIFF_KIND_ADD or reason == common.DIFF_KIND_CHANGE then
+            ngx.log(ngx.INFO, string.format("set ngx.share[stream_policy][%s]", key))
+            local policy_json_str = common.json_encode(policy[port], true)
+            ngx_shared["stream_policy"]:set(key, policy_json_str)
+        end
+    end
+end
+
+--- this function only be called in stream subsystem
+---@param policy table
+---@param old_policy table
+local function update_stream_cache(policy, old_policy)
+    local backend_group = common.access_or(policy, {"backend_group"}, {})
+    local stream_policy = common.access_or(policy, {"stream"}, {})
+
+    ngx_shared["stream_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
+    ngx_shared["stream_policy"]:set("all_policies", common.json_encode(stream_policy, true))
+
+    local stream_tcp_policy = common.access_or(policy, {"stream", "tcp"}, {})
+    local old_stream_tcp_policy = common.access_or(old_policy, {"stream", "tcp"}, {})
+    update_stream_policy_cache(stream_tcp_policy, old_stream_tcp_policy, "tcp")
+
+    local stream_udp_policy = common.access_or(policy, {"stream", "udp"}, {})
+    local old_stream_udp_policy = common.access_or(old_policy, {"stream", "udp"}, {})
+    update_stream_policy_cache(stream_udp_policy, old_stream_udp_policy, "udp")
+end
+
+---@param policy table|nil
+---@param old_policy table|nil
+local function update_http_cache(policy, old_policy)
+    local backend_group = common.access_or(policy, {"backend_group"}, {})
+    local certificate_map = common.access_or(policy, {"certificate_map"}, {})
+    local old_certificate_map = common.access_or(old_policy, {"certificate_map"}, {})
+
+    local http_policy = common.access_or(policy, {"http", "tcp"}, {})
+    local old_http_policy = common.access_or(old_policy, {"http", "tcp"}, {})
+
+    ngx_shared["http_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
+    ngx_shared["http_certs_cache"]:set("certificate_map", common.json_encode(certificate_map, true))
+    ngx_shared["http_policy"]:set("all_policies", common.json_encode(http_policy, true))
+
+    -- update cert cache
+    for domain, reason in pairs(common.get_table_diff_keys(certificate_map, old_certificate_map)) do
+        local lower_domain = string_lower(domain)
+        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
+            ngx.log(ngx.INFO, "cert delete domain " .. lower_domain)
+            ngx_shared["http_certs_cache"]:delete(lower_domain)
+            cache.cert_cache:delete(lower_domain)
+        end
+        if reason == common.DIFF_KIND_ADD or reason == common.DIFF_KIND_CHANGE then
+            ngx.log(ngx.INFO, "cert set domain " .. lower_domain)
+            ngx_shared["http_certs_cache"]:set(lower_domain, common.json_encode(certificate_map[domain]))
+        end
+    end
+
+    -- update policy cache
+    for port, reason in pairs(common.get_table_diff_keys(http_policy, old_http_policy)) do
+        -- we only support http via tcp now.
+        local key = cache.gen_rule_key(HTTP_SUBSYSTEM, "tcp", port)
+        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
+            ngx.log(ngx.INFO, "http policy delete key " .. key)
+            ngx_shared["http_policy"]:delete(key)
+            cache.rule_cache:delete(key)
+        end
+
+        if reason == common.DIFF_KIND_ADD or reason == common.DIFF_KIND_CHANGE then
+            for _, rule in ipairs(http_policy[port]) do
+                init_http_rule_dsl(rule)
+            end
+            ngx.log(ngx.INFO, string.format("set ngx.share[http_policy][%s]", key))
+            ngx_shared["http_policy"]:set(key, common.json_encode(http_policy[port]))
+        end
+    end
+end
+
+---@return boolean
+local function is_htp_subsystem()
+    return current_subsystem == HTTP_SUBSYSTEM
+end
+
+---@return boolean
+local function is_stream_subsystem()
+    return current_subsystem == STREAM_SUBSYSTEM
+end
+
+local function _fetch_policy(policy_raw)
+    if policy_raw == "" then
+        return "empty policy"
+    end
+
+    local policy_data = common.json_decode(policy_raw)
+    if policy_data == nil then
+        return "invalid policy data " .. policy_raw
+    end
+
+    local old_policy_raw = ngx_shared[current_subsystem .. "_raw"]:get("raw")
+    local old_policy_data = common.json_decode(old_policy_raw)
+
+    if common.table_equals(policy_data, old_policy_data) then
         return
     end
-    local old_data = ngx_shared[subsystem .. "_raw"]:get("raw")
-    local old_dict_data = common.json_decode(old_data)
-    if common.table_equals(dict_data, old_dict_data) then
+    ngx_shared[current_subsystem .. "_raw"]:set("raw", policy_raw)
+
+    if is_htp_subsystem() then
+        update_http_cache(policy_data, old_policy_data)
         return
     end
-    ngx_shared[subsystem .. "_raw"]:set("raw", data)
-    local changed_port_maps = {}
-    local changed_cert_maps = {}
-    if old_dict_data ~= nil then
-        changed_port_maps = common.get_table_diff_keys(dict_data["port_map"], old_dict_data["port_map"])
-        changed_cert_maps = common.get_table_diff_keys(dict_data["certificate_map"], old_dict_data["certificate_map"])
+
+    if is_stream_subsystem() then
+        update_stream_cache(policy_data, old_policy_data)
+        return
     end
-    local all_ports_policies = dict_data["port_map"]
-    local backend_group = dict_data["backend_group"]
-    local certificate_map = dict_data["certificate_map"]
-    ngx_shared[subsystem .. "_policy"]:set("all_policies", common.json_encode(all_ports_policies, true))
-    ngx_shared[subsystem .. "_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
+end
 
-    if subsystem == "http" then
-        ngx_shared[subsystem .. "_certs_cache"]:set("certificate_map", common.json_encode(certificate_map, true))
-        for domain, certs in pairs(certificate_map) do
-            local lower_domain = string_lower(domain)
-            local clean_cache = false
-            if common.table_contains(changed_cert_maps, domain) then
-                clean_cache = true
-                ngx_shared[subsystem .. "_certs_cache"]:delete(lower_domain)
-            end
-            ngx_shared[subsystem .. "_certs_cache"]:set(lower_domain, common.json_encode(certs))
-            if clean_cache then
-                cache.cert_cache:delete(lower_domain)
-            end
-        end
-        -- NOTE: remove extra data
-        for _, changed_domain in ipairs(changed_cert_maps) do
-            local found = false
-            for domain, _ in pairs(certificate_map) do
-                if changed_domain == domain then
-                    found = true
-                end
-            end
-            if not found then
-                local lower_domain = string_lower(changed_domain)
-                ngx_shared[subsystem .. "_certs_cache"]:delete(lower_domain)
-                cache.cert_cache:delete(lower_domain)
-            end
-        end
+local function fetch_policy()
+    local policy_raw, err = file_read_to_string(POLICY_PATH)
+    if err ~= nil then
+        ngx_log(ngx.ERR, "read policy in " .. POLICY_PATH .. " fail " .. err)
     end
-
-    --split policies by port to decrease json operation overhead
-    --parse raw dsl to ast to decrease overhead
-    for port, policies in pairs(all_ports_policies) do
-        local t = ""
-        for _, policy in ipairs(policies) do
-            if policy then
-                t = policy["subsystem"]
-                if t ~= subsystem then
-                    break
-                end
-
-                set_default_value(policy,"rewrite_base","")
-                set_default_value(policy,"rewrite_target","")
-                set_default_value(policy,"enable_cors",false)
-                set_default_value(policy,"cors_allow_headers","")
-                set_default_value(policy,"cors_allow_origin","")
-                set_default_value(policy,"backend_protocol","")
-                set_default_value(policy,"redirect_url","")
-                set_default_value(policy,"vhost","")
-
-                if (policy["dsl"] and policy["dsl"] ~= "") or policy["internal_dsl"] ~= common.null then
-                    if policy["internal_dsl"] ~= common.null then
-                        if #policy["internal_dsl"] == 1 then
-                            policy["dsl"]  = policy["internal_dsl"][1]
-                        else
-                            policy["dsl"]  = policy["internal_dsl"]
-                        end
-                    else
-                        local tokenized_dsl, err = dsl.generate_ast(policy["dsl"])
-                        if err then
-                            ngx_log(ngx.ERR, "failed to generate ast for ", policy["dsl"], err)
-                        else
-                            policy["dsl"] = tokenized_dsl
-                        end
-                    end
-                    --ngx.log(ngx.ERR, common.json_encode(policy["dsl"]))
-                end
-            end
-        end
-        do
-            --[
-            --  {
-            --    "priority": 100,
-            --    "rule": "rule_name_lorem",
-            --    "upstream": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
-            --    "subsystem": "http",
-            --    "url": "/s1",
-            --    "dsl": [
-            --      "AND",
-            --      [
-            --        "STARTS_WITH",
-            --        "URL",
-            --        "/s1"
-            --      ]
-            --    ],
-            --    "rewrite_target": "/server_addr",
-            --    "enable_cors": true,
-            --    "backend_protocol": "https",
-            --    "vhost": "baidu.com"
-            --  }
-            --]
-        end
-        if t == subsystem then
-            local clean_cache = false
-            if common.table_contains(changed_port_maps, port) then
-                clean_cache = true
-            end
-            ngx_shared[subsystem .. "_policy"]:set(port, common.json_encode(policies))
-            if clean_cache then
-                cache.rule_cache:delete(port)
-            end
-        end
-    end
-    -- NOTE: remove extra data
-    for _, changed_port in ipairs(changed_port_maps) do
-        local found = false
-        for port, _ in pairs(all_ports_policies) do
-            if changed_port == port then
-                found = true
-            end
-        end
-        if not found then
-            ngx_shared[subsystem .. "_policy"]:delete(changed_port)
-            cache.rule_cache:delete(changed_port)
-        end
+    local err = _fetch_policy(policy_raw)
+    if err ~= nil then
+        ngx_log(ngx.ERR, "fetch policy fail, policy path" .. POLICY_PATH .. " err " .. err)
     end
 end
 
@@ -207,7 +235,7 @@ clean_metrics = function(premature)
     if premature then
         return
     end
-    if subsystem == "http" then
+    if is_htp_subsystem() then
         require("metrics").clear()
     end
 end

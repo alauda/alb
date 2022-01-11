@@ -1,6 +1,7 @@
 package controller
 
 import (
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -17,7 +18,7 @@ import (
 type LegacyConfig = Config
 type FtConfig struct {
 	Port            int
-	Protocol        string
+	Protocol        albv1.FtProtocol
 	IpV4BindAddress []string
 	IpV6BindAddress []string
 }
@@ -31,7 +32,7 @@ type MetricsConfig struct {
 // a config used for nginx.tml to generate nginx.conf
 type NginxTemplateConfig struct {
 	Name      string
-	Frontends map[int]FtConfig
+	Frontends map[string]FtConfig
 	Metrics   MetricsConfig
 	TweakHash string
 	Phase     string
@@ -42,55 +43,36 @@ type NginxTemplateConfigGenerator struct {
 	config LegacyConfig
 }
 
-func NewNginxTemplateConfigGenerator(cfg LegacyConfig) NginxTemplateConfigGenerator {
-	return NginxTemplateConfigGenerator{config: cfg}
-}
-
-func (g NginxTemplateConfigGenerator) Generate() (NginxTemplateConfig, error) {
-	ipv4, ipv6, err := GetBindIp()
-	if err != nil {
-		return NginxTemplateConfig{}, err
-	}
-
-	fts := make(map[int]FtConfig)
-	for port, ft := range g.config.Frontends {
-		fts[port] = FtConfig{
-			IpV4BindAddress: ipv4,
-			IpV6BindAddress: ipv6,
-			Port:            ft.Port,
-			Protocol:        ft.Protocol,
-		}
-	}
-
-	return NginxTemplateConfig{
-		Name:      g.config.Name,
-		Frontends: fts,
-		TweakHash: g.config.TweakHash,
-		Phase:     g.config.Phase,
-		Metrics: MetricsConfig{
-			Port:            g.config.MetricsPort,
-			IpV4BindAddress: ipv4,
-			IpV6BindAddress: ipv6,
-		},
-		NginxParam: g.config.NginxParam,
-	}, nil
-}
-
-func (g NginxTemplateConfigGenerator) generateFts(fts map[int]*Frontend) (map[int]FtConfig, error) {
+func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam NginxParam) (*NginxTemplateConfig, error) {
 	ipv4, ipv6, err := GetBindIp()
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[int]FtConfig)
-	for port, ft := range fts {
-		result[port] = FtConfig{
+	fts := make(map[string]FtConfig)
+	for _, ft := range alb.Frontends {
+		if ft.Conflict {
+			continue
+		}
+		fts[fmt.Sprintf("%d-%s", ft.Port, ft.Protocol)] = FtConfig{
 			IpV4BindAddress: ipv4,
 			IpV6BindAddress: ipv6,
 			Port:            ft.Port,
 			Protocol:        ft.Protocol,
 		}
 	}
-	return result, nil
+
+	return &NginxTemplateConfig{
+		Name:      alb.Name,
+		Frontends: fts,
+		TweakHash: alb.TweakHash,
+		Phase:     phase,
+		Metrics: MetricsConfig{
+			Port:            nginxParam.MetricsPort,
+			IpV4BindAddress: ipv4,
+			IpV6BindAddress: ipv6,
+		},
+		NginxParam: nginxParam,
+	}, nil
 }
 
 func GetBindIp() (ipv4Address []string, ipv6Address []string, err error) {

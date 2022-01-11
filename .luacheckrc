@@ -1,6 +1,10 @@
 std = 'ngx_lua'
-globals = { 'ngx', 'ndk' }
-unused_args = false
+codes = true
+max_line_length = false
+globals = {
+    'ngx', 'ndk',
+}
+ignore= {"411","421","431"}
 read_globals = {
     "coroutine._yield"
 }

@@ -22,3 +22,14 @@ actions: scripts used in develop.
 4. different version of luajit will cause huge different when benchmark. watch it out.
 5. the current header of [luajit2](https://github.com/openresty/luajit2)(today is 20210623) is 886d5f895b8ae19def724677376322b1f7ae2d4a.
 6. this step should be removed when openresty built in luajit update.
+
+### image changelog
+#### alb-nginx
+alb-nginx:3.6.0
+	use openresty luajit
+alb-nginx:3.6.1
+	use ops/alpine as base image
+
+### alb-nginx-test
+alb-nginx-test:20211227221616
+	add all needed to run test.

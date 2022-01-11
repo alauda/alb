@@ -3,7 +3,6 @@ local ck = require("resty.cookie")
 local ngx = ngx
 local common = require("utils.common")
 
-local ngx_header = ngx.header
 local _M = balancer_resty:new()
 local DEFAULT_COOKIE_NAME = "JSESSIONID"
 
@@ -92,8 +91,7 @@ function _M.balance(self)
 
     if not should_pick_new_upstream then return upstream_from_key end
 
-    local new_upstream 
-    new_upstream, key = self:pick_new_upstream(get_failed_upstreams())
+    local new_upstream,key = self:pick_new_upstream(get_failed_upstreams())
     if not new_upstream then
         ngx.log(ngx.WARN, string.format(
                     "failed to get new upstream; using upstream %s",

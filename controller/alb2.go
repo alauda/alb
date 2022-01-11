@@ -3,7 +3,6 @@ package controller
 import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-	m "alauda.io/alb2/modules"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,103 +13,6 @@ import (
 
 	"k8s.io/klog"
 )
-
-func MergeRule(arl *m.Rule) *Rule {
-
-	ruleConfig := RuleConfigFromRuleAnnotation(arl.Name, arl.Annotations)
-
-	rule := &Rule{
-		Config:           ruleConfig,
-		RuleID:           arl.Name,
-		Priority:         arl.Priority,
-		Type:             arl.Type,
-		Domain:           arl.Domain,
-		URL:              arl.URL,
-		DSL:              arl.DSL,
-		DSLX:             arl.DSLX,
-		Description:      arl.Description,
-		CertificateName:  arl.CertificateName,
-		RewriteBase:      arl.RewriteBase,
-		RewriteTarget:    arl.RewriteTarget,
-		EnableCORS:       arl.EnableCORS,
-		CORSAllowHeaders: arl.CORSAllowHeaders,
-		CORSAllowOrigin:  arl.CORSAllowOrigin,
-		BackendProtocol:  arl.BackendProtocol,
-		RedirectURL:      arl.RedirectURL,
-		RedirectCode:     arl.RedirectCode,
-		VHost:            arl.VHost,
-	}
-	if arl.ServiceGroup != nil {
-		rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
-		rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
-		for _, svc := range arl.ServiceGroup.Services {
-			if rule.Services == nil {
-				rule.Services = []*BackendService{}
-			}
-			rule.Services = append(rule.Services, &BackendService{
-				ServiceID:     svc.ServiceID(),
-				ContainerPort: svc.Port,
-				Weight:        svc.Weight,
-			})
-		}
-	}
-	return rule
-}
-
-func MergeNew(alb *m.AlaudaLoadBalancer) (*LoadBalancer, error) {
-	lb := &LoadBalancer{
-		Name:           alb.Name,
-		Address:        alb.Spec.Address,
-		BindAddress:    alb.Spec.BindAddress,
-		LoadBalancerID: alb.Spec.IaasID,
-		Frontends:      []*Frontend{},
-		TweakHash:      alb.TweakHash,
-		Labels:         alb.Labels,
-	}
-	if lb.BindAddress == "" {
-		lb.BindAddress = "*"
-	}
-	for _, aft := range alb.Frontends {
-		ft := &Frontend{
-			RawName:         aft.Name,
-			LoadBalancerID:  alb.Name,
-			Port:            aft.Port,
-			Protocol:        aft.Protocol,
-			Rules:           RuleList{},
-			CertificateName: aft.CertificateName,
-			BackendProtocol: aft.BackendProtocol,
-			Labels:          aft.Lables,
-		}
-		if ft.Protocol == "" {
-			ft.Protocol = ProtocolTCP
-		}
-		if ft.Port <= 0 {
-			klog.Errorf("frontend %s has an invalid port %d", aft.Name, aft.Port)
-		}
-		for _, arl := range aft.Rules {
-			rule := MergeRule(arl)
-			ft.Rules = append(ft.Rules, rule)
-		}
-		if aft.ServiceGroup != nil {
-			ft.Services = []*BackendService{}
-			ft.BackendGroup = &BackendGroup{
-				Name:                     ft.String(),
-				SessionAffinityAttribute: aft.ServiceGroup.SessionAffinityAttribute,
-				SessionAffinityPolicy:    aft.ServiceGroup.SessionAffinityPolicy,
-			}
-			for _, svc := range aft.ServiceGroup.Services {
-				ft.Services = append(ft.Services, &BackendService{
-					ServiceID:     svc.ServiceID(),
-					ContainerPort: svc.Port,
-					Weight:        svc.Weight,
-				})
-			}
-		}
-
-		lb.Frontends = append(lb.Frontends, ft)
-	}
-	return lb, nil
-}
 
 var ErrAlbInUse = errors.New("alb2 is used by another controller")
 
@@ -219,8 +121,9 @@ func TryLockAlbAndUpdateAlbStatus(kd *driver.KubernetesDriver) error {
 		klog.Info("Hold lock, no need to relock")
 		return nil
 	}
-
-	lockString = newLock(myself, 90*time.Second)
+	lockTime := config.GetInt("LOCK_TIMEOUT")
+	klog.Infof("locktime %v", lockTime)
+	lockString = newLock(myself, time.Duration(lockTime)*time.Second)
 	albRes.Annotations[fmt.Sprintf(config.Get("labels.lock"), config.Get("DOMAIN"))] = lockString
 	fts, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
