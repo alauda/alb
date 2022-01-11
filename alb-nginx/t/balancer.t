@@ -96,7 +96,7 @@ __DATA__
     location /t {
       content_by_lua_block {
           package.path = '/t/?.lua;' .. package.path;
-          local test = require("test-balancer");
+          local test = require("balancer_test");
           if test.test_balancer("roundrobin") then 
             ngx.print("success");
           else
@@ -108,16 +108,11 @@ __DATA__
 qq|
 {
   "certificate_map": {},
-  "port_map": {
-    "80": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": ["STARTS_WITH","URL","/"],
-        "upstream": "test-upstream-1",
-        "subsystem": "http"
-      }
-    ]
-  },
+  "http":{"tcp":{"80":[{
+    "rule":"test-rule-1",
+    "internal_dsl":[["STARTS_WITH","URL","/"]],
+    "upstream":"test-upstream-1"}
+  ]}},
   "backend_group": [
     {
       "name": "test-upstream-1",
@@ -138,8 +133,8 @@ qq|
     location /t {
       content_by_lua_block {
           package.path = '/t/?.lua;' .. package.path;
-          local test = require("test-balancer");
-           if test.test_balancer("sticky_header","h1") then 
+          local test = require("balancer_test");
+           if test.test_balancer("sticky_header","h1") then
              ngx.print("success");
            else
              ngx.print("fail");
@@ -150,16 +145,11 @@ qq|
 qq|
 {
   "certificate_map": {},
-  "port_map": {
-    "80": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": ["STARTS_WITH","URL","/"],
-        "upstream": "test-upstream-1",
-        "subsystem": "http"
-      }
-    ]
-  },
+  "http":{"tcp":{"80":[{
+    "rule":"test-rule-1",
+    "internal_dsl":[["STARTS_WITH","URL","/"]],
+    "upstream":"test-upstream-1"}
+  ]}},
   "backend_group": [
     {
       "name": "test-upstream-1",
@@ -183,8 +173,8 @@ qq|
     location /t {
       content_by_lua_block {
           package.path = '/t/?.lua;' .. package.path;
-          local test = require("test-balancer");
-           if test.test_balancer("sticky_cookie","h1") then 
+          local test = require("balancer_test");
+           if test.test_balancer("sticky_cookie","h1") then
              ngx.print("success");
            else
              ngx.print("fail");
@@ -195,16 +185,11 @@ qq|
 qq|
 {
   "certificate_map": {},
-  "port_map": {
-    "80": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": ["STARTS_WITH","URL","/"],
-        "upstream": "test-upstream-1",
-        "subsystem": "http"
-      }
-    ]
-  },
+  "http":{"tcp":{"80":[{
+    "rule":"test-rule-1",
+    "internal_dsl":[["STARTS_WITH","URL","/"]],
+    "upstream":"test-upstream-1"}
+  ]}},
   "backend_group": [
     {
       "name": "test-upstream-1",
@@ -227,8 +212,8 @@ qq|
     location /t {
       content_by_lua_block {
           package.path = '/t/?.lua;' .. package.path;
-          local test = require("test-balancer");
-           if test.test_balancer("sticky_cookie","") then 
+          local test = require("balancer_test");
+           if test.test_balancer("sticky_cookie","") then
              ngx.print("success");
            else
              ngx.print("fail");
@@ -239,16 +224,11 @@ qq|
 qq|
 {
   "certificate_map": {},
-  "port_map": {
-    "80": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": ["STARTS_WITH","URL","/"],
-        "upstream": "test-upstream-1",
-        "subsystem": "http"
-      }
-    ]
-  },
+  "http":{"tcp":{"80":[{
+    "rule":"test-rule-1",
+    "internal_dsl":[["STARTS_WITH","URL","/"]],
+    "upstream":"test-upstream-1"}
+  ]}},
   "backend_group": [
     {
       "name": "test-upstream-1",

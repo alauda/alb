@@ -15,7 +15,7 @@ local subsystem = ngx_config.subsystem
 -- directives above:
 local ok, err = ssl.clear_certs()
 if not ok then
-    ngx.log(ngx.ERR, "failed to clear existing (fallback) certificates")
+    ngx.log(ngx.ERR, "failed to clear existing (fallback) certificates "..tostring(err))
     return ngx.exit(ngx.ERROR)
 end
 

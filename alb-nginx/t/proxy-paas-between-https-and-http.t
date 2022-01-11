@@ -7,7 +7,7 @@ no_shuffle();
 no_root_location();
 run_tests();
 # http://jira.alauda.cn/browse/ACP-7720
-# http to http test in ping.t
+# we have test http to http in ping.t
 __DATA__
 
 === TEST 1: http to https 
@@ -35,33 +35,17 @@ server {
 --- policy
 {
   "certificate_map": {},
-  "port_map": {
-    "80": [
-      {
-        "rule": "test-rule-1",
-        "dsl":"(STARTS_WITH URL /ping)",
-        "internal_dsl": [
-              "AND",
-              [
-                "STARTS_WITH",
-                "URL",
-                "/ping"
-              ]
-        ],
-        "upstream": "test-upstream-1",
-        "url": "",
-        "rewrite_base": "",
-        "rewrite_target": "",
-        "subsystem": "http",
-        "enable_cors": false,
-        "cors_allow_headers": "",
-        "cors_allow_origin": "",
-        "backend_protocol": "HTTPS",
-        "redirect_url": "",
-        "redirect_code": 0,
-        "vhost": ""
-      }
-    ]
+  "http": {
+    "tcp":{
+        "80": [
+            {
+              "rule": "test-rule-1",
+              "internal_dsl": [["STARTS_WITH","URL","/ping"]],
+              "upstream": "test-upstream-1",
+              "backend_protocol": "HTTPS"
+            }
+        ]
+    }
   },
   "backend_group": [
     {
@@ -102,29 +86,16 @@ server {
       "cert":"-----BEGIN CERTIFICATE-----\nMIIFDzCCAvegAwIBAgIURfAGhgnCVBovG1GXafPioc7ln/kwDQYJKoZIhvcNAQEL\nBQAwFzEVMBMGA1UEAwwMdGVzdC5hbGIuY29tMB4XDTIxMDkyNjAzMTkxOVoXDTMx\nMDkyNDAzMTkxOVowFzEVMBMGA1UEAwwMdGVzdC5hbGIuY29tMIICIjANBgkqhkiG\n9w0BAQEFAAOCAg8AMIICCgKCAgEAr1AlmjGNbn3pVxonTlur42btuJYxkhC+P3Vt\ntZuVNKR3LxMPlMCCJ1jnJA3y9IVzh1KuJvZQExEC1DXyOhFdQHEweLLic7NSgNEa\nBFI4gEmU56W/StjR10BBiPwqTDLRR3/rVNfEkwYPc103J7QZpBWIzLpxSPdIpnPa\nfLndROjvuXZoQsZPlQwrUQg19DKWQrCsnzNBGD1LqRajOIeY0AUmied8sMXkd0rq\nIRVe1fJbIUIvYCtMHAIS4R1S69mCdy18wdBpYfrpPamOEs3L9gtZxBeEPFLiOz7+\n6jaQI0lXJ5l3+364rOykjdYa7PRpRUPP7GkP6KBBto2x4YGKPS/UuunqL50GWzjx\naM/QCs1RyekDJCR2+4BAE79Ke2HLx6d9dj6M+Kq3vCTIsfFDR6f5kkAKnXJuNTbP\nkoIx+Gg2uwbNiPSGBKdNZ0QWRYZDG3sb+cTyFL9RifawYnncWPVKsYxeCTgc+wcm\nwMh90gzcrrkGwVAIO6gvFQFiBpOFuc0BLgfhPZ0t9BWHC3epEKuKKXwbPZbQzppp\n72wkr/pdmPngBL9gSye0O+4qL3Aoy/T/NbemkwIFXToOm+hX6Nea9QafItWN5LSg\n13fGht87+mciNZ2xTXpcJvcZ6MdtqHH8/+1iaZLleO8gCaLa55NC3ieIghiSLnnz\ntKw4mDECAwEAAaNTMFEwHQYDVR0OBBYEFJWEB7GtSJ1glNCtoJLEnRtbviL2MB8G\nA1UdIwQYMBaAFJWEB7GtSJ1glNCtoJLEnRtbviL2MA8GA1UdEwEB/wQFMAMBAf8w\nDQYJKoZIhvcNAQELBQADggIBAEkeG+Kiar98U9TB4IZpiqo2dw38Zk8fcPJK6wIT\n5104F07DCErYcBp4LXWTJX9iVsdkiiVSE/FmqQjWeX5kACUuM8HkeziQNj++EcTq\nDQtDk9zEBWGDYQH4RQZvIVQlIaieZOArSbhunIrxlGr6fX//ryLO5K4QAay/oqwb\nUXFYfQ0M7VdrsTwLRImQN5KYAJbdR/Nlm5i/fTJps5iSdgpovBAommb1XpVq/aJ5\n3tAqb64vBNigZ7T8V1cCh6oDoCO/xzoucTzF9e14LkTmtzYxBjhplgwSUH6R0cgi\ndiexT2mdBtU79iJ0K5AJFVa1UCR0OE3/FmWEkb4L01XxU5sEyYL6I0JPSXaDdjtL\nv3y2GZY2Iz27qjz/JSZXoyf28rAYE0YHI3nX1wBwDTSoPKnfSc1A/IFsXFfkGB00\nuFNiI5rRff+zBt0XCAEz2Q9aULI5Ho8kjdOqHT/ty6c9RbxnJHv3mRQy0kZsb8QM\nDHTqwEvHE7mwGtd5LD5z6SRQpCfQmoSDuNqUdxMLNIYn45+BZyAlHE6Le21fH/Rb\nCjWQ5fBl7QdBHGB9dpYu8dhdrOlN0xj1QJKJGrVkqOA4nGmD6GThBX5RDy1D0flY\npxjSbTVmKWMIaqznKYfQO88Oc1kpqZB0X6p3XT3JnCkp9wXhEidc/qVY7/nUn0/9\nU1ye\n-----END CERTIFICATE-----"
     }
   },
-  "port_map": {
-    "443": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": [
-                "STARTS_WITH",
-                "URL",
-                "/ping"
-        ],
-        "upstream": "test-upstream-1",
-        "url": "",
-        "rewrite_base": "",
-        "rewrite_target": "",
-        "subsystem": "http",
-        "enable_cors": false,
-        "cors_allow_headers": "",
-        "cors_allow_origin": "",
-        "backend_protocol": "",
-        "redirect_url": "",
-        "redirect_code": 0,
-        "vhost": ""
-      }
-    ]
+  "http": {
+    "tcp":{
+        "443": [
+            {
+              "rule": "test-rule-1",
+              "internal_dsl": [["STARTS_WITH","URL","/ping"]],
+              "upstream": "test-upstream-1"
+            }
+        ]
+    }
   },
   "backend_group": [
     {
@@ -182,29 +153,17 @@ server {
       "cert":"-----BEGIN CERTIFICATE-----\nMIIFDzCCAvegAwIBAgIURfAGhgnCVBovG1GXafPioc7ln/kwDQYJKoZIhvcNAQEL\nBQAwFzEVMBMGA1UEAwwMdGVzdC5hbGIuY29tMB4XDTIxMDkyNjAzMTkxOVoXDTMx\nMDkyNDAzMTkxOVowFzEVMBMGA1UEAwwMdGVzdC5hbGIuY29tMIICIjANBgkqhkiG\n9w0BAQEFAAOCAg8AMIICCgKCAgEAr1AlmjGNbn3pVxonTlur42btuJYxkhC+P3Vt\ntZuVNKR3LxMPlMCCJ1jnJA3y9IVzh1KuJvZQExEC1DXyOhFdQHEweLLic7NSgNEa\nBFI4gEmU56W/StjR10BBiPwqTDLRR3/rVNfEkwYPc103J7QZpBWIzLpxSPdIpnPa\nfLndROjvuXZoQsZPlQwrUQg19DKWQrCsnzNBGD1LqRajOIeY0AUmied8sMXkd0rq\nIRVe1fJbIUIvYCtMHAIS4R1S69mCdy18wdBpYfrpPamOEs3L9gtZxBeEPFLiOz7+\n6jaQI0lXJ5l3+364rOykjdYa7PRpRUPP7GkP6KBBto2x4YGKPS/UuunqL50GWzjx\naM/QCs1RyekDJCR2+4BAE79Ke2HLx6d9dj6M+Kq3vCTIsfFDR6f5kkAKnXJuNTbP\nkoIx+Gg2uwbNiPSGBKdNZ0QWRYZDG3sb+cTyFL9RifawYnncWPVKsYxeCTgc+wcm\nwMh90gzcrrkGwVAIO6gvFQFiBpOFuc0BLgfhPZ0t9BWHC3epEKuKKXwbPZbQzppp\n72wkr/pdmPngBL9gSye0O+4qL3Aoy/T/NbemkwIFXToOm+hX6Nea9QafItWN5LSg\n13fGht87+mciNZ2xTXpcJvcZ6MdtqHH8/+1iaZLleO8gCaLa55NC3ieIghiSLnnz\ntKw4mDECAwEAAaNTMFEwHQYDVR0OBBYEFJWEB7GtSJ1glNCtoJLEnRtbviL2MB8G\nA1UdIwQYMBaAFJWEB7GtSJ1glNCtoJLEnRtbviL2MA8GA1UdEwEB/wQFMAMBAf8w\nDQYJKoZIhvcNAQELBQADggIBAEkeG+Kiar98U9TB4IZpiqo2dw38Zk8fcPJK6wIT\n5104F07DCErYcBp4LXWTJX9iVsdkiiVSE/FmqQjWeX5kACUuM8HkeziQNj++EcTq\nDQtDk9zEBWGDYQH4RQZvIVQlIaieZOArSbhunIrxlGr6fX//ryLO5K4QAay/oqwb\nUXFYfQ0M7VdrsTwLRImQN5KYAJbdR/Nlm5i/fTJps5iSdgpovBAommb1XpVq/aJ5\n3tAqb64vBNigZ7T8V1cCh6oDoCO/xzoucTzF9e14LkTmtzYxBjhplgwSUH6R0cgi\ndiexT2mdBtU79iJ0K5AJFVa1UCR0OE3/FmWEkb4L01XxU5sEyYL6I0JPSXaDdjtL\nv3y2GZY2Iz27qjz/JSZXoyf28rAYE0YHI3nX1wBwDTSoPKnfSc1A/IFsXFfkGB00\nuFNiI5rRff+zBt0XCAEz2Q9aULI5Ho8kjdOqHT/ty6c9RbxnJHv3mRQy0kZsb8QM\nDHTqwEvHE7mwGtd5LD5z6SRQpCfQmoSDuNqUdxMLNIYn45+BZyAlHE6Le21fH/Rb\nCjWQ5fBl7QdBHGB9dpYu8dhdrOlN0xj1QJKJGrVkqOA4nGmD6GThBX5RDy1D0flY\npxjSbTVmKWMIaqznKYfQO88Oc1kpqZB0X6p3XT3JnCkp9wXhEidc/qVY7/nUn0/9\nU1ye\n-----END CERTIFICATE-----"
     }
   },
-  "port_map": {
-    "443": [
-      {
-        "rule": "test-rule-1",
-        "internal_dsl": [
-                "STARTS_WITH",
-                "URL",
-                "/ping"
-        ],
-        "upstream": "test-upstream-1",
-        "url": "",
-        "rewrite_base": "",
-        "rewrite_target": "",
-        "subsystem": "http",
-        "enable_cors": false,
-        "cors_allow_headers": "",
-        "cors_allow_origin": "",
-        "backend_protocol": "HTTPS",
-        "redirect_url": "",
-        "redirect_code": 0,
-        "vhost": ""
-      }
-    ]
+  "http": {
+    "tcp":{
+        "443": [
+            {
+              "rule": "test-rule-1",
+              "internal_dsl": [["STARTS_WITH","URL","/ping"]],
+              "upstream": "test-upstream-1",
+              "backend_protocol": "HTTPS"
+            }
+        ]
+    }
   },
   "backend_group": [
     {

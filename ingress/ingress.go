@@ -127,7 +127,7 @@ func (c *Controller) findUnSyncedIngress(ctx context.Context) ([]*networkingv1.I
 			klog.Errorf("ingress rule but type is not ingress %s %+v", rl.Name, rl.Spec.Source)
 			continue
 		}
-		var proto string
+		var proto alb2v1.FtProtocol
 		if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPPort)) {
 			proto = m.ProtoHTTP
 		} else if strings.Contains(rl.Name, fmt.Sprintf("%s-%05d", config.Get("NAME"), IngressHTTPSPort)) {
@@ -481,7 +481,7 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 	annotations := ingress.GetAnnotations()
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
 	defaultBackendService := ingress.Spec.DefaultBackend.Service
-	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, defaultBackendService.Name, ToInStr(defaultBackendService.Port))
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, defaultBackendService.Name, ToInStr(defaultBackendService.Port), corev1.ProtocolTCP)
 
 	if err != nil {
 		klog.Errorf("ingress setFtDefault: get port in service %s %s fail %v", err, ingress.Namespace, defaultBackendService.Name)
@@ -530,7 +530,7 @@ func (c *Controller) setFtDefault(ingress *networkingv1.Ingress, ft *m.Frontend)
 	return false
 }
 
-// updateRule update or create rules for a ingress
+// updateRule update or create rules for an ingress
 func (c *Controller) updateRule(
 	ingress *networkingv1.Ingress,
 	ft *m.Frontend,
@@ -589,7 +589,7 @@ func (c *Controller) updateRule(
 	}
 
 	ingressBackend := ingresPath.Backend.Service
-	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, ingressBackend.Name, ToInStr(ingressBackend.Port))
+	portInService, err := c.KubernetesDriver.GetServicePortNumber(ingress.Namespace, ingressBackend.Name, ToInStr(ingressBackend.Port), corev1.ProtocolTCP)
 	if err != nil {
 		return fmt.Errorf("get port in svc %s/%s %v fail err %v", ingress.Namespace, ingressBackend.Name, ingressBackend.Port, err)
 	}
@@ -659,8 +659,13 @@ func (c *Controller) updateRule(
 		pathType = *ingresPath.PathType
 	}
 
+	Priority := DefaultPriority
+
 	ingVersion := ingress.ResourceVersion
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType, ingVersion, ruleAnnotation)
+	if strings.HasPrefix(host, "*") {
+		Priority = DefaultPriority + 1
+	}
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, Priority, pathType, ingVersion, ruleAnnotation)
 
 	if err != nil {
 		klog.Error(err)
@@ -815,7 +820,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 			continue
 		}
 		for _, p := range httpRules.Paths {
-			for _, proto := range []string{m.ProtoHTTPS, m.ProtoHTTP} {
+			for _, proto := range []alb2v1.FtProtocol{m.ProtoHTTPS, m.ProtoHTTP} {
 				if needFtTypes.Has(proto) {
 					var ft *m.Frontend
 					if proto == m.ProtoHTTP && httpFt != nil {

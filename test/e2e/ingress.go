@@ -1,15 +1,17 @@
 package e2e
 
 import (
-	"alauda.io/alb2/test/e2e/framework"
 	"context"
+	"fmt"
+	"strings"
+
+	"alauda.io/alb2/test/e2e/framework"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strings"
 )
 
 var _ = ginkgo.Describe("Ingress", func() {
@@ -36,6 +38,9 @@ var _ = ginkgo.Describe("Ingress", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: ns,
 				Name:      "redirect",
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/temporal-redirect": "/console-platform/portal",
+				},
 			},
 			Spec: networkingv1.IngressSpec{
 				Rules: []networkingv1.IngressRule{
@@ -62,8 +67,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 		}, metav1.CreateOptions{})
 
 		assert.NoError(ginkgo.GinkgoT(), err)
-
-		f.WaitNginxConfig("listen.*80")
+		f.WaitNginxConfigStr("listen.*80")
 
 		rules := f.WaitIngressRule("redirect", ns, 1)
 		rule := rules[0]
@@ -72,6 +76,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 		assert.Equal(ginkgo.GinkgoT(), rule.Spec.ServiceGroup.Services[0].Port, 8080)
 
 		f.WaitPolicy(func(policyRaw string) bool {
+			fmt.Printf("policyRaw %s", policyRaw)
 			hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
 			hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[]`)
 			return hasRule && hasPod
@@ -85,7 +90,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 			f.CreateIngress(name, "/a", "svc-default", 80)
 
-			f.WaitNginxConfig("listen.*80")
+			f.WaitNginxConfigStr("listen.*80")
 
 			rules := f.WaitIngressRule(name, ns, 1)
 			rule := rules[0]
@@ -136,7 +141,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			}
 
 			f.InitIngressCase(ingressCase)
-			f.WaitNginxConfig("listen.*80")
+			f.WaitNginxConfigStr("listen.*80")
 			rules := f.WaitIngressRule(ingressCase.Ingress.Name, ingressCase.Namespace, 1)
 			rule := rules[0]
 			ruleName := rule.Name
@@ -156,7 +161,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 			f.CreateIngress(name, "/a", "svc-default", 80)
 
-			f.WaitNginxConfig("listen.*80")
+			f.WaitNginxConfigStr("listen.*80")
 
 			rules := f.WaitIngressRule(name, ns, 1)
 			rule := rules[0]

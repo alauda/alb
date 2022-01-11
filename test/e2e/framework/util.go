@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"math/rand"
+	"net"
 	"time"
 )
 
@@ -75,7 +77,7 @@ func PolicyHasBackEnds(policyRaw string, ruleName string, expectBks string) bool
 func PolicyHasRule(policyRaw string, port int, ruleName string) bool {
 	rule := gojsonq.New().
 		FromString(policyRaw).
-		From(fmt.Sprintf("port_map.%v", port)).
+		From(fmt.Sprintf("http.tcp.%v", port)).
 		Where("rule", "=", ruleName).
 		Nth(1)
 	Logf("has rule port %v %v %s %v ", port, rule != nil, ruleName, rule)
@@ -88,4 +90,25 @@ func GIt(text string, body interface{}, timeout ...float64) bool {
 
 func GFIt(text string, body interface{}, timeout ...float64) bool {
 	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
+}
+func random() string {
+	return fmt.Sprintf("%v", rand.Int())
+}
+func listen(network, addr string, stopCh chan struct{}) {
+	go func() {
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		<-stopCh
+		listener.Close()
+	}()
+}
+
+func ListenTcp(port string, stopCh chan struct{}) {
+	listen("tcp", ":"+port, stopCh)
+}
+
+func ListenUdp(port string, stopCh chan struct{}) {
+	listen("udp", ":"+port, stopCh)
 }

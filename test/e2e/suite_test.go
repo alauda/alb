@@ -25,6 +25,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	cfg, err := testEnv.Start()
+	assert.NoError(GinkgoT(), err)
 	framework.Logf("start up envtest host %v", cfg.Host)
 
 	kubeconfig := os.Getenv("ENV_TEST_KUBECONFIG")

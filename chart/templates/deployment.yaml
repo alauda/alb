@@ -38,13 +38,7 @@ spec:
           image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
           terminationMessagePolicy: File
           command:
-            - /bin/sh
-            - -c
-            - |
-              cp -R /alb/template/nginx /nginx/nginx-code &&
-              cp /alb/template/nginx/nginx.conf /usr/local/openresty/nginx/conf/ &&
-              cp -R /usr/local/openresty/site/lualib/resty/worker /nginx/3rd-nginx-code &&
-              ./run.sh
+            - ./run.sh
           env:
             - name: NAME
               value: {{ .Values.loadbalancerName }}
@@ -116,6 +110,13 @@ spec:
             mountPath: /var/log/nginx/
 
         - name: nginx
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - NET_ADMIN
+                - NET_RAW
           image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.nginx.repository }}:{{ .Values.global.images.nginx.tag }}"
           imagePullPolicy: Always
           volumeMounts:
@@ -176,8 +177,12 @@ spec:
             path: http_server.conf
           - key: upstream
             path: upstream.conf
-          - key: stream
-            path: stream.conf
+          - key: stream-tcp
+            path: stream-tcp.conf
+          - key: stream-udp
+            path: stream-udp.conf
+          - key: stream-common
+            path: stream-common.conf
           - key: bind_nic
             path: bind_nic.json
       - name: share-conf
@@ -197,6 +202,7 @@ spec:
         alb2.{{ .Values.global.labelBaseDomain }}/type: {{ .Values.antiAffinityKey }}
         service.{{ .Values.global.labelBaseDomain }}/name: deployment-{{ .Values.loadbalancerName }}
         service_name: alb2-{{ .Values.loadbalancerName }}
+        alb2.{{ .Values.global.labelBaseDomain }}/pod_type: alb2
         {{ .Values.global.labelBaseDomain }}/product: "Platform-Center"
 metadata:
   name: {{ .Values.loadbalancerName }}

@@ -13,9 +13,6 @@ import (
 )
 
 func parseSSLAnnotation(sslAnno string) map[string]string {
-	if sslAnno == "" {
-		return nil
-	}
 	// alb.networking.{domain}/tls: qq.com=cpaas-system/dex.tls,qq1.com=cpaas-system/dex1.tls
 	if sslAnno == "" {
 		return nil

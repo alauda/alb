@@ -19,7 +19,7 @@ func TestGetDSLX(t *testing.T) {
 		want        v1.DSLX
 	}{
 		{
-			description: "path is regex && type is impl spec, op should be rgex",
+			description: "path is regex && type is impl spec, op should be regex",
 			domain:      "alauda.io",
 			url:         "^/v1/*",
 			pathType:    networkingv1.PathTypeImplementationSpecific,

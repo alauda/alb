@@ -42,9 +42,9 @@ http {
             require "resty.core"
             ok, res = pcall(require, "balancer")
             if not ok then
-              error("require failed: " .. tostring(res))
+                error("require failed: " .. tostring(res))
             else
-              balancer = res
+                balancer = res
             end
             require("metrics").init()
     }
@@ -87,15 +87,15 @@ http {
     }
     {{end}}
 
-    {{range $port, $ft := .Frontends}}
+    {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "http"}}
     server {
         {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$port}} backlog={{$cfg.Backlog}} default_server;
+            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server  reuseport;
         {{end}}
 
         {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$port}} backlog={{$cfg.Backlog}} default_server;
+            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server  reuseport;
         {{end}}
         server_name _;
 
@@ -121,16 +121,16 @@ http {
     {{end}}
     {{end}}
 
-    {{range $port, $ft := .Frontends}}
+    {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
 
         {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}} reuseport;
         {{end}}
 
         {{range $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}} reuseport;
         {{end}}
 
         server_name _;
@@ -174,7 +174,7 @@ http {
 }
 
 stream {
-    include       /alb/tweak/stream.conf;
+    include       /alb/tweak/stream-common.conf;
 
     lua_add_variable $upstream;
 
@@ -182,32 +182,52 @@ stream {
             require "resty.core"
             ok, res = pcall(require, "balancer")
             if not ok then
-              error("require failed: " .. tostring(res))
+                error("require failed: " .. tostring(res))
             else
-              balancer = res
+                balancer = res
             end
     }
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
-    {{range $port, $ft := .Frontends}}
+    {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "tcp"}}
     server {
-
+        include       /alb/tweak/stream-tcp.conf;
         {{range  $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$port}};
+            listen     {{$address}}:{{$ft.Port}} reuseport;
         {{end}}
 
         {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$port}};
+            listen     {{$address}}:{{$ft.Port}} reuseport ;
         {{end}}
 
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
-        proxy_pass tcp_backend;
+        proxy_pass stream_backend;
     }
     {{end}}
     {{end}}
 
-    upstream tcp_backend {
+
+    {{range $port, $ft := .Frontends}}
+    {{if eq $ft.Protocol "udp"}}
+    server {
+        include       /alb/tweak/stream-udp.conf;
+        {{range  $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} udp reuseport;
+        {{end}}
+
+        {{range  $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} udp reuseport;
+        {{end}}
+
+        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        proxy_pass stream_backend;
+    }
+    {{end}}
+    {{end}}
+
+
+    upstream stream_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
         balancer_by_lua_block {

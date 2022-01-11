@@ -190,7 +190,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		Frontends: []*m.Frontend{},
 	}
 	alb2Res, err := kd.LoadAlbResource(namespace, name)
-	klog.V(4).Infof("loadalb key %s/%s: uid %v", namespace, name, alb2Res.UID)
+	klog.V(4).Infof("load alb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
@@ -240,58 +240,6 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		alb2.Frontends = append(alb2.Frontends, ft)
 	}
 	return &alb2, nil
-}
-
-func (kd *KubernetesDriver) parseServiceGroup(data map[string]*Service, sg *alb2v1.ServiceGroup, allowNoAddr bool) (map[string]*Service, error) {
-	if sg == nil {
-		return data, nil
-	}
-
-	for _, svc := range sg.Services {
-		key := svc.String()
-		if _, ok := data[key]; !ok {
-			service, err := kd.GetServiceByName(svc.Namespace, svc.Name, svc.Port)
-			if err != nil {
-				klog.Errorf("Get service address for %s.%s:%d failed:%s",
-					svc.Namespace, svc.Name, svc.Port, err.Error(),
-				)
-				if !allowNoAddr {
-					continue
-				}
-			} else {
-				klog.V(4).Infof("Get serivce %+v", *service)
-			}
-			data[key] = service
-		}
-	}
-	return data, nil
-}
-
-func (kd *KubernetesDriver) LoadServices(alb *m.AlaudaLoadBalancer) ([]*Service, error) {
-	var err error
-	data := make(map[string]*Service)
-
-	for _, ft := range alb.Frontends {
-		data, err = kd.parseServiceGroup(data, ft.ServiceGroup, ft.AllowNoAddr())
-		if err != nil {
-			klog.Error(err)
-			return nil, err
-		}
-
-		for _, rule := range ft.Rules {
-			data, err = kd.parseServiceGroup(data, rule.ServiceGroup, rule.AllowNoAddr())
-			if err != nil {
-				klog.Error(err)
-				return nil, err
-			}
-		}
-	}
-
-	services := make([]*Service, 0, len(data))
-	for _, svc := range data {
-		services = append(services, svc)
-	}
-	return services, nil
 }
 
 func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bool) error {

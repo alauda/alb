@@ -28,7 +28,6 @@ var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"frontend":             "alb2.%s/frontend",
 	"lock":                 "alb2.%s/locker",
 	"source_type":          "alb2.%s/source-type",
-	"USE_ENDPOINT":         "true",
 	"DEFAULT-SSL-STRATEGY": "Request",
 }
 
@@ -48,6 +47,7 @@ type FakeK8sResource struct {
 	Services   []k8sv1.Service
 	EndPoints  []k8sv1.Endpoints
 	Ingresses  []networkingv1.Ingress
+	Secrets    []k8sv1.Secret
 }
 
 func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) (driver *albdriver.KubernetesDriver, informers *albdriver.Informers) {
@@ -72,6 +72,7 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 		&k8sv1.ServiceList{Items: fakeResource.K8s.Services},
 		&k8sv1.EndpointsList{Items: fakeResource.K8s.EndPoints},
 		&networkingv1.IngressList{Items: fakeResource.K8s.Ingresses},
+		&k8sv1.SecretList{Items: fakeResource.K8s.Secrets},
 	}
 	drv.ALBClient = albFake.NewSimpleClientset(albDataset...)
 	drv.Client = fake.NewSimpleClientset(k8sDataset...)

@@ -13,20 +13,14 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-	"alauda.io/alb2/modules"
-	"alauda.io/alb2/utils"
-	"github.com/thoas/go-funk"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
 
@@ -39,14 +33,13 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-func getServiceName(id string, port int) string {
-	if port != 0 {
-		return fmt.Sprintf("%s-%d", id, port)
-	}
-	return id
+func generateServiceKey(ns string, name string, protocol apiv1.Protocol, svcPort int) string {
+	key := fmt.Sprintf("%s-%s-%s-%d", ns, name, protocol, svcPort)
+	return strings.ToLower(key)
 }
 
-func generateBackend(serviceMap map[string][]*driver.Backend, services []*BackendService) []*Backend {
+// 找到service 对应的后端
+func generateBackend(backendMap map[string][]*driver.Backend, services []*BackendService, protocol apiv1.Protocol) []*Backend {
 	totalWeight := 0
 	for _, svc := range services {
 		if svc.Weight > 100 {
@@ -63,14 +56,11 @@ func generateBackend(serviceMap map[string][]*driver.Backend, services []*Backen
 	}
 	bes := []*Backend{}
 	for _, svc := range services {
-		name := getServiceName(svc.ServiceID, svc.ContainerPort)
-		backends, ok := serviceMap[name]
+		name := generateServiceKey(svc.ServiceNs, svc.ServiceName, protocol, svc.ServicePort)
+		backends, ok := backendMap[name]
+		// some rule such as redirect ingress will use a fake service.
 		if !ok || len(backends) == 0 {
-			name = getServiceName(svc.ServiceID, 0)
-			backends, ok = serviceMap[name]
-			if !ok || len(backends) == 0 {
-				continue
-			}
+			continue
 		}
 		//100 is the max weigh in SLB
 		weight := int(math.Floor(float64(svc.Weight*100)/float64(totalWeight*len(backends)) + 0.5))
@@ -80,7 +70,8 @@ func generateBackend(serviceMap map[string][]*driver.Backend, services []*Backen
 		for _, be := range backends {
 			port := be.Port
 			if port == 0 {
-				port = svc.ContainerPort
+				klog.Warningf("invalid backend port 0 svc: %+v", svc)
+				continue
 			}
 			bes = append(bes,
 				&Backend{
@@ -91,186 +82,6 @@ func generateBackend(serviceMap map[string][]*driver.Backend, services []*Backen
 		}
 	}
 	return bes
-}
-
-func merge(loadBalancers []*LoadBalancer, services []*driver.Service) {
-	serviceMap := make(map[string][]*driver.Backend)
-	for _, svc := range services {
-		if svc == nil {
-			continue
-		}
-		if svc.ServicePort == 0 {
-			svc.ServicePort = svc.ContainerPort
-		}
-		name := getServiceName(svc.ServiceID, svc.ServicePort)
-		serviceMap[name] = svc.Backends
-	}
-	for _, lb := range loadBalancers {
-		// lb.Frontends = make(map[]*Frontend)
-		for _, ft := range lb.Frontends {
-			var rules RuleList
-			for _, rule := range ft.Rules {
-				if len(rule.Services) == 0 {
-					klog.Warningf("rule %s has no active service.", rule.RuleID)
-				}
-				rule.BackendGroup = &BackendGroup{
-					Name: rule.RuleID,
-					// bg.mode dont care whether http or https
-					Mode:                     ModeHTTP,
-					SessionAffinityPolicy:    rule.SessionAffinityPolicy,
-					SessionAffinityAttribute: rule.SessionAffinityAttr,
-				}
-				rule.BackendGroup.Backends = generateBackend(serviceMap, rule.Services)
-				rules = append(rules, rule)
-			}
-			if len(rules) > 0 {
-				sort.Sort(rules)
-				ft.Rules = rules
-			} else {
-				ft.Rules = RuleList{}
-			}
-
-			if len(ft.Services) == 0 {
-				klog.Warningf("frontend %s has no default service.",
-					ft.String())
-			} else {
-				ft.BackendGroup.Backends = generateBackend(serviceMap, ft.Services)
-				if ft.Protocol == ProtocolTCP {
-					ft.BackendGroup.Mode = ModeTCP
-				} else {
-					ft.BackendGroup.Mode = ModeHTTP
-				}
-			}
-		}
-	}
-}
-
-var cfgLocker sync.Mutex
-
-func generateConfig(loadbalancer *LoadBalancer, driver *driver.KubernetesDriver) Config {
-	cfgLocker.Lock()
-	defer cfgLocker.Unlock()
-	result := Config{
-		Name:           loadbalancer.Name,
-		Address:        loadbalancer.Address,
-		BindAddress:    loadbalancer.BindAddress,
-		LoadBalancerID: loadbalancer.LoadBalancerID,
-		Frontends:      make(map[int]*Frontend),
-		BackendGroup:   []*BackendGroup{},
-		CertificateMap: make(map[string]Certificate),
-		TweakHash:      loadbalancer.TweakHash,
-		Phase:          config.Get("PHASE"),
-		NginxParam:     newNginxParam(),
-	}
-	var listenTCPPorts []int
-	var err error
-	if config.Get("ENABLE_PORTPROBE") == "true" {
-		listenTCPPorts, err = utils.GetListenTCPPorts()
-		if err != nil {
-			klog.Error(err)
-		}
-		klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
-	}
-	var portInfo map[string][]string
-	if GetAlbRoleType(loadbalancer.Labels) == RolePort {
-		portInfo, err = getPortInfo(driver)
-		if err != nil {
-			klog.Errorf("get port project info failed, %v", err)
-		}
-	}
-	for _, ft := range loadbalancer.Frontends {
-		conflict := false
-		for _, port := range listenTCPPorts {
-			if ft.Port == port {
-				conflict = true
-				klog.Errorf("skip port: %d has conflict", ft.Port)
-				break
-			}
-		}
-		if config.Get("ENABLE_PORTPROBE") == "true" {
-			if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
-				klog.Error(err)
-			}
-			if conflict {
-				// skip conflict port
-				continue
-			}
-		}
-		if GetAlbRoleType(loadbalancer.Labels) == RolePort && portInfo != nil {
-			// current projects
-			portProjects := GetOwnProjects(ft.RawName, ft.Labels)
-			// desired projects
-			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
-			if err != nil {
-				klog.Errorf("get port %d desired projects failed, %v", ft.Port, err)
-				goto OUT
-			}
-			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
-				// diff need update
-				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
-				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.RawName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
-					klog.Errorf("patch port %s project failed, %v", ft.RawName, err)
-				}
-			}
-		}
-	OUT:
-		klog.Infof("generate config for ft %d %s, have %d rules", ft.Port, ft.Protocol, len(ft.Rules))
-		isHTTP := ft.Protocol == ProtocolHTTP
-		isHTTPS := ft.Protocol == ProtocolHTTPS
-		if isHTTP || isHTTPS {
-			if isHTTPS && ft.CertificateName != "" {
-				secretNs, secretName, err := ParseCertificateName(ft.CertificateName)
-				if err != nil {
-					klog.Errorf("invalid certificateName, %s", ft.CertificateName)
-					continue
-				}
-				cert, err := getCertificate(driver, secretNs, secretName)
-				if err != nil {
-					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
-				} else {
-					// default cert for port ft.Port
-					result.CertificateMap[strconv.Itoa(ft.Port)] = *cert
-				}
-			}
-			for _, rule := range ft.Rules {
-				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
-					secretNs, secretName, err := ParseCertificateName(rule.CertificateName)
-					if err != nil {
-						klog.Errorf("invalid certificateName, %s", rule.CertificateName)
-						continue
-					}
-					cert, err := getCertificate(driver, secretNs, secretName)
-					if err != nil {
-						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
-						continue
-					}
-					if existCert, ok := result.CertificateMap[strings.ToLower(rule.Domain)]; ok {
-						if existCert.Cert != cert.Cert || existCert.Key != cert.Key {
-							klog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
-							continue
-						}
-					}
-					result.CertificateMap[strings.ToLower(rule.Domain)] = *cert
-				}
-				rule.Domain = strings.ToLower(rule.Domain)
-				result.BackendGroup = append(result.BackendGroup, rule.BackendGroup)
-			}
-		}
-		if ft.BackendGroup != nil && len(ft.BackendGroup.Backends) > 0 {
-			// FIX: http://jira.alaudatech.com/browse/DEV-16954
-			// remove duplicate upstream
-			if !funk.Contains(result.BackendGroup, ft.BackendGroup) {
-				result.BackendGroup = append(result.BackendGroup, ft.BackendGroup)
-			}
-		}
-
-		result.Frontends[ft.Port] = ft
-		sort.Sort(result.BackendGroup)
-	} // end of  _, ft := range loadbalancer.Frontends
-
-	result.Phase = modules.PhaseRunning
-
-	return result
 }
 
 func sameFiles(file1, file2 string) bool {

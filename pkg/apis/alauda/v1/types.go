@@ -4,7 +4,6 @@ package v1
 
 import (
 	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,10 +26,10 @@ type ALB2 struct {
 }
 
 type ALB2Spec struct {
-	Address     string   `json:"address"`
-	BindAddress string   `json:"bind_address"`
-	Domains     []string `json:"domains"`
-	IaasID      string   `json:"iaas_id"`
+	Address     string   `json:"address"`      // just for display in website
+	BindAddress string   `json:"bind_address"` //deprecated
+	Domains     []string `json:"domains"`      // deprecated
+	IaasID      string   `json:"iaas_id"`      // deprecated
 	Type        string   `json:"type"`
 }
 
@@ -61,9 +60,18 @@ type Frontend struct {
 	Status FrontendStatus `json:"status"`
 }
 
+type FtProtocol string
+
+const (
+	FtProtocolTCP   FtProtocol = "tcp"
+	FtProtocolUDP   FtProtocol = "udp"
+	FtProtocolHTTP  FtProtocol = "http"
+	FtProtocolHTTPS FtProtocol = "https"
+)
+
 type FrontendSpec struct {
 	Port            int           `json:"port"` // port in service
-	Protocol        string        `json:"protocol"`
+	Protocol        FtProtocol    `json:"protocol"`
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`
 	CertificateName string        `json:"certificate_name"`
@@ -103,10 +111,11 @@ type Rule struct {
 type Service struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Port      int    `json:"port"`
+	Port      int    `json:"port"` // port in service, not port in pod.
 	Weight    int    `json:"weight"`
 }
 
+// 这里是group，所以可以使用权重来做类似灰度发布的功能
 type ServiceGroup struct {
 	SessionAffinityPolicy    string    `json:"session_affinity_policy,omitempty"`
 	SessionAffinityAttribute string    `json:"session_affinity_attribute,omitempty"`
@@ -133,7 +142,7 @@ type DSLX []DSLXTerm
 type RuleSpec struct {
 	Description      string        `json:"description"`
 	Domain           string        `json:"domain"`
-	DSL              string        `json:"dsl"`
+	DSL              string        `json:"dsl"` // deprecated
 	DSLX             DSLX          `json:"dslx"`
 	Priority         int           `json:"priority"`
 	ServiceGroup     *ServiceGroup `json:"serviceGroup,omitempty"`

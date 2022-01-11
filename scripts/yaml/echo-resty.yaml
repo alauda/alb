@@ -20,7 +20,31 @@ data:
         worker_connections  1024;
     }
 
+
+    stream {
+        log_format stream '[$time_local] $remote_addr $protocol $server_port $status $bytes_received $bytes_sent $session_time';
+        access_log /var/log/nginx/access.log stream;
+        error_log /var/log/nginx/error.log info;
+        server {
+              listen 53 udp;
+              content_by_lua_block {
+                ngx.log(ngx.INFO,"udp socket connect")
+                local sock,err = ngx.req.socket()
+                local data, err = sock:receive()
+                if err ~= nil then
+                    sock:send("err "..tostring(err))
+                end
+                sock:send(data)
+              }
+        }
+    }
     http {
+        log_format  http  '[$time_local] $remote_addr "$host" "$request" '
+                          '$status $upstream_status $upstream_addr '
+                          '"$http_user_agent" "$http_x_forwarded_for" '
+                          '$request_time $upstream_response_time';
+        access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
+        error_log  /var/log/nginx/error.log notice;
         server {
             listen       443 ssl;
             server_name  _;
@@ -68,36 +92,36 @@ spec:
     spec:
       terminationGracePeriodSeconds: 60
       containers:
-      - name: echo-resty
-        image: {{alb-image}}
-        resources:
+        - name: echo-resty
+          image: {{nginx-image}}
+          resources:
             requests:
               memory: "500Mi"
               cpu: "250m"
             limits:
               memory: "500Mi"
               cpu: "1"
-        volumeMounts:
-          - name: config-volume
-            mountPath: /etc/nginx
-          - name: https-cert 
-            mountPath: /cert
-        command:
-         - sh
-         - -c
-         - 'nginx -c /etc/nginx/nginx.conf && tail -f /dev/null'
-        ports:
-        - containerPort: 80
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx
+            - name: https-cert
+              mountPath: /cert
+          command:
+            - sh
+            - -c
+            - 'mkdir -p /var/log/nginx && touch /var/log/nginx/access.log && nginx -c /etc/nginx/nginx.conf && tail -f /var/log/nginx/access.log'
+          ports:
+            - containerPort: 80
       volumes:
         - name: config-volume
           configMap:
             name: echo-resty-config
             items:
-            - key: nginx-config
-              path: nginx.conf
-        - name: https-cert 
+              - key: nginx-config
+                path: nginx.conf
+        - name: https-cert
           secret:
-            secretName: echo-resty-tls 
+            secretName: echo-resty-tls
 
 ---
 apiVersion: v1
@@ -108,11 +132,15 @@ metadata:
     k8s-app: echo-resty
 spec:
   ports:
-  - name: http
-    port: 80
-    targetPort: 80
-  - name: https
-    port: 443
-    targetPort: 443
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443
+    - name: udp
+      port: 53
+      protocol: UDP
+      targetPort: 53
   selector:
     k8s-app: echo-resty

@@ -44,18 +44,11 @@ func (b ByBackend) Less(i, j int) bool {
 }
 
 type Service struct {
-	ServiceID     string     `json:"service_id"`
-	ServiceName   string     `json:"service_name"`
-	NetworkMode   string     `json:"network_mode"`
-	ServicePort   int        `json:"service_port"`
-	ContainerPort int        `json:"container_port"`
-	Backends      []*Backend `json:"backends"`
-	Namespace     string     `json:"namespace"`
-	Owner         string     `json:"owner"`
-}
-
-func (s *Service) String() string {
-	return fmt.Sprintf("%s-%s-%d", s.Namespace, s.ServiceName, s.ContainerPort)
+	Name        string     `json:"service_name"`
+	Namespace   string     `json:"namespace"`
+	NetworkMode string     `json:"network_mode"`
+	ServicePort int        `json:"service_port"`
+	Backends    []*Backend `json:"backends"`
 }
 
 type NodePort struct {

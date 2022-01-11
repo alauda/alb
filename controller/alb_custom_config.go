@@ -57,7 +57,7 @@ func GenerateRuleAnnotationFromIngressAnnotation(ingressName string, annotation 
 	if val, ok := annotation[GetAlbIngressRewriteResponseAnnotation()]; ok {
 		_, err := rewriteResponseConfigFromJson(val)
 		if err != nil {
-			klog.Errorf("ext ingress rewrite_response: invalid annotation in ingress %v annotation %v err %v", ingressName, val, err)
+			klog.Errorf("ext ingress rewrite_response: invalid annotation in ingress '%v' annotation is '%v' err %v", ingressName, val, err)
 		} else {
 			ruleAnnotation[GetAlbRuleRewriteResponseAnnotation()] = val
 		}
@@ -71,7 +71,7 @@ func RuleConfigFromRuleAnnotation(ruleName string, annotation map[string]string)
 	if val, ok := annotation[GetAlbRuleRewriteResponseAnnotation()]; ok {
 		rewriteCfg, err := rewriteResponseConfigFromJson(val)
 		if err != nil {
-			klog.Errorf("ext rule rewrite_response: invalid annotation in rule %v annotation %v err %v", ruleName, val, err)
+			klog.Errorf("ext rule rewrite_response: invalid annotation in rule '%v' annotation is '%v' err %v", ruleName, val, err)
 		} else {
 			cfg.RewriteResponse = rewriteCfg
 		}

@@ -17,7 +17,7 @@ require (
 	github.com/thedevsaddam/gojsonq/v2 v2.5.2
 	github.com/thoas/go-funk v0.7.0
 	golang.org/x/net v0.0.0-20210805182204-aaa1db679c0d // indirect
-	golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	k8s.io/api v0.19.11-rc.0
 	k8s.io/apimachinery v0.19.11-rc.0
 	k8s.io/client-go v0.19.11-rc.0

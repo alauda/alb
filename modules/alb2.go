@@ -2,13 +2,13 @@ package modules
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"math/rand"
 	"strings"
 
 	"alauda.io/alb2/config"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
-	"github.com/thoas/go-funk"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -20,10 +20,10 @@ type AlaudaLoadBalancer struct {
 	Name      string
 	Namespace string
 	Frontends []*Frontend
-	TweakHash string
+	TweakHash string // used to make nginx.conf change when tweak_dir change
 }
 
-func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol string, certificateName string) (*Frontend, error) {
+func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol alb2v1.FtProtocol, certificateName string) (*Frontend, error) {
 	ft := &Frontend{
 		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
 		FrontendSpec: alb2v1.FrontendSpec{
@@ -75,22 +75,32 @@ func RandomStr(pixff string, length int) string {
 }
 
 func (ft *Frontend) IsTcpOrUdp() bool {
-	return funk.ContainsString([]string{ProtoTCP, ProtoUDP}, ft.Protocol)
+	if ft.Protocol == alb2v1.FtProtocolTCP {
+		return true
+	}
+	if ft.Protocol == alb2v1.FtProtocolUDP {
+		return true
+	}
+	return false
 }
 
 func (ft *Frontend) IsHttpOrHttps() bool {
-	return funk.ContainsString([]string{ProtoHTTP, ProtoHTTPS}, ft.Protocol)
+	if ft.Protocol == alb2v1.FtProtocolHTTP {
+		return true
+	}
+	if ft.Protocol == alb2v1.FtProtocolHTTPS {
+		return true
+	}
+	return false
 }
 
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
 	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string, annotations map[string]string) (*Rule, error) {
 
 	var (
-		dsl  string
 		dslx alb2v1.DSLX
 	)
 	if domain != "" || url != "" {
-		dsl = GetDSL(domain, url)
 		dslx = GetDSLX(domain, url, pathType)
 	}
 	sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
@@ -101,7 +111,6 @@ func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProt
 		RuleSpec: alb2v1.RuleSpec{
 			Domain:           domain,
 			URL:              url,
-			DSL:              dsl,
 			DSLX:             dslx,
 			Priority:         priority,
 			RewriteBase:      url,
@@ -128,46 +137,6 @@ type Rule struct {
 	Labels      map[string]string
 	Annotations map[string]string
 	FT          *Frontend
-}
-
-func (ft Frontend) AllowNoAddr() bool {
-	return false
-}
-
-func (rl Rule) AllowNoAddr() bool {
-	if rl.RedirectURL != "" {
-		return true
-	}
-	return false
-}
-
-// Deprecated: instead by GetDSLX.
-func GetDSL(domain, url string) string {
-	var dsl string
-	if domain != "" && url != "" {
-		if strings.IndexAny(url, "^$():?[]*\\") != -1 {
-			if !strings.HasPrefix(url, "^") {
-				url = "^" + url
-			}
-			dsl = fmt.Sprintf("(AND (EQ HOST %s) (REGEX URL %s))", domain, url)
-		} else {
-			dsl = fmt.Sprintf("(AND (EQ HOST %s) (STARTS_WITH URL %s))", domain, url)
-		}
-	} else {
-		if domain != "" {
-			dsl = fmt.Sprintf("(EQ HOST %s)", domain)
-		} else {
-			if strings.IndexAny(url, "^$():?[]*\\") != -1 {
-				if !strings.HasPrefix(url, "^") {
-					url = "^" + url
-				}
-				dsl = fmt.Sprintf("(REGEX URL %s)", url)
-			} else {
-				dsl = fmt.Sprintf("(STARTS_WITH URL %s)", url)
-			}
-		}
-	}
-	return dsl
 }
 
 func GetDSLX(domain, url string, pathType networkingv1.PathType) alb2v1.DSLX {
@@ -210,13 +179,30 @@ func GetDSLX(domain, url string, pathType networkingv1.PathType) alb2v1.DSLX {
 			}
 		}
 	}
+
 	if domain != "" {
-		dslx = append(dslx, alb2v1.DSLXTerm{
-			Values: [][]string{
-				{utils.OP_EQ, domain},
-			},
-			Type: utils.KEY_HOST,
-		})
+		if strings.HasPrefix(domain, "*") {
+			dslx = append(dslx, alb2v1.DSLXTerm{
+				Values: [][]string{
+					{utils.OP_ENDS_WITH, domain},
+				},
+				Type: utils.KEY_HOST,
+			})
+		} else {
+			dslx = append(dslx, alb2v1.DSLXTerm{
+				Values: [][]string{
+					{utils.OP_EQ, domain},
+				},
+				Type: utils.KEY_HOST,
+			})
+		}
 	}
 	return dslx
+}
+
+func FtProtocolToServiceProtocol(protocol alb2v1.FtProtocol) corev1.Protocol {
+	if protocol == alb2v1.FtProtocolUDP {
+		return corev1.ProtocolUDP
+	}
+	return corev1.ProtocolTCP
 }

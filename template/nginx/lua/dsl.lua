@@ -74,7 +74,6 @@ local function eval(ast)
         local token_type = type(token)
         if(token_type == "string") then
             args[insert_idx]  = ast[i]
-            insert_idx = insert_idx + 1
         elseif(token_type == "boolean") then
             if(op == "AND" and token == false) then
                 return false, nil
@@ -82,7 +81,6 @@ local function eval(ast)
                 return true, nil
             else
                 args[insert_idx]  = ast[i]
-                insert_idx = insert_idx + 1
             end
         elseif(token_type == "table") then
             local result, err = eval(ast[i])
@@ -95,11 +93,11 @@ local function eval(ast)
                     end
                 end
                 args[insert_idx]  = result
-                insert_idx = insert_idx + 1
             else
                 return false, err
             end
         end
+        insert_idx = insert_idx + 1
     end
     return operation.eval(op, args)
 end

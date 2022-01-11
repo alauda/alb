@@ -6,11 +6,13 @@ use Test::Nginx::Socket::Lua::Stream -Base;
 
 
 add_block_preprocessor(sub {
-    warn "generate tweak conf";
-    system("bash -c 'source /alb/alb-nginx/actions/common.sh && mkdir -p /alb/tweak && ALB=/alb configmap_to_file /alb/tweak'");
+    if (! -d  "/alb/tweak") {
+        warn "generate tweak conf";
+        system("bash -c 'source /alb/alb-nginx/actions/common.sh && mkdir -p /alb/tweak && ALB=/alb configmap_to_file /alb/tweak'");
+    }
 
-    warn "generate dhparam.pem";
     if (! -f  "/etc/ssl/dhparam.pem") {
+        warn "generate dhparam.pem";
         system("openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048");
     }
 
@@ -37,12 +39,30 @@ add_block_preprocessor(sub {
         system($cmd);
     }
 
+    my $stream_config= $block->alb_stream_server_config;
+
+    if (!defined $stream_config) {
+       $stream_config = <<__END;
+__END
+    }
     my $policy = $block->policy;
+
+    if (!defined $policy) {
+        my $defaultPolicy = <<__END;
+        {
+            "certificate_map": {},
+            "http": {},
+            "backend_group":[]
+        }
+__END
+        $policy=$defaultPolicy;
+    }
+
     open(FH,'>','/usr/local/openresty/nginx/conf/policy.new') or die $!;
     print FH $policy;
     close(FH);
 
-    $block->set_value("main_config", <<'_END_');
+    $block->set_value("main_config", <<_END_);
 env SYNC_POLICY_INTERVAL;
 env CLEAN_METRICS_INTERVAL;
 env SYNC_BACKEND_INTERVAL;
@@ -51,9 +71,13 @@ env DEFAULT-SSL-STRATEGY;
 env INGRESS_HTTPS_PORT;
 
 stream {
-    include       /alb/tweak/stream.conf;
+    include       /alb/tweak/stream-common.conf;
 
-    lua_add_variable $upstream;
+    access_log /t/servroot/logs/access.log stream;
+    error_log /t/servroot/logs/error.log info;
+
+
+    lua_add_variable \$upstream;
 
     init_by_lua_block {
             require "resty.core"
@@ -66,13 +90,23 @@ stream {
     }
     init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
 
+    $stream_config
+
     server {
+        include       /alb/tweak/stream-tcp.conf;
         listen     0.0.0.0:81;
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
-        proxy_pass tcp_backend;
+        proxy_pass stream_backend;
     }
     
-    upstream tcp_backend {
+    server {
+        include       /alb/tweak/stream-udp.conf;
+        listen     0.0.0.0:82 udp;
+        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        proxy_pass stream_backend;
+    }
+
+    upstream stream_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
         balancer_by_lua_block {
