@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"sort"
 	"testing"
 
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
@@ -36,6 +38,22 @@ func TestRule_GetPriority(t *testing.T) {
 			},
 			want: 10000 + 100,
 		},
+		// notice that this rule has same priority with above rule, and that is not correct
+		// we will compare the length of whole dlsx when compare policy
+		{
+			name: "include priority 1",
+			fields: fields{
+				Priority: 100,
+				DSLX: []v1.DSLXTerm{
+					{
+						Values: [][]string{{"START_WITH", "/a"}},
+						Type:   "URL",
+					},
+				},
+			},
+			want: 10000 + 100,
+		},
+
 		{
 			name:   "no priority with dsl 1",
 			fields: fields{},
@@ -92,6 +110,102 @@ func TestRule_GetPriority(t *testing.T) {
 			if got := rl.GetPriority(); got != tt.want {
 				t.Errorf("GetPriority() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestSortPolicy(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		policies Policies
+		order    []string
+	}{
+		{
+			name: "compare rawpriority first",
+			policies: []*Policy{
+				{
+					Rule:        "a",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+				},
+				{
+					Rule:        "b",
+					RawPriority: 1,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+				},
+			},
+			order: []string{"b", "a"},
+		},
+		{
+			name: "same rawpriority compare priority",
+			policies: []*Policy{
+				{
+					Rule:        "a",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+				},
+				{
+					Rule:        "b",
+					RawPriority: 5,
+					Priority:    10000 + 100 + 1,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+				},
+			},
+			order: []string{"b", "a"},
+		},
+		{
+			name: "same priority and raw priority compare complex",
+			policies: []*Policy{
+				{
+					Rule:        "a",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+				},
+				{
+					Rule:        "b",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+				},
+			},
+			order: []string{"b", "a"},
+		},
+		// we have nothing to do,but must stablelize the order when compare policy,so we compare the name
+		{
+			name: "same priority and raw priority and same complex",
+			policies: []*Policy{
+				{
+					Rule:        "b",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+				},
+				{
+					Rule:        "a",
+					RawPriority: 5,
+					Priority:    10000 + 100,
+					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+				},
+			},
+			order: []string{"a", "b"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := range tt.policies {
+				tt.policies[i].InternalDSLLen = utils.InternalDSLLen((tt.policies[i].InternalDSL))
+			}
+			sort.Sort(tt.policies)
+			realOrder := []string{}
+			for _, p := range tt.policies {
+				realOrder = append(realOrder, p.Rule)
+			}
+			assert.Equal(t, realOrder, tt.order, tt.name+"fail")
 		})
 	}
 }

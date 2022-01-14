@@ -1,8 +1,10 @@
 package utils
 
 import (
-	"alauda.io/alb2/pkg/apis/alauda/v1"
+	"encoding/json"
 	"errors"
+
+	"alauda.io/alb2/pkg/apis/alauda/v1"
 	"github.com/spf13/cast"
 )
 
@@ -300,4 +302,12 @@ func DSLX2Internal(dslx v1.DSLX) ([]interface{}, error) {
 		}
 	}
 	return internal, nil
+}
+
+func InternalDSLLen(dslx []interface{}) int {
+	jsonStr, err := json.Marshal(dslx)
+	if err != nil {
+		return 0
+	}
+	return len(jsonStr)
 }

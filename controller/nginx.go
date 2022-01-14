@@ -37,13 +37,14 @@ type NginxController struct {
 type Policy struct {
 	Rule             string        `json:"rule"` // the name of rule, corresponding with k8s rule cr
 	Config           *RuleConfig   `json:"config,omitempty"`
-	InternalDSL      []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule
+	InternalDSL      []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
+	InternalDSLLen   int           `json:"-"`            // the len of jsonstringify internal dsl, used to sort policy
 	Upstream         string        `json:"upstream"`     // name in backend group
 	URL              string        `json:"url"`
 	RewriteBase      string        `json:"rewrite_base"`
 	RewriteTarget    string        `json:"rewrite_target"`
-	Priority         int           `json:"-"` // priority calculate by the complex of dslx
-	RawPriority      int           `json:"-"` // priority set by user
+	Priority         int           `json:"-"` // priority calculate by the complex of dslx, used to sort policy.
+	RawPriority      int           `json:"-"` // priority set by user, used to sort policy.
 	Subsystem        string        `json:"subsystem"`
 	EnableCORS       bool          `json:"enable_cors"`
 	CORSAllowHeaders string        `json:"cors_allow_headers"`
@@ -74,13 +75,18 @@ type Policies []*Policy
 func (p Policies) Len() int { return len(p) }
 
 func (p Policies) Less(i, j int) bool {
-	if p[i].RawPriority > p[j].RawPriority {
-		return false
+	// raw priority is set by user it should be [1,10].  the smaller the number, the higher the ranking.
+	if p[i].RawPriority != p[j].RawPriority {
+		return p[i].RawPriority < p[j].RawPriority
 	}
-	if p[i].RawPriority < p[j].RawPriority {
-		return true
+	// priority is calculate by the "complex" of this policy. the higher the number, the higher the ranking
+	if p[i].Priority != p[j].Priority {
+		return p[i].Priority > p[j].Priority
 	}
-	return p[i].Priority > p[j].Priority
+	if p[i].InternalDSLLen != p[j].InternalDSLLen {
+		return p[i].InternalDSLLen > p[j].InternalDSLLen
+	}
+	return p[i].Rule < p[j].Rule
 }
 
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
@@ -349,6 +355,7 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 
 				policy.Priority = rule.GetPriority()
 				policy.RawPriority = rule.GetRawPriority()
+				policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
 				// policy-gen 设置rule的upstream
 				policy.Upstream = rule.BackendGroup.Name // IMPORTANT
 				// for rewrite
