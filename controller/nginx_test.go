@@ -60,7 +60,15 @@ func TestPolicies_Less(t *testing.T) {
 			args{0, 1},
 			false,
 		},
-		// TODO: Add test cases.
+		{
+			"4",
+			[]*Policy{
+				{Priority: 100, RawPriority: 100, Rule: "a"},
+				{Priority: 100, RawPriority: 100, Rule: "b"},
+			},
+			args{0, 1},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

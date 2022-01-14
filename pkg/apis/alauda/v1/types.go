@@ -194,7 +194,7 @@ func (dslx DSLX) Priority() int {
 	// each term weight 10000
 	for _, term := range dslx {
 		p += 10000
-		// echo value weight 100
+		// each value weight 1000
 		p += 100 * len(term.Values)
 	}
 	return p

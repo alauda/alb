@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # kind kubectl sed cp python3 mkdir
 unset HTTP_PROXY
@@ -77,15 +77,16 @@ function wait-curl-success {
 }
 
 function alb-gen-ft {
+  echo "alb-gen-ft"
   local port=$1
   local backendNs=$2
   local backendSvc=$3
   local protocol=$4
   local svcPort=$5
   local backendProtocol=$6
-
+  local apiversion="apiVersion: crd.alauda.io/v1"
   cat <<EOF | kubectl apply -f -
-apiVersion: crd.alauda.io/v1
+$apiversion
 kind: Frontend
 metadata:
   labels:
@@ -198,13 +199,15 @@ nodes:
 EOF
   fi
 }
-function foo() {
-  echo "bar"
-}
+
 function alb-init-kind-env {
   # how to use
-  #  . $ALB_ACTIONS_ROOT/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
-  #  . $ALB_ACTIONS_ROOT/alb-dev-actions.sh;CHART=build-harbor.alauda.cn/acp/chart-alauda-alb2:v3.8.0-feat-udp.2112280059 alb-init-kind-env
+  # . ./scripts/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
+  # . ./scripts/alb-dev-actions.sh; KIND_NAME=alb-38 CHART=build-harbor.alauda.cn/acp/chart-alauda-alb2:v3.8.0-alpha.3 alb-init-kind-env
+  # . ./scripts/alb-dev-actions.sh;OLD_ALB=true KIND_VER=v1.19.11 KIND_NAME=alb-342-lowercase CHART=harbor-b.alauda.cn/acp/chart-alauda-alb2:v3.4.2 alb-init-kind-env
+  if [ "$DEBUG" = "true" ]; then
+    set -x
+  fi
   if [ ! -d $ALB_ACTIONS_ROOT ]; then
     echo "could not find $ALB_ACTIONS_ROOT"
     exit
@@ -222,6 +225,7 @@ function alb-init-kind-env {
   echo $kindImage
   echo $kind2node
   echo $temp
+  rm -rf $temp/$kindName 
   mkdir -p $temp/$kindName
   generate_kind_config "$kind2node"
   echo "$KINDCONFIG" >$temp/$kindName/kindconfig.yaml
@@ -241,7 +245,9 @@ function alb-init-kind-env {
   fi
   ls ./alauda-alb2
   if [[ $? -ne 0 ]]; then return; fi
+
   _initKind $kindName $kindImage $temp/$kindName/kindconfig.yaml
+
   local base="build-harbor.alauda.cn"
   cat ./alauda-alb2/values.yaml
   for im in $(cat ./alauda-alb2/values.yaml | yq eval -o=j | jq -cr '.global.images[]'); do
@@ -252,7 +258,8 @@ function alb-init-kind-env {
     _makesureImage $image $kindName
   done
 
-  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.14.2 " $kindName
+  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.14.2" $kindName
+  _makesureImage $nginx $kindName
 
   local lbName="alb-dev"
   local ftPort="8080"
@@ -275,10 +282,16 @@ function alb-init-kind-env {
   sed -i "s/replicas: 3/replicas: 1/g" ./alauda-alb2/values.yaml
   sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
   kubectl create ns cpaas-system
-  echo "apply feature crd"
-  kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds
 
-  kubectl apply -f ./alauda-alb2/crds
+  if [ "$OLD_ALB" = "true" ]; then
+    echo "init crd(old)"
+    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
+  else
+    echo "init crd(new)"
+    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
+    kubectl apply -f ./alauda-alb2/crds
+  fi
+
   echo "helm dry run start"
 
   read -r -d "" OVERRIDE <<EOF
@@ -308,12 +321,19 @@ EOF
     alb-dev \
     ./alauda-alb2
 
-  echo "alb gen ft"
+  echo "init alb"
+  init-alb
+  tmux select-pane -T $kindName # set tmux pane title
+  cd -
+}
+
+function init-alb {
   alb-gen-ft 8080 default echo-resty http 80 http
   alb-gen-ft 8443 default echo-resty https 443 https
   alb-gen-ft 8081 default echo-resty tcp 80 tcp
-  alb-gen-ft 8553 default echo-resty udp 53 udp
-  cd -
+  if [ -z "$OLD_ALB" ]; then
+    alb-gen-ft 8553 default echo-resty udp 53 udp
+  fi
 }
 
 function _initKind {
@@ -330,11 +350,22 @@ function _initKind {
   echo "init kind ok $kindName"
 }
 
+function _init_required_crd {
+  if [ "$OLD_ALB" = "true" ]; then
+    echo "apply feature crd (old)"
+    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
+    return
+  fi
+  kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
+}
+
 function _makesureImage {
   local image=$1
+  
   local kindName=$2
   echo "makesureImage " $image $kindName
   if [[ "$(docker images -q $image 2>/dev/null)" == "" ]]; then
+    echo "image not exist, pull it $image"
     docker pull $image
   fi
   kind load docker-image $image --name $kindName
