@@ -13,7 +13,7 @@ configmap_to_file() {
   cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
 }
 
-
+ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220117144539
 test-nginx() {
   local filter=""
   if [ ! -z "$1" ]
@@ -30,7 +30,7 @@ test-nginx() {
       -v $ALB/alb-nginx/t:/t \
       -v $ALB:/alb \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
-      build-harbor.alauda.cn/3rdparty/alb-nginx-test:20211227221616 prove -I / -I /test-nginx/lib/ -r t/$filter
+      $ALB_TEST_RUNNER_IMAGE prove -I / -I /test-nginx/lib/ -r t/$filter
 }
 
 test-nginx-in-ci() {
@@ -65,6 +65,6 @@ test-nginx-exec() {
       -v $ALB/chart/:/alb/chart \
       -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
       -v $ALB/3rd-lua-module/lib/resty/worker:/usr/local/openresty/site/lualib/resty/worker \
-      build-harbor.alauda.cn/3rdparty/alb-nginx-test:20211227221616 sh
+      $ALB_TEST_RUNNER_IMAGE sh
 }
 

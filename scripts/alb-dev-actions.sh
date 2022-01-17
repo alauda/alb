@@ -26,7 +26,7 @@ function install-envtest {
 function alb-test-qps {
   local defaultKindName=kind-alb-${RANDOM:0:5}
   local defaultAlbImage="build-harbor.alauda.cn/acp/alb2:v3.6.0"
-  local defaultNginxImage="build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.1"
+  local defaultNginxImage="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
 
   local kindName=${1-$defaultKindName}
   local albImage=${2-$defaultAlbImage}
@@ -219,7 +219,7 @@ function alb-init-kind-env {
   local kindVersion=${KIND_VER-"v1.22.2"}
   local kind2node=${KIND_2_NODE-"false"}
   local kindImage="kindest/node:$kindVersion"
-  local nginx="build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.1"
+  local nginx="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
   echo $chart
   echo $kindName
   echo $kindImage

@@ -39,7 +39,7 @@ global:
     nginx:
       support_arm: true
       repository: 3rdparty/alb-nginx
-      tag: v3.6.1
+      tag: 20220118182511
       thirdparty: true
 resources:
   limits:

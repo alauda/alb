@@ -25,11 +25,16 @@ actions: scripts used in develop.
 
 ### image changelog
 #### alb-nginx
-alb-nginx:3.6.0
+ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-nginx 
+
+alb-nginx:v3.6.0  
 	use openresty luajit
-alb-nginx:3.6.1
-	use ops/alpine as base image
+
+alb-nginx:v3.6.1
+alb-nginx:20220118182511
+	use ops/alpine as base image,upgrade openssl versin in openresty to 1.1.1l
 
 ### alb-nginx-test
-alb-nginx-test:20211227221616
+ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-test-runner-image
+alb-nginx-test:20220117144539
 	add all needed to run test.
