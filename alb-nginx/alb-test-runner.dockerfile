@@ -1,4 +1,4 @@
-FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.6.1
+FROM build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511
 RUN uname -m 
 RUN chmod || true 
 RUN pwd

@@ -1,12 +1,12 @@
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.14.0"
+ARG RESTY_IMAGE_TAG="3.14.2"
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG} AS builder
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repositories
 
 ARG LUA_RESTY_BALANCER_VERSION="0.03"
 ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
 ARG RESTY_VERSION="1.19.3.2"
-ARG RESTY_OPENSSL_VERSION="1.1.1k"
+ARG RESTY_OPENSSL_VERSION="1.1.1l"
 ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
 ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
 ARG RESTY_PCRE_VERSION="8.44"
@@ -111,7 +111,7 @@ RUN apk add --no-cache \
         libxslt \
         zlib \
         ca-certificates \
-	    jq iproute2 logrotate openssl tcpdump tshark tini \
+        jq iproute2 logrotate openssl tini \
         ${RESTY_ADD_PACKAGE_RUNDEPS}
 RUN update-ca-certificates \
     && cd /tmp \
@@ -133,7 +133,7 @@ RUN update-ca-certificates \
     && make -j${RESTY_J} \
     && make -j${RESTY_J} install_sw \
     && cd /tmp \
-    && curl -fSL https://ftp.pcre.org/pub/pcre/pcre-${RESTY_PCRE_VERSION}.tar.gz -o pcre-${RESTY_PCRE_VERSION}.tar.gz \
+    && curl -fSL https://downloads.sourceforge.net/project/pcre/pcre/${RESTY_PCRE_VERSION}/pcre-${RESTY_PCRE_VERSION}.tar.gz  -o pcre-${RESTY_PCRE_VERSION}.tar.gz \
     && tar xzf pcre-${RESTY_PCRE_VERSION}.tar.gz \
     && cd /tmp/pcre-${RESTY_PCRE_VERSION} \
     && ./configure \
@@ -175,7 +175,7 @@ FROM scratch
 COPY --from=builder / /
 
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.14.0"
+ARG RESTY_IMAGE_TAG="3.14.2"
 ARG RESTY_VERSION="1.19.3.2"
 
 LABEL resty_image_base="${RESTY_IMAGE_BASE}"
