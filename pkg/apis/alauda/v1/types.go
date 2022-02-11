@@ -13,6 +13,18 @@ const (
 	RuleKind     = "Rule"
 )
 
+const (
+	KEY_HOST = "HOST"
+	KEY_URL  = "URL"
+
+	OP_EQ        = "EQ"
+	OP_IN        = "IN"
+	OP_ENDS_WITH = "ENDS_WITH"
+
+	OP_STARTS_WITH = "STARTS_WITH"
+	OP_REGEX       = "REGEX"
+)
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular=alaudaloadbalancer2,path=alaudaloadbalancer2,shortName=alb2,scope=Namespaced
@@ -191,11 +203,27 @@ func (s Service) Is(ns, name string, port int) bool {
 
 func (dslx DSLX) Priority() int {
 	var p int
-	// each term weight 10000
 	for _, term := range dslx {
-		p += 10000
-		// each value weight 1000
-		p += 100 * len(term.Values)
+		if term.Type == KEY_HOST {
+			if term.Values[0][0] == OP_EQ || term.Values[0][0] == OP_IN {
+				// exact host has bigger weight 50000, make sure concrete-host prioritize generic-host
+				p += 50000
+			} else if term.Values[0][0] == OP_ENDS_WITH {
+				// generic host has smaller weight 10000
+				p += 10000
+			}
+		} else if term.Type == KEY_URL {
+			for _, item := range term.Values {
+				if item[0] == OP_STARTS_WITH {
+					// STARTS_WITH is more concrete than REGEX, thus has bigger weight
+					p += 1000
+				} else if item[0] == OP_REGEX {
+					p += 500
+				}
+			}
+		} else {
+			p += 100 * len(term.Values)
+		}
 	}
 	return p
 }

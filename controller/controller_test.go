@@ -17,8 +17,7 @@ import (
 
 func TestRule_GetPriority(t *testing.T) {
 	type fields struct {
-		Priority int
-		DSLX     v1.DSLX
+		DSLX v1.DSLX
 	}
 	tests := []struct {
 		name   string
@@ -26,86 +25,101 @@ func TestRule_GetPriority(t *testing.T) {
 		want   int
 	}{
 		{
-			name: "include priority",
+			name: "include host + url priority",
 			fields: fields{
-				Priority: 100,
 				DSLX: []v1.DSLXTerm{
 					{
-						Values: [][]string{{"START_WITH", "/"}},
-						Type:   "URL",
+						Values: [][]string{{utils.OP_EQ, "a.b.c"}},
+						Type:   utils.KEY_HOST,
+					},
+					{
+						Values: [][]string{{utils.OP_STARTS_WITH, "/"}},
+						Type:   utils.KEY_URL,
 					},
 				},
 			},
-			want: 10000 + 100,
+			want: 50000 + 1000,
 		},
-		// notice that this rule has same priority with above rule, and that is not correct
-		// we will compare the length of whole dlsx when compare policy
+		// when rule has same calculated dslx priority, we will compare the length of whole dslx
 		{
-			name: "include priority 1",
+			name: "include generic-host + url priority",
 			fields: fields{
-				Priority: 100,
 				DSLX: []v1.DSLXTerm{
 					{
-						Values: [][]string{{"START_WITH", "/a"}},
-						Type:   "URL",
+						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
+						Type:   utils.KEY_HOST,
+					},
+					{
+						Values: [][]string{{utils.OP_STARTS_WITH, "/a"}},
+						Type:   utils.KEY_URL,
 					},
 				},
 			},
-			want: 10000 + 100,
-		},
-
-		{
-			name:   "no priority with dsl 1",
-			fields: fields{},
-			want:   0,
+			want: 10000 + 1000,
 		},
 		{
-			name: "no priority with dslx",
+			name: "include host + regex-url priority",
 			fields: fields{
 				DSLX: []v1.DSLXTerm{
 					{
-						Values: [][]string{{"START_WITH", "/"}},
-						Type:   "URL",
+						Values: [][]string{{utils.OP_EQ, "a.b.c"}},
+						Type:   utils.KEY_HOST,
+					},
+					{
+						Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
+						Type:   utils.KEY_URL,
 					},
 				},
 			},
-			want: 10000 + 100,
+			want: 50000 + 500,
 		},
 		{
-			name: "no priority with dslx",
+			name: "include generic-host + regex-url priority",
 			fields: fields{
 				DSLX: []v1.DSLXTerm{
 					{
-						Values: [][]string{{"START_WITH", "/"}},
-						Type:   "URL",
+						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
+						Type:   utils.KEY_HOST,
+					},
+					{
+						Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
+						Type:   utils.KEY_URL,
 					},
 				},
 			},
-			want: 10000 + 100,
+			want: 10000 + 500,
 		},
 		{
-			name: "no priority with complex dslx",
+			name: "complex dslx with generic-host, cookie and multiple urls",
 			fields: fields{
 				DSLX: []v1.DSLXTerm{
 					{
-						Values: [][]string{{"START_WITH", "/k8s"}, {"START_WITH", "/kubernetes"}},
-						Type:   "URL",
+						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
+						Type:   utils.KEY_HOST,
 					},
 					{
-						Values: [][]string{{"EQ", "lorem"}},
-						Type:   "COOKIE",
+						Values: [][]string{{utils.OP_STARTS_WITH, "/k8s"}, {utils.OP_REGEX, "^/v1/*"}},
+						Type:   utils.KEY_URL,
+					},
+					{
+						Values: [][]string{{utils.OP_EQ, "lorem"}},
+						Type:   utils.KEY_COOKIE,
 						Key:    "test",
 					},
 				},
 			},
-			want: 10000 + 100 + 100 + 10000 + 100,
+			want: 10000 + 1000 + 500 + 100,
+		},
+		{
+			name:   "empty dslx with priority 0",
+			fields: fields{},
+			want:   0,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rl := Rule{
-				Priority: tt.fields.Priority,
-				DSLX:     tt.fields.DSLX,
+				DSLX: tt.fields.DSLX,
 			}
 			if got := rl.GetPriority(); got != tt.want {
 				t.Errorf("GetPriority() = %v, want %v", got, tt.want)
@@ -122,74 +136,74 @@ func TestSortPolicy(t *testing.T) {
 		order    []string
 	}{
 		{
-			name: "compare rawpriority first",
+			name: "compare policy RawPriority first",
 			policies: []*Policy{
 				{
 					Rule:        "a",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+					Priority:    50000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
 					Rule:        "b",
 					RawPriority: 1,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+					Priority:    10000 + 500,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
 		},
 		{
-			name: "same rawpriority compare priority",
+			name: "same RawPriority compare priority",
 			policies: []*Policy{
 				{
 					Rule:        "a",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+					Priority:    10000 + 1000 + 500 + 100,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
 					Rule:        "b",
 					RawPriority: 5,
-					Priority:    10000 + 100 + 1,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+					Priority:    50000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
 		},
 		{
-			name: "same priority and raw priority compare complex",
+			name: "same RawPriority and priority, compare complex",
 			policies: []*Policy{
 				{
 					Rule:        "a",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+					Priority:    10000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
 					Rule:        "b",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/b"}},
+					Priority:    10000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
 		},
-		// we have nothing to do,but must stablelize the order when compare policy,so we compare the name
+		// totally same priority and DSL, compare name to stabilize the order when compare policy
 		{
-			name: "same priority and raw priority and same complex",
+			name: "same RawPriority/priority and complex, compare name to stabilize order",
 			policies: []*Policy{
 				{
 					Rule:        "b",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+					Priority:    10000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
 					Rule:        "a",
 					RawPriority: 5,
-					Priority:    10000 + 100,
-					InternalDSL: []interface{}{[]string{"STARTS_WITH", "URL", "/"}},
+					Priority:    10000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 			},
 			order: []string{"a", "b"},

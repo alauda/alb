@@ -43,8 +43,8 @@ type Policy struct {
 	URL              string        `json:"url"`
 	RewriteBase      string        `json:"rewrite_base"`
 	RewriteTarget    string        `json:"rewrite_target"`
-	Priority         int           `json:"-"` // priority calculate by the complex of dslx, used to sort policy.
-	RawPriority      int           `json:"-"` // priority set by user, used to sort policy.
+	Priority         int           `json:"complexity_priority"` // priority calculated by the complex of dslx, used to sort policy after user_priority
+	RawPriority      int           `json:"user_priority"`       // priority set by user, used to sort policy
 	Subsystem        string        `json:"subsystem"`
 	EnableCORS       bool          `json:"enable_cors"`
 	CORSAllowHeaders string        `json:"cors_allow_headers"`
@@ -75,11 +75,11 @@ type Policies []*Policy
 func (p Policies) Len() int { return len(p) }
 
 func (p Policies) Less(i, j int) bool {
-	// raw priority is set by user it should be [1,10].  the smaller the number, the higher the ranking.
+	// raw priority is set by user it should be [1,10]. the smaller the number, the higher the ranking
 	if p[i].RawPriority != p[j].RawPriority {
 		return p[i].RawPriority < p[j].RawPriority
 	}
-	// priority is calculate by the "complex" of this policy. the higher the number, the higher the ranking
+	// priority is calculated by the "complex" of this policy. the bigger the number, the higher the ranking
 	if p[i].Priority != p[j].Priority {
 		return p[i].Priority > p[j].Priority
 	}
@@ -377,8 +377,8 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 			if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
 				defaultPolicy := Policy{}
 				defaultPolicy.Rule = ft.RawName
-				defaultPolicy.Priority = -1     // default rule should have the minimum priority
-				defaultPolicy.RawPriority = 999 // minimum number means higher priority
+				defaultPolicy.Priority = -1     // default rule should have the lowest priority
+				defaultPolicy.RawPriority = 999 // bigger number means lower priority
 				defaultPolicy.Subsystem = SubsystemHTTP
 				defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 				defaultPolicy.BackendProtocol = ft.BackendProtocol
