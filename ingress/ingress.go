@@ -659,13 +659,9 @@ func (c *Controller) updateRule(
 		pathType = *ingresPath.PathType
 	}
 
-	Priority := DefaultPriority
-
 	ingVersion := ingress.ResourceVersion
-	if strings.HasPrefix(host, "*") {
-		Priority = DefaultPriority + 1
-	}
-	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, Priority, pathType, ingVersion, ruleAnnotation)
+
+	rule, err := ft.NewRule(ingInfo, host, url, rewriteTarget, backendProtocol, certs[host], enableCORS, corsAllowHeaders, corsAllowOrigin, redirectURL, redirectCode, vhost, DefaultPriority, pathType, ingVersion, ruleAnnotation)
 
 	if err != nil {
 		klog.Error(err)
