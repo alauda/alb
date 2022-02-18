@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func GetAlbIngressRewriteResponseAnnotation() string {

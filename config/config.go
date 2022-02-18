@@ -12,10 +12,19 @@ import (
 
 const (
 	Kubernetes = "kubernetes"
-)
 
-const (
 	Nginx = "nginx"
+
+	// IngressKey picks a specific "class" for the Ingress.
+	// The controller only processes Ingresses with this annotation either
+	// unset, or set to either the configured value or the empty string.
+	IngressKey = "kubernetes.io/ingress.class"
+
+	// DefaultControllerName defines the default controller name for Ingress controller alb2
+	DefaultControllerName = "alauda.io/alb2"
+
+	// DefaultAnnotationValue defines the default annotation value for the alb2 ingress controller
+	DefaultAnnotationValue = "alb2"
 )
 
 var ConfigString sync.Map
@@ -218,4 +227,25 @@ func GetLabelSourceIngressHash() string {
 
 func GetLabelSourceIngressVersion() string {
 	return fmt.Sprintf(Get("labels.source_ingress_version"), Get("DOMAIN"))
+}
+
+// IngressClassConfiguration defines the various aspects of IngressClass parsing
+// and how the controller should behave in each case
+type IngressClassConfiguration struct {
+	// Controller defines the controller value this daemon watch to.
+	// Defaults to "alauda.io/alb2"
+	Controller string
+	// AnnotationValue defines the annotation value this Controller watch to, in case of the
+	// ingressClass is not found but the annotation is.
+	// The Annotation is deprecated and should not be used in future releases
+	AnnotationValue string
+	// WatchWithoutClass defines if Controller should watch to Ingress Objects that does
+	// not contain an IngressClass configuration
+	WatchWithoutClass bool
+	// IgnoreIngressClass defines if Controller should ignore the IngressClass Object if no permissions are
+	// granted on IngressClass
+	IgnoreIngressClass bool
+	//IngressClassByName defines if the Controller should watch for Ingress Classes by
+	// .metadata.name together with .spec.Controller
+	IngressClassByName bool
 }

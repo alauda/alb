@@ -40,14 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
-	scheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func (c *Controller) Start(ctx context.Context) {
@@ -84,7 +84,7 @@ func (c *Controller) Start(ctx context.Context) {
 			}
 			count := 0
 			for _, ing := range ingressList {
-				if c.needEnqueueObject(ing) {
+				if c.needEnqueueObject(ing, true) {
 					count++
 					klog.Infof("find-unsync: get a unsyncd ingress resync it %v %v %v", ing.Name, ing.Namespace, ing.ResourceVersion)
 					c.enqueue(ing)
@@ -190,9 +190,11 @@ func isIngressAlreadySynced(ing *networkingv1.Ingress, processedIngress map[stri
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	ingressLister   networkinglisters.IngressLister
-	ruleLister      listerv1.RuleLister
-	namespaceLister corelisters.NamespaceLister
+	ingressLister         networkinglisters.IngressLister
+	ingressClassAllLister networkinglisters.IngressClassLister
+	ingressClassLister    ingressClassLister
+	ruleLister            listerv1.RuleLister
+	namespaceLister       corelisters.NamespaceLister
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -205,6 +207,9 @@ type Controller struct {
 	recorder record.EventRecorder
 
 	KubernetesDriver *driver.KubernetesDriver
+
+	// configuration for ingressClass
+	icConfig *config.IngressClassConfiguration
 }
 
 // NewController returns a new sample controller
@@ -213,6 +218,7 @@ func NewController(
 	alb2Informer informerv1.ALB2Informer,
 	ruleInformer informerv1.RuleInformer,
 	ingressInformer networkinginformers.IngressInformer,
+	ingressClassInformer networkinginformers.IngressClassInformer,
 	namespaceLister corelisters.NamespaceLister) *Controller {
 
 	// Create event broadcaster
@@ -231,19 +237,29 @@ func NewController(
 	)
 
 	controller := &Controller{
-		ingressLister:   ingressInformer.Lister(),
-		ruleLister:      ruleInformer.Lister(),
-		namespaceLister: namespaceLister,
+		ingressLister:         ingressInformer.Lister(),
+		ingressClassAllLister: ingressClassInformer.Lister(),
+		ingressClassLister:    ingressClassLister{cache.NewStore(cache.MetaNamespaceKeyFunc)},
+		ruleLister:            ruleInformer.Lister(),
+		namespaceLister:       namespaceLister,
 		workqueue: workqueue.NewNamedRateLimitingQueue(
 			workqueue.DefaultControllerRateLimiter(),
 			"Ingresses",
 		),
 		recorder:         recorder,
 		KubernetesDriver: d,
+
+		icConfig: &config.IngressClassConfiguration{
+			Controller:         config.DefaultControllerName,
+			AnnotationValue:    config.DefaultAnnotationValue,
+			WatchWithoutClass:  true,
+			IgnoreIngressClass: false,
+			IngressClassByName: true,
+		},
 	}
 	if config.GetBool("INCREMENT_SYNC") {
 		klog.Info("Setting up event handlers")
-		controller.setUpEventHandler(alb2Informer, ingressInformer)
+		controller.setUpEventHandler(alb2Informer, ingressInformer, ingressClassInformer)
 	} else {
 		klog.Infof("increment sync disabled by config")
 	}
@@ -252,17 +268,31 @@ func NewController(
 }
 
 func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
-	ingressInformer networkinginformers.IngressInformer) {
+	ingressInformer networkinginformers.IngressInformer, ingressClassInformer networkinginformers.IngressClassInformer) {
+
+	// icConfig: configuration items for ingressClass
+	icConfig := c.icConfig
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newIngress := obj.(*networkingv1.Ingress)
 			klog.Infof("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion)
-			c.handleObject(obj)
+			ic, err := c.GetIngressClass(newIngress, icConfig)
+			if err != nil {
+				klog.InfoS("Ignoring ingress because of error while validating ingress class", "ingress", klog.KObj(newIngress), "error", err)
+				return
+			}
+			klog.InfoS("Found valid IngressClass", "ingress", klog.KObj(newIngress), "ingressClass", ic)
+			c.handleObject(newIngress)
 		},
 		UpdateFunc: func(old, new interface{}) {
+			var errOld, errCur error
+			var classCur string
 			newIngress := new.(*networkingv1.Ingress)
 			oldIngress := old.(*networkingv1.Ingress)
+			_, errOld = c.GetIngressClass(oldIngress, icConfig)
+			classCur, errCur = c.GetIngressClass(newIngress, icConfig)
+
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
 			}
@@ -270,14 +300,78 @@ func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
 				return
 			}
 			klog.Infof("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion)
-			c.handleObject(new)
+
+			if errOld != nil && errCur == nil {
+				klog.InfoS("creating ingress", "ingress", klog.KObj(newIngress), "ingressClass", classCur)
+			} else if errOld == nil && errCur != nil {
+				klog.InfoS("removing ingress because of ingressClass changed to other ingress controller", "ingress", klog.KObj(newIngress))
+				c.onIngressDelete(oldIngress.Name, oldIngress.Namespace)
+				return
+			} else if errCur == nil && !reflect.DeepEqual(old, new) {
+				klog.InfoS("update ingress", "ingress", klog.KObj(newIngress), "ingressClass", classCur)
+			} else {
+				return
+			}
+			c.handleObject(newIngress)
 		},
 		DeleteFunc: func(obj interface{}) {
-			oldIngress := obj.(*networkingv1.Ingress)
-			klog.Infof("receive ingress %s/%s %s delete event", oldIngress.Namespace, oldIngress.Name, oldIngress.ResourceVersion)
-			c.handleObject(obj)
+			ingress := obj.(*networkingv1.Ingress)
+			klog.Infof("receive ingress %s/%s %s delete event", ingress.Namespace, ingress.Name, ingress.ResourceVersion)
+			_, err := c.GetIngressClass(ingress, icConfig)
+			if err != nil {
+				klog.InfoS("Ignoring ingress because of error while validating ingress class", "ingress", klog.KObj(ingress), "error", err)
+				return
+			}
+			c.handleObject(ingress)
 		},
 	})
+
+	ingressClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			ingressClass := obj.(*networkingv1.IngressClass)
+			if !CheckIngressClass(ingressClass, icConfig) {
+				return
+			}
+			klog.InfoS("add new ingressClass related to the ingress controller", "ingressClass", klog.KObj(ingressClass))
+			err := c.ingressClassLister.Add(ingressClass)
+			if err != nil {
+				klog.InfoS("error adding ingressClass to store", "ingressClass", klog.KObj(ingressClass), "error", err)
+				return
+			}
+		},
+
+		UpdateFunc: func(old, cur interface{}) {
+			oic := old.(*networkingv1.IngressClass)
+			cic := cur.(*networkingv1.IngressClass)
+			if cic.Spec.Controller != icConfig.Controller {
+				klog.InfoS("ignoring ingressClass as the spec.controller is not the same of this ingress", "ingressClass", klog.KObj(cic))
+				return
+			}
+			if !reflect.DeepEqual(cic.Spec.Parameters, oic.Spec.Parameters) {
+				klog.InfoS("update ingressClass related to the ingress controller", "ingressClass", klog.KObj(cic))
+				err := c.ingressClassLister.Update(cic)
+				if err != nil {
+					klog.InfoS("error updating ingressClass in store", "ingressClass", klog.KObj(cic), "error", err)
+					return
+				}
+			}
+		},
+
+		// ingressClass webhook filter ingressClass which is relevant to ingress
+		DeleteFunc: func(obj interface{}) {
+			ingressClass := obj.(*networkingv1.IngressClass)
+			_, err := c.ingressClassLister.ByKey(ingressClass.Name)
+			if err == nil {
+				klog.InfoS("delete ingressClass related to the ingress controller", "ingressClass", klog.KObj(ingressClass))
+				err = c.ingressClassLister.Delete(ingressClass)
+				if err != nil {
+					klog.InfoS("error removing ingressClass from store", "ingressClass", klog.KObj(ingressClass), "error", err)
+					return
+				}
+			}
+		},
+	})
+
 	alb2Informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
 			newAlb2 := new.(*alb2v1.ALB2)
@@ -294,6 +388,12 @@ func (c *Controller) setUpEventHandler(alb2Informer informerv1.ALB2Informer,
 			klog.Infof("own projects: %v, new add projects: %v", newProjects, newAddProjects)
 			ingresses := c.GetProjectIngresses(newAddProjects)
 			for _, ingress := range ingresses {
+				ic, err := c.GetIngressClass(ingress, icConfig)
+				if err != nil {
+					klog.InfoS("Ignoring ingress because of error while validating ingress class", "ingress", klog.KObj(ingress), "error", err)
+					return
+				}
+				klog.InfoS("Found valid IngressClass", "ingress", klog.KObj(ingress), "ingressClass", ic)
 				c.handleObject(ingress)
 			}
 		},
@@ -317,13 +417,31 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Started workers")
+
+	ingclasses, err := c.ingressClassAllLister.List(labels.Everything())
+	if err != nil {
+		klog.Error("error list all ingressClasses", err)
+	} else {
+		for _, ingcls := range ingclasses {
+			if !CheckIngressClass(ingcls, c.icConfig) {
+				continue
+			}
+			klog.InfoS("add legacy ingressClass related to the ingress controller", "ingressClass", klog.KObj(ingcls))
+			err = c.ingressClassLister.Add(ingcls)
+			if err != nil {
+				klog.InfoS("error adding ingressClass to store", "ingressClass", klog.KObj(ingcls), "error", err)
+				continue
+			}
+		}
+	}
+
 	ings, err := c.ingressLister.Ingresses("").List(labels.Everything())
 	if err != nil {
 		klog.Error("error list all ingresses", err)
 	} else {
 		// ensure legacy ingresses will be transformed
 		for _, ing := range ings {
-			if c.needEnqueueObject(ing) {
+			if c.needEnqueueObject(ing, true) {
 				klog.Infof("enqueue unprocessed ing: %s/%s %s", ing.Namespace, ing.Name, ing.ResourceVersion)
 				c.enqueue(ing)
 			}
@@ -348,9 +466,10 @@ func (c *Controller) enqueue(obj interface{}) {
 
 // handleObject will take any resource implementing metav1.Object and attempt
 // to find the Foo resource that 'owns' it. It does this by looking at the
-// objects metadata.ownerReferences field for an appropriate OwnerReference.
+// objects' metadata.ownerReferences field for an appropriate OwnerReference.
 // It then enqueues that Foo resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
+
 func (c *Controller) handleObject(obj interface{}) {
 	isLeader, err := ctl.IsLocker(c.KubernetesDriver)
 	if err != nil {
@@ -378,7 +497,7 @@ func (c *Controller) handleObject(obj interface{}) {
 		klog.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 	klog.Infof("Processing object: %s", object.GetName())
-	if c.needEnqueueObject(object) {
+	if c.needEnqueueObject(object, false) {
 		c.enqueue(object)
 	}
 }
@@ -431,7 +550,7 @@ func (c *Controller) processNextWorkItem() bool {
 			c.workqueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
-		// Finally, if no error occurs we Forget this item so it does not
+		// Finally, if no error occurs we Forget this item, so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
 		klog.Infof("Successfully synced '%s'", key)
@@ -723,7 +842,7 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 
 	needFtTypes := getIngressFtTypes(ingress)
 
-	// default backend we will not create rules but save service to frontend's servicegroup
+	// for default backend, we will not create rules but save services to frontends' service-group
 	isDefaultBackend := isDefaultBackend(ingress)
 	klog.Infof("%s is default backend: %t", ingress.Name, isDefaultBackend)
 	if isDefaultBackend {
@@ -741,13 +860,13 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 		}
 	}
 	if httpFt != nil && httpFt.Protocol != m.ProtoHTTP {
-		err = fmt.Errorf("Port %d is not an HTTP port, protocol: %s", IngressHTTPPort, httpFt.Protocol)
+		err = fmt.Errorf("port %d is not an HTTP port, protocol: %s", IngressHTTPPort, httpFt.Protocol)
 		klog.Error(err)
 		return err
 	}
 	if httpsFt != nil {
 		if httpsFt.Protocol != m.ProtoHTTPS {
-			err = fmt.Errorf("Port %d is not an HTTPS port, protocol: %s", IngressHTTPSPort, httpsFt.Protocol)
+			err = fmt.Errorf("port %d is not an HTTPS port, protocol: %s", IngressHTTPSPort, httpsFt.Protocol)
 			klog.Error(err)
 			return err
 		}
@@ -907,8 +1026,10 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 	return nil
 }
 
-func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
+func (c *Controller) needEnqueueObject(object interface{}, needCheckIngressClass bool) (rv bool) {
+	icConfig := c.icConfig
 	reason := ""
+	obj := object.(metav1.Object)
 	logTag := fmt.Sprintf("sync-ingress needqueue ingress %s/%s rv %v", obj.GetNamespace(), obj.GetName(), obj.GetResourceVersion())
 	log := func(format string, a ...interface{}) {
 		klog.Infof(fmt.Sprintf("%s: %s", logTag, format), a...)
@@ -922,13 +1043,15 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		log("result %v reason %s", rv, reason)
 	}()
 
-	annotations := obj.GetAnnotations()
-
-	ingressClass := annotations["kubernetes.io/ingress.class"]
-	if ingressClass != "" && ingressClass != config.Get("NAME") {
-		reason = fmt.Sprintf("invalid class %s name %s", ingressClass, config.Get("NAME"))
-		return false
+	if needCheckIngressClass {
+		ing := object.(*networkingv1.Ingress)
+		_, err := c.GetIngressClass(ing, icConfig)
+		if err != nil {
+			klog.InfoS("Ignoring ingress because of error while validating ingress class", "ingress", klog.KObj(obj), "error", err)
+			return false
+		}
 	}
+
 	alb, err := c.KubernetesDriver.LoadALBbyName(config.Get("NAMESPACE"), config.Get("NAME"))
 	if err != nil {
 		msg := fmt.Sprintf("get alb res failed, %+v", err)
@@ -957,14 +1080,14 @@ func (c *Controller) needEnqueueObject(obj metav1.Object) (rv bool) {
 		}
 		// for role=port alb user should create http and https ports before using ingress
 		if !(hasHTTPPort && hasHTTPSPort) {
-			reason = fmt.Sprintf("role port must have both http and https port ,http %v %v https %v %v", IngressHTTPPort, hasHTTPPort, IngressHTTPSPort, hasHTTPSPort)
+			reason = fmt.Sprintf("role port must have both http and https port, http %v %v, https %v %v", IngressHTTPPort, hasHTTPPort, IngressHTTPSPort, hasHTTPSPort)
 			return false
 		}
 		if (funk.Contains(httpPortProjects, m.ProjectALL) || funk.Contains(httpPortProjects, belongProject)) &&
 			(funk.Contains(httpsPortProjects, m.ProjectALL) || funk.Contains(httpsPortProjects, belongProject)) {
 			return true
 		}
-		reason = fmt.Sprintf("role poer,project not match http %v https %v belong %v", httpPortProjects, httpsPortProjects, belongProject)
+		reason = fmt.Sprintf("role port belong project %v, not match http %v, https %v", belongProject, httpPortProjects, httpsPortProjects)
 		return false
 	}
 

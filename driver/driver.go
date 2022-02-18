@@ -12,7 +12,7 @@ import (
 	v1 "k8s.io/client-go/informers/core/v1"
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -87,10 +87,11 @@ type Informers struct {
 }
 
 type K8sInformers struct {
-	Ingress   networkingV1.IngressInformer
-	Service   v1.ServiceInformer
-	Endpoint  v1.EndpointsInformer
-	Namespace v1.NamespaceInformer
+	Ingress      networkingV1.IngressInformer
+	IngressClass networkingV1.IngressClassInformer
+	Service      v1.ServiceInformer
+	Endpoint     v1.EndpointsInformer
+	Namespace    v1.NamespaceInformer
 }
 
 type AlbInformers struct {
@@ -111,6 +112,9 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	ingressInformer := kubeInformerFactory.Networking().V1().Ingresses()
 	ingressSynced := ingressInformer.Informer().HasSynced
+
+	ingressClassInformer := kubeInformerFactory.Networking().V1().IngressClasses()
+	ingressClassSynced := ingressClassInformer.Informer().HasSynced
 
 	serviceInformer := kubeInformerFactory.Core().V1().Services()
 	serviceSynced := serviceInformer.Informer().HasSynced
@@ -134,7 +138,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	albInformerFactory.Start(ctx.Done())
 
-	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(), namespaceSynced, ingressSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
+	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(), namespaceSynced, ingressSynced, ingressClassSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
 		if options.ErrorIfWaitSyncFail {
 			return nil, errors.New("wait alb2 informers sync fail")
 		}
@@ -142,10 +146,11 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	return &Informers{
 		K8s: K8sInformers{
-			Ingress:   ingressInformer,
-			Service:   serviceInformer,
-			Endpoint:  endpointInformer,
-			Namespace: namespaceInformer,
+			Ingress:      ingressInformer,
+			IngressClass: ingressClassInformer,
+			Service:      serviceInformer,
+			Endpoint:     endpointInformer,
+			Namespace:    namespaceInformer,
 		},
 		Alb: AlbInformers{
 			Alb:  alb2Informer,

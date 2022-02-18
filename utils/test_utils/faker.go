@@ -20,7 +20,7 @@ const DEFAULT_NS = "ns-1"
 
 var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"DOMAIN":               "alauda.io",
-	"TWEAK_DIRECTORY":      "../driver/texture", // set TWEAK_DIRECTORY to a exist path: make calculate hash happy
+	"TWEAK_DIRECTORY":      "../driver/texture", // set TWEAK_DIRECTORY to an existing path: make calculate hash happy
 	"NAME":                 "alb-1",
 	"NAMESPACE":            DEFAULT_NS,
 	"bindkey":              "loadbalancer.%s/bind",
@@ -43,11 +43,12 @@ type FakeALBResource struct {
 }
 
 type FakeK8sResource struct {
-	Namespaces []k8sv1.Namespace
-	Services   []k8sv1.Service
-	EndPoints  []k8sv1.Endpoints
-	Ingresses  []networkingv1.Ingress
-	Secrets    []k8sv1.Secret
+	Namespaces     []k8sv1.Namespace
+	Services       []k8sv1.Service
+	EndPoints      []k8sv1.Endpoints
+	Ingresses      []networkingv1.Ingress
+	IngressesClass []networkingv1.IngressClass
+	Secrets        []k8sv1.Secret
 }
 
 func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) (driver *albdriver.KubernetesDriver, informers *albdriver.Informers) {
@@ -72,6 +73,7 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 		&k8sv1.ServiceList{Items: fakeResource.K8s.Services},
 		&k8sv1.EndpointsList{Items: fakeResource.K8s.EndPoints},
 		&networkingv1.IngressList{Items: fakeResource.K8s.Ingresses},
+		&networkingv1.IngressClassList{Items: fakeResource.K8s.IngressesClass},
 		&k8sv1.SecretList{Items: fakeResource.K8s.Secrets},
 	}
 	drv.ALBClient = albFake.NewSimpleClientset(albDataset...)

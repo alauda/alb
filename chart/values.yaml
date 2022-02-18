@@ -17,6 +17,8 @@ defaultSSLCert: ""
 defaultSSLStrategy: Never
 ingressHTTPPort: 80
 ingressHTTPSPort: 443
+ingressClass: "alb2"
+ingressClassController: "alauda.io/alb2"
 metricsPort: 1936
 enableProfile: false
 workerLimit: 8

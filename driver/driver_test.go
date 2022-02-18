@@ -13,7 +13,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func TestMain(m *testing.M) {

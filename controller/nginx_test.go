@@ -19,7 +19,7 @@ import (
 	"testing"
 	"text/template"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func TestPolicies_Less(t *testing.T) {
