@@ -12,7 +12,7 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/utils"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type LegacyConfig = Config

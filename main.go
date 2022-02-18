@@ -5,7 +5,7 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/modules"
 	"context"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"os"
 	"os/signal"
 	"syscall"

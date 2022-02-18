@@ -2,15 +2,15 @@ package utils
 
 import (
 	"context"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"time"
 )
 
-// block and run fn after every delay, stop util ctx is done or fn runtime reach the timeout
+// UtilWithContextAndTimeout block and run fn after every delay, stop util ctx is done or fn runtime reach the timeout
 //
-//  wait a period first,and then run fn
+// wait a period first, and then run fn
 //
-//  if ctx is done, this function may not return immediately,but keep running util fn complete or fn timeout.
+// if ctx is done, this function may not return immediately, but keep running util fn complete or fn timeout
 func UtilWithContextAndTimeout(ctx context.Context, fn func(), timeout time.Duration, delay time.Duration) (isTimeout bool) {
 	for {
 		select {
@@ -25,8 +25,8 @@ func UtilWithContextAndTimeout(ctx context.Context, fn func(), timeout time.Dura
 	}
 }
 
-// block util fn is complete or timeout
-// notice that this function will leak a goroutine which run fn in background,if timeout.
+// UtilTimeout block fn until fn is complete or timeout
+// notice that this function will leak a goroutine which run fn in background, until timeout
 func UtilTimeout(fn func(), timeout time.Duration) (isTimeout bool) {
 	signalCh := make(chan struct{})
 	// there is no way to stop this go routine, the only thing we could do is os.Exit when timeout.

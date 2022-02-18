@@ -21,7 +21,7 @@ import (
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/utils"
 	"context"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type NginxController struct {

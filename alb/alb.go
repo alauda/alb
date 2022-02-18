@@ -9,7 +9,7 @@ import (
 	"alauda.io/alb2/utils"
 	"context"
 	"flag"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"net/http"
 	"os"
 	"os/exec"
@@ -58,7 +58,7 @@ func Start(ctx context.Context) {
 
 	klog.Info("SERVE_INGRESS:", config.GetBool("SERVE_INGRESS"))
 	if config.GetBool("SERVE_INGRESS") {
-		ingressController := ingress.NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.Namespace.Lister())
+		ingressController := ingress.NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.IngressClass, informers.K8s.Namespace.Lister())
 		go ingressController.Start(ctx)
 	}
 

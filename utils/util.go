@@ -1,4 +1,4 @@
-// any function defined here MUST be pure function.
+// Package utils: any function defined here MUST be pure function.
 package utils
 
 import "sync"

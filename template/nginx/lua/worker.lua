@@ -165,7 +165,7 @@ local function update_http_cache(policy, old_policy)
 end
 
 ---@return boolean
-local function is_htp_subsystem()
+local function is_http_subsystem()
     return current_subsystem == HTTP_SUBSYSTEM
 end
 
@@ -192,7 +192,7 @@ local function _fetch_policy(policy_raw)
     end
     ngx_shared[current_subsystem .. "_raw"]:set("raw", policy_raw)
 
-    if is_htp_subsystem() then
+    if is_http_subsystem() then
         update_http_cache(policy_data, old_policy_data)
         return
     end
@@ -235,7 +235,7 @@ clean_metrics = function(premature)
     if premature then
         return
     end
-    if is_htp_subsystem() then
+    if is_http_subsystem() then
         require("metrics").clear()
     end
 end

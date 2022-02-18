@@ -396,9 +396,9 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 	Logf("created svc %+v", svc)
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 	subSetAddress := []corev1.EndpointAddress{}
-	for _, addres := range ingressCase.Eps {
+	for _, address := range ingressCase.Eps {
 		subSetAddress = append(subSetAddress, corev1.EndpointAddress{
-			IP: addres,
+			IP: address,
 		})
 	}
 	subSetPort := []corev1.EndpointPort{}
@@ -480,9 +480,9 @@ func (f *Framework) InitDefaultSvc(name string, ep []string) {
 			}},
 	}, metav1.CreateOptions{})
 
-	addres := []corev1.EndpointAddress{}
+	address := []corev1.EndpointAddress{}
 	for _, ip := range ep {
-		addres = append(addres, corev1.EndpointAddress{IP: ip})
+		address = append(address, corev1.EndpointAddress{IP: ip})
 	}
 	f.k8sClient.CoreV1().Endpoints(ns).Create(f.ctx, &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
@@ -492,7 +492,7 @@ func (f *Framework) InitDefaultSvc(name string, ep []string) {
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
-				Addresses: addres,
+				Addresses: address,
 				Ports:     []corev1.EndpointPort{{Port: 80}},
 			},
 		},
