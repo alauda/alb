@@ -21,10 +21,7 @@ const (
 	IngressKey = "kubernetes.io/ingress.class"
 
 	// DefaultControllerName defines the default controller name for Ingress controller alb2
-	DefaultControllerName = "alauda.io/alb2"
-
-	// DefaultAnnotationValue defines the default annotation value for the alb2 ingress controller
-	DefaultAnnotationValue = "alb2"
+	DefaultControllerName = "alb2"
 )
 
 var ConfigString sync.Map
