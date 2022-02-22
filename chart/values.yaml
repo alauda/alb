@@ -17,8 +17,7 @@ defaultSSLCert: ""
 defaultSSLStrategy: Never
 ingressHTTPPort: 80
 ingressHTTPSPort: 443
-ingressClass: "alb2"
-ingressClassController: "alauda.io/alb2"
+ingressController: "alb2"
 metricsPort: 1936
 enableProfile: false
 workerLimit: 8
@@ -28,7 +27,7 @@ cleanMetricsInterval: 2592000
 backlog: 2048
 global:
   platformscenario: base
-  labelBaseDomain: alauda.io
+  labelBaseDomain: cpaas.io
   namespace: alauda-system
   registry:
     address: harbor.alauda.cn

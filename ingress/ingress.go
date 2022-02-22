@@ -236,6 +236,9 @@ func NewController(
 		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.Get("NAME")), Host: hostname},
 	)
 
+	domain := config.Get("DOMAIN")
+	ControllerName := fmt.Sprintf("%s/%s", domain, config.DefaultControllerName)
+
 	controller := &Controller{
 		ingressLister:         ingressInformer.Lister(),
 		ingressClassAllLister: ingressClassInformer.Lister(),
@@ -250,8 +253,8 @@ func NewController(
 		KubernetesDriver: d,
 
 		icConfig: &config.IngressClassConfiguration{
-			Controller:         config.DefaultControllerName,
-			AnnotationValue:    config.DefaultAnnotationValue,
+			Controller:         ControllerName,
+			AnnotationValue:    config.DefaultControllerName,
 			WatchWithoutClass:  true,
 			IgnoreIngressClass: false,
 			IngressClassByName: true,
