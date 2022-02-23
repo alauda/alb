@@ -144,8 +144,8 @@ func (c *Controller) GetIngressClass(ing *networkingv1.Ingress, icConfig *config
 
 	// Then we try annotation
 	if ingressClass, ok := ing.GetAnnotations()[config.IngressKey]; ok {
-		if ingressClass != icConfig.AnnotationValue {
-			return "", fmt.Errorf("ingress class annotation is not equal to the expected alb2")
+		if ingressClass != "" && ingressClass != config.Get("NAME") {
+			return "", fmt.Errorf("invalid ingress class annotation: %s", ingressClass)
 		}
 		return ingressClass, nil
 	}
