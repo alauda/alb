@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ func generateServiceKey(ns string, name string, protocol apiv1.Protocol, svcPort
 }
 
 // 找到service 对应的后端
-func generateBackend(backendMap map[string][]*driver.Backend, services []*BackendService, protocol apiv1.Protocol) []*Backend {
+func generateBackend(backendMap map[string][]*driver.Backend, services []*BackendService, protocol apiv1.Protocol) Backends {
 	totalWeight := 0
 	for _, svc := range services {
 		if svc.Weight > 100 {
@@ -81,7 +82,7 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 				})
 		}
 	}
-	return bes
+	return Backends(bes)
 }
 
 func sameFiles(file1, file2 string) bool {

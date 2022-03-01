@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
+	"os"
 	"sort"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/clientcmd"
+	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
+	gatewayLister "sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/modules"
@@ -24,48 +30,119 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1lister "k8s.io/client-go/listers/core/v1"
+
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
+type Backend struct {
+	InstanceID string `json:"instance_id"`
+	IP         string `json:"ip"`
+	Port       int    `json:"port"`
+}
+
+func (b *Backend) String() string {
+	return fmt.Sprintf("%s:%d", b.IP, b.Port)
+}
+
+type ByBackend []*Backend
+
+func (b ByBackend) Len() int {
+	return len(b)
+}
+
+func (b ByBackend) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b ByBackend) Less(i, j int) bool {
+	return fmt.Sprintf("%s-%d", b[i].IP, b[i].Port) < fmt.Sprintf("%s-%d", b[j].IP, b[j].Port)
+}
+
+type Service struct {
+	Name        string     `json:"service_name"`
+	Namespace   string     `json:"namespace"`
+	NetworkMode string     `json:"network_mode"`
+	ServicePort int        `json:"service_port"`
+	Backends    []*Backend `json:"backends"`
+}
+
+type NodePort struct {
+	Name      string
+	Labels    map[string]string
+	Ports     []int
+	Selector  map[string]string
+	Namespace string
+}
+
 type KubernetesDriver struct {
 	DynamicClient  dynamic.Interface
 	Client         kubernetes.Interface
+	GatewayClient  gatewayVersioned.Interface
+	Informers      Informers
 	ALBClient      albclient.Interface
 	ALB2Lister     v1.ALB2Lister
 	FrontendLister v1.FrontendLister
 	RuleLister     v1.RuleLister
 	ServiceLister  corev1lister.ServiceLister
 	EndpointLister corev1lister.EndpointsLister
+	GatewayLister  gatewayLister.GatewayLister
+}
+
+func GetDriver() (*KubernetesDriver, error) {
+	// TEST != "" means we are debugging or testing
+	testMode := config.Get("TEST") == "true"
+	return GetKubernetesDriver(testMode)
+}
+
+func (kd *KubernetesDriver) GetType() string {
+	return config.Kubernetes
+}
+
+func GetKubeCfg() (*rest.Config, error) {
+	cf, err := rest.InClusterConfig()
+	if err == nil {
+		return cf, nil
+	}
+	klog.Infof("driver: out cluster")
+	// respect KUBECONFIG env
+	if os.Getenv("USE_KUBECONFIG") == "true" {
+		klog.Infof("driver: use kube")
+		kubecfg := os.Getenv("KUBECONFIG")
+		cf, err := clientcmd.BuildConfigFromFlags("", kubecfg)
+		return cf, err
+	}
+
+	// respect KUBERNETES_XXX env. only used for test
+	host := config.Get("KUBERNETES_SERVER")
+	if host == "" {
+		return nil, fmt.Errorf("invalid host from KUBERNETES_SERVER env")
+	}
+	klog.Infof("driver: k8s host is %v", host)
+	tlsClientConfig := rest.TLSClientConfig{Insecure: true}
+	cf = &rest.Config{
+		Host:            host,
+		BearerToken:     config.Get("KUBERNETES_BEARERTOKEN"),
+		TLSClientConfig: tlsClientConfig,
+	}
+	return cf, nil
 }
 
 func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
+	klog.Infof("fake mode %v", isFake)
 	var client kubernetes.Interface
 	var albClient albclient.Interface
 	var dynamicClient dynamic.Interface
+	var gatewayClient gatewayVersioned.Interface
 	if isFake {
-		// placeholder will reset in test
 		client = fake.NewSimpleClientset()
 		albClient = albfakeclient.NewSimpleClientset()
 		dynamicClient = dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
+		gatewayClient = gatewayFakeClient.NewSimpleClientset()
 	} else {
-		var cf *rest.Config
-		var err error
-		cf, err = rest.InClusterConfig()
+		cf, err := GetKubeCfg()
 		if err != nil {
-			// only used for test
-			host := config.Get("KUBERNETES_SERVER")
-			if host != "" {
-				klog.Infof("driver: k8s host is %v", host)
-				tlsClientConfig := rest.TLSClientConfig{Insecure: true}
-				cf = &rest.Config{
-					Host:            host,
-					BearerToken:     config.Get("KUBERNETES_BEARERTOKEN"),
-					TLSClientConfig: tlsClientConfig,
-				}
-			} else {
-				return nil, err
-			}
+			return nil, err
 		}
 		client, err = kubernetes.NewForConfig(cf)
 		if err != nil {
@@ -79,21 +156,27 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 		if err != nil {
 			return nil, err
 		}
+		gatewayClient, err = gatewayVersioned.NewForConfig(cf)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient}, nil
+	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient}, nil
 }
 
-func (kd *KubernetesDriver) GetType() string {
-	return config.Kubernetes
-}
-
-func (kd *KubernetesDriver) FillUpListers(serviceLister corev1lister.ServiceLister, endpointLister corev1lister.EndpointsLister,
-	alb2Lister v1.ALB2Lister, frontendLister v1.FrontendLister, ruleLister v1.RuleLister) {
-	kd.ServiceLister = serviceLister
-	kd.EndpointLister = endpointLister
-	kd.ALB2Lister = alb2Lister
-	kd.FrontendLister = frontendLister
-	kd.RuleLister = ruleLister
+func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
+	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
+	if err != nil {
+		return err
+	}
+	driver.Informers = *informers
+	driver.ServiceLister = informers.K8s.Service.Lister()
+	driver.EndpointLister = informers.K8s.Endpoint.Lister()
+	driver.ALB2Lister = driver.Informers.Alb.Alb.Lister()
+	driver.FrontendLister = driver.Informers.Alb.Ft.Lister()
+	driver.RuleLister = driver.Informers.Alb.Rule.Lister()
+	driver.GatewayLister = driver.Informers.Gateway.Gateway.Lister()
+	return nil
 }
 
 // GetClusterIPAddress return addresses of a clusterip service by using cluster ip and service port

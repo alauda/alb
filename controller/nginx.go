@@ -1,14 +1,8 @@
 package controller
 
 import (
-	m "alauda.io/alb2/modules"
-	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
 	"fmt"
-	"github.com/thoas/go-funk"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"os/exec"
 	"sort"
@@ -17,10 +11,22 @@ import (
 	"text/template"
 	"time"
 
-	"alauda.io/alb2/config"
-	"alauda.io/alb2/driver"
-	"alauda.io/alb2/utils"
+	m "alauda.io/alb2/modules"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"github.com/thoas/go-funk"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"context"
+
+	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/driver"
+	g "alauda.io/alb2/gateway"
+	gateway "alauda.io/alb2/gateway/nginx"
+	"alauda.io/alb2/utils"
+	. "alauda.io/alb2/utils/log"
 	"k8s.io/klog/v2"
 )
 
@@ -65,6 +71,7 @@ type NgxPolicy struct {
 type HttpPolicy struct {
 	Tcp map[int]Policies `json:"tcp"`
 }
+
 type StreamPolicy struct {
 	Tcp map[int]Policies `json:"tcp"`
 	Udp map[int]Policies `json:"udp"`
@@ -119,20 +126,59 @@ func (nc *NginxController) GenerateConf() error {
 	return nil
 }
 
-func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig NginxTemplateConfig, nginxPolicy NgxPolicy, err error) {
-
+func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 	ns := config.Get("NAMESPACE")
 	name := config.Get("NAME")
-	alb, err := nc.getAlb(ns, name)
+	lb, err := nc.GetLBConfigFromAlb(ns, name)
+	if err != nil {
+		return nil, err
+	}
+	detectAndMaskConflictPort(lb, nc.Driver)
+	migratePortProject(lb, nc.Driver)
+
+	if !config.GetBool("ENABLE_GATEWAY") {
+		return lb, nil
+	}
+	if config.GetBool("DISABLE_GATEWAY_NGINX_CONFIG") {
+		return lb, nil
+	}
+	log := L().WithName(g.ALB_GATEWAY_NGINX)
+	lbFromGateway, err := gateway.GetLBConfig(context.Background(), nc.Driver, name)
+	if err != nil {
+		log.Error(err, "get lb from gateway fail", "class", name)
+		return nil, err
+	}
+	// no gateway found
+	if lbFromGateway == nil {
+		log.Info("no gateway found ignore")
+		return lb, nil
+	}
+
+	log.V(2).Info("lb config from gateway ", "lbconfig", lbFromGateway)
+	lb, err = nc.MergeLBConfig(lb, lbFromGateway)
+	if err != nil {
+		log.Error(err, "merge config fail ")
+		return nil, err
+	}
+	return lb, err
+}
+
+func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig NginxTemplateConfig, nginxPolicy NgxPolicy, err error) {
+	alb, err := nc.GetLBConfig()
+	if err != nil {
+		return NginxTemplateConfig{}, NgxPolicy{}, err
+	}
+	err = nc.fillUpBackends(alb)
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
 
 	if len(alb.Frontends) == 0 {
-		klog.Info("No service bind to this nginx now")
+		ns := config.Get("NAMESPACE")
+		name := config.Get("NAME")
+		klog.Infof("No service bind to this nginx now %v/%v", ns, name)
 	}
-	detectAndMaskConflictPort(alb, nc.Driver)
-	migratePortProject(alb, nc.Driver)
+
 	nginxPolicy = nc.generateAlbPolicy(alb)
 	phase := config.Get("PHASE")
 	if phase != m.PhaseTerminating {
@@ -145,12 +191,13 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	return *cfg, nginxPolicy, nil
 }
 
-// get alb which defined in controller package.
-func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error) {
+// GetLBConfigFromAlb get lb config from alb/ft/rule.
+func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBalancer, error) {
 	// mAlb LoadBalancer struct from modules package.
 	// cAlb LoadBalancer struct from controller package.
 	kd := nc.Driver
 	mAlb, err := kd.LoadALBbyName(ns, name)
+	klog.Infof("get alb %+v", mAlb)
 	if err != nil {
 		klog.Error("load mAlb fail", err)
 		return nil, err
@@ -167,7 +214,7 @@ func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error)
 	// mft frontend struct from modules package.
 	for _, mft := range mAlb.Frontends {
 		ft := &Frontend{
-			RawName:         mft.Name,
+			FtName:          mft.Name,
 			AlbName:         mAlb.Name,
 			Port:            mft.Port,
 			Protocol:        mft.Protocol,
@@ -177,12 +224,12 @@ func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error)
 			Labels:          mft.Lables,
 		}
 		if !ft.IsValidProtocol() {
-			klog.Errorf("frontend %s %s has no valid protocol", ft.RawName, ft.Protocol)
+			klog.Errorf("frontend %s %s has no valid protocol", ft.FtName, ft.Protocol)
 			ft.Protocol = albv1.FtProtocolTCP
 		}
 
 		if ft.Port <= 0 {
-			klog.Errorf("frontend %s has an invalid port %d", ft.RawName, ft.Port)
+			klog.Errorf("frontend %s has an invalid port %d", ft.FtName, ft.Port)
 			continue
 		}
 
@@ -247,6 +294,10 @@ func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error)
 
 		cAlb.Frontends = append(cAlb.Frontends, ft)
 	}
+	return cAlb, nil
+}
+
+func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 
 	services := nc.LoadServices(cAlb)
 
@@ -281,23 +332,24 @@ func (nc *NginxController) getAlb(ns string, name string) (*LoadBalancer, error)
 		}
 
 		if len(ft.Services) == 0 {
-			klog.Infof("frontend %s has no default service.", ft.String())
+			klog.Warningf("frontend %s has no default service.", ft.String())
 		}
 		if len(ft.Services) != 0 {
 			// set ft default services group.
 			ft.BackendGroup.Backends = generateBackend(backendMap, ft.Services, protocol)
-			if ft.Protocol == albv1.FtProtocolTCP {
+			switch ft.Protocol {
+			case albv1.FtProtocolTCP:
 				ft.BackendGroup.Mode = ModeTCP
-			} else if ft.Protocol == albv1.FtProtocolUDP {
+			case albv1.FtProtocolUDP:
 				ft.BackendGroup.Mode = ModeUDP
 			}
 		}
 	}
-
 	klog.V(3).Infof("Get alb : %s", cAlb.String())
-	return cAlb, nil
+	return nil
 }
 
+// fetch cert and backend info that lb config neeed, constructs a "dynamic config" used by openresty.
 func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	certificateMap := getCertMap(alb, nc.Driver)
 	backendGroup := pickAllBackendGroup(alb)
@@ -315,18 +367,20 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 		}
 		if ft.IsStreamMode() {
 			if ft.BackendGroup == nil || ft.BackendGroup.Backends == nil {
-				klog.Warningf("ft %s,stream mode ft must have backend group", ft.RawName)
+				klog.Warningf("ft %s,stream mode ft must have backend group", ft.FtName)
 			}
 			if ft.Protocol == albv1.FtProtocolTCP {
 				policy := Policy{}
 				policy.Subsystem = SubsystemStream
 				policy.Upstream = ft.BackendGroup.Name
+				policy.Rule = ft.BackendGroup.Name
 				ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
 			}
 			if ft.Protocol == albv1.FtProtocolUDP {
 				policy := Policy{}
 				policy.Subsystem = SubsystemStream
 				policy.Upstream = ft.BackendGroup.Name
+				policy.Rule = ft.BackendGroup.Name
 				ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
 			}
 		}
@@ -376,9 +430,9 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 			// set default rule if ft have default backend.
 			if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
 				defaultPolicy := Policy{}
-				defaultPolicy.Rule = ft.RawName
-				defaultPolicy.Priority = -1     // default rule should have the lowest priority
-				defaultPolicy.RawPriority = 999 // bigger number means lower priority
+				defaultPolicy.Rule = ft.FtName
+				defaultPolicy.Priority = -1     // default rule should have the minimum priority
+				defaultPolicy.RawPriority = 999 // minimum number means higher priority
 				defaultPolicy.Subsystem = SubsystemHTTP
 				defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 				defaultPolicy.BackendProtocol = ft.BackendProtocol
@@ -415,7 +469,7 @@ func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDrive
 					break
 				}
 			}
-			if err := driver.UpdateFrontendStatus(ft.RawName, conflict); err != nil {
+			if err := driver.UpdateFrontendStatus(ft.FtName, conflict); err != nil {
 				klog.Error(err)
 			}
 		}
@@ -488,7 +542,7 @@ func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
 		}
 		if GetAlbRoleType(alb.Labels) == RolePort && portInfo != nil {
 			// current projects
-			portProjects := GetOwnProjects(ft.RawName, ft.Labels)
+			portProjects := GetOwnProjects(ft.FtName, ft.Labels)
 			// desired projects
 			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
 			if err != nil {
@@ -498,8 +552,8 @@ func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
 			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
-				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.RawName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
-					klog.Errorf("patch port %s project failed, %v", ft.RawName, err)
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
+					klog.Errorf("patch port %s project failed, %v", ft.FtName, err)
 				}
 			}
 		}
@@ -549,7 +603,7 @@ func (nc *NginxController) LoadServices(alb *LoadBalancer) map[string]*driver.Se
 		for _, svc := range ft.Services {
 			err := getServiceWithCache(svc, protocol, svcMap)
 			if err != nil {
-				klog.Errorf("get backends for ft fail svc %s/%s port %d protocol %s ft %s err %v", svc.ServiceName, svc.ServiceNs, svc.ServicePort, protocol, ft.RawName, err)
+				klog.Errorf("get backends for ft fail svc %s/%s port %d protocol %s ft %s err %v", svc.ServiceName, svc.ServiceNs, svc.ServicePort, protocol, ft.FtName, err)
 			}
 		}
 
@@ -685,4 +739,23 @@ func (nc *NginxController) GC() error {
 	klog.Info("begin gc rule")
 	defer klog.Infof("end gc rule, spend time %s", time.Since(start))
 	return GCRule(nc.Driver, gcOpt)
+}
+
+func (nc *NginxController) MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, error) {
+	ftInAlb := make(map[string]string)
+	for _, ft := range alb.Frontends {
+		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)
+		ftInAlb[key] = ft.FtName
+	}
+	for _, ft := range gateway.Frontends {
+		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)
+		albFtName, find := ftInAlb[key]
+		if find {
+			klog.Warningf("merge-gateway: find conflict port %v between gateway %v and alb %v ignore this gateway ft", ft.Port, ft.FtName, albFtName)
+			continue
+		}
+		alb.Frontends = append(alb.Frontends, ft)
+	}
+
+	return alb, nil
 }

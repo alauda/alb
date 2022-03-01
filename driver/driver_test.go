@@ -131,15 +131,7 @@ func TestLoadALByName(t *testing.T) {
 	k8sDataset := []runtime.Object{}
 	driver.ALBClient = albFake.NewSimpleClientset(albDataset...)
 	driver.Client = fake.NewSimpleClientset(k8sDataset...)
-
-	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
-	a.NoError(err)
-	driver.FillUpListers(
-		informers.K8s.Service.Lister(),
-		informers.K8s.Endpoint.Lister(),
-		informers.Alb.Alb.Lister(),
-		informers.Alb.Ft.Lister(),
-		informers.Alb.Rule.Lister())
+	InitDriver(driver, ctx)
 
 	alb, err := driver.LoadALBbyName(defaultNs, "alb-1")
 	a.NoError(err)

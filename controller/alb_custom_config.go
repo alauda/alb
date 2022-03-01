@@ -1,10 +1,11 @@
 package controller
 
 import (
-	"alauda.io/alb2/config"
 	"encoding/json"
 	"fmt"
 
+	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
 	"k8s.io/klog/v2"
 )
 
@@ -15,36 +16,13 @@ func GetAlbRuleRewriteResponseAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-response", config.Get("DOMAIN"))
 }
 
-type RuleConfig struct {
-	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
-}
-type RewriteResponseConfig struct {
-	Headers map[string]string `json:"headers,omitempty"`
-}
-
-func (r RewriteResponseConfig) isEmpty() bool {
-	return len(r.Headers) == 0
-}
-
-func (r RuleConfig) ToJsonString() (string, error) {
-	ret, err := json.Marshal(&r)
-	return string(ret), err
-}
-
-func (r RuleConfig) isEmpty() bool {
-	if r.RewriteResponse != nil && !r.RewriteResponse.isEmpty() {
-		return false
-	}
-	return true
-}
-
 func rewriteResponseConfigFromJson(jsonStr string) (*RewriteResponseConfig, error) {
 	cfg := RewriteResponseConfig{}
 	err := json.Unmarshal([]byte(jsonStr), &cfg)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.isEmpty() {
+	if cfg.IsEmpty() {
 		return nil, fmt.Errorf("empty config")
 	}
 	return &cfg, err
@@ -76,7 +54,7 @@ func RuleConfigFromRuleAnnotation(ruleName string, annotation map[string]string)
 			cfg.RewriteResponse = rewriteCfg
 		}
 	}
-	if cfg.isEmpty() {
+	if cfg.IsEmpty() {
 		return nil
 	}
 	return &cfg

@@ -34,6 +34,7 @@ var (
 	ErrUnsupportedExp = errors.New("unsupported exp")
 )
 
+// deprecated
 // isBracketBalance checks if rawDSL is valid,
 // for legacy dsl attribute left and right brackets must be in pairs
 func isBracketBalance(rawDSL string) bool {
@@ -60,6 +61,7 @@ func isBracketBalance(rawDSL string) bool {
 	return true
 }
 
+// deprecated
 func tokenizer(rawDSL string) []string {
 	var (
 		token          string
@@ -89,6 +91,7 @@ func tokenizer(rawDSL string) []string {
 	return tokens
 }
 
+// deprecated
 // parseTokens turns tokens to ast
 // note: golang pass-by-copy so we need return param explicitly
 func parseTokens(tokens []string) (exp []interface{}, newTokens []string, flag bool, err error) {
@@ -124,6 +127,7 @@ func parseTokens(tokens []string) (exp []interface{}, newTokens []string, flag b
 	return exp, tokens, false, nil
 }
 
+// deprecated
 func generateTerm(atomExp []string) v1.DSLXTerm {
 	term := v1.DSLXTerm{
 		Type: atomExp[1],
@@ -146,6 +150,7 @@ func generateTerm(atomExp []string) v1.DSLXTerm {
 	return term
 }
 
+// deprecated
 func mergeTerms(terms []v1.DSLXTerm) (v1.DSLXTerm, error) {
 	var term v1.DSLXTerm
 	if len(terms) == 0 {
@@ -159,6 +164,7 @@ func mergeTerms(terms []v1.DSLXTerm) (v1.DSLXTerm, error) {
 	return term, nil
 }
 
+// deprecated
 func generateDSLX(exp []interface{}) (v1.DSLX, error) {
 	var dslx v1.DSLX
 	if len(exp) == 0 {
@@ -223,6 +229,7 @@ func generateDSLX(exp []interface{}) (v1.DSLX, error) {
 	return dslx, nil
 }
 
+// deprecated
 func DSL2DSLX(rawDSL string) (v1.DSLX, error) {
 	if !isBracketBalance(rawDSL) {
 		return nil, errors.New("invalid dsl")

@@ -1,23 +1,25 @@
 package controller
 
 import (
-	"alauda.io/alb2/config"
-	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"alauda.io/alb2/utils"
-	"alauda.io/alb2/utils/test_utils"
 	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"text/template"
+
+	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils"
+	"alauda.io/alb2/utils/test_utils"
+	"github.com/stretchr/testify/assert"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"k8s.io/klog/v2"
 )
@@ -82,7 +84,7 @@ func TestPolicies_Less(t *testing.T) {
 func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	drv, _ := test_utils.InitFakeAlb(t, ctx, res, test_utils.DEFAULT_CONFIG_FOR_TEST)
+	drv := test_utils.InitFakeAlb(t, ctx, res, test_utils.DEFAULT_CONFIG_FOR_TEST)
 	ctl := NewNginxController(drv)
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
@@ -924,7 +926,6 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			},
 			Assert: func(p NgxPolicy, cfg string) {
-				t.Logf("xx")
 				assert.Equal(t, len(p.CertificateMap), 2)
 				assert.Equal(t, p.CertificateMap["443"].Key, certAKey)
 				assert.Equal(t, p.CertificateMap["443"].Cert, certACert)

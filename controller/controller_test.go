@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	. "alauda.io/alb2/controller/types"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/test_utils"
@@ -657,7 +658,7 @@ func TestGCRule(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		a := assert.New(t)
 		defer cancel()
-		drv, _ := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
+		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
 
 		actions, err := calculateGCActions(drv, GCOptions{
 			GCAppRule:     true,

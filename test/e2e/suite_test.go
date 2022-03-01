@@ -2,55 +2,36 @@ package e2e
 
 import (
 	"alauda.io/alb2/test/e2e/framework"
-	"fmt"
 	"github.com/stretchr/testify/assert"
-	"os"
+
+	"path/filepath"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"testing"
 )
 
 var cfg *rest.Config
 var testEnv *envtest.Environment
 
 var _ = BeforeSuite(func() {
-	albCrdDir := filepath.Join("..", "../", "chart", "crds")
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{albCrdDir},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "../", "chart", "crds/alb"),
+			filepath.Join("..", "../", "chart", "crds/gateway/v1alpha2/experimental"),
+		},
 	}
 
 	cfg, err := testEnv.Start()
 	assert.NoError(GinkgoT(), err)
-	framework.Logf("start up envtest host %v", cfg.Host)
-
-	kubeconfig := os.Getenv("ENV_TEST_KUBECONFIG")
-	if kubeconfig != "" {
-		os.RemoveAll(kubeconfig)
-		os.WriteFile(kubeconfig, []byte(fmt.Sprintf(`apiVersion: v1
-clusters:
-- cluster:
-    server: http://%s
-  name: env-test
-contexts:
-- context:
-    cluster: env-test
-    user: env
-  name: env
-current-context: env
-kind: Config
-preferences: {}
-users:
-- name: env`, cfg.Host)), os.ModePerm)
-	}
-
+	p, err := framework.InitKubeCfg(cfg)
+	assert.NoError(GinkgoT(), err)
+	framework.Logf("start up envtest %+v in kubecfg %v", cfg.Host, p)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
-	framework.EnvTestCfgToEnv(cfg)
 })
 
 var _ = AfterSuite(func() {

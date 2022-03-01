@@ -1,17 +1,25 @@
 package framework
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
+	"math/rand"
+	"net"
+	"net/url"
+	"os/exec"
+	"time"
+
 	"github.com/onsi/ginkgo"
 	"github.com/thedevsaddam/gojsonq/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"math/rand"
-	"net"
-	"time"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	kcapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -111,4 +119,67 @@ func ListenTcp(port string, stopCh chan struct{}) {
 
 func ListenUdp(port string, stopCh chan struct{}) {
 	listen("udp", ":"+port, stopCh)
+}
+
+func KubeConfigFromREST(cfg *rest.Config, envtestName string) ([]byte, error) {
+	kubeConfig := kcapi.NewConfig()
+	protocol := "https"
+	if !rest.IsConfigTransportTLS(*cfg) {
+		protocol = "http"
+	}
+
+	// cfg.Host is a URL, so we need to parse it so we can properly append the API path
+	baseURL, err := url.Parse(cfg.Host)
+	if err != nil {
+		return nil, fmt.Errorf("unable to interpret config's host value as a URL: %w", err)
+	}
+
+	kubeConfig.Clusters[envtestName] = &kcapi.Cluster{
+		// TODO(directxman12): if client-go ever decides to expose defaultServerUrlFor(config),
+		// we can just use that.  Note that this is not the same as the public DefaultServerURL,
+		// which requires us to pass a bunch of stuff in manually.
+		Server:                   (&url.URL{Scheme: protocol, Host: baseURL.Host, Path: cfg.APIPath}).String(),
+		CertificateAuthorityData: cfg.CAData,
+	}
+	kubeConfig.AuthInfos[envtestName] = &kcapi.AuthInfo{
+		// try to cover all auth strategies that aren't plugins
+		ClientCertificateData: cfg.CertData,
+		ClientKeyData:         cfg.KeyData,
+		Token:                 cfg.BearerToken,
+		Username:              cfg.Username,
+		Password:              cfg.Password,
+	}
+	kcCtx := kcapi.NewContext()
+	kcCtx.Cluster = envtestName
+	kcCtx.AuthInfo = envtestName
+	kubeConfig.Contexts[envtestName] = kcCtx
+	kubeConfig.CurrentContext = envtestName
+
+	contents, err := clientcmd.Write(*kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to serialize kubeconfig file: %w", err)
+	}
+	return contents, nil
+}
+
+func Template(templateStr string, data map[string]interface{}) string {
+	buf := new(bytes.Buffer)
+	t, err := template.New("s").Parse(templateStr)
+	if err != nil {
+		panic(err)
+	}
+	err = t.Execute(buf, data)
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
+}
+
+func Kubectl(options ...string) (string, error) {
+	cmd := exec.Command("kubectl", options...)
+	stdout, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("%s err: %v", stdout, err)
+	}
+	return string(stdout), nil
 }

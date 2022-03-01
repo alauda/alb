@@ -36,4 +36,8 @@ if [ "$LB_TYPE" = "nginx" ]; then
     ulimit -c 0
 fi
 
+if [ -n "$TAIL_MODE" ] ;then
+    echo "tail mode wait forever"
+    tail -f /dev/null
+fi
 /alb/alb $ARGS

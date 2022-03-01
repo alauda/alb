@@ -1,8 +1,10 @@
 package framework
 
 import (
-	"github.com/stretchr/testify/assert"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestJsonEq(t *testing.T) {
@@ -50,4 +52,9 @@ func TestJsonEq(t *testing.T) {
 	assert.True(t, hasRule)
 	hasPod := PolicyHasBackEnds(jsonStr, "alb-dev-00080-mzm6", `[map[address:192.168.1.0 port:80 weight:50] map[address:192.168.1.2 port:80 weight:50]]`)
 	assert.True(t, hasPod)
+}
+
+func TestKubectlApply(t *testing.T) {
+	ret, err := Kubectl("apply", "-f", "/tmp/alb-e2e-test/kubectl/7530568567956617447", "--kubeconfig", "/home/cong/.kube/alb-env-test")
+	fmt.Printf("ret %v err %v", ret, err)
 }

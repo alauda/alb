@@ -1,16 +1,19 @@
 package controller
 
 import (
-	"alauda.io/alb2/config"
-	"alauda.io/alb2/driver"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/thoas/go-funk"
 	"strings"
 	"sync"
 	"time"
 
+	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
+	"github.com/thoas/go-funk"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 )
 
@@ -58,7 +61,7 @@ func needRelock(lockString string) bool {
 		klog.Error(err)
 		return true
 	}
-	if lock.LockUntil.Sub(time.Now()) <= 30*time.Second {
+	if time.Until(lock.LockUntil) <= 30*time.Second {
 		return true
 	}
 
@@ -134,7 +137,7 @@ func TryLockAlbAndUpdateAlbStatus(kd *driver.KubernetesDriver) error {
 	for _, ft := range fts {
 		if ft.Status.Instances != nil {
 			for _, v := range ft.Status.Instances {
-				if v.Conflict == true {
+				if v.Conflict {
 					state = "warning"
 					reason = "port conflict"
 					break
@@ -231,4 +234,20 @@ func getProjectFromLabel(k, v string) string {
 		}
 	}
 	return ""
+}
+
+func WaitUtilIMLeader(ctx context.Context, driver *driver.KubernetesDriver) error {
+	interval := config.GetInt("INTERVAL")
+	err := wait.PollInfinite(time.Duration(interval)*time.Second, func() (bool, error) {
+		isLeader, err := IsLocker(driver)
+		if err != nil {
+			klog.Errorf("not leader: %s", err.Error())
+			return false, nil
+		}
+		if isLeader {
+			return true, nil
+		}
+		return false, nil
+	})
+	return err
 }

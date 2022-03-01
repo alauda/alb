@@ -3,7 +3,6 @@ package driver
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"alauda.io/alb2/config"
 	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
@@ -12,78 +11,15 @@ import (
 	v1 "k8s.io/client-go/informers/core/v1"
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
+	gatewayExternal "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	gatewayV1alpha2 "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions/apis/v1alpha2"
 )
-
-const (
-	OwnerUnknown = "Unknown"
-)
-
-type Backend struct {
-	InstanceID string `json:"instance_id"`
-	IP         string `json:"ip"`
-	Port       int    `json:"port"`
-}
-
-func (b *Backend) String() string {
-	return fmt.Sprintf("%s:%d", b.IP, b.Port)
-}
-
-type ByBackend []*Backend
-
-func (b ByBackend) Len() int {
-	return len(b)
-}
-
-func (b ByBackend) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
-func (b ByBackend) Less(i, j int) bool {
-	return fmt.Sprintf("%s-%d", b[i].IP, b[i].Port) < fmt.Sprintf("%s-%d", b[j].IP, b[j].Port)
-}
-
-type Service struct {
-	Name        string     `json:"service_name"`
-	Namespace   string     `json:"namespace"`
-	NetworkMode string     `json:"network_mode"`
-	ServicePort int        `json:"service_port"`
-	Backends    []*Backend `json:"backends"`
-}
-
-type NodePort struct {
-	Name      string
-	Labels    map[string]string
-	Ports     []int
-	Selector  map[string]string
-	Namespace string
-}
-
-func GetDriver() (*KubernetesDriver, error) {
-	// TEST != "" means we are debugging or testing
-	return GetKubernetesDriver(config.Get("TEST") != "")
-}
-
-// SetDebug enable debug mode. GetDriver() will return a driver with fake client
-func SetDebug() {
-	klog.Info("Set Debug")
-	config.Set("TEST", "true")
-}
-
-func InitDriver(driver *KubernetesDriver, ctx context.Context) {
-	informers, _ := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
-	driver.FillUpListers(
-		informers.K8s.Service.Lister(),
-		informers.K8s.Endpoint.Lister(),
-		informers.Alb.Alb.Lister(),
-		informers.Alb.Ft.Lister(),
-		informers.Alb.Rule.Lister())
-}
 
 // Informers will be used by alb
 type Informers struct {
-	K8s K8sInformers
-	Alb AlbInformers
+	K8s     K8sInformers
+	Alb     AlbInformers
+	Gateway GatewayInformers
 }
 
 type K8sInformers struct {
@@ -92,6 +28,15 @@ type K8sInformers struct {
 	Service      v1.ServiceInformer
 	Endpoint     v1.EndpointsInformer
 	Namespace    v1.NamespaceInformer
+}
+
+type GatewayInformers struct {
+	Gateway      gatewayV1alpha2.GatewayInformer
+	GatewayClass gatewayV1alpha2.GatewayClassInformer
+	HttpRoute    gatewayV1alpha2.HTTPRouteInformer
+	TcpRoute     gatewayV1alpha2.TCPRouteInformer
+	UdpRoute     gatewayV1alpha2.UDPRouteInformer
+	TlsRoute     gatewayV1alpha2.TLSRouteInformer
 }
 
 type AlbInformers struct {
@@ -137,8 +82,43 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	ruleSynced := ruleInformer.Informer().HasSynced
 
 	albInformerFactory.Start(ctx.Done())
+	gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
 
-	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(), namespaceSynced, ingressSynced, ingressClassSynced, serviceSynced, endpointSynced, alb2Synced, frontendSynced, ruleSynced); !ok {
+	gatewayClassInformer := gatewayInformerFactory.Gateway().V1alpha2().GatewayClasses()
+	gatewayClassSynced := gatewayClassInformer.Informer().HasSynced
+
+	gatewayInformer := gatewayInformerFactory.Gateway().V1alpha2().Gateways()
+	gatewaySynced := gatewayInformer.Informer().HasSynced
+
+	httpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().HTTPRoutes()
+	httpRouteSynced := httpRouteInformer.Informer().HasSynced
+
+	tcpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TCPRoutes()
+	tcpRouteSynced := tcpRouteInformer.Informer().HasSynced
+
+	udpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().UDPRoutes()
+	udpRouteSynced := udpRouteInformer.Informer().HasSynced
+	tlsRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TLSRoutes()
+	tlsRouteSynced := tlsRouteInformer.Informer().HasSynced
+
+	gatewayInformerFactory.Start(ctx.Done())
+
+	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(),
+		namespaceSynced,
+		ingressSynced,
+		ingressClassSynced,
+		serviceSynced,
+		endpointSynced,
+		alb2Synced,
+		frontendSynced,
+		ruleSynced,
+		gatewayClassSynced,
+		gatewaySynced,
+		httpRouteSynced,
+		tcpRouteSynced,
+		udpRouteSynced,
+		tlsRouteSynced,
+	); !ok {
 		if options.ErrorIfWaitSyncFail {
 			return nil, errors.New("wait alb2 informers sync fail")
 		}
@@ -156,6 +136,14 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 			Alb:  alb2Informer,
 			Ft:   frontendInformer,
 			Rule: ruleInformer,
+		},
+		Gateway: GatewayInformers{
+			GatewayClass: gatewayClassInformer,
+			Gateway:      gatewayInformer,
+			HttpRoute:    httpRouteInformer,
+			TcpRoute:     tcpRouteInformer,
+			UdpRoute:     udpRouteInformer,
+			TlsRoute:     tlsRouteInformer,
 		},
 	}, nil
 }

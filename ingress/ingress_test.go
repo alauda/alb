@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-	k8sv1 "k8s.io/api/core/v1"
 	"sort"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
+	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
@@ -194,11 +194,15 @@ func TestNeedEnqueueObject(t *testing.T) {
 	for index, testCase := range runCases {
 		t.Logf("case %d: %s\n", index, testCase.description)
 		a := assert.New(t)
-		drv, informers := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, defaultConfig)
+		defer cancel()
+		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
+		informers := drv.Informers
 		ingressController := NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.IngressClass, informers.K8s.Namespace.Lister())
 		time.Sleep(10 * time.Millisecond)
 		need := ingressController.needEnqueueObject(&testCase.ingress, true)
+
 		a.Equal(testCase.shouldEnqueue, need, testCase.description)
+
 	}
 }
 
@@ -321,7 +325,8 @@ func TestFindUnSyncedIngress(t *testing.T) {
 	defer cancel()
 	defaultConfig := test_utils.DEFAULT_CONFIG_FOR_TEST
 	defaultConfig["INCREMENT_SYNC"] = "false"
-	drv, informers := test_utils.InitFakeAlb(t, ctx, fakeResource, defaultConfig)
+	drv := test_utils.InitFakeAlb(t, ctx, fakeResource, defaultConfig)
+	informers := drv.Informers
 
 	ingressController := NewController(drv, informers.Alb.Alb, informers.Alb.Rule, informers.K8s.Ingress, informers.K8s.IngressClass, informers.K8s.Namespace.Lister())
 	ingressList, err := ingressController.findUnSyncedIngress(ctx)

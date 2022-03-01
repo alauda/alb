@@ -25,6 +25,8 @@ resyncPeriod: 300
 syncPolicyInterval: 1
 cleanMetricsInterval: 2592000
 backlog: 2048
+gateway:
+  enable: true
 global:
   platformscenario: base
   labelBaseDomain: cpaas.io

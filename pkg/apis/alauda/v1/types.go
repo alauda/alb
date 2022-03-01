@@ -127,7 +127,6 @@ type Service struct {
 	Weight    int    `json:"weight"`
 }
 
-// 这里是group，所以可以使用权重来做类似灰度发布的功能
 type ServiceGroup struct {
 	SessionAffinityPolicy    string    `json:"session_affinity_policy,omitempty"`
 	SessionAffinityAttribute string    `json:"session_affinity_attribute,omitempty"`
@@ -152,8 +151,9 @@ type DSLXTerm struct {
 type DSLX []DSLXTerm
 
 type RuleSpec struct {
-	Description      string        `json:"description"`
-	Domain           string        `json:"domain"`
+	Description string `json:"description"`
+	Domain      string `json:"domain"`
+	// +optional
 	DSL              string        `json:"dsl"` // deprecated
 	DSLX             DSLX          `json:"dslx"`
 	Priority         int           `json:"priority"`

@@ -25,8 +25,12 @@ scripts/e2e/.tmp
 alb-nginx/t/servroot
 alb-nginx/t/.nvimlog
 tweak
-loop.sh
+scripts/loop.sh
 alb-nginx/actions/loop.sh
-test/e2e/alb-config.toml
+test/e2e/viper-config.toml
 bin
 vendor
+.alb.local
+test/e2e/alb-config.toml
+*.log
+.vscode/settings.json

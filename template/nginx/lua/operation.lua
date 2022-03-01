@@ -257,7 +257,9 @@ function _M.eval(op, raw_args)
         if(err) then
             return false, err
         end
-        return _M[op](matcher, args)
+        local ret = _M[op](matcher, args)
+        -- ngx.log(ngx.ERR, "eval: ", op, " ", matcher," ret ", ret)
+        return ret
     end
 end
 
