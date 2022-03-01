@@ -1,15 +1,23 @@
 package framework
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
 	albCtl "alauda.io/alb2/alb"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	"alauda.io/alb2/utils/dirhash"
-	"context"
-	"fmt"
+	"alauda.io/alb2/utils/test_utils"
 	"github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -19,28 +27,33 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"os"
-	"path/filepath"
-	"regexp"
-	"time"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 )
 
+// a framework represent a alb
 type Framework struct {
-	k8sClient    kubernetes.Interface
-	albClient    albclient.Interface
-	cfg          *rest.Config
-	ctx          context.Context
-	cancel       func() // use this function to stop alb
-	namespace    string // which ns this alb been deployed
-	productNs    string
-	albName      string
-	baseDir      string // dir of alb.log nginx.conf and policy.new
-	nginxCfgPath string
-	policyPath   string
-	albLogPath   string
-	domain       string
-	defaultFt    int    // this port is meaningless just to make sure alb running healthily
-	deployCfg    Config // config used to deploy a alb
+	k8sClient     kubernetes.Interface
+	albClient     albclient.Interface
+	gatewayClient gatewayVersioned.Interface
+	cfg           *rest.Config
+	ctx           context.Context
+	cancel        func() // use this function to stop alb
+	namespace     string // which ns this alb been deployed
+	productNs     string
+	AlbName       string
+	baseDir       string // dir of alb.log nginx.conf and policy.new
+	kubectlDir    string // dir of kubeconfig
+	nginxCfgPath  string
+	policyPath    string
+	albLogPath    string
+	domain        string
+	defaultFt     int    // this port is meaningless just to make sure alb running healthily
+	deployCfg     Config // config used to deploy a alb
 }
 
 type Config struct {
@@ -50,22 +63,33 @@ type Config struct {
 	RestCfg       *rest.Config
 	InstanceMode  bool
 	Project       []string
+	Gateway       bool
 	PortProbe     bool
 }
 
-func CfgFromEnv() *rest.Config {
-	host := os.Getenv("KUBERNETES_SERVER")
-
-	Expect(host).ShouldNot(BeEmpty())
-	return &rest.Config{
-		Host: host,
+func InitKubeCfg(cfg *rest.Config) (string, error) {
+	kubecfgPath := fmt.Sprintf("%v/.kube/alb-env-test", homedir.HomeDir())
+	os.MkdirAll(fmt.Sprintf("%v/.kube", homedir.HomeDir()), os.ModePerm)
+	kubecfg, err := KubeConfigFromREST(cfg, "envtest")
+	if err != nil {
+		return "", err
 	}
+	err = os.WriteFile(kubecfgPath, kubecfg, os.ModePerm)
+	os.Setenv("KUBECONFIG", kubecfgPath)
+	os.Setenv("USE_KUBECONFIG", "true")
+	return kubecfgPath, err
 }
 
-func EnvTestCfgToEnv(cfg *rest.Config) {
-	_ = os.Setenv("KUBERNETES_SERVER", "http://"+cfg.Host)
+func CfgFromEnv() *rest.Config {
+	kubecfg := os.Getenv("KUBECONFIG")
+	cf, err := clientcmd.BuildConfigFromFlags("", kubecfg)
+	if err != nil {
+		panic(err)
+	}
+	return cf
 }
 
+// TODO use helm install to install crd and cr to k8s
 func NewAlb(deployCfg Config) *Framework {
 	cfg := deployCfg.RestCfg
 	if !(os.Getenv("DEV_MODE") == "true") {
@@ -116,6 +140,8 @@ func NewAlb(deployCfg Config) *Framework {
 	os.Setenv("ALB_E2E_TEST_CONTROLLER_ONLY", "true")
 	twekDir := baseDir + "/tweak"
 	os.MkdirAll(twekDir, os.ModePerm)
+	kubectlDir := baseDir + "/kubectl"
+	os.MkdirAll(kubectlDir, os.ModePerm)
 	os.Setenv("ALB_TWEAK_DIRECTORY", twekDir)
 
 	cwd, err := os.Getwd()
@@ -145,20 +171,22 @@ func NewAlb(deployCfg Config) *Framework {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Framework{
-		baseDir:      baseDir,
-		cfg:          cfg,
-		k8sClient:    k8sClient,
-		albClient:    albclient.NewForConfigOrDie(cfg),
-		nginxCfgPath: nginxCfgPath,
-		policyPath:   nginxPolicyPath,
-		albLogPath:   alblogpath,
-		ctx:          ctx,
-		cancel:       cancel,
-		namespace:    ns,
-		albName:      name,
-		domain:       domain,
-		deployCfg:    deployCfg,
-		defaultFt:    12345,
+		baseDir:       baseDir,
+		kubectlDir:    kubectlDir,
+		cfg:           cfg,
+		k8sClient:     k8sClient,
+		albClient:     albclient.NewForConfigOrDie(cfg),
+		gatewayClient: gatewayVersioned.NewForConfigOrDie(cfg),
+		nginxCfgPath:  nginxCfgPath,
+		policyPath:    nginxPolicyPath,
+		albLogPath:    alblogpath,
+		ctx:           ctx,
+		cancel:        cancel,
+		namespace:     ns,
+		AlbName:       name,
+		domain:        domain,
+		deployCfg:     deployCfg,
+		defaultFt:     12345,
 	}
 }
 
@@ -186,7 +214,7 @@ func (f *Framework) Init() {
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: f.namespace,
-			Name:      f.albName,
+			Name:      f.AlbName,
 			Labels:    labelsInAlb,
 		},
 		Spec: alb2v1.ALB2Spec{
@@ -200,7 +228,7 @@ func (f *Framework) Init() {
 	ft, err := f.albClient.CrdV1().Frontends(f.namespace).Create(f.ctx, &alb2v1.Frontend{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: f.namespace,
-			Name:      fmt.Sprintf("%s-%05d", f.albName, f.defaultFt),
+			Name:      fmt.Sprintf("%s-%05d", f.AlbName, f.defaultFt),
 			// the most import part
 			Labels: map[string]string{
 				fmt.Sprintf("alb2.%s/name", f.domain): alb.Name,
@@ -222,10 +250,30 @@ func (f *Framework) Init() {
 	assert.Nil(ginkgo.GinkgoT(), err, "creating ft")
 	Logf("create ft success %s/%s", ft.Namespace, ft.Name)
 
+	if f.deployCfg.Gateway {
+		f.gatewayClient.GatewayV1alpha2().GatewayClasses().Create(f.ctx, &gatewayType.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: f.AlbName,
+			},
+			Spec: gatewayType.GatewayClassSpec{
+				ControllerName: gatewayType.GatewayController(fmt.Sprintf("alb2.gateway.%v/%v", f.domain, f.AlbName)),
+			},
+		}, metav1.CreateOptions{})
+		os.Setenv("ENABLE_GATEWAY", "true")
+	}
+	err = f.InitSvc(f.namespace, f.AlbName, []string{"172.168.1.1"})
+	if err != nil {
+		Logf("err %v", err)
+	}
+
 	albCtl.Init()
 	go albCtl.Start(f.ctx)
 
 	f.waitAlbNormal()
+}
+
+func (f *Framework) GetAlbPodIp() []string {
+	return []string{"172.168.1.1"}
 }
 
 func (f *Framework) waitAlbNormal() {
@@ -277,6 +325,18 @@ func (f *Framework) WaitPolicyRegex(regexStr string) {
 	})
 }
 
+func (f *Framework) WaitNgxPolicy(fn func(p NgxPolicy) (bool, error)) {
+	f.WaitFile(f.policyPath, func(raw string) (bool, error) {
+		Logf("p  %s", raw)
+		p := NgxPolicy{}
+		err := json.Unmarshal([]byte(raw), &p)
+		if err != nil {
+			return false, fmt.Errorf("wait nginx policy fial err %v raw -- %s --", err, raw)
+		}
+		return fn(p)
+	})
+}
+
 func (f *Framework) WaitPolicy(fn func(raw string) bool) {
 	f.WaitFile(f.policyPath, func(raw string) (bool, error) {
 		match := fn(raw)
@@ -307,6 +367,11 @@ func (f *Framework) WaitIngressRule(ingresName, ingressNs string, size int) []al
 	return rules
 }
 
+func (f *Framework) Wait(fn func() (bool, error)) {
+	err := wait.Poll(Poll, DefaultTimeout, fn)
+	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
+}
+
 func (f *Framework) InitProductNs(nsprefix string, project string) {
 	ns := nsprefix
 	if f.deployCfg.RandomNs {
@@ -334,6 +399,10 @@ func (f *Framework) GetProductNs() string {
 
 func (f *Framework) GetK8sClient() kubernetes.Interface {
 	return f.k8sClient
+}
+
+func (f *Framework) GetGatewayClient() gatewayVersioned.Interface {
+	return f.gatewayClient
 }
 
 func log(level string, format string, args ...interface{}) {
@@ -467,9 +536,9 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func (f *Framework) InitDefaultSvc(name string, ep []string) {
-	ns := f.productNs
-	f.k8sClient.CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
+func (f *Framework) InitSvc(ns, name string, ep []string) error {
+	Logf("init svc %v %v %v", ns, name, ep)
+	_, err := f.k8sClient.CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -479,12 +548,15 @@ func (f *Framework) InitDefaultSvc(name string, ep []string) {
 				{Port: 80},
 			}},
 	}, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
 
 	address := []corev1.EndpointAddress{}
 	for _, ip := range ep {
 		address = append(address, corev1.EndpointAddress{IP: ip})
 	}
-	f.k8sClient.CoreV1().Endpoints(ns).Create(f.ctx, &corev1.Endpoints{
+	_, err = f.k8sClient.CoreV1().Endpoints(ns).Create(f.ctx, &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
@@ -497,6 +569,15 @@ func (f *Framework) InitDefaultSvc(name string, ep []string) {
 			},
 		},
 	}, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *Framework) InitDefaultSvc(name string, ep []string) {
+	ns := f.productNs
+	f.InitSvc(ns, name, ep)
 }
 
 func (f *Framework) CreateIngress(name string, path string, svc string, port int) {
@@ -535,7 +616,7 @@ func (f *Framework) CreateIngress(name string, path string, svc string, port int
 }
 
 func (f *Framework) CreateFt(port int, protocol string, svcName string, svcNs string) {
-	name := fmt.Sprintf("%s-%05d", f.albName, port)
+	name := fmt.Sprintf("%s-%05d", f.AlbName, port)
 	if protocol == "udp" {
 		name = name + "-udp"
 	}
@@ -544,7 +625,7 @@ func (f *Framework) CreateFt(port int, protocol string, svcName string, svcNs st
 			Namespace: f.namespace,
 			Name:      name,
 			Labels: map[string]string{
-				"alb2.cpaas.io/name": f.albName,
+				"alb2.cpaas.io/name": f.AlbName,
 			},
 		},
 		Spec: alb2v1.FrontendSpec{
@@ -614,3 +695,78 @@ func (f *Framework) WaitAlbState(name string, check func(alb *alb2v1.ALB2) (bool
 	assert.NoError(ginkgo.GinkgoT(), err)
 	return globalAlb
 }
+
+func RandomFile(base string, file string) (string, error) {
+	p := path.Join(base, random())
+	err := os.WriteFile(p, []byte(file), os.ModePerm)
+	return p, err
+}
+
+func (f *Framework) KubectlApply(yaml string, options ...string) (string, error) {
+	p, err := RandomFile(f.kubectlDir, yaml)
+	if err != nil {
+		return "", err
+	}
+	cmds := []string{"apply", "-f", p, "--kubeconfig", os.Getenv("KUBECONFIG")}
+	cmds = append(cmds, options...)
+	Logf("cmds: kubectl %v", strings.Join(cmds, " "))
+	return Kubectl(cmds...)
+}
+
+func (f *Framework) CreateTlsSecret(domain, name, ns string) (*corev1.Secret, error) {
+	key, crt, err := test_utils.GenCert(domain)
+	if err != nil {
+		return nil, err
+	}
+	secret, err := f.k8sClient.CoreV1().Secrets(ns).Create(f.ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"tls.key": []byte(key),
+			"tls.crt": []byte(crt),
+		},
+		Type: corev1.SecretTypeTLS,
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
+}
+
+type AlbTester interface {
+	GetNginxConfig()
+	GetPolicy()
+	GetKubeCfg()
+	GetAlbKey() client.ObjectKey
+	GetAlbDomain() string
+}
+
+type TestHelper struct {
+	albTester AlbTester
+}
+
+type K8sHelper struct {
+	kubecfg string
+}
+
+// func New(cfg string) K8sHelper {
+
+// }
+
+// func (k K8sHelper) GetK8sClient() {
+
+// }
+
+// func (k K8sHelper) GetAlbClient() {
+
+// }
+
+// func (k K8sHelper) GetGatewayClient() {
+
+// }
+
+// func (k K8sHelper) KubectlApply() {
+
+// }

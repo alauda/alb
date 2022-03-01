@@ -2,6 +2,7 @@ package controller
 
 import (
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"

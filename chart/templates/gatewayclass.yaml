@@ -1,0 +1,12 @@
+{{ if eq .Values.gateway.enable true }}
+
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GatewayClass
+metadata:
+  name: {{ .Values.loadbalancerName }}
+  labels:
+    alb2.{{ .Values.global.labelBaseDomain }}/gatewayclass: alb2
+spec:
+  controllerName:  alb2.gateway.{{ .Values.global.labelBaseDomain}}/{{ .Values.loadbalancerName }}
+
+{{ end }}

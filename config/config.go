@@ -74,6 +74,9 @@ var optionalFields = []string{
 	"METRICS_PORT",
 	"BACKLOG",
 	"ENABLE_GZIP",
+
+	// gateway related config
+	"ENABLE_GATEWAY",
 }
 
 var nginxRequiredFields = []string{
@@ -83,18 +86,13 @@ var nginxRequiredFields = []string{
 	"NEW_POLICY_PATH",
 }
 
-var cloudLBRequiredFields = []string{
-	"IAAS_REGION",
-	"ACCESS_KEY",
-	"SECRET_ACCESS_KEY"}
-
 func init() {
 	initViper()
 	Initialize()
 }
 
 func initViper() {
-	viper.SetConfigName("alb-config")
+	viper.SetConfigName("viper-config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("../")
 	viper.AddConfigPath("/alb/")
@@ -116,7 +114,6 @@ func Initialize() {
 	getEnvs(requiredFields)
 	getEnvs(optionalFields)
 	getEnvs(nginxRequiredFields)
-	getEnvs(cloudLBRequiredFields)
 	viper.AutomaticEnv()
 }
 
@@ -212,6 +209,14 @@ func GetLabelSourceType() string {
 
 func GetAlbName() string {
 	return Get("NAME")
+}
+
+func GetNs() string {
+	return Get("NAMESPACE")
+}
+
+func GetDomain() string {
+	return Get("DOMAIN")
 }
 
 func GetLabelAlbName() string {

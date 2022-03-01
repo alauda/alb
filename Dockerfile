@@ -39,11 +39,11 @@ RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/tweak && \
     mkdir -p /migrate && \
     mkdir -p /var/log/nginx
-COPY alauda /etc/logrotate.d/alauda
+COPY logrotate.conf /etc/logrotate.d/logrotate.conf
 
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
-COPY alb-config.toml /alb/alb-config.toml
+COPY viper-config.toml /alb/viper-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
 COPY --from=builder /migrate/init-port-info /migrate/init-port-info

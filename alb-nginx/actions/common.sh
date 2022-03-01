@@ -13,7 +13,7 @@ configmap_to_file() {
   cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
 }
 
-ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220117144539
+ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220214184520
 test-nginx() {
   local filter=""
   if [ ! -z "$1" ]

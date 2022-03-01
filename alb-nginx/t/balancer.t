@@ -124,6 +124,11 @@ qq|
   ]
 }
 |;
+
+--- curl
+--- http2
+--- request
+GET /ping
 --- request: GET /t
 --- response_body: success
 

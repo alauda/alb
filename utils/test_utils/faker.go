@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
-	albdriver "alauda.io/alb2/driver"
+	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
@@ -51,13 +51,13 @@ type FakeK8sResource struct {
 	Secrets        []k8sv1.Secret
 }
 
-func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) (driver *albdriver.KubernetesDriver, informers *albdriver.Informers) {
+func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) *driver.KubernetesDriver {
 
 	for key, val := range configMap {
 		config.Set(key, val)
 	}
 
-	drv, err := albdriver.GetKubernetesDriver(true)
+	drv, err := driver.GetKubernetesDriver(true)
 
 	a := assert.New(t)
 	a.NoError(err)
@@ -78,14 +78,6 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 	}
 	drv.ALBClient = albFake.NewSimpleClientset(albDataset...)
 	drv.Client = fake.NewSimpleClientset(k8sDataset...)
-
-	informers, err = albdriver.InitInformers(drv, ctx, albdriver.InitInformersOptions{ErrorIfWaitSyncFail: true})
-	a.NoError(err)
-	drv.FillUpListers(
-		informers.K8s.Service.Lister(),
-		informers.K8s.Endpoint.Lister(),
-		informers.Alb.Alb.Lister(),
-		informers.Alb.Ft.Lister(),
-		informers.Alb.Rule.Lister())
-	return drv, informers
+	driver.InitDriver(drv, ctx)
+	return drv
 }

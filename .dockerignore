@@ -1,4 +1,4 @@
 /.idea
 alauda_lb
 alauda_lb.iml
-.git/test/e2e/alb-config.toml
+.git/test/e2e/viper-config.toml

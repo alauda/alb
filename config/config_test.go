@@ -86,7 +86,7 @@ func TestDefault(t *testing.T) {
 	a.Equal(10, GetInt("INTERVAL"))
 	os.Clearenv()
 	CleanCache()
-	// read from alb-config.yaml
+	// read from viper-config.toml
 	a.Equal(5, GetInt("INTERVAL"))
 	a.Equal("/alb/certificates", Get("CERTIFICATE_DIRECTORY"))
 

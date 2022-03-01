@@ -2,8 +2,9 @@ package utils
 
 import (
 	"context"
-	"k8s.io/klog/v2"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 // UtilWithContextAndTimeout block and run fn after every delay, stop util ctx is done or fn runtime reach the timeout

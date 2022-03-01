@@ -51,6 +51,7 @@ function _M.get_upstream(subsystem, protocol, port)
                 if (policy ~= nil and policy["dsl"] ~= nil) then
                     local match, err = dsl.eval(policy["dsl"])
                     if (match) then
+                        -- ngx.log(ngx.ERR,"find a matched policy ",policy["rule"])
                         return policy["upstream"], policy, nil
                     end
 

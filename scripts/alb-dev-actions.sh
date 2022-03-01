@@ -1,6 +1,7 @@
 #!/bin/bash
+# give [zmx](https://github.com/woodgear/zmx) a try
 
-# kind kubectl sed cp python3 mkdir
+# install kind kubectl sed cp python3 first
 unset HTTP_PROXY
 unset HTTPS_PROXY
 unset http_proxy
@@ -90,8 +91,8 @@ $apiversion
 kind: Frontend
 metadata:
   labels:
-    alb2.alauda.io/name: alb-dev
-    project.alauda.io/ALL_ALL: "true"
+    alb2.cpaas.io/name: alb-dev
+    project.cpaas.io/ALL_ALL: "true"
   name: alb-dev-$port-$protocol
   namespace: cpaas-system
 spec:
@@ -200,6 +201,20 @@ EOF
   fi
 }
 
+function alb-build-iamge {
+  docker build -f ./Dockerfile . -t alb-dev
+}
+
+function alb-kind-build-and-replace {
+  make static-build
+  md5sum ./bin/alb
+  local alb_pod=$(kubectl get po -A | grep alb-dev | awk '{print $2}'| tr -d '\n')
+  echo "alb pod $alb_pod" 
+  kubectl cp $PWD/bin/alb  cpaas-system/"$alb_pod":/alb/alb
+  tmux-send-key-to-pane alb 'C-c' 'md5sum ./alb/alb;sleep 3s; /alb/alb 2>&1  | tee alb.log' 'C-m'
+}
+
+
 function alb-init-kind-env {
   # how to use
   # . ./scripts/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
@@ -289,7 +304,7 @@ function alb-init-kind-env {
   else
     echo "init crd(new)"
     kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
-    kubectl apply -f ./alauda-alb2/crds
+    kubectl apply -R -f ./alauda-alb2/crds/
   fi
 
   echo "helm dry run start"
@@ -302,6 +317,7 @@ EOF
 
   helm-alauda install -n cpaas-system \
     --set-string loadbalancername=alb-dev \
+    --set-string global.labelBaseDomain=cpaas.io \
     --set-string global.registry.address=build-harbor.alauda.cn \
     --set-string project=all_all \
     -f ./alauda-alb2/values.yaml \
@@ -314,6 +330,8 @@ EOF
   echo "helm install"
   helm-alauda install -n cpaas-system \
     --set-string loadbalancerName=alb-dev \
+    --set-string global.labelBaseDomain=cpaas.io \
+    --set-string global.namespace=cpaas-system \
     --set-string global.registry.address=build-harbor.alauda.cn \
     --set-string project=ALL_ALL \
     -f ./alauda-alb2/values.yaml \
@@ -371,8 +389,30 @@ function _makesureImage {
   kind load docker-image $image --name $kindName
 }
 
+function alb-list-e2e-testcase {
+  ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case'
+}
+
+function alb-run-one-e2e-test {
+	cp ./viper-config.toml ./test/e2e
+  local testcase=$( ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g' |fzf )
+  echo "case is $testcase"
+  if [ -z "$testcase" ]; then
+    echo "empty case ingore"
+    return
+  fi
+  ginkgo -v=1 -focus "$testcase" ./test/e2e
+}
+
+function alb-patch-gateway-hostname() {
+jsonpatch=$(cat <<EOF
+[{"op": "replace", "path": "/spec/listeners/0/hostname", "value":"$(od -vAn -N2 -tu2 < /dev/urandom|sed 's/ //g').com"}]
+EOF
+);echo "$jsonpatch"; kubectl patch gateway -n alb-test g1 --type=json -p="$jsonpatch";kubectl get gateway -n alb-test g1  -o yaml
+}
+
 function alb-run-all-e2e-test {
-  cp ./alb-config.toml ./test/e2e
+  cp ./viper-config.toml ./test/e2e
   while IFS= read -r testcase _; do
     echo "run test $testcase"
     ginkgo -v -focus "$testcase" ./test/e2e
@@ -461,13 +501,23 @@ function alb-go-coverage {
   go tool cover -html=./coverage.txt -o coverage.html
 }
 
+function go-fmt-fix {
+  gofmt -w .
+}
+
 function go-lint {
   gofmt -l .
-  [ "$(gofmt -l .)" = "" ]
+  if [ ! "$(gofmt -l .)" = "" ]; then
+    echo "go fmt check fail"
+    exit 1
+  fi
   go vet .../..
 }
 
 function go-unit-test {
+  if [ -d ./alb-nginx/t/servroot ]; then
+      sudo rm -rf ./alb-nginx/t/servroot || true
+  fi
   go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
 }
 
@@ -488,4 +538,27 @@ function alb-test-all-in-ci {
   test-nginx-in-ci
   local END=$(date +%s)
   echo "all-time: " $(echo "scale=3; $END - $START" | bc) "s"
+}
+
+function alb-run-local {
+  # alb-init-kin-env
+  # kubectl scale -n cpaas-system deployment alb-dev --replicas=0   # we want run alb in our self
+  rm -rf ./.alb.local
+  mkdir -p ./.alb.local
+  mkdir -p ./.alb.local/last_status
+  mkdir -p ./.alb.local/tweak
+  export NAME=alb-dev
+  export NAMESPACE=cpaas-system
+  export DOMAIN=cpaas.io
+  export ALB_STATUSFILE_PARENTPATH=./.alb.local/last_status
+  export NGINX_TEMPLATE_PATH=./template/nginx/nginx.tmpl
+  export NEW_CONFIG_PATH=./.alb.local/nginx.conf.new
+  export OLD_CONFIG_PATH=./.alb.local/nginx.conf
+  export NEW_POLICY_PATH=./.alb.local/policy.new
+  export ALB_TWEAK_DIRECTORY=./.alb.local/tweak
+  export ALB_E2E_TEST_CONTROLLER_ONLY=true
+  export USE_KUBECONFIG=true
+  export ALB_LOG_EXT=true
+  export ALB_LOG_LEVEL=8
+  go run main.go
 }

@@ -51,19 +51,7 @@ import (
 )
 
 func (c *Controller) Start(ctx context.Context) {
-	interval := config.GetInt("INTERVAL")
-
-	wait.PollInfinite(time.Duration(interval)*time.Second, func() (bool, error) {
-		isLeader, err := ctl.IsLocker(c.KubernetesDriver)
-		if err != nil {
-			klog.Errorf("not leader: %s", err.Error())
-			return false, nil
-		}
-		if isLeader {
-			return true, nil
-		}
-		return false, nil
-	})
+	ctl.WaitUtilIMLeader(ctx, c.KubernetesDriver)
 
 	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
 	if config.GetBool("FULL_SYNC") {

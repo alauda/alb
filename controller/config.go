@@ -2,6 +2,7 @@ package controller
 
 import (
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/utils"
 	"strconv"
 )

@@ -4,7 +4,6 @@ local tonumber = tonumber
 local string_format = string.format
 local string_lower = string.lower
 local common = require "utils.common"
-local dsl = require "dsl"
 local balancer = require "balancer"
 local cache = require "cache"
 local ngx = ngx
@@ -54,13 +53,8 @@ local function init_http_rule_dsl(rule)
         else
             rule["dsl"] = rule["internal_dsl"]
         end
-    elseif rule["dsl"] and rule["dsl"] ~= "" then
-        local tokenized_dsl, err = dsl.generate_ast(rule["dsl"])
-        if err then
-            ngx_log(ngx.ERR, "failed to generate ast for ", rule["dsl"], err)
-        else
-            rule["dsl"] = tokenized_dsl
-        end
+    else
+        ngx_log(ngx.ERR, "internal_dsl is null " .. tostring(rule["rule"]))
     end
 end
 

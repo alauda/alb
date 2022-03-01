@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"fmt"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
-	"strings"
 
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/modules"

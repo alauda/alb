@@ -1,7 +1,6 @@
 package controller
 
 import (
-	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,7 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/utils"
 	"k8s.io/klog/v2"
 )
@@ -170,20 +172,9 @@ type BindNICConfig struct {
 	Nic []string `json:"nic"`
 }
 
-func fileExists(filename string) (bool, error) {
-	info, err := os.Stat(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	return !info.IsDir(), nil
-}
-
 func GetBindNICConfig() (BindNICConfig, error) {
 	bindNICConfigFile := filepath.Join(config.Get("TWEAK_DIRECTORY"), "bind_nic.json")
-	exist, err := fileExists(bindNICConfigFile)
+	exist, err := utils.FileExists(bindNICConfigFile)
 	if err != nil {
 		return BindNICConfig{Nic: []string{}}, err
 	}

@@ -5,65 +5,8 @@
 ---（AND (IN HOST www.baidu.com baidu.com) (EQ URL /search) (EQ SRC-IP 114.114.114.114))
 local operation = require "operation"
 local type = type
-local string_char = string.char
-local string_byte = string.byte
-local string_sub = string.sub
-local table_insert = table.insert
-local table_remove = table.remove
 
 local _M = {}
-
-local function tokenizer(raw_dsl)
-    local tokens = {}
-    local next_token_beg = 1
-    local insert_idx = 1
-    for i = 1, #raw_dsl do
-        if(string_char(string_byte(raw_dsl, i)) == "(") then
-            tokens[insert_idx] = "("
-            insert_idx = insert_idx + 1
-            next_token_beg = i + 1
-        elseif(string_char(string_byte(raw_dsl, i)) == " ") then
-            local token = string_sub(raw_dsl, next_token_beg, i - 1)
-            if(#token ~= 0 and token ~= " " and token ~= ")") then
-                tokens[insert_idx] = token
-                insert_idx = insert_idx + 1
-            end
-            next_token_beg = i + 1
-        elseif (string_char(string_byte(raw_dsl, i)) == ")") then
-            local token = string_sub(raw_dsl, next_token_beg, i - 1)
-            if(#token ~= 0 and token ~= " " and token ~= ")") then
-                tokens[insert_idx] = token
-                insert_idx = insert_idx + 1
-            end
-            tokens[insert_idx] = ")"
-            insert_idx = insert_idx + 1
-            next_token_beg = i + 1
-        end
-    end
-    return tokens
-end
-
-local function parse(tokens)
-    if(#tokens == 0) then
-        return nil, "unexpected EOF while parsing"
-    end
-
-    local token = table_remove(tokens, 1)
-    if(token == "(") then
-        local exp = {}
-        while tokens[1] ~= ")" do
-            local t, err = parse(tokens)
-            if err then
-                return nil, err
-            end
-            table_insert(exp, t)
-        end
-        table_remove(tokens, 1)
-        return exp, nil
-    else
-        return token, nil
-    end
-end
 
 local function eval(ast)
     local op = ast[1]
@@ -104,10 +47,6 @@ end
 
 function _M.eval(rule)
     return eval(rule)
-end
-
-function _M.generate_ast(rule)
-    return parse(tokenizer(rule))
 end
 
 return _M

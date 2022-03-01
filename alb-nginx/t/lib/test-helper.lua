@@ -79,4 +79,11 @@ function _M.assert_eq(left, right, msg)
     end
 end
 
+function _M.assert_curl_success(res,err)
+    if err ~= nil or res.status ~= 200 or res.body ~= "success" then 
+        ngx.log(ngx.ERR,"fail "..tostring(err).." "..tostring(res.status).." "..tostring(res.body))
+        ngx.exit(ngx.ERR)
+        return
+    end
+end
 return _M
