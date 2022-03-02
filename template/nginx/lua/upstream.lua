@@ -3,7 +3,6 @@
 --- DateTime: 17/8/17 上午10:35
 ---
 --
-
 local ipairs = ipairs
 local next = next
 local ngx = ngx
@@ -20,7 +19,7 @@ local SUBSYSTEM = ngx_config.subsystem
 
 local function get_policies(key)
     local shared_key = SUBSYSTEM .. "_policy"
-    ngx_log(ngx.INFO, string.format("refresh cache from ngx.share[%s][%s]", shared_key, key))
+    ngx_log(ngx.INFO, string.format("cache: refresh cache from ngx.share[%s][%s]", shared_key, key))
     local raw_policies = ngx_shared[shared_key]:get(key)
     if raw_policies == nil then
         return nil, string.format("no policies found on ngx.share[%s][%s] ", shared_key, key)

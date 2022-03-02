@@ -447,7 +447,7 @@ function helm-chart-export {
   helm-alauda chart export $chart 2>&1 >/dev/null
 }
 
-TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua")
+TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua")
 function alb-lua-format-check {
   # shellcheck disable=SC2068
   for f in ${TOUCHED_LUA_FILE[@]}; do
