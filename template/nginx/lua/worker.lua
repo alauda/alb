@@ -79,7 +79,7 @@ end
 local function update_stream_policy_cache(policy, old_policy, protocol)
     for port, reason in pairs(common.get_table_diff_keys(policy, old_policy)) do
         local key = cache.gen_rule_key(STREAM_SUBSYSTEM, protocol, port)
-        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
+        if reason == common.DIFF_KIND_REMOVE then
             ngx_shared["stream_policy"]:delete(key)
             cache.rule_cache:delete(key)
         end
@@ -127,7 +127,7 @@ local function update_http_cache(policy, old_policy)
     -- update cert cache
     for domain, reason in pairs(common.get_table_diff_keys(certificate_map, old_certificate_map)) do
         local lower_domain = string_lower(domain)
-        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
+        if reason == common.DIFF_KIND_REMOVE then
             ngx.log(ngx.INFO, "cert delete domain " .. lower_domain)
             ngx_shared["http_certs_cache"]:delete(lower_domain)
             cache.cert_cache:delete(lower_domain)
@@ -142,8 +142,8 @@ local function update_http_cache(policy, old_policy)
     for port, reason in pairs(common.get_table_diff_keys(http_policy, old_http_policy)) do
         -- we only support http via tcp now.
         local key = cache.gen_rule_key(HTTP_SUBSYSTEM, "tcp", port)
-        if reason == common.DIFF_KIND_REMOVE or reason == common.DIFF_KIND_CHANGE then
-            ngx.log(ngx.INFO, "http policy delete key " .. key)
+        if reason == common.DIFF_KIND_REMOVE then
+            ngx.log(ngx.INFO, "cache: http policy delete key " .. key)
             ngx_shared["http_policy"]:delete(key)
             cache.rule_cache:delete(key)
         end
