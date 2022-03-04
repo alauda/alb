@@ -58,7 +58,7 @@ function _M.set_cookie(self, value)
     local cookie_data = {
         key = self:cookie_name(),
         value = value,
-        path = ngx.var.request_uri,
+        path = "/",
         httponly = true,
         secure = ngx.var.https == "on"
     }
