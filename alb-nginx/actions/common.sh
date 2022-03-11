@@ -5,12 +5,12 @@ configmap_to_file() {
   local output_dir=$1
   local configmap=$ALB/chart/templates/configmap.yaml
   echo $configmap
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.http' -  |sed '/access_log*/d' |sed '/keepalive*/d' > $output_dir/http.conf || true
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.http_server' - > $output_dir/http_server.conf || true
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.upstream' - > $output_dir/upstream.conf || true
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream-common' - | sed '/access_log*/d' | sed '/error_log*/d' > $output_dir/stream-common.conf || true
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream-tcp' - > $output_dir/stream-tcp.conf || true
-  cat $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.http' -  |sed '/access_log*/d' |sed '/keepalive*/d' > $output_dir/http.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.http_server' - > $output_dir/http_server.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.upstream' - > $output_dir/upstream.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-common' - | sed '/access_log*/d' | sed '/error_log*/d' > $output_dir/stream-common.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-tcp' - > $output_dir/stream-tcp.conf || true
+  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
 }
 
 ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220214184520

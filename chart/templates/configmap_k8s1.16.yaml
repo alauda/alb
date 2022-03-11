@@ -1,4 +1,4 @@
-{{- if and ( eq .Capabilities.KubeVersion.Major "1" ) ( ge .Capabilities.KubeVersion.Minor "19" ) }}
+{{- if and ( eq .Capabilities.KubeVersion.Major "1" ) ( le .Capabilities.KubeVersion.Minor "18" ) }}
 
 ---
 kind: ConfigMap
@@ -13,7 +13,6 @@ data:
                       '"$http_user_agent" "$http_x_forwarded_for" '
                       '$request_time $upstream_response_time';
     access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
-    access_log  /dev/stdout  http buffer=16k flush=1s;
     rewrite_log on;
 
     # Show alb info to identify error response
@@ -46,7 +45,6 @@ data:
     proxy_temp_file_write_size 64k;
     # keepalive to improve http performance
     keepalive_timeout  65;
-    proxy_next_upstream_tries   5;
 
     sendfile        off;
     sendfile_max_chunk 2147483647;
@@ -101,35 +99,20 @@ data:
 
     # fix http://jira.alauda.cn/browse/SGHL-142
     underscores_in_headers on;
-  stream-common: |
-    
-    log_format stream '[$time_local] $remote_addr $protocol $server_port $status $bytes_received $bytes_sent $session_time';
-
-    access_log /var/log/nginx/stream-access.log stream;
-    error_log /var/log/nginx/stream-error.log info;
-
+  stream: |
+    # Lua shared dict
     lua_code_cache on;
     lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
-    
-    # Lua shared dict
     lua_shared_dict stream_policy   10m;
     lua_shared_dict stream_backend_cache 5m;
     lua_shared_dict stream_alb_cache     20m;
     lua_shared_dict stream_raw     5m;
     lua_shared_dict stream_ipc_shared_dict 1m;
 
-  stream-tcp: |
-    proxy_next_upstream_tries 5;
     proxy_connect_timeout      5s;
     proxy_timeout              60s;
     tcp_nodelay                on;
-
-  stream-udp: |
-    proxy_next_upstream_tries 5;
-    proxy_connect_timeout      5s;
-    proxy_timeout              60s;
-
   upstream: |
     keepalive 320;
   bind_nic: |
