@@ -42,7 +42,7 @@ func newNginxParam() NginxParam {
 		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
 		EnableIPV6:       checkIPV6(),
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
-		CPUNum:           strconv.Itoa(utils.NumCPU(workerLimit())),
+		CPUNum:           strconv.Itoa(utils.NumCPU(cpu_preset(), workerLimit())),
 		MetricsPort:      config.GetInt("METRICS_PORT"),
 		Backlog:          config.GetInt("BACKLOG"),
 		EnableGzip:       config.Get("ENABLE_GZIP") == "true",

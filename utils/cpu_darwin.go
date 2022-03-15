@@ -1,3 +1,4 @@
+//go:build darwin
 // +build darwin
 
 package utils
@@ -10,6 +11,6 @@ import (
 // If CPU cgroups limits are configured, use cfs_quota_us / cfs_period_us
 // as formula
 //  https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
-func NumCPU(limit int) int {
+func NumCPU(cpu_preset, limit int) int {
 	return runtime.NumCPU()
 }

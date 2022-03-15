@@ -199,6 +199,10 @@ func workerLimit() int {
 	return 4
 }
 
+func cpu_preset() int {
+	return config.GetInt("CPU_LIMIT")
+}
+
 func ParseCertificateName(n string) (string, string, error) {
 	// backward compatibility
 	if strings.Contains(n, "_") {
