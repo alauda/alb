@@ -562,3 +562,17 @@ function alb-run-local {
   export ALB_LOG_LEVEL=8
   go run main.go
 }
+
+function alb-build-static {
+	rm -rf ./bin/ || true
+	CC=/usr/bin/musl-gcc CGO_ENABLED=1  go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/alb alauda.io/alb2 && ldd ./bin/alb
+	CC=/usr/bin/musl-gcc CGO_ENABLED=1  go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
+}
+
+function alb-replace-in-pod {
+	alb-build-static
+	local pod=$(kubectl get po -n cpaas-system |grep alb | awk '{print $1}')
+	kubectl cp $PWD/bin/alb  cpaas-system/$pod:/alb/alb
+	md5sum ./bin/alb
+	kubectl exec -it -n cpaas-system $pod -- sh -c 'md5sum /alb/alb'
+}

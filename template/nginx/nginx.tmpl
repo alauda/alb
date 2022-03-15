@@ -91,11 +91,11 @@ http {
     {{if eq $ft.Protocol "http"}}
     server {
         {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server  reuseport;
+            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
         {{end}}
 
         {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server  reuseport;
+            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
         {{end}}
         server_name _;
 
@@ -126,11 +126,11 @@ http {
     server {
 
         {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}} reuseport;
+            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
 
         {{range $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}} reuseport;
+            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
 
         server_name _;
@@ -194,11 +194,11 @@ stream {
     server {
         include       /alb/tweak/stream-tcp.conf;
         {{range  $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} reuseport;
+            listen     {{$address}}:{{$ft.Port}};
         {{end}}
 
         {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} reuseport ;
+            listen     {{$address}}:{{$ft.Port}} ;
         {{end}}
 
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
@@ -213,11 +213,11 @@ stream {
     server {
         include       /alb/tweak/stream-udp.conf;
         {{range  $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} udp reuseport;
+            listen     {{$address}}:{{$ft.Port}} udp;
         {{end}}
 
         {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} udp reuseport;
+            listen     {{$address}}:{{$ft.Port}} udp;
         {{end}}
 
         preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;

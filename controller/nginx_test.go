@@ -532,7 +532,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			Assert: func(albPolicy NgxPolicy, ngxCfg string) {
 				listen, err := test_utils.PickStreamServerListen(ngxCfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:8000 reuseport", "[::]:8000 reuseport"})
+				assert.Equal(t, listen, []string{"0.0.0.0:8000", "[::]:8000"})
 				policies := albPolicy.Stream.Tcp[8000]
 				assert.Equal(t, len(policies), 1)
 				assert.Equal(t, policies[0].Upstream, "alb-1-8000-tcp")
@@ -640,7 +640,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			Assert: func(albPolicy NgxPolicy, ngxCfg string) {
 				listen, err := test_utils.PickStreamServerListen(ngxCfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:8000 udp reuseport", "[::]:8000 udp reuseport"})
+				assert.Equal(t, listen, []string{"0.0.0.0:8000 udp", "[::]:8000 udp"})
 
 				policies := albPolicy.Stream.Udp[8000]
 				assert.Equal(t, len(policies), 1)
@@ -781,10 +781,10 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			Assert: func(p NgxPolicy, cfg string) {
 				listen, err := test_utils.PickHttpServerListen(cfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:1936", "[::]:1936", "0.0.0.0:80 backlog=100 default_server reuseport", "[::]:80 backlog=100 default_server reuseport"})
+				assert.Equal(t, listen, []string{"0.0.0.0:1936", "[::]:1936", "0.0.0.0:80 backlog=100 default_server", "[::]:80 backlog=100 default_server"})
 				listen, err = test_utils.PickStreamServerListen(cfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:53 reuseport", "[::]:53 reuseport", "0.0.0.0:53 udp reuseport", "[::]:53 udp reuseport"})
+				assert.Equal(t, listen, []string{"0.0.0.0:53", "[::]:53", "0.0.0.0:53 udp", "[::]:53 udp"})
 			},
 		},
 		{
