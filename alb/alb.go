@@ -2,10 +2,13 @@ package alb
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
+
+	_ "net/http/pprof"
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
@@ -28,6 +31,20 @@ func Start(ctx context.Context) {
 	defer klog.Flush()
 	klog.Info("lifecycle: ALB start.")
 	config.Set("PHASE", modules.PhaseStarting)
+	if config.GetBool("PPROF") {
+		go func() {
+			port := config.GetInt("PPROF_PORT")
+			if port == 0 {
+				port = 8080
+			}
+			klog.Infof("lifecycle: start pprof web %d", port)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+			if err != nil {
+				klog.Error(err.Error())
+			}
+		}()
+	}
+
 	err := config.ValidateConfig()
 	if err != nil {
 		klog.Error(err.Error())

@@ -132,6 +132,7 @@ type InterfaceInfo struct {
 	IpV4Address []string
 	IpV6Address []string
 }
+
 type NetWorkInfo = map[string]InterfaceInfo
 
 func GetCurrentNetwork() (NetWorkInfo, error) {
