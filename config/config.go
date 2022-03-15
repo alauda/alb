@@ -3,6 +3,9 @@ package config
 import (
 	"alauda.io/alb2/utils"
 	"fmt"
+	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -69,6 +72,7 @@ var optionalFields = []string{
 	"ENABLE_HTTP2",
 	"SCENARIO",
 	"WORKER_LIMIT",
+	"CPU_LIMIT",
 	"RESYNC_PERIOD",
 	"ENABLE_PROFILE",
 	"METRICS_PORT",
@@ -198,9 +202,18 @@ func GetInt(key string) int {
 	if val, ok := ConfigInt.Load(key); ok {
 		return val.(int)
 	}
-	v := viper.GetInt(key)
-	ConfigInt.Store(key, v)
-	return v
+	v := viper.GetString(key)
+	// cpu limit could have value like 200m, need some calculation
+	re := regexp.MustCompile(`([0-9]+)m`)
+	var val int
+	if string_decimal := strings.TrimRight(re.FindString(fmt.Sprintf("%v", v)), "m"); string_decimal == "" {
+		val, _ = strconv.Atoi(v)
+	} else {
+		val_decimal, _ := strconv.Atoi(string_decimal)
+		val = int(math.Ceil(float64(val_decimal) / 1000))
+	}
+	ConfigInt.Store(key, val)
+	return val
 }
 
 func GetLabelSourceType() string {

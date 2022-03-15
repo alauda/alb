@@ -98,4 +98,11 @@ func TestConfig(t *testing.T) {
 	os.Setenv("ALB_LOCK_TIMEOUT", "100")
 	ret := GetInt("LOCK_TIMEOUT")
 	assert.Equal(t, ret, 100)
+	os.Setenv("CPU_LIMIT", "8")
+	ret2 := GetInt("CPU_LIMIT")
+	assert.Equal(t, ret2, 8)
+	CleanCache()
+	os.Setenv("CPU_LIMIT", "1600m")
+	ret3 := GetInt("CPU_LIMIT")
+	assert.Equal(t, ret3, 2)
 }

@@ -76,6 +76,8 @@ spec:
               value: "{{ .Values.ingressHTTPSPort }}"
             - name: WORKER_LIMIT
               value: "{{ .Values.workerLimit }}"
+            - name: CPU_LIMIT
+              value: "{{ .Values.resources.limits.cpu }}"
             - name: SCENARIO
               value: "{{ .Values.global.platformscenario }}"
             - name: RESYNC_PERIOD
@@ -99,7 +101,12 @@ spec:
             initialDelaySeconds: 6
             periodSeconds: 1
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+            limits:
+              cpu: 200m
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: 200m
+              memory: {{ .Values.resources.requests.memory }}
           volumeMounts:
           - name: tweak-conf
             mountPath: /alb/tweak/
@@ -170,6 +177,13 @@ spec:
               port: {{ .Values.metricsPort }}
             initialDelaySeconds: 6
             periodSeconds: 1
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
 
       volumes:
       - name: tweak-conf
