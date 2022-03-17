@@ -8,7 +8,7 @@ WORKDIR $GOPATH/src/alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
-FROM build-harbor.alauda.cn/ops/alpine:3.14.2
+FROM build-harbor.alauda.cn/ops/alpine:3.15
 
 RUN apk update && apk add --no-cache curl iproute2 jq logrotate openssl
 
