@@ -42,7 +42,7 @@ global:
     nginx:
       support_arm: true
       repository: 3rdparty/alb-nginx
-      tag: "20220118182511"
+      tag: "20220317112016"
       thirdparty: true
     alb2_old:
       support_arm: true

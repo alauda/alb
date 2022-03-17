@@ -273,7 +273,7 @@ function alb-init-kind-env {
     _makesureImage $image $kindName
   done
 
-  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.14.2" $kindName
+  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.15" $kindName
   _makesureImage $nginx $kindName
 
   local lbName="alb-dev"
@@ -506,8 +506,7 @@ function go-fmt-fix {
 }
 
 function go-lint {
-  gofmt -l .
-  if [ ! "$(gofmt -l .)" = "" ]; then
+  if [ ! "$(gofmt -l $(find . -type f -name '*.go'| grep -v ".deepcopy"))" = "" ]; then
     echo "go fmt check fail"
     exit 1
   fi

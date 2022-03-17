@@ -22,7 +22,11 @@ actions: scripts used in develop.
 4. different version of luajit will cause huge different when benchmark. watch it out.
 5. the current header of [luajit2](https://github.com/openresty/luajit2)(today is 20210623) is 886d5f895b8ae19def724677376322b1f7ae2d4a.
 6. this step should be removed when openresty built in luajit update.
-
+### 如何更新alb-nginx镜像
+1. 修改alb-nginx/Dockerfile alb-nginx流水线构建镜像
+2. 更新alb-nginx/alb-test-runner.dockerfile中alb-nginx镜像版本号,alb-test-runner-image流水线构建test-runner镜像
+3. 更新本readme中的changelog,修改chart/values.yaml中nginx镜像版本号
+5. 更新alb2流水线使用的test-runner镜像版本,构建alb镜像.
 ### image changelog
 #### alb-nginx
 ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-nginx 
@@ -33,8 +37,13 @@ alb-nginx:v3.6.0
 alb-nginx:v3.6.1
 alb-nginx:20220118182511
 	use ops/alpine as base image,upgrade openssl versin in openresty to 1.1.1l
+alb-nginx:20220317112016
+	upgrade base-image to 3.15
+
 
 ### alb-nginx-test
 ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-test-runner-image
 alb-nginx-test:20220117144539
 	add all needed to run test.
+alb-nginx-test:20220317113027
+	use alb-nginx:20220317112016.

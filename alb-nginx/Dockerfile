@@ -1,5 +1,5 @@
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.14.2"
+ARG RESTY_IMAGE_TAG="3.15"
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG} AS builder
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repositories
 
@@ -175,7 +175,7 @@ FROM scratch
 COPY --from=builder / /
 
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.14.2"
+ARG RESTY_IMAGE_TAG="3.15"
 ARG RESTY_VERSION="1.19.3.2"
 
 LABEL resty_image_base="${RESTY_IMAGE_BASE}"
