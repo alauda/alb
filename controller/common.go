@@ -173,22 +173,41 @@ func RandomStr(pixff string, length int) string {
 	return string(result)
 }
 
-func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, error) {
+func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, *CaCertificate, error) {
 	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(secret.Data[apiv1.TLSCertKey]) == 0 || len(secret.Data[apiv1.TLSPrivateKeyKey]) == 0 {
-		return nil, errors.New("invalid secret")
+		return nil, nil, errors.New("invalid secret")
 	}
 	_, err = tls.X509KeyPair(secret.Data[apiv1.TLSCertKey], secret.Data[apiv1.TLSPrivateKeyKey])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if len(secret.Data[CaCert]) == 0 {
+		return &Certificate{
+			Cert: string(secret.Data[apiv1.TLSCertKey]),
+			Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
+		}, nil, nil
 	}
 	return &Certificate{
 		Cert: string(secret.Data[apiv1.TLSCertKey]),
 		Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
-	}, nil
+	}, &CaCertificate{Cert: string(secret.Data[CaCert])}, nil
+}
+
+func mergeFullchainCert(cert *Certificate, caCert *CaCertificate) *Certificate {
+	var fullChainCert string
+	if strings.HasSuffix(cert.Cert, "\n") {
+		fullChainCert = strings.Join([]string{cert.Cert, caCert.Cert}, "")
+	} else {
+		fullChainCert = strings.Join([]string{cert.Cert, caCert.Cert}, "\n")
+	}
+	return &Certificate{
+		Cert: fullChainCert,
+		Key:  cert.Key,
+	}
 }
 
 func workerLimit() int {

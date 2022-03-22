@@ -14,6 +14,8 @@ const (
 
 	PolicySIPHash = "sip-hash"
 	PolicyCookie  = "cookie"
+
+	CaCert = "ca.crt"
 )
 
 var LastConfig = ""
@@ -46,6 +48,10 @@ func (lb *LoadBalancer) String() string {
 type Certificate struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
+}
+
+type CaCertificate struct {
+	Cert string `json:"cert"`
 }
 
 type Frontend struct {
