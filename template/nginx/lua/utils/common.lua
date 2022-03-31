@@ -213,7 +213,7 @@ end
 function _M.has_key(table, path)
     local cur = table
     for _, p in ipairs(path) do
-        if type(cur) == "table" and cur[p] ~= nil then
+        if type(cur) == "table" and cur[p] ~= nil and cur[p] ~= json.null then
             cur = cur[p]
         else
             return false
@@ -252,6 +252,16 @@ function _M.dump(o)
     else
         return tostring(o)
     end
+end
+
+---
+--- milliseconds to seconds,if ms is nil return nil
+---@return nil,int
+function _M.ms2sec(ms)
+    if ms == nil or ms == json.null then
+        return nil
+    end
+    return ms / 1000
 end
 
 return _M

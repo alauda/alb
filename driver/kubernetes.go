@@ -175,7 +175,6 @@ func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
 	driver.ALB2Lister = driver.Informers.Alb.Alb.Lister()
 	driver.FrontendLister = driver.Informers.Alb.Ft.Lister()
 	driver.RuleLister = driver.Informers.Alb.Rule.Lister()
-	driver.GatewayLister = driver.Informers.Gateway.Gateway.Lister()
 	return nil
 }
 

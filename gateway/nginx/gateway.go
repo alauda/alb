@@ -13,6 +13,8 @@ import (
 
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/gateway"
+	pm "alauda.io/alb2/gateway/nginx/policyattachment"
+	pmType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 )
 
 type Listener struct {
@@ -32,6 +34,11 @@ func (f FtMap) SetFt(protocol string, port int, ft *Frontend) {
 
 type GatewayAlbTranslate interface {
 	TransLate(ls []*Listener, ftMap FtMap) error
+}
+
+// who implement this interface have responsibility to call OnRule when a rule been create.
+type GatewayAlbPolicyAttachemt interface {
+	SetPolicyAttachmentHandle(handle pmType.PolicyAttachmentHandle)
 }
 
 func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className string) (*LoadBalancer, error) {
@@ -62,14 +69,19 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className st
 	if len(lss) == 0 {
 		return nil, nil
 	}
-
+	pm, err := pm.NewPolicyAttachmentManager(ctx, drv, log.WithName("pm"))
+	if err != nil {
+		return nil, err
+	}
 	http := NewHttpProtocolTranslate(drv, log)
+	http.SetPolicyAttachmentHandle(pm)
 	err = http.TransLate(lss, ftMap)
 	if err != nil {
 		return nil, err
 	}
 
 	tcp := NewTcpProtocolTranslate(drv, log)
+	tcp.SetPolicyAttachmentHandle(pm)
 	err = tcp.TransLate(lss, ftMap)
 	if err != nil {
 		return nil, err

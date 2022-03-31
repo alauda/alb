@@ -9,6 +9,7 @@ import (
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+// TODO refactor with generic
 type HTTPRoute gatewayType.HTTPRoute
 
 func (r *HTTPRoute) GetSpec() gatewayType.CommonRouteSpec {

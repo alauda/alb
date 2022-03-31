@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 )
@@ -77,6 +77,7 @@ func InitKubeCfg(cfg *rest.Config) (string, error) {
 	err = os.WriteFile(kubecfgPath, kubecfg, os.ModePerm)
 	os.Setenv("KUBECONFIG", kubecfgPath)
 	os.Setenv("USE_KUBECONFIG", "true")
+	Logf("kubecfg %v", kubecfgPath)
 	return kubecfgPath, err
 }
 
@@ -126,7 +127,8 @@ func NewAlb(deployCfg Config) *Framework {
 	if deployCfg.PortProbe {
 		os.Setenv("ENABLE_PORTPROBE", "true")
 	}
-
+	albRoot := getAlbRoot()
+	os.Setenv("LB_TYPE", "nginx")
 	os.Setenv("ALB_LOCK_TIMEOUT", "5")
 	os.Setenv("KUBERNETES_SERVER", cfg.Host)
 	os.Setenv("KUBERNETES_BEARERTOKEN", cfg.BearerToken)
@@ -144,9 +146,7 @@ func NewAlb(deployCfg Config) *Framework {
 	os.MkdirAll(kubectlDir, os.ModePerm)
 	os.Setenv("ALB_TWEAK_DIRECTORY", twekDir)
 
-	cwd, err := os.Getwd()
-	assert.Nil(ginkgo.GinkgoT(), err, "get cwd")
-	nginxTemplatePath, err := filepath.Abs(filepath.Join(cwd, "../../template/nginx/nginx.tmpl"))
+	nginxTemplatePath, err := filepath.Abs(filepath.Join(albRoot, "template/nginx/nginx.tmpl"))
 	assert.Nil(ginkgo.GinkgoT(), err, "nginx template")
 	assert.FileExists(ginkgo.GinkgoT(), nginxTemplatePath, "nginx template")
 	os.Setenv("NGINX_TEMPLATE_PATH", nginxTemplatePath)
@@ -193,6 +193,12 @@ func NewAlb(deployCfg Config) *Framework {
 // GetNamespace get the namespace which alb been deployed
 func (f *Framework) GetNamespace() string {
 	return f.namespace
+}
+
+func getAlbRoot() string {
+	_, filename, _, _ := runtime.Caller(0)
+	dir := path.Join(path.Dir(filename), "../../../")
+	return dir
 }
 
 func (f *Framework) Init() {
@@ -399,6 +405,10 @@ func (f *Framework) GetProductNs() string {
 
 func (f *Framework) GetK8sClient() kubernetes.Interface {
 	return f.k8sClient
+}
+
+func (f *Framework) GetAlbClient() albclient.Interface {
+	return f.albClient
 }
 
 func (f *Framework) GetGatewayClient() gatewayVersioned.Interface {
@@ -734,39 +744,3 @@ func (f *Framework) CreateTlsSecret(domain, name, ns string) (*corev1.Secret, er
 	}
 	return secret, nil
 }
-
-type AlbTester interface {
-	GetNginxConfig()
-	GetPolicy()
-	GetKubeCfg()
-	GetAlbKey() client.ObjectKey
-	GetAlbDomain() string
-}
-
-type TestHelper struct {
-	albTester AlbTester
-}
-
-type K8sHelper struct {
-	kubecfg string
-}
-
-// func New(cfg string) K8sHelper {
-
-// }
-
-// func (k K8sHelper) GetK8sClient() {
-
-// }
-
-// func (k K8sHelper) GetAlbClient() {
-
-// }
-
-// func (k K8sHelper) GetGatewayClient() {
-
-// }
-
-// func (k K8sHelper) KubectlApply() {
-
-// }

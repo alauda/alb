@@ -19,6 +19,7 @@ limitations under the License.
 package fake
 
 import (
+	gatewayv1alpha1 "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	crdv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	crdv1.AddToScheme,
+	gatewayv1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

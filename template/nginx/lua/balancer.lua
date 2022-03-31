@@ -1,3 +1,4 @@
+-- THIS MODULE EVALED IN BOTH HTTP AND STREAM CTX
 local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
@@ -9,6 +10,7 @@ local ngx_var = ngx.var
 local ngx_config = ngx.config
 local ngx_shared = ngx.shared
 local string_format = string.format
+local ms2sec = common.ms2sec
 
 local _M = {}
 local balancers = {}
@@ -18,7 +20,7 @@ local DEFAULT_LB_ALG = "round_robin"
 local IMPLEMENTATIONS = {
     round_robin = round_robin,
     chash = chash,
-    sticky = sticky,
+    sticky = sticky
 }
 
 local function get_implementation(backend)
@@ -60,7 +62,7 @@ local function sync_backend(backend)
 
     local implementation = get_implementation(backend)
     local balancer = balancers[backend.name]
-    --{
+    -- {
     --  "mode": "http",
     --  "session_affinity_attribute": "",
     --  "name": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
@@ -72,7 +74,7 @@ local function sync_backend(backend)
     --      "weight": 100
     --    }
     --  ]
-    --}
+    -- }
     if not balancer then
         balancers[backend.name] = implementation:new(backend)
         return
@@ -82,8 +84,8 @@ local function sync_backend(backend)
     -- here we check if `balancer` is the instance of `implementation`
     -- if it is not then we deduce LB algorithm has changed for the backend
     if getmetatable(balancer) ~= implementation then
-        ngx_log(ngx.INFO,
-                string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name, implementation.name))
+        ngx_log(ngx.INFO, string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name,
+            implementation.name))
         balancers[backend.name] = implementation:new(backend)
         return
     end
@@ -127,8 +129,18 @@ local function get_balancer()
     return balancer
 end
 
+--- get the policy which match this request.
+local function get_policy()
+    local policy = ngx.ctx.matched_policy
+    if policy == nil then
+        ngx_log(ngx.ERR, "impossable! no policy find for req on balance")
+    end
+    return policy
+end
+
 function _M.balance()
     local balancer = get_balancer()
+    local policy = get_policy()
     if not balancer then
         ngx_log(ngx.ERR, "no balancer found for ", ngx_var.upstream)
         return
@@ -139,7 +151,7 @@ function _M.balance()
         ngx.log(ngx.ERR, "no peer was returned, balancer: " .. balancer.name)
         return
     end
-
+    -- TODO 在实现retrypolicy时这里需要被重写。注意测试。
     ngx_balancer.set_more_tries(1)
 
     local ok, err = ngx_balancer.set_current_peer(peer)
@@ -149,7 +161,22 @@ function _M.balance()
 
     -- TODO: dynamic keepalive connections pooling
     -- https://github.com/openresty/lua-nginx-module/pull/1600
-    local _, err = ngx_balancer.set_timeouts(nil, nil, nil)
+    -- ngx.log(ngx.NOTICE, "send timeout "..common.json_encode(policy))
+    local proxy_connect_timeout_secs = nil
+    local proxy_send_timeout_secs = nil
+    local proxy_read_timeout_secs = nil
+    if common.has_key(policy, {"config", "timeout"}) then
+        local timeout = policy.config.timeout
+        proxy_connect_timeout_secs = ms2sec(timeout.proxy_connect_timeout_ms)
+        proxy_send_timeout_secs = ms2sec(timeout.proxy_send_timeout_ms)
+        proxy_read_timeout_secs = ms2sec(timeout.proxy_read_timeout_ms)
+    end
+
+    -- ngx.log(ngx.NOTICE,
+        -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
+        --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
+    local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs,
+        proxy_read_timeout_secs)
     if err ~= nil then
         ngx.log(ngx.ERR, err)
     end

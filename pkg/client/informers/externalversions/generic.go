@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	v1alpha1 "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -59,6 +60,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Crd().V1().Frontends().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("rules"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Crd().V1().Rules().Informer()}, nil
+
+		// Group=gateway.crd.alauda.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("timeoutpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Gateway().V1alpha1().TimeoutPolicies().Informer()}, nil
 
 	}
 

@@ -1,13 +1,14 @@
 package config
 
 import (
-	"alauda.io/alb2/utils"
 	"fmt"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"alauda.io/alb2/utils"
 
 	"github.com/spf13/viper"
 	"github.com/thoas/go-funk"

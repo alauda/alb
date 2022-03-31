@@ -22,15 +22,21 @@ function _M.header_filter()
         return "rewrite_response: policy is " .. common.dump(matched_policy)
     end)
     -- fast return
-    if not common.has_key(matched_policy, { "config", "rewrite_response", "headers" })
+    if not common.has_key(matched_policy, { "config", "rewrite_response"})
     then
         trace(function()
             return "rewrite_response: could not find config,just ignore"
         end)
         return
     end
-    local headers = matched_policy["config"]["rewrite_response"]["headers"]
-    for k, v in pairs(headers) do
+	-- TODO implement more header set method
+    local set_headers = matched_policy["config"]["rewrite_response"]["headers"]
+	-- headers_set(headers) set header and values anywhere
+	-- headers_remove remove header
+	-- headers_update set header only when it exist
+	-- headers_default set header only when it not exist
+
+    for k, v in pairs(set_headers) do
         ngx_header[k] = v
     end
 end

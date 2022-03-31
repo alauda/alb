@@ -318,7 +318,7 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 			}
 			rule.BackendGroup = &BackendGroup{
 				Name:                     rule.RuleID,
-				Mode:                     ModeHTTP,
+				Mode:                     FtProtocolToBackendMode(ft.Protocol),
 				SessionAffinityPolicy:    rule.SessionAffinityPolicy,
 				SessionAffinityAttribute: rule.SessionAffinityAttr,
 			}
@@ -337,16 +337,108 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 		if len(ft.Services) != 0 {
 			// set ft default services group.
 			ft.BackendGroup.Backends = generateBackend(backendMap, ft.Services, protocol)
-			switch ft.Protocol {
-			case albv1.FtProtocolTCP:
-				ft.BackendGroup.Mode = ModeTCP
-			case albv1.FtProtocolUDP:
-				ft.BackendGroup.Mode = ModeUDP
-			}
+			ft.BackendGroup.Mode = FtProtocolToBackendMode(ft.Protocol)
 		}
 	}
 	klog.V(3).Infof("Get alb : %s", cAlb.String())
 	return nil
+}
+
+func (nc *NginxController) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+	// create a default rule for stream mode ft.
+	if len(ft.Rules) == 0 {
+		if ft.BackendGroup == nil || ft.BackendGroup.Backends == nil {
+			klog.Warningf("ft %s,stream mode ft must have backend group", ft.FtName)
+		}
+		if ft.Protocol == albv1.FtProtocolTCP {
+			policy := Policy{}
+			policy.Subsystem = SubsystemStream
+			policy.Upstream = ft.BackendGroup.Name
+			policy.Rule = ft.BackendGroup.Name
+			ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
+		}
+		if ft.Protocol == albv1.FtProtocolUDP {
+			policy := Policy{}
+			policy.Subsystem = SubsystemStream
+			policy.Upstream = ft.BackendGroup.Name
+			policy.Rule = ft.BackendGroup.Name
+			ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
+		}
+		return
+	}
+
+	if len(ft.Rules) != 1 {
+		klog.Warningf("stream mode ft could only have one rule", ft.FtName)
+	}
+	rule := ft.Rules[0]
+	policy := Policy{}
+	policy.Subsystem = SubsystemStream
+	policy.Upstream = rule.BackendGroup.Name
+	policy.Rule = rule.RuleID
+	policy.Config = rule.Config
+	if ft.Protocol == albv1.FtProtocolTCP {
+		ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
+	}
+	if ft.Protocol == albv1.FtProtocolUDP {
+		ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
+	}
+}
+
+func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+	if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
+		ngxPolicy.Http.Tcp[ft.Port] = Policies{}
+	}
+
+	for _, rule := range ft.Rules {
+		if rule.DSLX == nil {
+			klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
+			continue
+		}
+
+		klog.V(3).Infof("Rule is %v", rule)
+		policy := Policy{}
+		policy.Subsystem = SubsystemHTTP
+		policy.Rule = rule.RuleID
+		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
+		if err != nil {
+			klog.Error("convert dslx to internal failed", err)
+			continue
+		}
+		policy.InternalDSL = internalDSL
+
+		policy.Priority = rule.GetPriority()
+		policy.RawPriority = rule.GetRawPriority()
+		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
+		// policy-gen 设置rule的upstream
+		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
+		// for rewrite
+		policy.URL = rule.URL
+		policy.RewriteBase = rule.RewriteBase
+		policy.RewriteTarget = rule.RewriteTarget
+		policy.EnableCORS = rule.EnableCORS
+		policy.CORSAllowHeaders = rule.CORSAllowHeaders
+		policy.CORSAllowOrigin = rule.CORSAllowOrigin
+		policy.BackendProtocol = rule.BackendProtocol
+		policy.RedirectURL = rule.RedirectURL
+		policy.RedirectCode = rule.RedirectCode
+		policy.VHost = rule.VHost
+		policy.Config = rule.Config
+		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
+	}
+
+	// set default rule if ft have default backend.
+	if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
+		defaultPolicy := Policy{}
+		defaultPolicy.Rule = ft.FtName
+		defaultPolicy.Priority = -1     // default rule should have the minimum priority
+		defaultPolicy.RawPriority = 999 // minimum number means higher priority
+		defaultPolicy.Subsystem = SubsystemHTTP
+		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
+		defaultPolicy.BackendProtocol = ft.BackendProtocol
+		defaultPolicy.Upstream = ft.BackendGroup.Name
+		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
+	}
+	sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
 }
 
 // fetch cert and backend info that lb config neeed, constructs a "dynamic config" used by openresty.
@@ -366,80 +458,11 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 			continue
 		}
 		if ft.IsStreamMode() {
-			if ft.BackendGroup == nil || ft.BackendGroup.Backends == nil {
-				klog.Warningf("ft %s,stream mode ft must have backend group", ft.FtName)
-			}
-			if ft.Protocol == albv1.FtProtocolTCP {
-				policy := Policy{}
-				policy.Subsystem = SubsystemStream
-				policy.Upstream = ft.BackendGroup.Name
-				policy.Rule = ft.BackendGroup.Name
-				ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
-			}
-			if ft.Protocol == albv1.FtProtocolUDP {
-				policy := Policy{}
-				policy.Subsystem = SubsystemStream
-				policy.Upstream = ft.BackendGroup.Name
-				policy.Rule = ft.BackendGroup.Name
-				ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
-			}
+			nc.initStreamModeFt(ft, &ngxPolicy)
 		}
 
 		if ft.IsHttpMode() {
-			if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
-				ngxPolicy.Http.Tcp[ft.Port] = Policies{}
-			}
-
-			for _, rule := range ft.Rules {
-				if rule.DSLX == nil {
-					klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
-					continue
-				}
-
-				klog.V(3).Infof("Rule is %v", rule)
-				policy := Policy{}
-				policy.Subsystem = SubsystemHTTP
-				policy.Rule = rule.RuleID
-				internalDSL, err := utils.DSLX2Internal(rule.DSLX)
-				if err != nil {
-					klog.Error("convert dslx to internal failed", err)
-					continue
-				}
-				policy.InternalDSL = internalDSL
-
-				policy.Priority = rule.GetPriority()
-				policy.RawPriority = rule.GetRawPriority()
-				policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
-				// policy-gen 设置rule的upstream
-				policy.Upstream = rule.BackendGroup.Name // IMPORTANT
-				// for rewrite
-				policy.URL = rule.URL
-				policy.RewriteBase = rule.RewriteBase
-				policy.RewriteTarget = rule.RewriteTarget
-				policy.EnableCORS = rule.EnableCORS
-				policy.CORSAllowHeaders = rule.CORSAllowHeaders
-				policy.CORSAllowOrigin = rule.CORSAllowOrigin
-				policy.BackendProtocol = rule.BackendProtocol
-				policy.RedirectURL = rule.RedirectURL
-				policy.RedirectCode = rule.RedirectCode
-				policy.VHost = rule.VHost
-				policy.Config = rule.Config
-				ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
-			}
-
-			// set default rule if ft have default backend.
-			if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
-				defaultPolicy := Policy{}
-				defaultPolicy.Rule = ft.FtName
-				defaultPolicy.Priority = -1     // default rule should have the minimum priority
-				defaultPolicy.RawPriority = 999 // minimum number means higher priority
-				defaultPolicy.Subsystem = SubsystemHTTP
-				defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
-				defaultPolicy.BackendProtocol = ft.BackendProtocol
-				defaultPolicy.Upstream = ft.BackendGroup.Name
-				ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
-			}
-			sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
+			nc.initHttpModeFt(ft, &ngxPolicy)
 		}
 	}
 

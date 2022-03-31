@@ -63,7 +63,7 @@ func ListListenerByClass(kd *driver.KubernetesDriver, classname string) ([]*List
 // ListGatewayByClassName list gateway in all ns
 func listGatewayByClassName(kd *driver.KubernetesDriver, classname string) ([]*gatewayType.Gateway, error) {
 	var ret []*gatewayType.Gateway
-	gateways, err := kd.GatewayLister.List(labels.Everything())
+	gateways, err := kd.Informers.Gateway.Gateway.Lister().List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

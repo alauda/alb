@@ -128,7 +128,7 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 
 	for _, ref := range refs {
 		log.V(2).Info("check refs", "ref", RefsToString(ref))
-		if ref.Kind != nil && *ref.Kind != GATEWAY_KIND {
+		if ref.Kind != nil && *ref.Kind != GatewayKind {
 			continue
 		}
 		if ref.Namespace == nil {

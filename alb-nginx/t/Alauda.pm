@@ -4,7 +4,7 @@ use warnings;
 package t::Alauda;
 use Test::Nginx::Socket::Lua::Stream -Base;
 
-
+# to knowing how/why those $block->set_value work, take a look at https://github.com/openresty/test-nginx/blob/be75f595236eef83e4274363e13affdf08b05737/lib/Test/Nginx/Util.pm#L968  
 add_block_preprocessor(sub {
     if (! -d  "/alb/tweak") {
         warn "generate tweak conf";
@@ -57,6 +57,31 @@ __END
 __END
         $policy=$defaultPolicy;
     }
+	warn "policy is $policy";
+
+    my $lua_test_full = '';
+    if (defined  $block->lua_test) {
+		my $lua_test=$block->lua_test;
+    	my $server_port=1999;
+        $lua_test_full = <<__END;
+server {
+    listen 1999;
+    location /t {
+        content_by_lua_block {
+            package.path = '/t/?.lua;'.."/t/lib/?.lua;" .. package.path;
+			local test=function()
+				$lua_test
+			end
+			test()
+			ngx.print("ok")
+		}
+	}
+}
+__END
+        warn "set server_port to $server_port";
+        server_port_for_client($server_port);
+        $block->set_value("request","GET /t");
+	}
 
     open(FH,'>','/usr/local/openresty/nginx/conf/policy.new') or die $!;
     print FH $policy;
@@ -125,10 +150,8 @@ _END_
     }
 
 
-    my $http_config = "";
-    if (defined $block->http_config) {
-        $http_config = $block->http_config;
-    }
+    my $http_config = $block->http_config;
+    warn "get http config $http_config";
 
     my $cfg = <<__END;
     include       /alb/tweak/http.conf;
@@ -216,6 +239,8 @@ _END_
     }
 
     $http_config
+
+	$lua_test_full
 __END
     $block->set_value("http_config",$cfg);
 });

@@ -14,7 +14,7 @@ function install-envtest {
   if [[ ! -d "/usr/local/kubebuilder" ]]; then
     export K8S_VERSION=1.19.2
     curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
-
+	# TODO need sudo permissions
     mkdir -p /usr/local/kubebuilder
     tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
     rm envtest-bins.tar.gz
@@ -216,6 +216,9 @@ function alb-kind-build-and-replace {
 
 
 function alb-init-kind-env {
+  # required
+  # helm: >= 3.7.0
+  # docker: login to build-harbor.alauda.cn
   # how to use
   # . ./scripts/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
   # . ./scripts/alb-dev-actions.sh; KIND_NAME=alb-38 CHART=build-harbor.alauda.cn/acp/chart-alauda-alb2:v3.8.0-alpha.3 alb-init-kind-env
@@ -298,6 +301,7 @@ function alb-init-kind-env {
   sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
   kubectl create ns cpaas-system
 
+  # alb <=3.7
   if [ "$OLD_ALB" = "true" ]; then
     echo "init crd(old)"
     kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
@@ -315,29 +319,25 @@ nodeSelector:
 EOF
   echo "$OVERRIDE" >./override.yaml
 
-  helm-alauda install -n cpaas-system \
+  helm install alb-dev ./alauda-alb2 --namespace cpaas-system \
     --set-string loadbalancername=alb-dev \
     --set-string global.labelBaseDomain=cpaas.io \
     --set-string global.registry.address=build-harbor.alauda.cn \
     --set-string project=all_all \
     -f ./alauda-alb2/values.yaml \
     -f ./override.yaml \
-    alb-dev \
-    ./alauda-alb2 \
     --dry-run --debug
   echo "helm dry run over"
 
   echo "helm install"
-  helm-alauda install -n cpaas-system \
-    --set-string loadbalancerName=alb-dev \
+  helm install alb-dev ./alauda-alb2 -n cpaas-system \
+    --set-string loadbalancername=alb-dev \
     --set-string global.labelBaseDomain=cpaas.io \
-    --set-string global.namespace=cpaas-system \
     --set-string global.registry.address=build-harbor.alauda.cn \
-    --set-string project=ALL_ALL \
+    --set-string project=all_all \
     -f ./alauda-alb2/values.yaml \
     -f ./override.yaml \
-    alb-dev \
-    ./alauda-alb2
+    --debug
 
   echo "init alb"
   init-alb
@@ -389,20 +389,6 @@ function _makesureImage {
   kind load docker-image $image --name $kindName
 }
 
-function alb-list-e2e-testcase {
-  ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case'
-}
-
-function alb-run-one-e2e-test {
-	cp ./viper-config.toml ./test/e2e
-  local testcase=$( ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g' |fzf )
-  echo "case is $testcase"
-  if [ -z "$testcase" ]; then
-    echo "empty case ingore"
-    return
-  fi
-  ginkgo -v=1 -focus "$testcase" ./test/e2e
-}
 
 function alb-patch-gateway-hostname() {
 jsonpatch=$(cat <<EOF
@@ -411,19 +397,25 @@ EOF
 );echo "$jsonpatch"; kubectl patch gateway -n alb-test g1 --type=json -p="$jsonpatch";kubectl get gateway -n alb-test g1  -o yaml
 }
 
+
+function alb-list-e2e-testcase {
+  for suite_test in $(find ./test/e2e -name suite_test.go); do
+    local suite=$(dirname "$suite_test")
+  	ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
+  done
+}
+
 function alb-run-all-e2e-test {
-  cp ./viper-config.toml ./test/e2e
-  while IFS= read -r testcase _; do
-    echo "run test $testcase"
-    ginkgo -v -focus "$testcase" ./test/e2e
-    RESULT=$?
-    if [ $RESULT -eq 0 ]; then
-      echo success
-    else
-      echo "run $testcase fail"
-      exit 1
-    fi
-  done < <(ginkgo -v -noColor -dryRun ./test/e2e | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
+  export ALB_IGNORE_FOCUS="true"
+  local base=$(pwd)
+  for suite_test in $(find ./test/e2e -name suite_test.go); do
+    local suite=$(dirname "$suite_test")
+    while IFS= read -r testcase _; do
+		cp $base/viper-config.toml $suite
+		echo  ginkgo -v -focus "$testcase" $suite
+		ginkgo -v -focus "$testcase" $suite
+    done < <( ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'| sed -e 's/.*alb-test-case\s*//g')
+  done
 }
 
 function get-alb-images-from-values {
@@ -515,13 +507,13 @@ function go-lint {
 
 function go-unit-test {
   if [ -d ./alb-nginx/t/servroot ]; then
-      sudo rm -rf ./alb-nginx/t/servroot || true
+    	rm -rf ./alb-nginx/t/servroot || true
   fi
   go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
 }
 
 function alb-test-all-in-ci {
-  # the current in ci is sth like /home/xx/xx/acp-alb-test
+  # the current dir in ci is sth like /home/xx/xx/acp-alb-test
   set -e # exit on err
   echo alb is $ALB
   echo pwd is $(pwd)
@@ -530,8 +522,11 @@ function alb-test-all-in-ci {
   luacheck ./template/nginx/lua
   alb-lua-format-check
   go-unit-test
+  echo "unit-test ok"
   go install github.com/onsi/ginkgo/ginkgo
-  mv ~/go/bin/ginkgo /usr/bin
+  export PATH=$PATH:~/go/bin
+  which ginkgo
+  echo $?
   alb-run-all-e2e-test
   source ./alb-nginx/actions/common.sh
   test-nginx-in-ci

@@ -7,6 +7,7 @@ import (
 	"alauda.io/alb2/config"
 	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	albv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	albGateway "alauda.io/alb2/pkg/client/informers/externalversions/gateway/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/informers/core/v1"
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
@@ -40,9 +41,10 @@ type GatewayInformers struct {
 }
 
 type AlbInformers struct {
-	Alb  albv1.ALB2Informer
-	Ft   albv1.FrontendInformer
-	Rule albv1.RuleInformer
+	Alb           albv1.ALB2Informer
+	Ft            albv1.FrontendInformer
+	Rule          albv1.RuleInformer
+	TimeoutPolicy albGateway.TimeoutPolicyInformer
 }
 
 type InitInformersOptions struct {
@@ -82,6 +84,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	ruleSynced := ruleInformer.Informer().HasSynced
 
 	albInformerFactory.Start(ctx.Done())
+
 	gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
 
 	gatewayClassInformer := gatewayInformerFactory.Gateway().V1alpha2().GatewayClasses()
@@ -103,6 +106,14 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	gatewayInformerFactory.Start(ctx.Done())
 
+	// gateway policyattachment could used in any ns.
+	albGatewayInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0)
+
+	timeoutPoliccyInformer := albGatewayInformerFactory.Gateway().V1alpha1().TimeoutPolicies()
+	timeoutPolicySynced := timeoutPoliccyInformer.Informer().HasSynced
+
+	albGatewayInformerFactory.Start(ctx.Done())
+
 	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(),
 		namespaceSynced,
 		ingressSynced,
@@ -118,6 +129,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 		tcpRouteSynced,
 		udpRouteSynced,
 		tlsRouteSynced,
+		timeoutPolicySynced,
 	); !ok {
 		if options.ErrorIfWaitSyncFail {
 			return nil, errors.New("wait alb2 informers sync fail")
@@ -133,9 +145,10 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 			Namespace:    namespaceInformer,
 		},
 		Alb: AlbInformers{
-			Alb:  alb2Informer,
-			Ft:   frontendInformer,
-			Rule: ruleInformer,
+			Alb:           alb2Informer,
+			Ft:            frontendInformer,
+			Rule:          ruleInformer,
+			TimeoutPolicy: timeoutPoliccyInformer,
 		},
 		Gateway: GatewayInformers{
 			GatewayClass: gatewayClassInformer,

@@ -1,0 +1,300 @@
+use strict;
+use warnings;
+use t::Alauda;
+use Test::Nginx::Socket 'no_plan';
+use Test::Nginx::Socket;
+
+
+# TODO test timeout for l4
+# TODO to timeout on backend
+# TODO client->nginx send_timeout (set variable)
+our $policy = <<'_EOC_';
+{
+  "certificate_map": {},
+  "http": {
+    "tcp": {
+      "80": [
+        {
+          "rule": "without-timeout",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/without-timeout"
+            ]
+          ],
+          "upstream": "test-upstream-1",
+          "config": {
+            "record": true
+          }
+        },
+        {
+          "rule": "zero-timeout",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/zero-timeout"
+            ]
+          ],
+          "upstream": "test-upstream-1",
+          "config": {
+            "record": true,
+            "timeout": {
+              "proxy_connect_timeout_ms": 10,
+              "proxy_send_timeout_ms": null
+            }
+          }
+        },
+        {
+          "rule": "timeout-on-rule",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/timeout-on-rule"
+            ]
+          ],
+          "upstream": "test-upstream-1",
+          "config": {
+            "record": true,
+            "timeout": {
+              "proxy_connect_timeout_ms": 10,
+              "proxy_send_timeout_ms": 10,
+              "proxy_read_timeout_ms": 10
+            }
+          }
+        },
+        {
+          "rule": "timeout-on-backend",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/timeout-on-backend"
+            ]
+          ],
+          "upstream": "test-upstream-2",
+          "config": {
+            "record": true
+          }
+        },
+        {
+          "rule": "timeout-both-on-rule-and-backend",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/timeout-on-backend"
+            ]
+          ],
+          "config": {
+            "record": true,
+            "timeout": {
+              "proxy_connect_timeout_ms": 10,
+              "proxy_send_timeout": 20,
+              "proxy_read_timeout": 10
+            }
+          },
+          "upstream": "test-upstream-3"
+        }
+      ]
+    }
+  },
+  "backend_group": [
+    {
+      "name": "test-upstream-1",
+      "mode": "http",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100
+        }
+      ]
+    },
+    {
+      "name": "test-upstream-2",
+      "mode": "http",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100,
+          "config": {
+            "timeout": {
+              "proxy_connect_timeout": 10,
+              "proxy_send_timeout": 10,
+              "proxy_read_timeout": 10
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "test-upstream-3",
+      "mode": "http",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "config": {
+            "timeout": {
+              "proxy_connect_timeout": 10,
+              "proxy_send_timeout": 10,
+              "proxy_read_timeout": 10
+            }
+          },
+          "port": 9998,
+          "weight": 100
+        },
+        {
+          "address": "127.0.0.1",
+          "port": 9999,
+          "weight": 100
+        }
+      ]
+    }
+  ]
+}
+_EOC_
+
+our $http_config = <<'_EOC_';
+server {
+    listen 9999;
+    location / {
+       content_by_lua_block {
+		   ngx.log(ngx.NOTICE,"on-backend: ----->  sleep "..tostring(ngx.var.arg_sleep))
+		   if ngx.var.arg_sleep ~=nil then
+				ngx.sleep(ngx.var.arg_sleep/1000)
+		   end
+    	   ngx.print("ok");
+      }
+    }
+}
+server {
+    listen 9998;
+    location / {
+       content_by_lua_block {
+    	   ngx.print("ok");
+      }
+    }
+}
+_EOC_
+
+
+
+log_level("info");
+no_shuffle();
+no_root_location();
+run_tests();
+
+
+__DATA__
+
+=== TEST 1: test lua test 
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+    local httpc = require("resty.http").new()
+
+    local res, err = httpc:request_uri("http://127.0.0.1:9999/t")
+	u.log(F"texst res  {res.body} err {err}")
+	h.assert_curl_success(res,err,"ok")
+--- response_body: ok
+
+=== TEST 2: test sleep
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+	do
+		local spend,res,err = u.time_spend(
+			function()
+    			local httpc = require("resty.http").new()
+    			return httpc:request_uri("http://127.0.0.1:9999/t?sleep=0")
+			end
+		)
+		u.log(F"texst res {spend} {res.body} ")
+		h.assert_true(spend<10)
+		h.assert_curl_success(res,err,"ok")
+	end
+
+	do
+		local spend,res,err = u.time_spend(
+			function()
+    			local httpc = require("resty.http").new()
+    			return httpc:request_uri("http://127.0.0.1:9999/t?sleep=10")
+			end
+		)
+		u.log(F"texst res {spend} {res.body} ")
+		h.assert_true(spend>10 and spend<20)
+		h.assert_curl_success(res,err,"ok")
+	end
+--- response_body: ok
+
+=== TEST 3: test without timeout
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+
+	local spend,res,err = u.time_spend(
+			function()
+     			local httpc = require("resty.http").new()
+     			return httpc:request_uri("http://127.0.0.1:80/without-timeout?sleep=20")
+	 		end
+	 )
+	 u.log(F"texst res {spend} {res.body} ")
+	 h.assert_true(spend>20 and spend<30)
+	 h.assert_curl_success(res,err,"ok")
+
+--- response_body: ok
+
+
+
+=== TEST 4: test timeout on rule
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+
+    local httpc = require("resty.http").new()
+	local spend,res,err = u.time_spend(
+			function()
+    			local httpc = require("resty.http").new()
+    			return httpc:request_uri("http://127.0.0.1:80/timeout-on-rule?sleep=20")
+			end
+	)
+	u.log(F"texst res {spend} {res.body} ")
+	-- 这是因为我们现在的最大的重试次数是5 所以在1ms超时的情况下，10×5=50, 100只是确保上限而已。
+	h.assert_true(spend>50 and spend<100)
+	h.assert_eq(res.status,504,"should timeout")
+--- response_body: ok
+--- grep_error_log eval
+qr/on-backend/
+--- grep_error_log_out
+on-backend
+on-backend
+on-backend
+on-backend
+on-backend
+
+
+=== TEST 5: test with zeor or nil timeout
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+
+	local spend,res,err = u.time_spend(
+			function()
+     			local httpc = require("resty.http").new()
+     			return httpc:request_uri("http://127.0.0.1:80/zero-timeout?sleep=20")
+	 		end
+	 )
+	 u.log(F"texst res {spend} {res.body} ")
+	 h.assert_true(spend>20 and spend<30)
+	 h.assert_curl_success(res,err,"ok")
+
+--- response_body: ok

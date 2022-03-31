@@ -1,4 +1,4 @@
-package e2e
+package gateway
 
 import (
 	"context"
@@ -29,7 +29,6 @@ var _ = ginkgo.Describe("Gateway", func() {
 		f.Init()
 		ctx = context.Background()
 		ns = f.GetProductNs()
-
 	})
 
 	ginkgo.AfterEach(func() {
@@ -131,11 +130,7 @@ spec:
 		assert.True(ginkgo.GinkgoT(), Gateway(*g).WaittingController())
 	})
 
-	GIt("when i deployed route, it should update route and gateway status", func() {
-		// TODO
-	})
-
-	GFIt("i want my app been access by tcp", func() {
+	GIt("i want my app been access by tcp", func() {
 		_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -283,7 +278,9 @@ spec:
 			})
 		})
 	})
+	// TODO 当gateway不允许某些ns的话，这些ns的route不能attach到其上面
 
+	// TODO 当gateway的http/https listener没有hostname时，默认行为是什么,现在是拒绝了，这种行为是否正确
 	GIt("i want my app been access by both http and https", func() {
 		secret, err := f.CreateTlsSecret("a.com", "secret-1", ns)
 		_ = secret
@@ -300,12 +297,14 @@ spec:
     - name: http
       port: 80
       protocol: HTTP
+      hostname: a.com
       allowedRoutes:
         namespaces:
           from: All
     - name: https
       port: 443
       protocol: HTTPS
+      hostname: a.com
       tls:
         mode: Terminate
         certificateRefs:
@@ -349,7 +348,7 @@ spec:
 		f.WaitNginxConfigStr("listen.*443.*ssl")
 
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-			if !p.CertEq("443", secret) {
+			if !p.CertEq("a.com", secret) {
 				return false, nil
 			}
 			name := "80-" + ns + "-h1-0-0"

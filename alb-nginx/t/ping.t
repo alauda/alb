@@ -7,7 +7,7 @@ use Test::Nginx::Socket;
 no_shuffle();
 no_root_location();
 run_tests();
-
+## TODO rewrite with lua-test
 __DATA__
 
 === TEST 1: http ping/pong should ok
