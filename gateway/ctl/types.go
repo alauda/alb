@@ -44,7 +44,7 @@ type Route struct {
 
 type RouteStatus struct {
 	ref    gatewayType.ParentRef
-	accept bool // TODO default to false?
+	accept bool
 	msg    string
 }
 

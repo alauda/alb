@@ -32,9 +32,10 @@ CODEGEN_PKG=$GOPATH/pkg/mod/k8s.io/code-generator@v0.19.11-rc.0
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,lister,informer" \
   alauda.io/alb2/pkg/client alauda.io/alb2/pkg/apis \
-  "alauda:v1"  \
+  "alauda:gateway/v1alpha1  alauda:v1"  \
   --go-header-file ${ALB2_ROOT}/hack/boilerplate.go.txt \
   --output-base "${ALB2_ROOT}/code_gen"
+
 cp -r ${ALB2_ROOT}/code_gen/alauda.io/alb2/pkg/* ${ALB2_ROOT}/pkg
 rm -rf ${ALB2_ROOT}/code_gen 
 

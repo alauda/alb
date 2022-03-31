@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 )
 
@@ -131,6 +132,20 @@ const (
 	ModeUDP  = "udp"
 )
 
+func FtProtocolToBackendMode(protocol v1.FtProtocol) string {
+	switch protocol {
+	case v1.FtProtocolTCP:
+		return ModeTCP
+	case v1.FtProtocolUDP:
+		return ModeUDP
+	case v1.FtProtocolHTTP:
+		return ModeHTTP
+	case v1.FtProtocolHTTPS:
+		return ModeHTTP
+	}
+	return ""
+}
+
 const (
 	RuleTypeIngress = "ingress"
 	RuleTypeGateway = "gateway"
@@ -217,10 +232,15 @@ func (bg BackendGroup) Eq(other BackendGroup) bool {
 }
 
 type RuleConfig struct {
-	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
+	RewriteResponse *RewriteResponseConfig             `json:"rewrite_response,omitempty"`
+	Timeout         *gatewayPolicy.TimeoutPolicyConfig `json:"timeout,omitempty"`
 }
+
 type RewriteResponseConfig struct {
-	Headers map[string]string `json:"headers,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	HeadersDelete  map[string]string `json:"headers_delete,omitempty"`
+	HeadersUpdate  map[string]string `json:"headers_update,omitempty"`
+	HeadersDefault map[string]string `json:"headers_default,omitempty"`
 }
 
 func (r RewriteResponseConfig) IsEmpty() bool {

@@ -50,6 +50,9 @@ endif
 gen-alb-crd: controller-gen
 	rm -rf ./chart/crds &&  controller-gen  crd paths=./pkg/apis/alauda/v1  output:crd:dir=./chart/crds/alb
 
+gen-gateway-policyattachemt-crd: controller-gen
+	rm -rf ./chart/crds/gateway_policyattachment &&  controller-gen  crd paths=./pkg/apis/alauda/gateway/v1alpha1  output:crd:dir=./chart/crds/gateway_policyattachment
+
 gen-alb-client:
 	rm -rf pkg/client
 	GOOS=linux ./hack/update-codegen.sh
@@ -57,6 +60,7 @@ gen-alb-client:
 	# for osx, brew install gnu-sed
 	find ./pkg/client -name '*.go' -not -name 'fake_alb2.go' -exec grep -l "alb2s" {} \; | xargs ${SED} 's/"alb2s"/"alaudaloadbalancer2"/g' -i
 
+gen-crd-and-client: gen-alb-client gen-gateway-policyattachemt-crd gen-alb-client
 
 test-nginx-in-ci:
 	cd alb-nginx && ./actions/test-nginx-in-ci.sh

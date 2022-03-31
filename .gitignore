@@ -34,3 +34,5 @@ vendor
 test/e2e/alb-config.toml
 *.log
 .vscode/settings.json
+test/e2e/gateway/viper-config.toml
+test/e2e/gateway/policyattachment/viper-config.toml

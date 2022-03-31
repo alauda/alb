@@ -25,6 +25,7 @@ import (
 
 	versioned "alauda.io/alb2/pkg/client/clientset/versioned"
 	alauda "alauda.io/alb2/pkg/client/informers/externalversions/alauda"
+	gateway "alauda.io/alb2/pkg/client/informers/externalversions/gateway"
 	internalinterfaces "alauda.io/alb2/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -173,8 +174,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Crd() alauda.Interface
+	Gateway() gateway.Interface
 }
 
 func (f *sharedInformerFactory) Crd() alauda.Interface {
 	return alauda.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Gateway() gateway.Interface {
+	return gateway.New(f, f.namespace, f.tweakListOptions)
 }

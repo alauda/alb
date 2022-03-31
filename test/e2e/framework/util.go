@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 	"time"
 
@@ -97,8 +98,12 @@ func GIt(text string, body interface{}, timeout ...float64) bool {
 }
 
 func GFIt(text string, body interface{}, timeout ...float64) bool {
+	if os.Getenv("ALB_IGNORE_FOCUS") == "true" {
+		return GIt(text, body, timeout...)
+	}
 	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
 }
+
 func random() string {
 	return fmt.Sprintf("%v", rand.Int())
 }
@@ -182,4 +187,20 @@ func Kubectl(options ...string) (string, error) {
 		return "", fmt.Errorf("%s err: %v", stdout, err)
 	}
 	return string(stdout), nil
+}
+
+func Access(f func()) {
+	defer func() {
+		recover()
+	}()
+	f()
+}
+
+func TestEq(f func() bool) (ret bool) {
+	defer func() {
+		if recover() != nil {
+			ret = false
+		}
+	}()
+	return f()
 }

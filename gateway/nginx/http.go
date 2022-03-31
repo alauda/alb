@@ -12,17 +12,23 @@ import (
 	. "alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
 
+	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type HttpProtocolTranslate struct {
-	drv *driver.KubernetesDriver
-	log logr.Logger
+	drv    *driver.KubernetesDriver
+	handle gatewayPolicyType.PolicyAttachmentHandle
+	log    logr.Logger
 }
 
 func NewHttpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger) HttpProtocolTranslate {
 	return HttpProtocolTranslate{drv: drv, log: log}
+}
+
+func (h *HttpProtocolTranslate) SetPolicyAttachmentHandle(handle gatewayPolicyType.PolicyAttachmentHandle) {
+	h.handle = handle
 }
 
 func (h *HttpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
@@ -39,43 +45,62 @@ func (h *HttpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 
 func (h *HttpProtocolTranslate) translateHttp(ls []*Listener, ftMap FtMap) error {
 	log := h.log.WithName("http")
-	portMap := make(map[gatewayType.PortNumber][]*HTTPRoute)
+	portMap := make(map[gatewayType.PortNumber][]*Listener)
 	for _, l := range ls {
 		if !SameProtocol(l.Protocol, gatewayType.HTTPProtocolType) {
 			continue
 		}
 		if _, ok := portMap[l.Port]; !ok {
-			portMap[l.Port] = []*HTTPRoute{}
+			portMap[l.Port] = []*Listener{}
 		}
-		for _, r := range l.routes {
-			httproute, ok := r.(*HTTPRoute)
-			if !ok {
-				continue
-			}
-			portMap[l.Port] = append(portMap[l.Port], httproute)
-		}
+		portMap[l.Port] = append(portMap[l.Port], l)
 	}
-	log.V(2).Info("portMap", "portmap", portMap)
-	for port, routes := range portMap {
-		if len(routes) == 0 {
+
+	for port, lss := range portMap {
+		if len(lss) == 0 {
 			continue
 		}
 		ft := &Frontend{}
 		ft.Port = int(port)
 		ft.Protocol = v1.FtProtocolHTTP
-		for _, route := range routes {
-			rules, err := httpRouteToRule(route)
-			if err != nil {
-				log.Error(err, "translate to rule fail ingore this rule", "port", port, "route", GetObjectKey(route))
-				continue
-			}
-			for i, rule := range rules {
-				rule.RuleID = genRuleId(client.ObjectKey{Namespace: route.Namespace, Name: route.Name}, i, 0, ft.Port)
-				ft.Rules = append(ft.Rules, rule)
+
+		for _, ls := range lss {
+			for _, route := range ls.routes {
+				httpRoute, ok := route.(*HTTPRoute)
+				if !ok {
+					continue
+				}
+				rules, err := httpRouteToRule(httpRoute)
+				if err != nil {
+					log.Error(err, "translate to rule fail ingore this rule", "port", port, "route", GetObjectKey(route))
+					continue
+				}
+				for i, rule := range rules {
+					rule.RuleID = genRuleId(client.ObjectKey{Namespace: httpRoute.Namespace, Name: httpRoute.Name}, i, 0, ft.Port)
+					if h.handle != nil {
+						ref := gatewayPolicyType.Ref{
+							Listener: &gatewayPolicyType.Listener{
+								Listener:   ls.Listener,
+								Gateway:    ls.gateway,
+								Generation: ls.generation,
+								CreateTime: ls.createTime,
+							},
+							Route:      httpRoute,
+							RuleIndex:  i,
+							MatchIndex: 0,
+						}
+						log.V(3).Info("onrule", "ref", ref.Describe(), "ft", ft.Port, "rule", rule.RuleID)
+						err := h.handle.OnRule(ft, rule, ref)
+						if err != nil {
+							log.Error(err, "onrule fail", "ref", ref.Describe())
+						}
+					}
+					ft.Rules = append(ft.Rules, rule)
+				}
 			}
 		}
 		if len(ft.Rules) == 0 {
-			log.V(2).Info("could not find rule. ignore this port", "port", port, "route-len", len(routes))
+			log.V(2).Info("could not find rule. ignore this port", "port", port)
 			continue
 		}
 		ftMap.SetFt(string(ft.Protocol), ft.Port, ft)
@@ -83,10 +108,12 @@ func (h *HttpProtocolTranslate) translateHttp(ls []*Listener, ftMap FtMap) error
 	return nil
 }
 
+// httproute attach to https listener
 type Route struct {
 	route         HTTPRoute
 	certSecretKey client.ObjectKey
 	certDomain    string
+	listener      *Listener
 }
 
 // TODO fetch cert and parse hostname from it.
@@ -121,7 +148,6 @@ func (h *HttpProtocolTranslate) translateHttps(ls []*Listener, ftMap FtMap) erro
 			portMap[l.Port] = []*Route{}
 		}
 
-		// if a https listener hostname is nill, use it as the default tls config for this port
 		if l.Hostname == nil {
 			log.Info("invalid https listener must have hostname")
 			continue
@@ -133,7 +159,7 @@ func (h *HttpProtocolTranslate) translateHttps(ls []*Listener, ftMap FtMap) erro
 			if !ok {
 				continue
 			}
-			portMap[l.Port] = append(portMap[l.Port], &Route{route: *route, certSecretKey: client.ObjectKey{Namespace: string(*cert.Namespace), Name: string(cert.Name)}, certDomain: domain})
+			portMap[l.Port] = append(portMap[l.Port], &Route{listener: l, route: *route, certSecretKey: client.ObjectKey{Namespace: string(*cert.Namespace), Name: string(cert.Name)}, certDomain: domain})
 		}
 	}
 
@@ -155,6 +181,24 @@ func (h *HttpProtocolTranslate) translateHttps(ls []*Listener, ftMap FtMap) erro
 			}
 			for i, rule := range rules {
 				rule.RuleID = genRuleId(client.ObjectKey{Namespace: route.route.Namespace, Name: route.route.Name}, i, 0, ft.Port)
+				if h.handle != nil {
+					ref := gatewayPolicyType.Ref{
+						Listener: &gatewayPolicyType.Listener{
+							Listener:   route.listener.Listener,
+							Gateway:    route.listener.gateway,
+							Generation: route.listener.generation,
+							CreateTime: route.listener.createTime,
+						},
+						Route:      &route.route,
+						RuleIndex:  i,
+						MatchIndex: 0,
+					}
+					log.V(3).Info("onrule", "ref", ref.Describe(), "ft", ft.Port, "rule", rule.RuleID)
+					err := h.handle.OnRule(ft, rule, ref)
+					if err != nil {
+						log.Error(err, "onrule fail", "ref", ref.Describe())
+					}
+				}
 				log.V(5).Info("https rule cert", "rule", rule.RuleID, "domain", rule.Domain, "cert", rule.CertificateName)
 				ft.Rules = append(ft.Rules, rule)
 			}
@@ -272,6 +316,7 @@ func pickBackendRefs(refs []gatewayType.HTTPBackendRef) []gatewayType.BackendRef
 }
 
 // each rule must have a unique ID
+// each route can have multiple rules, and each rule can have multiple matches.
 func genRuleId(route client.ObjectKey, ruleIndex int, matchIndex int, port int) string {
 	return fmt.Sprintf("%d-%s-%s-%d-%d", port, route.Namespace, route.Name, ruleIndex, matchIndex)
 }

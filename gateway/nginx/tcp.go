@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/driver"
+	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"github.com/go-logr/logr"
 
 	. "alauda.io/alb2/controller/types"
@@ -14,67 +15,89 @@ import (
 )
 
 type TcpProtocolTranslate struct {
-	drv *driver.KubernetesDriver
-	log logr.Logger
+	drv    *driver.KubernetesDriver
+	log    logr.Logger
+	handle gatewayPolicyType.PolicyAttachmentHandle
 }
 
 func NewTcpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger) TcpProtocolTranslate {
 	return TcpProtocolTranslate{drv: drv, log: log}
 }
 
+func (t *TcpProtocolTranslate) SetPolicyAttachmentHandle(handle gatewayPolicyType.PolicyAttachmentHandle) {
+	t.handle = handle
+}
+
 func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
-	portMap := make(map[gatewayType.PortNumber][]*TCPRoute)
-	{
-		for _, l := range ls {
+	// tcp listener could never be overlaped. each listener is a rule.
+	for _, l := range ls {
+		port := l.Port
+		var route CommonRoute
+		var tcproute *TCPRoute
+		// filter invalid listener
+		{
 			if l.Protocol != gatewayType.TCPProtocolType {
 				continue
 			}
-			if _, ok := portMap[l.Port]; !ok {
-				portMap[l.Port] = []*TCPRoute{}
+			if len(l.routes) == 0 {
+				t.log.Info("could not found vaild route", "error", true)
+				return nil
 			}
-			for _, r := range l.routes {
-				tcproute, ok := r.(*TCPRoute)
-				if !ok {
-					continue
-				}
-				portMap[l.Port] = append(portMap[l.Port], tcproute)
+			if len(l.routes) > 1 {
+				t.log.Info("tcp has more than one route", "port", port)
+				return nil
+			}
+			route = l.routes[0]
+			tcprouteNew, ok := route.(*TCPRoute)
+			if !ok {
+				t.log.Info("only tcp route could attach to tcp listener")
+				return nil
+			}
+			tcproute = tcprouteNew
+			if len(tcproute.Spec.Rules) != 1 {
+				t.log.Error(fmt.Errorf("we do not support multiple tcp rules"), "port", port, "route", GetObjectKey(tcproute))
+				return nil
 			}
 		}
-		t.log.Info("translate tcp protocol rule", "ls-len", len(ls), "tcp-ports-len", len(portMap))
-	}
-
-	for port, rs := range portMap {
-		if len(rs) == 0 {
-			t.log.Info("could not found vaild route", "error", true)
-			return nil
-		}
-		if len(rs) > 1 {
-			t.log.Info("tcp has more than one route", "port", port)
-			return nil
-		}
-		route := rs[0]
-		t.log.Info("generated rule ", "port", port, "route", route)
 
 		ft := &Frontend{
 			Port:     int(port),
 			Protocol: albType.FtProtocolTCP,
 		}
 		// TODO we donot support multiple tcp rules
-		if len(route.Spec.Rules) != 1 {
-			t.log.Error(fmt.Errorf("we do not support multiple tcp rules"), "port", port, "route", GetObjectKey(route))
-			return nil
-		}
-		svcs, err := backendRefsToService(route.Spec.Rules[0].BackendRefs)
+		svcs, err := backendRefsToService(tcproute.Spec.Rules[0].BackendRefs)
 		if err != nil {
 			return nil
 		}
-		ft.Services = svcs
-		ft.BackendGroup = &BackendGroup{
-			Name: fmt.Sprintf("%v-%v-%v", port, route.Namespace, route.Name),
+		name := fmt.Sprintf("%v-%v-%v", port, tcproute.Namespace, tcproute.Name)
+		backendGroup := &BackendGroup{
+			Name: name,
 		}
-
+		rule := Rule{}
+		rule.Type = RuleTypeGateway
+		rule.Services = svcs
+		rule.RuleID = name
+		rule.BackendGroup = backendGroup
+		ft.Rules = append(ft.Rules, &rule)
+		if t.handle != nil {
+			ref := gatewayPolicyType.Ref{
+				Listener: &gatewayPolicyType.Listener{
+					Listener:   l.Listener,
+					Gateway:    l.gateway,
+					Generation: l.generation,
+					CreateTime: l.createTime,
+				},
+				Route:      route,
+				RuleIndex:  0,
+				MatchIndex: 0,
+			}
+			t.log.V(3).Info("onrule", "ref", ref.Describe(), "ft", ft.Port, "rule", rule.RuleID)
+			err = t.handle.OnRule(ft, &rule, ref)
+			if err != nil {
+				t.log.Error(err, "onrule fail", "ref", ref.Describe())
+			}
+		}
 		ftMap.SetFt(string(ft.Protocol), ft.Port, ft)
 	}
-
 	return nil
 }
