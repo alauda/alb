@@ -94,12 +94,6 @@ spec:
               value: "{{ .Values.gateway.enable }}"
 
           imagePullPolicy: Always
-          readinessProbe:
-            httpGet:
-              path: /status
-              port: {{ .Values.metricsPort }}
-            initialDelaySeconds: 6
-            periodSeconds: 1
           resources:
             limits:
               cpu: 200m
@@ -171,12 +165,7 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 60
             failureThreshold: 5
-          readinessProbe:
-            httpGet:
-              path: /status
-              port: {{ .Values.metricsPort }}
-            initialDelaySeconds: 6
-            periodSeconds: 1
+            timeoutSeconds: 5
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}
