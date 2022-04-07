@@ -19,6 +19,7 @@ import (
 	"alauda.io/alb2/utils/dirhash"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/onsi/ginkgo"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -44,6 +45,7 @@ type Framework struct {
 	ctx           context.Context
 	cancel        func() // use this function to stop alb
 	namespace     string // which ns this alb been deployed
+	productNsMap  map[string]string
 	productNs     string
 	AlbName       string
 	baseDir       string // dir of alb.log nginx.conf and policy.new
@@ -60,6 +62,7 @@ type Config struct {
 	RandomBaseDir bool
 	RandomNs      bool
 	AlbName       string
+	AlbAddress    string // address seted in alb cr.
 	RestCfg       *rest.Config
 	InstanceMode  bool
 	Project       []string
@@ -68,8 +71,18 @@ type Config struct {
 }
 
 func InitKubeCfg(cfg *rest.Config) (string, error) {
-	kubecfgPath := fmt.Sprintf("%v/.kube/alb-env-test", homedir.HomeDir())
-	os.MkdirAll(fmt.Sprintf("%v/.kube", homedir.HomeDir()), os.ModePerm)
+	kubecfgPath := ""
+	if os.Getenv("DEV_MODE") == "true" {
+		os.MkdirAll(fmt.Sprintf("%v/.kube", homedir.HomeDir()), os.ModePerm)
+		kubecfgPath = fmt.Sprintf("%v/.kube/alb-env-test", homedir.HomeDir())
+	} else {
+		baseDir, err := os.MkdirTemp("", "alb-e2e-test")
+		if err != nil {
+			return "", err
+		}
+		kubecfgPath = path.Join(baseDir, "alb-env-test")
+	}
+
 	kubecfg, err := KubeConfigFromREST(cfg, "envtest")
 	if err != nil {
 		return "", err
@@ -97,6 +110,10 @@ func NewAlb(deployCfg Config) *Framework {
 		deployCfg.RandomNs = true
 		deployCfg.RandomBaseDir = true
 	}
+	if deployCfg.AlbAddress == "" {
+		deployCfg.AlbAddress = "127.0.0.1"
+	}
+
 	var baseDir = os.TempDir() + "/alb-e2e-test"
 	if deployCfg.RandomBaseDir {
 		var err error
@@ -182,8 +199,8 @@ func NewAlb(deployCfg Config) *Framework {
 		albLogPath:    alblogpath,
 		ctx:           ctx,
 		cancel:        cancel,
-		namespace:     ns,
 		AlbName:       name,
+		namespace:     ns,
 		domain:        domain,
 		deployCfg:     deployCfg,
 		defaultFt:     12345,
@@ -202,10 +219,17 @@ func getAlbRoot() string {
 }
 
 func (f *Framework) Init() {
-	_, err := CreateKubeNamespace(f.namespace, f.k8sClient)
-	assert.Nil(ginkgo.GinkgoT(), err, "creating ns")
-	_, err1 := CreateKubeNamespace("fake-ns", f.k8sClient)
-	assert.Nil(ginkgo.GinkgoT(), err1, "creating fake-ns")
+	// create ns which alb been deployed.
+	_, err := f.k8sClient.CoreV1().Namespaces().Create(
+		f.ctx,
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: f.namespace,
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	assert.Nil(ginkgo.GinkgoT(), err, "creating ns fail")
 
 	// create alb
 	labelsInAlb := map[string]string{}
@@ -227,10 +251,11 @@ func (f *Framework) Init() {
 		},
 		Spec: alb2v1.ALB2Spec{
 			Domains: []string{},
+			Address: f.deployCfg.AlbAddress,
 		},
 	}, metav1.CreateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "creating alb")
-	Logf("create alb success %s/%s", alb.Namespace, alb.Name)
+	Logf("create alb success %+v", alb)
 
 	// create ft, this default port is meaningless, just used to make sure alb running healthily
 	ft, err := f.albClient.CrdV1().Frontends(f.namespace).Create(f.ctx, &alb2v1.Frontend{
@@ -269,19 +294,12 @@ func (f *Framework) Init() {
 		}, metav1.CreateOptions{})
 		os.Setenv("ENABLE_GATEWAY", "true")
 	}
-	err = f.InitSvc(f.namespace, f.AlbName, []string{"172.168.1.1"})
-	if err != nil {
-		Logf("err %v", err)
-	}
+	f.InitSvc(f.namespace, f.AlbName, []string{"172.168.1.1"})
 
 	albCtl.Init()
 	go albCtl.Start(f.ctx)
 
 	f.waitAlbNormal()
-}
-
-func (f *Framework) GetAlbPodIp() []string {
-	return []string{"172.168.1.1"}
 }
 
 func (f *Framework) waitAlbNormal() {
@@ -335,13 +353,20 @@ func (f *Framework) WaitPolicyRegex(regexStr string) {
 
 func (f *Framework) WaitNgxPolicy(fn func(p NgxPolicy) (bool, error)) {
 	f.WaitFile(f.policyPath, func(raw string) (bool, error) {
-		Logf("p  %s", raw)
+		Logf("p %s  %s", f.policyPath, raw)
 		p := NgxPolicy{}
 		err := json.Unmarshal([]byte(raw), &p)
 		if err != nil {
 			return false, fmt.Errorf("wait nginx policy fial err %v raw -- %s --", err, raw)
 		}
-		return fn(p)
+		return TestEq(func() bool {
+			ret, err := fn(p)
+			if err != nil {
+				Logf("test eq find err %v", err)
+				return false
+			}
+			return ret
+		}), nil
 	})
 }
 
@@ -381,24 +406,42 @@ func (f *Framework) Wait(fn func() (bool, error)) {
 }
 
 func (f *Framework) InitProductNs(nsprefix string, project string) {
-	ns := nsprefix
-	if f.deployCfg.RandomNs {
-		ns += "-" + random()
-	}
+	ns := f.InitProductNsWithOpt(ProductNsOpt{
+		Prefix:  nsprefix,
+		Project: project,
+	})
 	f.productNs = ns
-	Logf("init product ns %s", f.productNs)
-	f.k8sClient.CoreV1().Namespaces().Create(
+}
+
+type ProductNsOpt struct {
+	Prefix  string
+	Ns      string
+	Project string
+	Labels  map[string]string
+}
+
+func (f *Framework) InitProductNsWithOpt(opt ProductNsOpt) string {
+	if opt.Labels == nil {
+		opt.Labels = map[string]string{}
+	}
+	opt.Labels[fmt.Sprintf("%s/project", f.domain)] = opt.Project
+	opt.Ns = opt.Prefix
+	if f.deployCfg.RandomNs {
+		opt.Ns = opt.Prefix + "-" + random()
+	}
+
+	ns, err := f.k8sClient.CoreV1().Namespaces().Create(
 		f.ctx,
 		&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: f.productNs,
-				Labels: map[string]string{
-					fmt.Sprintf("%s/project", f.domain): project,
-				},
+				Name:   opt.Ns,
+				Labels: opt.Labels,
 			},
 		},
 		metav1.CreateOptions{},
 	)
+	assert.Nil(ginkgo.GinkgoT(), err, "create ns fail")
+	return ns.Name
 }
 
 func (f *Framework) GetProductNs() string {
@@ -548,18 +591,36 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func (f *Framework) InitSvc(ns, name string, ep []string) error {
-	Logf("init svc %v %v %v", ns, name, ep)
-	service_spec := corev1.ServiceSpec{}
-	if find := strings.Contains(name, "udp"); find {
-		service_spec = corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{Port: 80, Protocol: corev1.ProtocolUDP}},
-		}
-	} else {
-		service_spec = corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{Port: 80}},
-		}
+type SvcOptPort struct {
+	port        int
+	Protocol    string
+	AppProtocol *string
+}
+
+type SvcOpt struct {
+	Ns    string
+	Name  string
+	Ep    []string
+	Ports []corev1.ServicePort
+}
+
+func (f *Framework) initSvcWithOpt(opt SvcOpt) error {
+	ns := opt.Ns
+	name := opt.Name
+	ep := opt.Ep
+
+	Logf("init svc %+v", opt)
+	service_spec := corev1.ServiceSpec{
+		Ports: opt.Ports,
 	}
+	epPorts := lo.Map(opt.Ports, func(p corev1.ServicePort, _ int) corev1.EndpointPort {
+		return corev1.EndpointPort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.Port,
+			AppProtocol: p.AppProtocol,
+		}
+	})
 	_, err := f.k8sClient.CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -584,7 +645,7 @@ func (f *Framework) InitSvc(ns, name string, ep []string) error {
 		Subsets: []corev1.EndpointSubset{
 			{
 				Addresses: address,
-				Ports:     []corev1.EndpointPort{{Port: 80}},
+				Ports:     epPorts,
 			},
 		},
 	}, metav1.CreateOptions{})
@@ -594,11 +655,43 @@ func (f *Framework) InitSvc(ns, name string, ep []string) error {
 	return nil
 }
 
-func (f *Framework) InitDefaultSvc(name string, ep []string) {
-	ns := f.productNs
-	f.InitSvc(ns, name, ep)
+func (f *Framework) InitSvcWithOpt(opt SvcOpt) {
+	err := f.initSvcWithOpt(opt)
+	assert.NoError(ginkgo.GinkgoT(), err)
 }
 
+func (f *Framework) InitSvc(ns, name string, ep []string) {
+	opt := SvcOpt{
+		Ns:   ns,
+		Name: name,
+		Ep:   ep,
+		Ports: []corev1.ServicePort{
+			{
+				Port: 80,
+			},
+		},
+	}
+	f.initSvcWithOpt(opt)
+}
+
+func (f *Framework) InitDefaultSvc(name string, ep []string) {
+	opt := SvcOpt{
+		Ns:   f.productNs,
+		Name: name,
+		Ep:   ep,
+		Ports: []corev1.ServicePort{
+			{
+				Port: 80,
+			},
+		},
+	}
+	if strings.Contains(name, "udp") {
+		opt.Ports[0].Protocol = "UDP"
+	}
+	f.initSvcWithOpt(opt)
+}
+
+// TODO: use f.AssertKubectlApply
 func (f *Framework) CreateIngress(name string, path string, svc string, port int) {
 	ns := f.productNs
 	_, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Create(context.Background(), &networkingv1.Ingress{
@@ -732,6 +825,12 @@ func (f *Framework) KubectlApply(yaml string, options ...string) (string, error)
 	return Kubectl(cmds...)
 }
 
+func (f *Framework) AssertKubectlApply(yaml string, options ...string) string {
+	ret, err := f.KubectlApply(yaml, options...)
+	assert.Nil(ginkgo.GinkgoT(), err, "")
+	return ret
+}
+
 func (f *Framework) CreateTlsSecret(domain, name, ns string) (*corev1.Secret, error) {
 	key, crt, err := test_utils.GenCert(domain)
 	if err != nil {
@@ -752,4 +851,8 @@ func (f *Framework) CreateTlsSecret(domain, name, ns string) (*corev1.Secret, er
 		return nil, err
 	}
 	return secret, nil
+}
+
+func (f *Framework) GetAlbAddress() string {
+	return f.deployCfg.AlbAddress
 }

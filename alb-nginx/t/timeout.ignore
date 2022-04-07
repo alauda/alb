@@ -186,7 +186,7 @@ _EOC_
 log_level("info");
 no_shuffle();
 no_root_location();
-run_tests();
+run_tests(); # TODO fix this test
 
 
 __DATA__
@@ -206,13 +206,14 @@ __DATA__
 === TEST 2: test sleep
 --- policy eval: $::policy
 --- http_config eval: $::http_config
+--- response_body: ok
 --- lua_test
 	local F = require("F");local u = require("util");local h = require("test-helper");
 	do
 		local spend,res,err = u.time_spend(
 			function()
     			local httpc = require("resty.http").new()
-    			return httpc:request_uri("http://127.0.0.1:9999/t?sleep=0")
+    			return httpc:request_uri("http://127.0.0.1:9999/t?sleep=1")
 			end
 		)
 		u.log(F"test res {spend} {res.body} ")
@@ -230,7 +231,7 @@ __DATA__
 		h.assert_true(spend>10)
 		h.assert_curl_success(res,err,"ok")
 	end
---- response_body: ok
+
 
 === TEST 3: test without timeout
 --- policy eval: $::policy

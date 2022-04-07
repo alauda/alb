@@ -9,6 +9,10 @@ metadata:
     alb2.{{ .Values.global.labelBaseDomain }}/gatewayclass: alb2
 spec:
   controllerName:  alb2.gateway.{{ .Values.global.labelBaseDomain}}/{{ .Values.loadbalancerName }}
-
+  parametersRef:
+       group: "crd.alauda.io"
+       kind: "ALB2"
+       name: {{ .Values.loadbalancerName }}
+       namespace: {{ .Values.global.namespace }}
 {{ end }}
 {{- end }}

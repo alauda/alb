@@ -65,7 +65,6 @@ local mt = {
         end
     end
 }
-
 function _M.new(self) --luacheck: ignore
     local req = resty_var.request()
     local method

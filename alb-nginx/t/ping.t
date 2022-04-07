@@ -4,89 +4,78 @@ use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
 use Test::Nginx::Socket;
 
-no_shuffle();
-no_root_location();
-run_tests();
-## TODO rewrite with lua-test
-__DATA__
 
-=== TEST 1: http ping/pong should ok
---- http_config
-server {
-    listen 9999;
-    location /ping {
-       content_by_lua_block {
-    	    ngx.say("pong");
-      }
-    }
-}
---- policy
+our $policy = <<'_EOC_';
 {
   "certificate_map": {},
-  "http": {
-    "tcp":{
-        "80": [
-            {
-              "rule": "test-rule-1",
-              "internal_dsl": [["STARTS_WITH","URL","/ping"]],
-              "upstream": "test-upstream-1"
-            }
-        ]
-    }
-  },
-  "backend_group": [
-    {
-      "name": "test-upstream-1",
-      "mode": "http",
-      "backends": [
+  "http": {"tcp": {"80": [
         {
-          "address": "127.0.0.1",
-          "port":9999,
-          "weight": 100
-        }
-      ]
-    }
-  ]
-}
---- server_port 
-80
---- request
-    GET /ping
---- response_body
-pong
-
---- no_error_log
-[error]
-=== TEST 2: tcp ping/pong should ok
---- http_config
-server {
-    listen 9999;
-    location /ping {
-       content_by_lua_block {
-    	    ngx.print("pong");
-      }
-    }
-}
---- policy
-{
-  "certificate_map": {},
+          "rule": "",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/t1"
+            ]
+          ],
+          "upstream": "test-upstream-1"
+        }] }
+  },
   "stream":{"tcp":{"81":[{"upstream":"test-upstream-1"}]}},
   "backend_group": [
     {
       "name": "test-upstream-1",
-      "session_affinity_policy": "",
-      "session_affinity_attribute": "",
       "mode": "http",
       "backends": [
         {
           "address": "127.0.0.1",
-          "port":9999,
+          "port": 9999,
           "weight": 100
         }
       ]
     }
   ]
 }
---- server_port: 81
---- request: GET /ping
---- response_body: pong
+_EOC_
+
+our $http_config = <<'_EOC_';
+server {
+    listen 9999;
+    location / {
+       content_by_lua_block {
+    	   ngx.print("ok");
+      }
+    }
+}
+_EOC_
+
+log_level("info");
+no_shuffle();
+no_root_location();
+run_tests(); 
+
+__DATA__
+
+=== TEST 1: http ping/pong should ok 
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+    local httpc = require("resty.http").new()
+
+    local res, err = httpc:request_uri("http://127.0.0.1:80/t1")
+	u.log(F"test res  {res.body} err {err}")
+	h.assert_curl_success(res,err,"ok")
+--- response_body: ok
+
+=== TEST 2: tcp ping/pong should ok 
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+	local F = require("F");local u = require("util");local h = require("test-helper");
+    local httpc = require("resty.http").new()
+
+    local res, err = httpc:request_uri("http://127.0.0.1:81/t1")
+	u.log(F"test res  {res.body} err {err}")
+	h.assert_curl_success(res,err,"ok")
+--- response_body: ok

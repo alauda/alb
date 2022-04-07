@@ -5,6 +5,7 @@ import (
 
 	"alauda.io/alb2/driver"
 	g "alauda.io/alb2/gateway"
+	albType "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/utils/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sScheme "k8s.io/client-go/kubernetes/scheme"
@@ -19,6 +20,7 @@ var (
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
 	_ = gatewayType.AddToScheme(scheme)
+	_ = albType.AddToScheme(scheme)
 }
 
 func Run(ctx context.Context) {

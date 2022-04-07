@@ -5,10 +5,10 @@ local ngx_header = ngx.header
 local ngx_re = ngx.re
 local ngx_log = ngx.log
 local ngx_exit = ngx.exit
-local ngx_redirect = ngx.redirect
 
 local upstream = require "upstream"
 local var_proxy = require "var_proxy"
+local redirect = require "l7_redirect"
 
 local subsystem = ngx.config.subsystem
 ngx.ctx.alb_ctx = var_proxy.new()
@@ -18,13 +18,14 @@ local t_upstream, matched_policy, errmsg = upstream.get_upstream(subsystem, "tcp
 if t_upstream ~= nil then
     ngx_var.upstream = t_upstream
 end
+
 if matched_policy ~= nil then
     ngx.ctx.matched_policy = matched_policy
-    local redirect_url = matched_policy["redirect_url"]
-    local redirect_code = matched_policy["redirect_code"]
-    if redirect_url ~= "" then
-        ngx_redirect(redirect_url, redirect_code)
-    end
+	if redirect.need() then
+		redirect.redirect()
+		return -- unreachable!()
+	end
+
     ngx_var.rule_name = matched_policy["rule"]
     local enable_cors = matched_policy["enable_cors"]
     if enable_cors == true then

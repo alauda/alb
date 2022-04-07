@@ -1,5 +1,7 @@
 local _M = {}
 
+local inspect = require"inspect"
+
 function _M.curl(url, cfg)
     local httpc = require("resty.http").new()
     if cfg == nil then
@@ -9,6 +11,8 @@ function _M.curl(url, cfg)
     local res, err = httpc:request_uri(url, {method = "GET", headers = cfg.headers})
     return res, err
 end
+
+_M.inspect = inspect
 
 function _M.log(msg)
 	ngx.log(ngx.NOTICE, "alb_debug:"..msg.."alb_debug_end")

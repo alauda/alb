@@ -1,7 +1,7 @@
 local cache = require "cache"
 local ngx_config = ngx.config
 local subsystem = ngx_config.subsystem
-local ev = require "resty.worker.events"
+local ev = require "vendor.events"
 
 local ok, err = ev.configure {
     shm = subsystem .. "_ipc_shared_dict", -- defined by "lua_shared_dict"

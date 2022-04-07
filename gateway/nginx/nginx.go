@@ -3,43 +3,15 @@ package nginx
 import (
 	"context"
 	"fmt"
-	"time"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/utils/log"
 
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/gateway"
+	httproute "alauda.io/alb2/gateway/nginx/http"
 	pm "alauda.io/alb2/gateway/nginx/policyattachment"
-	pmType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 )
-
-type Listener struct {
-	gatewayType.Listener
-	gateway    client.ObjectKey
-	generation int64
-	createTime time.Time
-	routes     []CommonRoute
-}
-
-type FtMap map[string]*Frontend
-
-func (f FtMap) SetFt(protocol string, port int, ft *Frontend) {
-	key := fmt.Sprintf("%v:%v", protocol, port)
-	f[key] = ft
-}
-
-type GatewayAlbTranslate interface {
-	TransLate(ls []*Listener, ftMap FtMap) error
-}
-
-// who implement this interface have responsibility to call OnRule when a rule been create.
-type GatewayAlbPolicyAttachemt interface {
-	SetPolicyAttachmentHandle(handle pmType.PolicyAttachmentHandle)
-}
 
 func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className string) (*LoadBalancer, error) {
 	log := L().WithName(ALB_GATEWAY_NGINX).WithValues("class", className)
@@ -54,9 +26,9 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className st
 	log.V(2).Info("listener", "total", len(lss), "status", func() map[string][]string {
 		ret := map[string][]string{}
 		for _, ls := range lss {
-			lsName := fmt.Sprintf("%s/%s/%v/%v", ls.gateway, ls.Name, ls.Port, ls.Protocol)
+			lsName := fmt.Sprintf("%s/%s/%v/%v", ls.Gateway, ls.Name, ls.Port, ls.Protocol)
 			rList := []string{}
-			for _, r := range ls.routes {
+			for _, r := range ls.Routes {
 				key := GetObjectKey(r)
 				kind := r.GetObject().GetObjectKind().GroupVersionKind().Kind
 				rList = append(rList, fmt.Sprintf("%s/%s", key, kind))
@@ -73,7 +45,7 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className st
 	if err != nil {
 		return nil, err
 	}
-	http := NewHttpProtocolTranslate(drv, log)
+	http := httproute.NewHttpProtocolTranslate(drv, log)
 	http.SetPolicyAttachmentHandle(pm)
 	err = http.TransLate(lss, ftMap)
 	if err != nil {

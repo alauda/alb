@@ -94,9 +94,11 @@ func (ft *Frontend) IsValidProtocol() bool {
 }
 
 type Backend struct {
-	Address string `json:"address"`
-	Port    int    `json:"port"`
-	Weight  int    `json:"weight"`
+	Address     string  `json:"address"`
+	Port        int     `json:"port"`
+	Weight      int     `json:"weight"`
+	Protocol    string  `json:"-"`
+	AppProtocol *string `json:"-"`
 }
 
 func (b *Backend) Eq(other *Backend) bool {
@@ -166,10 +168,12 @@ type BackendGroup struct {
 }
 
 type BackendService struct {
-	ServiceName string `json:"service_name"`
-	ServiceNs   string `json:"service_ns"`
-	ServicePort int    `json:"service_port"`
-	Weight      int    `json:"weight"`
+	ServiceName string  `json:"service_name"`
+	ServiceNs   string  `json:"service_ns"`
+	ServicePort int     `json:"service_port"`
+	Protocol    string  `json:"protocol"`
+	AppProtocol *string `json:"app_protocol"`
+	Weight      int     `json:"weight"`
 }
 
 type Rule struct {
@@ -186,6 +190,9 @@ type Rule struct {
 	BackendProtocol  string      `json:"backend_protocol"`
 	RedirectURL      string      `json:"redirect_url"`
 	RedirectCode     int         `json:"redirect_code"`
+	RedirectScheme   *string     `json:"redirect_scheme,omitempty"`
+	RedirectHost     *string     `json:"redirect_host,omitempty"`
+	RedirectPort     *int        `json:"redirect_port,omitempty"`
 	VHost            string      `json:"vhost"`
 	// CertificateName = namespace_secretname
 	CertificateName string `json:"certificate_name"`
@@ -243,10 +250,11 @@ type RuleConfig struct {
 }
 
 type RewriteResponseConfig struct {
-	Headers        map[string]string `json:"headers,omitempty"`
-	HeadersDelete  map[string]string `json:"headers_delete,omitempty"`
-	HeadersUpdate  map[string]string `json:"headers_update,omitempty"`
-	HeadersDefault map[string]string `json:"headers_default,omitempty"`
+	Headers        map[string]string   `json:"headers,omitempty"`
+	HeadersRemove  []string            `json:"headers_remove,omitempty"`
+	HeadersAdd     map[string][]string `json:"headers_add,omitempty"`
+	HeadersUpdate  map[string]string   `json:"headers_update,omitempty"`
+	HeadersDefault map[string]string   `json:"headers_default,omitempty"`
 }
 
 func (r RewriteResponseConfig) IsEmpty() bool {

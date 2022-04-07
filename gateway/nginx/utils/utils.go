@@ -1,4 +1,4 @@
-package nginx
+package utils
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 // RegularExpression => REGEX
 // nil => EQ
 // otherwise return err
-func toOP(matchType *string) (string, error) {
+func ToOP(matchType *string) (string, error) {
 	if matchType == nil {
 		return utils.OP_EQ, nil
 	}
@@ -31,7 +31,7 @@ func toOP(matchType *string) (string, error) {
 	}
 }
 
-func backendRefsToService(refs []gatewayType.BackendRef) ([]*BackendService, error) {
+func BackendRefsToService(refs []gatewayType.BackendRef) ([]*BackendService, error) {
 	svcs := []*BackendService{}
 	for _, ref := range refs {
 		kind := ref.Kind
