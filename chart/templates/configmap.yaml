@@ -75,6 +75,7 @@ data:
     http2_max_header_size           16k;
     http2_max_requests              1000;
     http2_max_concurrent_streams    128;
+
   http_server: |
     # fix http://jira.alaudatech.com/browse/DEV-15515, use lua instead
     set              $custom_host      $http_host;
@@ -99,8 +100,13 @@ data:
 
     # fix http://jira.alauda.cn/browse/SGHL-142
     underscores_in_headers on;
+
+  grpc_server: |
+    grpc_set_header   Content-Type application/grpc;
+    grpc_socket_keepalive on;
+    keepalive_requests 1000;
+
   stream-common: |
-    
     log_format stream '[$time_local] $remote_addr $protocol $server_port $status $bytes_received $bytes_sent $session_time';
 
     access_log  /dev/stdout  stream;

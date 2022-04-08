@@ -116,14 +116,12 @@ http {
             {{end}}
         }
     }
-
     {{end}}
     {{end}}
 
     {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
-
         {{range $address := $ft.IpV4BindAddress}}
             listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
@@ -150,6 +148,73 @@ http {
             rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+
+            {{if $cfg.EnablePrometheus}}
+            log_by_lua_block {
+                require("metrics").log()
+            }
+            {{end}}
+        }
+    }
+    {{end}}
+    {{end}}
+
+    {{range $_, $ft := .Frontends}}
+    {{if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) }}
+    server {
+        {{range $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} http2;
+        {{end}}
+
+        {{range  $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} http2;
+        {{end}}
+
+        include       /alb/tweak/grpc_server.conf;
+
+        location / {
+            set $upstream default;
+            set $backend_protocol grpc;
+
+            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            grpc_pass  $backend_protocol://http_backend;
+            # could add http_header_filter/http_body_filter
+
+            {{if $cfg.EnablePrometheus}}
+            log_by_lua_block {
+                require("metrics").log()
+            }
+            {{end}}
+        }
+    }
+    {{end}}
+    {{end}}
+
+    {{range $_, $ft := .Frontends}}
+    {{if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) }}
+    server {
+        {{range $address := $ft.IpV4BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} ssl http2;
+        {{end}}
+
+        {{range  $address := $ft.IpV6BindAddress}}
+            listen     {{$address}}:{{$ft.Port}} ssl http2;
+        {{end}}
+
+        include       /alb/tweak/grpc_server.conf;
+
+        ssl_certificate /alb/template/nginx/placeholder.crt;
+        ssl_certificate_key /alb/template/nginx/placeholder.key;
+
+        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+
+        location / {
+            set $upstream default;
+            set $backend_protocol grpc;
+
+            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            grpc_pass  $backend_protocol://http_backend;
+            # could add http_header_filter/http_body_filter
 
             {{if $cfg.EnablePrometheus}}
             log_by_lua_block {

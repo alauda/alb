@@ -79,6 +79,7 @@ const (
 	FtProtocolUDP   FtProtocol = "udp"
 	FtProtocolHTTP  FtProtocol = "http"
 	FtProtocolHTTPS FtProtocol = "https"
+	FtProtocolgRPC  FtProtocol = "grpc"
 )
 
 type FrontendSpec struct {

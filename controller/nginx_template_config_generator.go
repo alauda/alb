@@ -18,9 +18,11 @@ import (
 )
 
 type LegacyConfig = Config
+
 type FtConfig struct {
 	Port            int
 	Protocol        albv1.FtProtocol
+	CertificateName string
 	IpV4BindAddress []string
 	IpV6BindAddress []string
 }
@@ -31,7 +33,7 @@ type MetricsConfig struct {
 	IpV6BindAddress []string
 }
 
-// a config used for nginx.tml to generate nginx.conf
+// a config used for nginx.tmpl to generate nginx.conf
 type NginxTemplateConfig struct {
 	Name      string
 	Frontends map[string]FtConfig
@@ -60,6 +62,7 @@ func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam Ngi
 			IpV6BindAddress: ipv6,
 			Port:            ft.Port,
 			Protocol:        ft.Protocol,
+			CertificateName: ft.CertificateName,
 		}
 	}
 

@@ -6,8 +6,6 @@ const (
 	//ProtoHTTP is the protocol of http frontend
 	ProtoHTTP  = alb2v1.FtProtocolHTTP
 	ProtoHTTPS = alb2v1.FtProtocolHTTPS
-	ProtoTCP   = alb2v1.FtProtocolTCP
-	ProtoUDP   = alb2v1.FtProtocolUDP
 )
 const (
 	TypeBind    = "bind"

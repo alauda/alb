@@ -133,7 +133,7 @@ end
 local function get_policy()
     local policy = ngx.ctx.matched_policy
     if policy == nil then
-        ngx_log(ngx.ERR, "impossable! no policy find for req on balance")
+        ngx_log(ngx.ERR, "impossible! no policy find for req on balance")
     end
     return policy
 end
