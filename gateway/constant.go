@@ -15,6 +15,7 @@ const UdpRouteKind = "UDPRoute"
 
 var SUPPORT_KIND_MAP map[string][]string = map[string][]string{
 	"TCP":   {TcpRouteKind},
+	"UDP":   {UdpRouteKind},
 	"HTTP":  {HttpRouteKind},
 	"HTTPS": {HttpRouteKind},
 }

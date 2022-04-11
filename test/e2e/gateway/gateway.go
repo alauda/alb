@@ -26,6 +26,7 @@ var _ = ginkgo.Describe("Gateway", func() {
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.1.2"})
 		f.InitDefaultSvc("svc-2", []string{"192.168.2.1"})
+		f.InitDefaultSvc("svc-udp", []string{"192.168.3.1", "192.168.3.2"})
 		f.Init()
 		ctx = context.Background()
 		ns = f.GetProductNs()
@@ -36,7 +37,7 @@ var _ = ginkgo.Describe("Gateway", func() {
 		f = nil
 	})
 
-	GIt("when i deployed a alb it should create a defualt gatewayclass and controll all gateway attach to it", func() {
+	GIt("when i deploy an alb, it should create a default gatewayclass and controll all gateways attach to it", func() {
 
 		// should create a gatewayclass, and mark it's as accept
 		f.Wait(func() (bool, error) {
@@ -51,12 +52,12 @@ var _ = ginkgo.Describe("Gateway", func() {
 			condition := class.Status.Conditions[0]
 			return condition.Type == "Accepted" && condition.Status == "True", nil
 		})
-		// our controller controll all gateway has specified classname
+		// our gateway controller controls all gateways, which has specified classname
 		_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
-    name: g1 
+    name: g1
     namespace: {{.ns}}
 spec:
     gatewayClassName:  {{.class}}
@@ -130,7 +131,137 @@ spec:
 		assert.True(ginkgo.GinkgoT(), Gateway(*g).WaittingController())
 	})
 
-	GIt("i want my app been access by tcp", func() {
+	GIt("when i deployed route, it should update route and gateway status", func() {
+		// TODO 当gateway不允许某些ns的话，这些ns的route不能attach到其上面，
+		// 增加 gateway.spec.listeners.allowedRoutes.namespaces.selector 用例
+		gateway_router_status := func(key client.ObjectKey, desired_router int32) (bool, error) {
+			g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			if err != nil {
+				return false, err
+			}
+			if !Gateway(*g).SameAddress(f.GetAlbPodIp()) {
+				return false, nil
+			}
+			if !Gateway(*g).Ready() {
+				return false, nil
+			}
+			if Gateway(*g).Ls_attached_routes()["listener-test"] != desired_router {
+				return false, nil
+			}
+			return true, nil
+		}
+		// HTTPRoute:h1可以attach到gateway:g1的listeners:listener-test
+		// HTTPRoute:h2不可以attach到gateway:g1的listeners:listener-test，
+		// 因为parentRefs.sectionName: aaa和listener-test不对应
+		// HTTPRoute:h3不可以attach到gateway:g1的listeners:listener-test，
+		// 因为g1 listener.allowedRoutes.namespaces.from: Same，而h3 namespace: fake-ns不对应
+		_, err := f.KubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: listener-test
+      port: 8234
+      protocol: HTTP
+      hostname: a.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+`, map[string]interface{}{"ns": ns, "class": f.AlbName}))
+		assert.NoError(ginkgo.GinkgoT(), err)
+		f.Wait(func() (bool, error) {
+			return gateway_router_status(client.ObjectKey{Name: "g1", Namespace: ns}, 0)
+		})
+
+		_, err2 := f.KubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h1
+    namespace: {{.ns}}
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: listener-test
+    rules:
+    - matches:
+      - path:
+          value: "/foo"
+        headers:
+        - name: "version"
+          value: "v2"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h2
+    namespace: {{.ns}}
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: aaa
+    rules:
+    - matches:
+      - path:
+          value: "/bar"
+      backendRefs:
+        - kind: Service
+          name: svc-2
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h3
+    namespace: fake-ns
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: listener-test
+    rules:
+    - matches:
+      - path:
+          value: "/foo"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1`,
+			map[string]interface{}{"ns": ns, "class": f.AlbName}))
+
+		assert.NoError(ginkgo.GinkgoT(), err2)
+		f.Wait(func() (bool, error) {
+			return gateway_router_status(client.ObjectKey{Name: "g1", Namespace: ns}, 1)
+		})
+		f.WaitNginxConfigStr("listen.*8234")
+	})
+
+	GFIt("i want my app been access by tcp", func() {
 		_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -183,6 +314,67 @@ spec:
 					},
 					{
 						Address: "192.168.1.2",
+						Port:    80,
+						Weight:  50,
+					},
+				},
+			})
+		})
+	})
+
+	GFIt("i want my app been access by udp", func() {
+		_, err := f.KubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: udp
+      port: 8235
+      protocol: UDP
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+    name: u1
+    namespace: {{.ns}}
+spec:
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: udp
+    rules:
+      -
+        backendRefs:
+          - kind: Service
+            name: svc-udp
+            namespace: {{.ns}}
+            port: 80
+            weight: 1
+          `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
+		assert.NoError(ginkgo.GinkgoT(), err)
+
+		f.WaitNginxConfigStr("listen.*8235")
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			name := "8235-" + ns + "-u1"
+			return p.PolicyEq("udp", name, 8235, "null", ct.BackendGroup{
+				Name: name,
+				Mode: "udp",
+				Backends: ct.Backends{
+					{
+						Address: "192.168.3.1",
+						Port:    80,
+						Weight:  50,
+					},
+					{
+						Address: "192.168.3.2",
 						Port:    80,
 						Weight:  50,
 					},
@@ -278,9 +470,8 @@ spec:
 			})
 		})
 	})
-	// TODO 当gateway不允许某些ns的话，这些ns的route不能attach到其上面
 
-	// TODO 当gateway的http/https listener没有hostname时，默认行为是什么,现在是拒绝了，这种行为是否正确
+	// TODO 当gateway的http/https listener没有hostname时，默认行为是什么，现在是拒绝了，这种行为是否正确
 	GIt("i want my app been access by both http and https", func() {
 		secret, err := f.CreateTlsSecret("a.com", "secret-1", ns)
 		_ = secret
@@ -397,7 +588,7 @@ spec:
 		})
 	})
 
-	GIt("i want my mutliple app use different cert in different hostname in same port", func() {
+	GIt("i want my multiple app use different cert in different hostname in same port", func() {
 		secretInit, _ := f.CreateTlsSecret("init.com", "secret-init", ns)
 		secretHarbor, _ := f.CreateTlsSecret("harbor.com", "secret-harbor", ns)
 		// TODO 还有一种配置的方法是配置一个空的hostname+多个证书,然后想办法从证书中获取到hostname
@@ -500,7 +691,258 @@ spec:
 		})
 	})
 
-	GIt("i should match most specific rule first", func() {
-		// TODO
+	GIt("i should match most specific rule first(bigger complexity_priority)", func() {
+		_, err := f.KubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: http-generic-host
+      port: 8234
+      protocol: HTTP
+      hostname: "*.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h1
+    namespace: {{.ns}}
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: http-generic-host
+    rules:
+    - matches:
+      - path:
+          type: "Exact"
+          value: "/foo"
+      filters:
+      - type: RequestHeaderModifier
+        requestHeaderModifier:
+          set:
+          - name: "my-header"
+            value: "bar"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h2
+    namespace: {{.ns}}
+spec:
+    hostnames: ["b.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: http-generic-host
+    rules:
+    - matches:
+      - path:
+          type: "PathPrefix"
+          value: "/bar"
+        headers:
+        - name: "version"
+          value: "v2"
+      backendRefs:
+        - kind: Service
+          name: svc-2
+          namespace: {{.ns}}
+          port: 80
+          weight: 1`,
+			map[string]interface{}{"ns": ns, "class": f.AlbName}))
+
+		assert.NoError(ginkgo.GinkgoT(), err)
+
+		f.WaitNginxConfigStr("listen.*8234")
+
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			name := "8234-" + ns + "-h1-0-0"
+			expectedDsl := `["AND",["IN","HOST","a.com"],["EQ","URL","/foo"]]`
+			findHttpPolicy1, err := p.PolicyEq("http", name, 8234, expectedDsl, ct.BackendGroup{
+				Name: name,
+				Mode: "http",
+				Backends: ct.Backends{
+					{
+						Address: "192.168.1.1",
+						Port:    80,
+						Weight:  50,
+					},
+					{
+						Address: "192.168.1.2",
+						Port:    80,
+						Weight:  50,
+					},
+				},
+			}, func(p c.Policy) bool {
+				return p.BackendProtocol == "http" && p.Priority == 52000
+			})
+
+			if err != nil {
+				return false, err
+			}
+
+			name = "8234-" + ns + "-h2-0-0"
+			expectedDsl = `["AND",["IN","HOST","b.com"],["STARTS_WITH","URL","/bar"],["EQ","HEADER","version","v2"]]`
+			findHttpPolicy2, err := p.PolicyEq("http", name, 8234, expectedDsl, ct.BackendGroup{
+				Name: name,
+				Mode: "http",
+				Backends: ct.Backends{
+					{
+						Address: "192.168.2.1",
+						Port:    80,
+						Weight:  100,
+					},
+				},
+			}, func(p c.Policy) bool {
+				return p.BackendProtocol == "http" && p.Priority == 51100
+			})
+			if err != nil {
+				return false, err
+			}
+			// HttpPolicy2 has Priority bigger than HttpPolicy1
+			return findHttpPolicy1 && findHttpPolicy2, nil
+		})
+	})
+
+	GIt("support generic-host in listeners", func() {
+		_, err := f.KubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: http
+      port: 8234
+      protocol: HTTP
+      hostname: "*.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h1
+    namespace: {{.ns}}
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: http
+    rules:
+    - matches:
+      - path:
+          value: "/foo"
+        headers:
+        - name: "version"
+          value: "v2"
+      filters:
+      - type: RequestHeaderModifier
+        requestHeaderModifier:
+          set:
+          - name: "my-header"
+            value: "bar"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h2
+    namespace: {{.ns}}
+spec:
+    hostnames: ["b.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: http
+    rules:
+    - matches:
+      - path:
+          value: "/bar"
+      backendRefs:
+        - kind: Service
+          name: svc-2
+          namespace: {{.ns}}
+          port: 80
+          weight: 1`,
+			map[string]interface{}{"ns": ns, "class": f.AlbName}))
+
+		assert.NoError(ginkgo.GinkgoT(), err)
+
+		f.WaitNginxConfigStr("listen.*8234")
+
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			name := "8234-" + ns + "-h1-0-0"
+			expectedDsl := `["AND",["IN","HOST","a.com"],["STARTS_WITH","URL","/foo"],["EQ","HEADER","version","v2"]]`
+			findHttpPolicy1, err := p.PolicyEq("http", name, 8234, expectedDsl, ct.BackendGroup{
+				Name: name,
+				Mode: "http",
+				Backends: ct.Backends{
+					{
+						Address: "192.168.1.1",
+						Port:    80,
+						Weight:  50,
+					},
+					{
+						Address: "192.168.1.2",
+						Port:    80,
+						Weight:  50,
+					},
+				},
+			}, func(p c.Policy) bool {
+				return p.BackendProtocol == "http"
+			})
+
+			if err != nil {
+				return false, err
+			}
+
+			name = "8234-" + ns + "-h2-0-0"
+			expectedDsl = `["AND",["IN","HOST","b.com"],["STARTS_WITH","URL","/bar"]]`
+			findHttpPolicy2, err := p.PolicyEq("http", name, 8234, expectedDsl, ct.BackendGroup{
+				Name: name,
+				Mode: "http",
+				Backends: ct.Backends{
+					{
+						Address: "192.168.2.1",
+						Port:    80,
+						Weight:  100,
+					},
+				},
+			}, func(p c.Policy) bool {
+				return p.BackendProtocol == "http"
+			})
+			if err != nil {
+				return false, err
+			}
+			return findHttpPolicy1 && findHttpPolicy2, nil
+		})
 	})
 })

@@ -21,7 +21,7 @@ func (c *CommonFiliter) Name() string {
 func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	// TODO distinguish between protocol conflict and hostname conflict
 	log := c.log.WithValues("gateway", gateway)
-	// 1. makr listener conflict when port+protocol+hostname+port are same
+	// 1. mark listener conflict when port+protocol+hostname+port are the same
 	// constructs map of protocol+hostname+port
 	lsMap := map[string][]*Listener{}
 	for _, l := range allls {
@@ -81,6 +81,8 @@ func routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gate
 	if from == gatewayType.NamespacesFromSame {
 		if gateway.Namespace != route.Namespace {
 			return false, fmt.Sprintf("gateway %v only allow route from same ns", gateway)
+		} else {
+			return true, ""
 		}
 	}
 	if from == gatewayType.NamespacesFromAll {
