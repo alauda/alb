@@ -45,3 +45,12 @@ func (g Gateway) SameAddress(ips []string) bool {
 	}
 	return true
 }
+
+func (g Gateway) Ls_attached_routes() map[string]int32 {
+	Logf("c %+v", g.Status.Conditions)
+	ls_routes := make(map[string]int32)
+	for _, listener := range g.Status.Listeners {
+		ls_routes[string(listener.Name)] = listener.AttachedRoutes
+	}
+	return ls_routes
+}

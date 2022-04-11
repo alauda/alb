@@ -83,7 +83,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 
 	for _, route := range tcpRouteList.Items {
 		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
-		log.V(4).Info("tls route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
+		log.V(4).Info("tcp route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := TCPRoute(route)
 			tcpCommonRoutes = append(tcpCommonRoutes, &Route{route: &r})
@@ -92,7 +92,9 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	log.Info("list tcp route", "total-len", len(tcpRouteList.Items), "len", len(tcpCommonRoutes))
 
 	for _, route := range udpRouteList.Items {
-		if IsRefsToGateway(route.Spec.ParentRefs, gateway) {
+		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
+		log.V(4).Info("udp route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
+		if ref {
 			r := UDPRoute(route)
 			udpCommonRoutes = append(udpCommonRoutes, &Route{route: &r})
 		}

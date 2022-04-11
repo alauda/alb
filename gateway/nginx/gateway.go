@@ -87,6 +87,12 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, className st
 		return nil, err
 	}
 
+	udp := NewUdpProtocolTranslate(drv, log)
+	err = udp.TransLate(lss, ftMap)
+	if err != nil {
+		return nil, err
+	}
+
 	fts := []*Frontend{}
 	for _, ft := range ftMap {
 		fts = append(fts, ft)

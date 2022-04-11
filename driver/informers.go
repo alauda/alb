@@ -101,6 +101,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	udpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().UDPRoutes()
 	udpRouteSynced := udpRouteInformer.Informer().HasSynced
+
 	tlsRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TLSRoutes()
 	tlsRouteSynced := tlsRouteInformer.Informer().HasSynced
 

@@ -204,6 +204,8 @@ func getAlbRoot() string {
 func (f *Framework) Init() {
 	_, err := CreateKubeNamespace(f.namespace, f.k8sClient)
 	assert.Nil(ginkgo.GinkgoT(), err, "creating ns")
+	_, err1 := CreateKubeNamespace("fake-ns", f.k8sClient)
+	assert.Nil(ginkgo.GinkgoT(), err1, "creating fake-ns")
 
 	// create alb
 	labelsInAlb := map[string]string{}
@@ -548,15 +550,22 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 
 func (f *Framework) InitSvc(ns, name string, ep []string) error {
 	Logf("init svc %v %v %v", ns, name, ep)
+	service_spec := corev1.ServiceSpec{}
+	if find := strings.Contains(name, "udp"); find {
+		service_spec = corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, Protocol: corev1.ProtocolUDP}},
+		}
+	} else {
+		service_spec = corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80}},
+		}
+	}
 	_, err := f.k8sClient.CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
 		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{Port: 80},
-			}},
+		Spec: service_spec,
 	}, metav1.CreateOptions{})
 	if err != nil {
 		return err

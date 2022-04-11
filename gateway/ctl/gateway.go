@@ -9,7 +9,7 @@ import (
 	"alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
-	errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -74,7 +74,7 @@ func (g *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(predicate.GenerationChangedPredicate{})
 
 	b = g.watchRoutes(b)
-	// defualt rate limit should enough for use.
+	// default rate limit should be enough for use.
 	b = b.WithOptions(controller.Options{RateLimiter: workqueue.DefaultControllerRateLimiter()})
 
 	return b.Complete(g)
@@ -254,7 +254,7 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 			key := fmt.Sprintf("%s/%s/%s", *ref.Namespace, ref.Name, *ref.SectionName)
 			ls, ok := lsMap[key]
 			if !ok {
-				log.Error(fmt.Errorf("impossable, could not find listener"), "ref", ref)
+				log.Error(fmt.Errorf("impossible, could not find listener"), "ref", ref)
 				continue
 			}
 			ls.status.attachedRoutes++
