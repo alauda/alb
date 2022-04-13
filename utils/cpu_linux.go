@@ -4,32 +4,19 @@
 package utils
 
 import (
-	"io/ioutil"
-	"path/filepath"
-	"strconv"
-	"strings"
+	"runtime"
 )
 
-// NumCPU returns the number of logical CPUs usable by the current process.
-// If CPU cgroups limits are configured, use cfs_quota_us / cfs_period_us
-// as formula
+// NumCPU returns the number of logical CPUs used by the nginx process(worker_process in nginx.conf)
+// If CPU limits are pre-set, use it as the num of worker_process
+// Else use min of runtime.cpu and WORKER_LIMIT
 //  https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
 func NumCPU(cpu_preset, limit int) int {
-	return min(cpu_preset, limit)
-}
-
-func readCgroupFileToInt64(cgroupPath, cgroupFile string) int64 {
-	contents, err := ioutil.ReadFile(filepath.Join(cgroupPath, cgroupFile))
-	if err != nil {
-		return -1
+	if cpu_preset > 0 {
+		return cpu_preset
+	} else {
+		return min(runtime.NumCPU(), limit)
 	}
-
-	strValue := strings.TrimSpace(string(contents))
-	if value, err := strconv.ParseInt(strValue, 10, 64); err == nil {
-		return value
-	}
-
-	return -1
 }
 
 func min(a, b int) int {
