@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-sync
 # init nginx container
 cp -R /alb/template/nginx /nginx/nginx-code
 cp /alb/template/nginx/nginx.conf /usr/local/openresty/nginx/conf/
