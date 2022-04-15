@@ -514,13 +514,20 @@ func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]C
 					klog.Errorf("invalid certificateName, %s", ft.CertificateName)
 					continue
 				}
-				cert, err := getCertificate(driver, secretNs, secretName)
+				cert, caCert, err := getCertificate(driver, secretNs, secretName)
 				if err != nil {
 					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
 				} else {
-					// default cert for port ft.Port
-					certMap[strconv.Itoa(ft.Port)] = *cert
+					if caCert != nil {
+						// fullchain cert for port ft.Port, including cert of dex.tls
+						fullChainCert := mergeFullchainCert(cert, caCert)
+						certMap[strconv.Itoa(ft.Port)] = *fullChainCert
+					} else {
+						// default cert for port ft.Port
+						certMap[strconv.Itoa(ft.Port)] = *cert
+					}
 				}
+
 			}
 			for _, rule := range ft.Rules {
 				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
@@ -529,7 +536,7 @@ func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]C
 						klog.Errorf("invalid certificateName, %s", rule.CertificateName)
 						continue
 					}
-					cert, err := getCertificate(driver, secretNs, secretName)
+					cert, caCert, err := getCertificate(driver, secretNs, secretName)
 					if err != nil {
 						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
 						continue
@@ -540,7 +547,14 @@ func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]C
 							continue
 						}
 					}
-					certMap[strings.ToLower(rule.Domain)] = *cert
+					if caCert != nil {
+						// fullchain cert for rule domain, including cert of dex.tls
+						fullChainCert := mergeFullchainCert(cert, caCert)
+						certMap[strings.ToLower(rule.Domain)] = *fullChainCert
+					} else {
+						// default cert for rule domain
+						certMap[strings.ToLower(rule.Domain)] = *cert
+					}
 				}
 				rule.Domain = strings.ToLower(rule.Domain)
 			}
