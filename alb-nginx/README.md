@@ -39,6 +39,8 @@ alb-nginx:20220118182511
 	use ops/alpine as base image,upgrade openssl versin in openresty to 1.1.1l
 alb-nginx:20220317112016
 	upgrade base-image to 3.15
+alb-nginx:20220418150052
+	update base-image 3.15
 
 
 ### alb-nginx-test
