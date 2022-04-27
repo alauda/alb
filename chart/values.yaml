@@ -44,11 +44,6 @@ global:
       repository: 3rdparty/alb-nginx
       tag: "20220418150052"
       thirdparty: true
-    alb2_old:
-      support_arm: true
-      repository: acp/alb2
-      tag: v3.6.3
-      thirdparty: true
 resources:
   limits:
     cpu: "2"
