@@ -17,7 +17,7 @@ type BackendGroup ct.BackendGroup
 
 func (p NgxPolicy) String() string {
 	ret, err := json.MarshalIndent(p, "", "  ")
-	assert.NotNil(ginkgo.GinkgoT(), err)
+	assert.Nil(ginkgo.GinkgoT(), err)
 	return string(ret)
 }
 

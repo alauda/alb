@@ -14,7 +14,7 @@ function install-envtest {
   if [[ ! -d "/usr/local/kubebuilder" ]]; then
     export K8S_VERSION=1.19.2
     curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
-	# TODO need sudo permissions
+    # TODO need sudo permissions
     mkdir -p /usr/local/kubebuilder
     tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
     rm envtest-bins.tar.gz
@@ -208,12 +208,11 @@ function alb-build-iamge {
 function alb-kind-build-and-replace {
   make static-build
   md5sum ./bin/alb
-  local alb_pod=$(kubectl get po -A | grep alb-dev | awk '{print $2}'| tr -d '\n')
-  echo "alb pod $alb_pod" 
-  kubectl cp $PWD/bin/alb  cpaas-system/"$alb_pod":/alb/alb
+  local alb_pod=$(kubectl get po -A | grep alb-dev | awk '{print $2}' | tr -d '\n')
+  echo "alb pod $alb_pod"
+  kubectl cp $PWD/bin/alb cpaas-system/"$alb_pod":/alb/alb
   tmux-send-key-to-pane alb 'C-c' 'md5sum ./alb/alb;sleep 3s; /alb/alb 2>&1  | tee alb.log' 'C-m'
 }
-
 
 function alb-init-kind-env {
   # required
@@ -243,7 +242,7 @@ function alb-init-kind-env {
   echo $kindImage
   echo $kind2node
   echo $temp
-  rm -rf $temp/$kindName 
+  rm -rf $temp/$kindName
   mkdir -p $temp/$kindName
   generate_kind_config "$kind2node"
   echo "$KINDCONFIG" >$temp/$kindName/kindconfig.yaml
@@ -267,7 +266,6 @@ function alb-init-kind-env {
   _initKind $kindName $kindImage $temp/$kindName/kindconfig.yaml
 
   local base="build-harbor.alauda.cn"
-  cat ./alauda-alb2/values.yaml
   for im in $(cat ./alauda-alb2/values.yaml | yq eval -o=j | jq -cr '.global.images[]'); do
     local repo=$(echo $im | jq -r '.repository' -)
     local tag=$(echo $im | jq -r '.tag' -)
@@ -296,11 +294,9 @@ function alb-init-kind-env {
   # cp "./yaml/ip-provider.yaml" $ipProviderPath
   # kubectl apply -f $ipProviderPath
 
-  sed -i "s/alauda-system/cpaas-system/g" ./alauda-alb2/values.yaml
-  sed -i "s/replicas: 3/replicas: 1/g" ./alauda-alb2/values.yaml
-  sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
   kubectl create ns cpaas-system
 
+  sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
   # alb <=3.7
   if [ "$OLD_ALB" = "true" ]; then
     echo "init crd(old)"
@@ -310,34 +306,28 @@ function alb-init-kind-env {
     kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
     kubectl apply -R -f ./alauda-alb2/crds/
   fi
-
   echo "helm dry run start"
 
   read -r -d "" OVERRIDE <<EOF
 nodeSelector:
   node-role.kubernetes.io/master: ""
+loadbalancerName: alb-dev
+global:
+  labelBaseDomain: cpaas.io
+  namespace: cpaas-system
+  registry:
+    address: build-harbor.alauda.cn
+project: all_all
+replicas: 1
 EOF
   echo "$OVERRIDE" >./override.yaml
 
-  helm install alb-dev ./alauda-alb2 --namespace cpaas-system \
-    --set-string loadbalancername=alb-dev \
-    --set-string global.labelBaseDomain=cpaas.io \
-    --set-string global.registry.address=build-harbor.alauda.cn \
-    --set-string project=all_all \
-    -f ./alauda-alb2/values.yaml \
-    -f ./override.yaml \
-    --dry-run --debug
+  helm install --dry-run --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
   echo "helm dry run over"
 
   echo "helm install"
-  helm install alb-dev ./alauda-alb2 -n cpaas-system \
-    --set-string loadbalancername=alb-dev \
-    --set-string global.labelBaseDomain=cpaas.io \
-    --set-string global.registry.address=build-harbor.alauda.cn \
-    --set-string project=all_all \
-    -f ./alauda-alb2/values.yaml \
-    -f ./override.yaml \
-    --debug
+
+  helm install --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
 
   echo "init alb"
   init-alb
@@ -379,7 +369,7 @@ function _init_required_crd {
 
 function _makesureImage {
   local image=$1
-  
+
   local kindName=$2
   echo "makesureImage " $image $kindName
   if [[ "$(docker images -q $image 2>/dev/null)" == "" ]]; then
@@ -389,33 +379,50 @@ function _makesureImage {
   kind load docker-image $image --name $kindName
 }
 
-
 function alb-patch-gateway-hostname() {
-jsonpatch=$(cat <<EOF
-[{"op": "replace", "path": "/spec/listeners/0/hostname", "value":"$(od -vAn -N2 -tu2 < /dev/urandom|sed 's/ //g').com"}]
+  jsonpatch=$(
+    cat <<EOF
+[{"op": "replace", "path": "/spec/listeners/0/hostname", "value":"$(od -vAn -N2 -tu2 </dev/urandom | sed 's/ //g').com"}]
 EOF
-);echo "$jsonpatch"; kubectl patch gateway -n alb-test g1 --type=json -p="$jsonpatch";kubectl get gateway -n alb-test g1  -o yaml
+  )
+  echo "$jsonpatch"
+  kubectl patch gateway -n alb-test g1 --type=json -p="$jsonpatch"
+  kubectl get gateway -n alb-test g1 -o yaml
 }
-
 
 function alb-list-e2e-testcase {
   for suite_test in $(find ./test/e2e -name suite_test.go); do
     local suite=$(dirname "$suite_test")
-  	ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
+    ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
   done
 }
 
 function alb-run-all-e2e-test {
   export ALB_IGNORE_FOCUS="true"
   local base=$(pwd)
+  local ginkgoCmds=""
   for suite_test in $(find ./test/e2e -name suite_test.go); do
     local suite=$(dirname "$suite_test")
+    local suiteName=$(basename "$suite")
+    local ginkgoTest="$suite/$suiteName.test"
+    rm -rf $suite/viper-config.toml
+    cp $base/viper-config.toml $suite
+
+    ginkgo build $suite 
+    file $ginkgoTest
+    if [ $? != 0 ]; then
+      echo "build $suite failed"
+      exit 1
+    fi
     while IFS= read -r testcase _; do
-		cp $base/viper-config.toml $suite
-		echo  ginkgo -v -focus "$testcase" $suite
-		ginkgo -v -focus "$testcase" $suite
-    done < <( ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'| sed -e 's/.*alb-test-case\s*//g')
+      cmd="$ginkgoTest -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
+      ginkgoCmds="$ginkgoCmds\n$cmd"
+    done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
   done
+  shopt -s xpg_echo
+  touch $HOME/.ack-ginkgo-rc
+  echo "$ginkgoCmds" > cmds.cfg
+  parallel -j 4 < cmds.cfg
 }
 
 function get-alb-images-from-values {
@@ -439,7 +446,7 @@ function helm-chart-export {
   helm-alauda chart export $chart 2>&1 >/dev/null
 }
 
-TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua")
+TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua" "l7_redirect.lua" "cors.lua" "rewrite_response.lua")
 function alb-lua-format-check {
   # shellcheck disable=SC2068
   for f in ${TOUCHED_LUA_FILE[@]}; do
@@ -498,7 +505,7 @@ function go-fmt-fix {
 }
 
 function go-lint {
-  if [ ! "$(gofmt -l $(find . -type f -name '*.go'| grep -v ".deepcopy"))" = "" ]; then
+  if [ ! "$(gofmt -l $(find . -type f -name '*.go' | grep -v ".deepcopy"))" = "" ]; then
     echo "go fmt check fail"
     exit 1
   fi
@@ -507,7 +514,7 @@ function go-lint {
 
 function go-unit-test {
   if [ -d ./alb-nginx/t/servroot ]; then
-    	rm -rf ./alb-nginx/t/servroot || true
+    rm -rf ./alb-nginx/t/servroot || true
   fi
   go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
 }
@@ -517,14 +524,19 @@ function alb-test-all-in-ci {
   set -e # exit on err
   echo alb is $ALB
   echo pwd is $(pwd)
+  source /root/.gvm/scripts/gvm
+  gvm list
+  gvm use go1.18 || true
+  go version
   local START=$(date +%s)
+  go env -w GO111MODULE=on
+  go env -w GOPROXY=https://goproxy.cn,direct
   go-lint
   luacheck ./template/nginx/lua
   alb-lua-format-check
   go-unit-test
   echo "unit-test ok"
   go install github.com/onsi/ginkgo/ginkgo
-  export PATH=$PATH:~/go/bin
   which ginkgo
   echo $?
   alb-run-all-e2e-test
@@ -558,15 +570,15 @@ function alb-run-local {
 }
 
 function alb-build-static {
-	rm -rf ./bin/ || true
-	CC=/usr/bin/musl-gcc CGO_ENABLED=1  go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/alb alauda.io/alb2 && ldd ./bin/alb
-	CC=/usr/bin/musl-gcc CGO_ENABLED=1  go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
+  rm -rf ./bin/ || true
+  CC=/usr/bin/musl-gcc CGO_ENABLED=1 go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/alb alauda.io/alb2 && ldd ./bin/alb
+  CC=/usr/bin/musl-gcc CGO_ENABLED=1 go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 }
 
 function alb-replace-in-pod {
-	alb-build-static
-	local pod=$(kubectl get po -n cpaas-system |grep alb | awk '{print $1}')
-	kubectl cp $PWD/bin/alb  cpaas-system/$pod:/alb/alb
-	md5sum ./bin/alb
-	kubectl exec -it -n cpaas-system $pod -- sh -c 'md5sum /alb/alb'
+  alb-build-static
+  local pod=$(kubectl get po -n cpaas-system | grep alb | awk '{print $1}')
+  kubectl cp $PWD/bin/alb cpaas-system/$pod:/alb/alb
+  md5sum ./bin/alb
+  kubectl exec -it -n cpaas-system $pod -- sh -c 'md5sum /alb/alb'
 }

@@ -85,7 +85,7 @@ success
 --- no_error_log
 [error]
 
-=== TEST 1: get_table_diff_keys should ok
+=== TEST 2: get_table_diff_keys should ok
 --- log_level: info
 --- http_config
 server {
@@ -117,3 +117,15 @@ server {
 success
 --- no_error_log
 [error]
+
+=== TEST 3: regex should ok 
+--- log_level: info
+--- lua_test
+			local F = require("F");local u = require("util");local h = require("test-helper");
+    		local found, _ = ngx.re.match("/test", "/test", "jo")
+			ngx.log(ngx.NOTICE,"1 found "..u.inspect(found))
+    		local found, _ = ngx.re.match("/test", "/(?!(login)|(ping))test", "jo")
+			ngx.log(ngx.NOTICE,"2 found "..u.inspect(found))
+    		local found, _ = ngx.re.match("/ping", "/(?!(login)|(ping))test", "jo")
+			ngx.log(ngx.NOTICE,"3 found "..u.inspect(found))
+--- response_body: ok

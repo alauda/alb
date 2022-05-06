@@ -76,9 +76,11 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 			}
 			bes = append(bes,
 				&Backend{
-					Address: be.IP,
-					Port:    port,
-					Weight:  weight,
+					Address:     be.IP,
+					Port:        port,
+					Weight:      weight,
+					Protocol:    be.Protocol,
+					AppProtocol: be.AppProtocol,
 				})
 		}
 	}

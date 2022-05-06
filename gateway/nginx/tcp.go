@@ -3,12 +3,13 @@ package nginx
 import (
 	"fmt"
 
-	"alauda.io/alb2/driver"
-	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
-	"github.com/go-logr/logr"
-
 	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/gateway"
+	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
+	. "alauda.io/alb2/gateway/nginx/types"
+	. "alauda.io/alb2/gateway/nginx/utils"
+	"github.com/go-logr/logr"
 
 	albType "alauda.io/alb2/pkg/apis/alauda/v1"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -39,15 +40,15 @@ func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 			if l.Protocol != gatewayType.TCPProtocolType {
 				continue
 			}
-			if len(l.routes) == 0 {
+			if len(l.Routes) == 0 {
 				t.log.Info("could not found vaild route", "error", true)
 				return nil
 			}
-			if len(l.routes) > 1 {
+			if len(l.Routes) > 1 {
 				t.log.Info("tcp has more than one route", "port", port)
 				return nil
 			}
-			route = l.routes[0]
+			route = l.Routes[0]
 			tcprouteNew, ok := route.(*TCPRoute)
 			if !ok {
 				t.log.Info("only tcp route could attach to tcp listener")
@@ -65,7 +66,7 @@ func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 			Protocol: albType.FtProtocolTCP,
 		}
 		// TODO we donot support multiple tcp rules
-		svcs, err := backendRefsToService(tcproute.Spec.Rules[0].BackendRefs)
+		svcs, err := BackendRefsToService(tcproute.Spec.Rules[0].BackendRefs)
 		if err != nil {
 			return nil
 		}
@@ -83,9 +84,9 @@ func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 			ref := gatewayPolicyType.Ref{
 				Listener: &gatewayPolicyType.Listener{
 					Listener:   l.Listener,
-					Gateway:    l.gateway,
-					Generation: l.generation,
-					CreateTime: l.createTime,
+					Gateway:    l.Gateway,
+					Generation: l.Generation,
+					CreateTime: l.CreateTime,
 				},
 				Route:      route,
 				RuleIndex:  0,

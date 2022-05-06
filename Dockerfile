@@ -1,10 +1,11 @@
-FROM build-harbor.alauda.cn/acp/base/golang:v116-alpine AS builder
+FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.15  AS builder
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
+RUN apk update && apk add git gcc musl-dev
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
@@ -47,7 +48,5 @@ COPY viper-config.toml /alb/viper-config.toml
 COPY ./template/nginx /alb/template/nginx
 COPY --from=builder /alb /alb/alb
 COPY --from=builder /migrate/init-port-info /migrate/init-port-info
-# some lua module may not upload to opm or not the latest version
-COPY ./3rd-lua-module/lib/resty/ /usr/local/openresty/site/lualib/resty/
 
 RUN chmod 755 -R /alb

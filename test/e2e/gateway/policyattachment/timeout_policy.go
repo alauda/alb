@@ -215,7 +215,7 @@ spec:
 		assert.NoError(GinkgoT(), err)
 		// only rule who been attached generate corresponding config.
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-			h2_0_443, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 443, ns, "h2", 0, 0))
+			h2_0_443, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 443, ns, "g1", "https", ns, "h2", 0, 0))
 			return TestEq(func() bool {
 				ret := TimeoutEq(*h2_0_443.Config.Timeout, pointy.Uint(100), nil, pointy.Uint(101))
 				return ret
@@ -292,10 +292,11 @@ spec:
 		assert.NoError(GinkgoT(), err)
 		// only rule who been attached generate corresponding config.
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-			h1_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h1", 0, 0))
-			h1_1, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h1", 1, 0))
-			h2_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h2", 0, 0))
-			h2_0_90, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 90, ns, "h2", 0, 0))
+
+			h1_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h1", 0, 0))
+			h1_1, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h1", 1, 0))
+			h2_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h2", 0, 0))
+			h2_0_90, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 90, ns, "g2", "http", ns, "h2", 0, 0))
 			// h2 attach to g1,t1 attach to g1,t2 attach to h1
 			// connect use override in t2 ,read use default in t2 , send use override in t1
 			h1_0_ok := TestEq(func() bool {
@@ -312,7 +313,9 @@ spec:
 				return ret
 			})
 			// h2_90 attach to g2, no config
-			h2_0_90_ok := h2_0_90.Config == nil
+			h2_0_90_ok := TestEq(func() bool {
+				return h2_0_90.Config == nil
+			})
 			return h1_0_ok && h1_1_ok && h2_0_ok && h2_0_90_ok, nil
 		})
 	})
@@ -338,9 +341,10 @@ spec:
 		assert.NoError(GinkgoT(), err)
 		// only rule who been attached generate corresponding config.
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-			h1_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h1", 0, 0))
-			h1_1, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h1", 1, 0))
-			h2_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%d-%d", 80, ns, "h2", 0, 0))
+
+			h1_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h1", 0, 0))
+			h1_1, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h1", 1, 0))
+			h2_0, _, _ := p.FindHttpPolicy(fmt.Sprintf("%d-%s-%s-%s-%s-%s-%d-%d", 80, ns, "g1", "http", ns, "h2", 0, 0))
 			return TestEq(func() bool {
 				ret := TimeoutEq(*h1_0.Config.Timeout, pointy.Uint(10), pointy.Uint(11), nil)
 				return ret

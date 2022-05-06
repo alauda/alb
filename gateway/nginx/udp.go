@@ -9,6 +9,8 @@ import (
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/gateway"
 
+	. "alauda.io/alb2/gateway/nginx/types"
+	. "alauda.io/alb2/gateway/nginx/utils"
 	albType "alauda.io/alb2/pkg/apis/alauda/v1"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
@@ -32,7 +34,7 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 			if _, ok := portMap[l.Port]; !ok {
 				portMap[l.Port] = []*UDPRoute{}
 			}
-			for _, r := range l.routes {
+			for _, r := range l.Routes {
 				udproute, ok := r.(*UDPRoute)
 				if !ok {
 					continue
@@ -64,7 +66,7 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 			t.log.Error(fmt.Errorf("we do not support multiple udp rules"), "port", port, "route", GetObjectKey(route))
 			return nil
 		}
-		svcs, err := backendRefsToService(route.Spec.Rules[0].BackendRefs)
+		svcs, err := BackendRefsToService(route.Spec.Rules[0].BackendRefs)
 		if err != nil {
 			return nil
 		}

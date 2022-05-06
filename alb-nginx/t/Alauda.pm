@@ -57,7 +57,7 @@ __END
 __END
         $policy=$defaultPolicy;
     }
-	warn "policy is $policy";
+	# warn "policy is $policy";
 
     my $lua_test_full = '';
     if (defined  $block->lua_test) {
@@ -151,7 +151,7 @@ _END_
 
 
     my $http_config = $block->http_config;
-    warn "get http config $http_config";
+    # warn "get http config $http_config";
 
     my $cfg = <<__END;
     include       /alb/tweak/http.conf;

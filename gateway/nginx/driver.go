@@ -3,6 +3,7 @@ package nginx
 import (
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/gateway"
+	. "alauda.io/alb2/gateway/nginx/types"
 	"alauda.io/alb2/utils"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,9 +37,9 @@ func ListListenerByClass(kd *driver.KubernetesDriver, classname string) ([]*List
 			if IsListenerReady(g.Status.Listeners, key, string(l.Name), g.Generation) {
 				ls := &Listener{
 					Listener:   l,
-					gateway:    client.ObjectKeyFromObject(g),
-					generation: g.Generation,
-					routes:     []CommonRoute{},
+					Gateway:    client.ObjectKeyFromObject(g),
+					Generation: g.Generation,
+					Routes:     []CommonRoute{},
 				}
 				lsList = append(lsList, ls)
 			}
@@ -49,10 +50,10 @@ func ListListenerByClass(kd *driver.KubernetesDriver, classname string) ([]*List
 		// route refs to ls and this route is ready
 		for _, ref := range r.GetSpec().ParentRefs {
 			for _, ls := range lsList {
-				isRef := IsRefToListener(ref, ls.gateway, string(ls.Name))
-				isReady := IsRouteReady(GetStatus(r), ls.gateway, string(ls.Name), r.GetObject().GetGeneration())
+				isRef := IsRefToListener(ref, ls.Gateway, string(ls.Name))
+				isReady := IsRouteReady(GetStatus(r), ls.Gateway, string(ls.Name), r.GetObject().GetGeneration())
 				if isRef && isReady {
-					ls.routes = append(ls.routes, r)
+					ls.Routes = append(ls.Routes, r)
 				}
 			}
 		}

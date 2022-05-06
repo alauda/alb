@@ -56,6 +56,9 @@ type Policy struct {
 	CORSAllowHeaders string        `json:"cors_allow_headers"`
 	CORSAllowOrigin  string        `json:"cors_allow_origin"`
 	BackendProtocol  string        `json:"backend_protocol"`
+	RedirectScheme   *string       `json:"redirect_scheme,omitempty"`
+	RedirectHost     *string       `json:"redirect_host,omitempty"`
+	RedirectPort     *int          `json:"redirect_port,omitempty"`
 	RedirectURL      string        `json:"redirect_url"`
 	RedirectCode     int           `json:"redirect_code"`
 	VHost            string        `json:"vhost"`
@@ -323,6 +326,15 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 				SessionAffinityAttribute: rule.SessionAffinityAttr,
 			}
 			rule.BackendGroup.Backends = generateBackend(backendMap, rule.Services, protocol)
+			// NOTE: if backend app protocol is https. use https.
+			if rule.BackendProtocol == "$http_backend_protocol" {
+				rule.BackendProtocol = "http"
+				for _, b := range rule.BackendGroup.Backends {
+					if b.AppProtocol != nil && strings.ToLower(*b.AppProtocol) == "https" {
+						rule.BackendProtocol = "https"
+					}
+				}
+			}
 			rules = append(rules, rule)
 		}
 		if len(rules) > 0 {
@@ -419,8 +431,13 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.CORSAllowHeaders = rule.CORSAllowHeaders
 		policy.CORSAllowOrigin = rule.CORSAllowOrigin
 		policy.BackendProtocol = rule.BackendProtocol
+
+		policy.RedirectScheme = rule.RedirectScheme
+		policy.RedirectHost = rule.RedirectHost
+		policy.RedirectPort = rule.RedirectPort
 		policy.RedirectURL = rule.RedirectURL
 		policy.RedirectCode = rule.RedirectCode
+
 		policy.VHost = rule.VHost
 		policy.Config = rule.Config
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)

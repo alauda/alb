@@ -6,7 +6,8 @@ import (
 
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/utils/log"
-	corev1 "k8s.io/api/core/v1"
+
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -157,17 +158,11 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 	return false, nil, nil
 }
 
-func getAlbPodIp(ctx context.Context, c client.Client, ns string, domain, name string) ([]string, error) {
-	endpoints := corev1.Endpoints{}
-	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &endpoints)
+func getAlbAddress(ctx context.Context, c client.Client, ns string, name string) (string, error) {
+	alb := alb2v1.ALB2{}
+	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &alb)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	ret := []string{}
-	for _, ss := range endpoints.Subsets {
-		for _, a := range ss.Addresses {
-			ret = append(ret, a.IP)
-		}
-	}
-	return ret, nil
+	return alb.Spec.Address, nil
 }

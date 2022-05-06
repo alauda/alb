@@ -36,9 +36,11 @@ import (
 )
 
 type Backend struct {
-	InstanceID string `json:"instance_id"`
-	IP         string `json:"ip"`
-	Port       int    `json:"port"`
+	InstanceID  string  `json:"instance_id"`
+	IP          string  `json:"ip"`
+	Protocol    string  `json:"-"`
+	AppProtocol *string `json:"-"`
+	Port        int     `json:"port"`
 }
 
 func (b *Backend) String() string {
@@ -64,6 +66,8 @@ type Service struct {
 	Namespace   string     `json:"namespace"`
 	NetworkMode string     `json:"network_mode"`
 	ServicePort int        `json:"service_port"`
+	Protocol    string     `json:"protocol"`
+	AppProtocol *string    `json:"app_protocol"`
 	Backends    []*Backend `json:"backends"`
 }
 
@@ -238,7 +242,7 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNu
 	if err != nil {
 		return nil, err
 	}
-	containerPort, err := findContainerPort(svc, ep, svcPortNum, protocol)
+	containerPort, appProtocol, err := findContainerPort(svc, ep, svcPortNum, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -247,15 +251,19 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNu
 		Name:        name,
 		Namespace:   namespace,
 		ServicePort: svcPortNum,
+		Protocol:    string(protocol),
+		AppProtocol: appProtocol,
 		Backends:    make([]*Backend, 0),
 	}
 
 	for _, subset := range ep.Subsets {
 		for _, addr := range subset.Addresses {
 			service.Backends = append(service.Backends, &Backend{
-				InstanceID: addr.Hostname,
-				IP:         addr.IP,
-				Port:       containerPort,
+				InstanceID:  addr.Hostname,
+				IP:          addr.IP,
+				Protocol:    string(protocol),
+				AppProtocol: appProtocol,
+				Port:        containerPort,
 			})
 		}
 	}
@@ -270,8 +278,9 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNu
 // findContainerPort via given svc and endpoints, we assume protocol are tcp now.
 //
 // endpoint-controller https://github.com/kubernetes/kubernetes/blob/e8cf412e5ec70081477ad6f126c7f7ef7449109c/pkg/controller/endpoint/endpoints_controller.go#L442-L442
-func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum int, protocol v1types.Protocol) (int, error) {
+func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum int, protocol v1types.Protocol) (int, *string, error) {
 	containerPort := 0
+	var appProtocol *string
 	for _, svcPort := range svc.Spec.Ports {
 		if svcPort.Protocol == "" {
 			svcPort.Protocol = "tcp"
@@ -281,6 +290,7 @@ func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum i
 		}
 		if svcPortNum == int(svcPort.Port) {
 			svcPortName := svcPort.Name
+			appProtocol = svcPort.AppProtocol
 			if svcPort.TargetPort.Type == intstr.Int {
 				containerPort = int(svcPort.TargetPort.IntVal)
 				break
@@ -298,9 +308,9 @@ func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum i
 	}
 
 	if containerPort == 0 {
-		return 0, fmt.Errorf("could not find container port in svc %s/%s port %v svc.ports %v ep %v", svc.Namespace, svc.Name, svcPortNum, svc.Spec.Ports, ep)
+		return 0, nil, fmt.Errorf("could not find container port in svc %s/%s port %v svc.ports %v ep %v", svc.Namespace, svc.Name, svcPortNum, svc.Spec.Ports, ep)
 	}
-	return containerPort, nil
+	return containerPort, appProtocol, nil
 }
 
 // GetExternalNameAddress return a fqdn address for service

@@ -108,8 +108,6 @@ spec:
             mountPath: /nginx/nginx-code/
           - name: nginx-pid
             mountPath: /nginx/nginx-pid/
-          - name: 3rd-nginx-code
-            mountPath: /nginx/3rd-nginx-code/
           - name: share-log
             mountPath: /var/log/nginx/
 
@@ -130,8 +128,6 @@ spec:
             mountPath: /alb/tweak/
           - name: nginx-code
             mountPath: /alb/template/
-          - name: 3rd-nginx-code
-            mountPath: /3rd-nginx-code/
           - name: nginx-pid
             mountPath: /var/run/
           - name: share-log
@@ -153,9 +149,8 @@ spec:
           - -c
           - |
             mkdir -p /var/log/nginx &&
-            cp -R /3rd-nginx-code/* /usr/local/openresty/site/lualib/resty/ &&
             openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048 &&
-            /usr/local/openresty/nginx/sbin/nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf
+            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf
           livenessProbe:
             httpGet:
               path: /status
@@ -194,8 +189,6 @@ spec:
       - name: share-conf
         emptyDir: { }
       - name: nginx-code
-        emptyDir: { }
-      - name: 3rd-nginx-code
         emptyDir: { }
       - name: nginx-pid
         emptyDir: { }

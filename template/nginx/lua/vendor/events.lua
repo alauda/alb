@@ -338,7 +338,7 @@ _M.poll = function()
     local_event_queue = {}
 
     -- deal with local events
-    for i, data in ipairs(queue) do
+    for _, data in ipairs(queue) do
       _busy_polling = true -- need to flag to make sure the eventhandlers do not re-enter
       do_event(data.source, data.event, data.data, nil)
       _busy_polling = nil
@@ -705,7 +705,7 @@ _M.event_list = function(source, ...)
     events[event] = event
   end
   return setmetatable(events, {
-    __index = function(self, key)
+    __index = function(_, key)
       error("event '"..tostring(key).."' is an unknown event", 2)
     end
   })

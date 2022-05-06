@@ -45,7 +45,7 @@ function _M.assert_eq(left, right, msg)
 	local ty1 = type(left)
 	local ty2 = type(right)
 	if ty1 ~= ty2 then
-		ngx.log(ngx.ERR, "type not same")
+		ngx.log(ngx.ERR, "type not same ".. ty1.." "..ty2)
 		ngx.exit(ngx.ERR)
 	end
 	if ty1 == ty2 and ty1 == "table" then
@@ -71,9 +71,11 @@ end
 
 function _M.assert_curl_success(res, err, body)
 	if body == nil then body = "success" end
-	if err ~= nil or res.status ~= 200 or res.body ~= body then
-		ngx.log(ngx.ERR, "fail " .. tostring(err) .. " " .. tostring(res.status) .. " " .. tostring(res.body))
-		ngx.exit(ngx.ERR)
+	local res_body = _M.trim(res.body)
+	if err ~= nil or res.status ~= 200 or res_body ~= body then
+		local msg = "fail " .. tostring(err) .. " " .. tostring(res.status) .. " -" .. tostring(res_body).."- ".. tostring(res_body == body)
+		ngx.log(ngx.ERR,msg)
+		ngx.exit(ngx.ERR,msg)
 		return
 	end
 end

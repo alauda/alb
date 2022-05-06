@@ -17,3 +17,11 @@ RUN curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.19.2/
     tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz && \
     rm envtest-bins.tar.gz && \
 	ls /usr/local/kubebuilder 
+
+RUN apk add parallel
+RUN apk add bison && bash -c "bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer) && \
+	source /root/.gvm/scripts/gvm &&\
+	gvm install go1.16  && \
+	gvm install go1.17 && \
+	gvm install go1.18 && \
+	gvm use 1.18"

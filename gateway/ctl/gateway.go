@@ -43,18 +43,23 @@ type ListenerFilter interface {
 }
 
 type RouteFilter interface {
+	// 1. you must call route.unAllowRoute(ref,msg) by youself if route couldnot not match
+	// 2. you must return false if route is not match
 	FilteRoute(ref gatewayType.ParentRef, route *Route, ls *Listener) bool
 	Name() string
 }
 
 func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger) GatewayReconciler {
 
-	filter := CommonFiliter{log: log}
+	commonFilter := CommonFiliter{log: log, c: c, ctx: ctx}
+	hostNameFilter := HostNameFilter{log: log}
+
 	listenerFilter := []ListenerFilter{
-		&filter,
+		&commonFilter,
 	}
 	routeFilter := []RouteFilter{
-		&filter,
+		&commonFilter,
+		&hostNameFilter,
 	}
 
 	return GatewayReconciler{
@@ -239,7 +244,10 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 			r.accept(ref)
 			for _, f := range g.invalidRoutefilter {
 				valid := f.FilteRoute(ref, r, ls)
-				log.Info("filte route", "name", f.Name(), "valid", valid, "route", GetObjectKey(r.route), "ls", ls.Name)
+				if !valid {
+					log.Info("find a invalid route", "name", f.Name(), "valid", valid, "route", GetObjectKey(r.route), "ls", ls.Name)
+					continue
+				}
 			}
 		}
 	}
@@ -263,15 +271,13 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 }
 
 func (g *GatewayReconciler) updateGatewayStatus(gateway *gatewayType.Gateway, ls []*Listener) error {
-	ips, err := getAlbPodIp(g.ctx, g.c, config.GetNs(), config.GetDomain(), config.GetAlbName())
+	ip, err := getAlbAddress(g.ctx, g.c, config.GetNs(), config.GetAlbName())
 	if err != nil {
 		return fmt.Errorf("get pod ip fail err %v", err)
 	}
 	address := []gatewayType.GatewayAddress{}
 	ipType := gatewayType.IPAddressType
-	for _, ip := range ips {
-		address = append(address, gatewayType.GatewayAddress{Type: &ipType, Value: ip})
-	}
+	address = append(address, gatewayType.GatewayAddress{Type: &ipType, Value: ip})
 
 	gateway.Status.Addresses = address
 	lsstatusList := []gatewayType.ListenerStatus{}

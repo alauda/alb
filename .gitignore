@@ -29,10 +29,12 @@ scripts/loop.sh
 alb-nginx/actions/loop.sh
 test/e2e/viper-config.toml
 bin
-vendor
 .alb.local
 test/e2e/alb-config.toml
 *.log
 .vscode/settings.json
-test/e2e/gateway/viper-config.toml
-test/e2e/gateway/policyattachment/viper-config.toml
+test/e2e/*/viper-config.toml
+test/e2e/*/*/viper-config.toml
+test/e2e/*.test
+test/e2e/*/*.test
+test/e2e/*/*/*.test

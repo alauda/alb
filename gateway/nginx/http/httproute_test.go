@@ -1,4 +1,4 @@
-package nginx
+package http
 
 import (
 	"encoding/json"
@@ -56,27 +56,12 @@ func TestHttpMatchesToDSLX(t *testing.T) {
 							},
 						},
 					},
-
-					// TODO we do not support mutliple meatches now
-					// {
-					// 	Path: &gatewayType.HTTPPathMatch{
-					// 		Type:  &matchPathPrefix,
-					// 		Value: utils.StringRefs("/v1-legacy"),
-					// 	},
-					// 	Headers: []gatewayType.HTTPHeaderMatch{
-					// 		{
-					// 			Type:  &matchHeaderExact,
-					// 			Value: "1.1",
-					// 			Name:  "version",
-					// 		},
-					// 	},
-					// },
 				},
 			},
 		},
 	}
 	c := cases[0]
-	dslx, err := HttpRuleMatchToDSLX(c.hostnames, c.rule)
+	dslx, err := HttpRuleMatchToDSLX(c.hostnames, c.rule.Matches[0])
 	assert.NoError(t, err)
 	internalDslStr, err := toInternalDslJsonStr(dslx)
 	assert.NoError(t, err)

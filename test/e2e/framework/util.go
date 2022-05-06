@@ -2,7 +2,6 @@ package framework
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"math/rand"
@@ -14,10 +13,6 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/thedevsaddam/gojsonq/v2"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kcapi "k8s.io/client-go/tools/clientcmd/api"
@@ -30,29 +25,6 @@ const (
 	// DefaultTimeout time to wait for operations to complete
 	DefaultTimeout = 50 * time.Minute
 )
-
-func CreateKubeNamespace(name string, c kubernetes.Interface) (string, error) {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-	}
-	// Be robust about making the namespace creation call.
-	var got *corev1.Namespace
-	var err error
-	err = wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
-		got, err = c.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
-		if err != nil {
-			Logf("Unexpected error while creating namespace: %v", err)
-			return false, nil
-		}
-		return true, nil
-	})
-	if err != nil {
-		return "", err
-	}
-	return got.Name, nil
-}
 
 func ToPointOfString(str string) *string {
 	return &str
@@ -198,7 +170,9 @@ func Access(f func()) {
 
 func TestEq(f func() bool) (ret bool) {
 	defer func() {
-		if recover() != nil {
+		err := recover()
+		if err != nil {
+			Logf("TestEq err: %+v", err)
 			ret = false
 		}
 	}()

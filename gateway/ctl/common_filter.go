@@ -1,23 +1,29 @@
 package ctl
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
-	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	. "alauda.io/alb2/gateway"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type CommonFiliter struct {
 	log logr.Logger
+	c   client.Client
+	ctx context.Context
 }
 
 func (c *CommonFiliter) Name() string {
 	return "CommonFiliter"
 }
+
 func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	// TODO distinguish between protocol conflict and hostname conflict
 	log := c.log.WithValues("gateway", gateway)
@@ -57,7 +63,7 @@ func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, 
 func (c *CommonFiliter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *Listener) bool {
 	// allow routes
 	key := client.ObjectKeyFromObject(r.route.GetObject())
-	accept, msg := routeCouldAttach(key, ls.gateway, &ls.Listener)
+	accept, msg := c.routeCouldAttach(key, ls.gateway, &ls.Listener)
 	if !accept {
 		r.unAllowRoute(ref, msg)
 		return false
@@ -73,7 +79,7 @@ func (c *CommonFiliter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *List
 	return true
 }
 
-func routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gatewayType.Listener) (bool, string) {
+func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gatewayType.Listener) (bool, string) {
 	from := gatewayType.NamespacesFromSame
 	if ls.AllowedRoutes.Namespaces.From != nil {
 		from = *ls.AllowedRoutes.Namespaces.From
@@ -81,15 +87,37 @@ func routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gate
 	if from == gatewayType.NamespacesFromSame {
 		if gateway.Namespace != route.Namespace {
 			return false, fmt.Sprintf("gateway %v only allow route from same ns", gateway)
-		} else {
-			return true, ""
 		}
 	}
-	if from == gatewayType.NamespacesFromAll {
-		return true, ""
-	}
 
-	return false, fmt.Sprintf("unsupport allowroutes config from %v", from)
-	// TODO 支持nsselector
-	// TODO 检查hostname
+	if from == gatewayType.NamespacesFromSelector && validNsSelector(ls) {
+		ns := corev1.Namespace{}
+		err := c.c.Get(c.ctx, client.ObjectKey{Name: route.Namespace}, &ns)
+		if err != nil {
+			return false, fmt.Sprintf("ns selector,get ns %s fail %v", route.Namespace, err)
+		}
+		nssel := ls.AllowedRoutes.Namespaces.Selector
+		sel, err := metav1.LabelSelectorAsSelector(nssel)
+		if err != nil {
+			return false, fmt.Sprintf("ns selector, invalid selector: %v %v", nssel, err)
+		}
+		match := sel.Matches(labels.Set(ns.Labels))
+		if !match {
+			return false, fmt.Sprintf("ns selector not match")
+		}
+	}
+	return true, ""
+}
+
+func validNsSelector(ls *gatewayType.Listener) bool {
+	if ls == nil {
+		return false
+	}
+	if ls.AllowedRoutes == nil {
+		return false
+	}
+	if ls.AllowedRoutes.Namespaces.Selector == nil {
+		return false
+	}
+	return true
 }

@@ -19,7 +19,6 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 
 ./template/nginx/lua: openresty lua code.  
 ./alb-nginx: stuff relevent with openresty,for more details see ./alb-nginx/README.md   
-./3rd-lua-module: "some lua module may not upload to opm or not the latest version" used in alb-nginx  
 
 ./chart: alb chart.  
 ./Dockerfile: dockerfile of alb.  

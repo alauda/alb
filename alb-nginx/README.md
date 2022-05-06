@@ -49,3 +49,5 @@ alb-nginx-test:20220117144539
 	add all needed to run test.
 alb-nginx-test:20220317113027
 	use alb-nginx:20220317112016.
+alb-nginx-test:20220407172357
+	use go1.18
