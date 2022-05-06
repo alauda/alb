@@ -44,6 +44,7 @@ global:
       support_arm: true
       repository: 3rdparty/alb-nginx
       tag: "v3.9-32-g51449e5"
+      thirdparty: true
 resources:
   limits:
     cpu: "2"
