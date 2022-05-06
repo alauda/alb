@@ -23,8 +23,8 @@ data:
 
     stream {
         log_format stream '[$time_local] $remote_addr $protocol $server_port $status $bytes_received $bytes_sent $session_time';
-        access_log /var/log/nginx/access.log stream;
-        error_log /var/log/nginx/error.log info;
+        access_log  /dev/stdout  stream;
+        error_log   stderr       info;
         server {
               listen 53 udp;
               content_by_lua_block {
@@ -43,15 +43,15 @@ data:
                           '$status $upstream_status $upstream_addr '
                           '"$http_user_agent" "$http_x_forwarded_for" '
                           '$request_time $upstream_response_time';
-        access_log  /var/log/nginx/access.log  http buffer=16k flush=1s;
-        error_log  /var/log/nginx/error.log notice;
+        access_log  /dev/stdout  http buffer=16k flush=1s;
+        error_log   stderr       info;
         server {
             listen       443 ssl;
             server_name  _;
-    
+
             ssl_certificate     /cert/tls.crt;
             ssl_certificate_key /cert/tls.key;
-    
+
             ssl_session_timeout  5m;
             ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
             ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
@@ -109,7 +109,7 @@ spec:
           command:
             - sh
             - -c
-            - 'mkdir -p /var/log/nginx && touch /var/log/nginx/access.log && nginx -c /etc/nginx/nginx.conf && tail -f /var/log/nginx/access.log'
+            - 'nginx -c /etc/nginx/nginx.conf'
           ports:
             - containerPort: 80
       volumes:

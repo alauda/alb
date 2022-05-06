@@ -152,7 +152,6 @@ func NewAlb(deployCfg Config) *Framework {
 	os.Setenv("NAME", name)
 	os.Setenv("NAMESPACE", ns)
 	os.Setenv("DOMAIN", domain)
-	os.Setenv("ALB_ROTATE_LOG", "false")
 	os.Setenv("NEW_CONFIG_PATH", nginxCfgPath+".new")
 	os.Setenv("OLD_CONFIG_PATH", nginxCfgPath)
 	os.Setenv("NEW_POLICY_PATH", nginxPolicyPath)

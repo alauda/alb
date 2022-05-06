@@ -130,8 +130,6 @@ spec:
             mountPath: /alb/template/
           - name: nginx-pid
             mountPath: /var/run/
-          - name: share-log
-            mountPath: /var/log/nginx/
           env:
             - name: SYNC_POLICY_INTERVAL
               value: "{{ .Values.syncPolicyInterval }}"
@@ -148,9 +146,8 @@ spec:
           - /bin/sh
           - -c
           - |
-            mkdir -p /var/log/nginx &&
             openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048 &&
-            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf
+            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf -e stderr
           livenessProbe:
             httpGet:
               path: /status
@@ -192,8 +189,6 @@ spec:
         emptyDir: { }
       - name: nginx-pid
         emptyDir: { }
-      - name: share-log
-        emptyDir: {}
     metadata:
       annotations:
         values_hash:  {{ .Values | toYaml | sha256sum }}

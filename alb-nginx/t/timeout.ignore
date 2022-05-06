@@ -271,14 +271,6 @@ __DATA__
 	h.assert_true(spend>50)
 	h.assert_eq(res.status,504,"should timeout")
 --- response_body: ok
---- grep_error_log eval
-qr/on-backend/
---- grep_error_log_out
-on-backend
-on-backend
-on-backend
-on-backend
-on-backend
 
 
 === TEST 5: test with zero or nil timeout

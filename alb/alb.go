@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
 	"time"
 
 	_ "net/http/pprof"
@@ -72,13 +70,6 @@ func Start(ctx context.Context) {
 		}()
 	}
 
-	if config.Get("LB_TYPE") == config.Nginx && config.GetBool("ROTATE_LOG") {
-		klog.Infof("init: enable rotatelog")
-		go rotateLog(ctx)
-	} else {
-		klog.Infof("init: disable rotatelog")
-	}
-
 	{
 		l := log.L().WithName(gateway.ALB_GATEWAY_CONTROLLER)
 		enableGateway := config.GetBool("ENABLE_GATEWAY")
@@ -102,32 +93,6 @@ func Start(ctx context.Context) {
 	<-ctx.Done()
 
 	klog.Infof("lifecycle: ctx is done")
-}
-
-// start rotatelog, block util ctx is done
-func rotateLog(ctx context.Context) {
-	rotateInterval := config.GetInt("ROTATE_INTERVAL")
-	if rotateInterval == 0 {
-		klog.Info("rotatelog: rotatelog interval could not be 0 ")
-		os.Exit(-1)
-	}
-
-	klog.Info("rotateLog start, rotate interval ", rotateInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			klog.Info("rotatelog: ctx is done ")
-			return
-		case <-time.After(time.Duration(rotateInterval) * time.Minute):
-			klog.Info("rotatelog: start rotate log")
-			output, err := exec.Command("/usr/sbin/logrotate", "/etc/logrotate.d/logrotate.conf").CombinedOutput()
-			if err != nil {
-				klog.Infof("rotatelog: rotate log failed %s %v", output, err)
-			} else {
-				klog.Info("rotatelog:  rotate log success")
-			}
-		}
-	}
 }
 
 // start reload alb, block util ctx is done

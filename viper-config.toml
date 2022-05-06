@@ -13,8 +13,6 @@ timeout = 30
 INCREMENT_SYNC = true
 FULL_SYNC = true
 RELOAD_NGINX = true
-ROTATE_LOG = true
-ROTATE_INTERVAL = 20
 STATUSFILE_PARENTPATH = "/var/run/alb/last_status"
 RESYNC_PERIOD = 300
 # for test

@@ -25,7 +25,6 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 
 ./config: util package to manage config from env and viper-config.toml
 ./viper-config.toml: viper config file.  
-./log-rotate.conf: log rotate config file of alb.  
 
 ./hack  
 ./migrate: migrate scripts  
