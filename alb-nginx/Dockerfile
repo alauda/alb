@@ -3,13 +3,14 @@ ARG RESTY_IMAGE_TAG="3.15"
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG} AS builder
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repositories
 
-ARG LUA_RESTY_BALANCER_VERSION="0.03"
+ARG LUA_RESTY_BALANCER_VERSION="0.04"
 ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
-ARG RESTY_VERSION="1.19.3.2"
-ARG RESTY_OPENSSL_VERSION="1.1.1l"
+ARG RESTY_VERSION="1.19.9.1"
+ARG RESTY_OPENSSL_VERSION="1.1.1n"
 ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
 ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
 ARG RESTY_PCRE_VERSION="8.44"
+ARG RESTY_PCRE_SHA256="aecafd4af3bd0f3935721af77b889d9024b2e01d96b58471bd91a3063fb47728"
 ARG RESTY_J="4"
 ARG RESTY_CONFIG_OPTIONS="\
     --with-compat \
@@ -21,6 +22,8 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-http_geoip_module=dynamic \
     --with-http_gunzip_module \
     --with-http_gzip_static_module \
+    --with-http_image_filter_module=dynamic \
+    --with-http_mp4_module \
     --with-http_random_index_module \
     --with-http_realip_module \
     --with-http_secure_link_module \
@@ -76,6 +79,7 @@ LABEL resty_openssl_version="${RESTY_OPENSSL_VERSION}"
 LABEL resty_openssl_patch_version="${RESTY_OPENSSL_PATCH_VERSION}"
 LABEL resty_openssl_url_base="${RESTY_OPENSSL_URL_BASE}"
 LABEL resty_pcre_version="${RESTY_PCRE_VERSION}"
+LABEL resty_pcre_sha256="${RESTY_PCRE_SHA256}"
 LABEL resty_config_options="${RESTY_CONFIG_OPTIONS}"
 LABEL resty_config_options_more="${RESTY_CONFIG_OPTIONS_MORE}"
 LABEL resty_config_deps="${_RESTY_CONFIG_DEPS}"
@@ -111,7 +115,7 @@ RUN apk add --no-cache \
         libxslt \
         zlib \
         ca-certificates \
-        jq iproute2 logrotate openssl tini \
+        jq iproute2 openssl tini \
         ${RESTY_ADD_PACKAGE_RUNDEPS}
 RUN update-ca-certificates \
     && cd /tmp \
@@ -134,6 +138,7 @@ RUN update-ca-certificates \
     && make -j${RESTY_J} install_sw \
     && cd /tmp \
     && curl -fSL https://downloads.sourceforge.net/project/pcre/pcre/${RESTY_PCRE_VERSION}/pcre-${RESTY_PCRE_VERSION}.tar.gz  -o pcre-${RESTY_PCRE_VERSION}.tar.gz \
+    && echo "${RESTY_PCRE_SHA256}  pcre-${RESTY_PCRE_VERSION}.tar.gz" | shasum -a 256 --check \
     && tar xzf pcre-${RESTY_PCRE_VERSION}.tar.gz \
     && cd /tmp/pcre-${RESTY_PCRE_VERSION} \
     && ./configure \
@@ -148,8 +153,8 @@ RUN update-ca-certificates \
     && echo "start build openresty" \
     && curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz \
     && tar xzf openresty-${RESTY_VERSION}.tar.gz \
-    ## use custom luajit version,see more details in README.md
-    && rm -fr /tmp/openresty-${RESTY_VERSION}/bundle/LuaJIT-2.1-20201027 \
+    ## use custom luajit version, see more details in README.md
+    && rm -fr /tmp/openresty-${RESTY_VERSION}/bundle/LuaJIT-2.1-20210510 \
     && git clone https://github.com/openresty/luajit2 \
     && cd ./luajit2 && git checkout ${RESTR_LUAJIT2_VERSION} && cd ../ && mv ./luajit2 /tmp/openresty-${RESTY_VERSION}/bundle/LuaJIT-2.1-20210623 \
     && cd /tmp/openresty-${RESTY_VERSION} \
@@ -176,7 +181,7 @@ COPY --from=builder / /
 
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
 ARG RESTY_IMAGE_TAG="3.15"
-ARG RESTY_VERSION="1.19.3.2"
+ARG RESTY_VERSION="1.19.9.1"
 
 LABEL resty_image_base="${RESTY_IMAGE_BASE}"
 LABEL resty_image_tag="${RESTY_IMAGE_TAG}"

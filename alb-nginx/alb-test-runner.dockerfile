@@ -1,4 +1,5 @@
-FROM build-harbor.alauda.cn/3rdparty/alb-nginx:20220317112016
+FROM build-harbor.alauda.cn/3rdparty/alb-nginx:20220424210109
+
 RUN uname -m 
 RUN chmod || true 
 RUN pwd
@@ -24,4 +25,4 @@ RUN apk add bison && bash -c "bash < <(curl -s -S -L https://raw.githubuserconte
 	gvm install go1.16  && \
 	gvm install go1.17 && \
 	gvm install go1.18 && \
-	gvm use 1.18"
+	gvm use 1.18" \

@@ -40,10 +40,10 @@ global:
       repository: acp/alb2
       tag: v3.9-29-g95714c7
     nginx:
+      code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: 3rdparty/alb-nginx
-      tag: "20220418150052"
-      thirdparty: true
+      tag: "20220424210109"
 resources:
   limits:
     cpu: "2"

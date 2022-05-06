@@ -11,7 +11,7 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 
 FROM build-harbor.alauda.cn/ops/alpine:3.15
 
-RUN apk update && apk add --no-cache curl iproute2 jq logrotate openssl
+RUN apk update && apk add --no-cache curl iproute2 jq openssl
 
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
@@ -21,7 +21,6 @@ ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
 ENV INTERVAL 5
 ENV SYNC_POLICY_INTERVAL 1
 ENV CLEAN_METRICS_INTERVAL 2592000
-ENV ROTATE_INTERVAL 20
 ENV BIND_ADDRESS *
 ENV INGRESS_HTTP_PORT 80
 ENV INGRESS_HTTPS_PORT 443
@@ -38,9 +37,7 @@ CMD ["/sbin/tini", "--", "/run.sh"]
 RUN mkdir -p /var/log/mathilde && \
     mkdir -p /alb/certificates && \
     mkdir -p /alb/tweak && \
-    mkdir -p /migrate && \
-    mkdir -p /var/log/nginx
-COPY logrotate.conf /etc/logrotate.d/logrotate.conf
+    mkdir -p /migrate
 
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
