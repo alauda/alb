@@ -108,8 +108,6 @@ spec:
             mountPath: /nginx/nginx-code/
           - name: nginx-pid
             mountPath: /nginx/nginx-pid/
-          - name: share-log
-            mountPath: /var/log/nginx/
 
         - name: nginx
           securityContext:
