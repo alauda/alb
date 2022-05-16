@@ -421,7 +421,7 @@ func TestGCRule(t *testing.T) {
 		{
 			description: "all backend service are none-exist",
 			expectActions: []GCAction{
-				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleAllSerivceNonExist},
+				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleAllServiceNonExist},
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,
@@ -493,7 +493,7 @@ func TestGCRule(t *testing.T) {
 		{
 			description: "rule service bindkey is empty",
 			expectActions: []GCAction{
-				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleSerivceBindkeyEmpty},
+				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleServiceBindkeyEmpty},
 			},
 			options: defaultGCOptions,
 			cfg:     defaultConfig,

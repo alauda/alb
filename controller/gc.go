@@ -24,21 +24,21 @@ const (
 	FTServiceNonExist GCReason = iota
 	FTServiceBindkeyEmpty
 	RuleOrphaned
-	RuleAllSerivceNonExist
-	RuleSerivceBindkeyEmpty
+	RuleAllServiceNonExist
+	RuleServiceBindkeyEmpty
 )
 
 func (r GCReason) String() string {
 	switch r {
 	case FTServiceNonExist:
-		return "frontend default serivce not fould"
+		return "frontend default service not found"
 	case FTServiceBindkeyEmpty:
-		return "frontend default serivce bindkey is empty"
+		return "frontend default service bindkey is empty"
 	case RuleOrphaned:
 		return "rule is orphaned"
-	case RuleAllSerivceNonExist:
-		return "rule all serivce non exist"
-	case RuleSerivceBindkeyEmpty:
+	case RuleAllServiceNonExist:
+		return "rule all service non exist"
+	case RuleServiceBindkeyEmpty:
 		return "rule one of service bindkey is empty"
 	default:
 		return fmt.Sprintf("undefined reason: %d", int(r))
@@ -152,7 +152,7 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 								// handle service unbind lb in UI
 								bindkey := service.Annotations[fmt.Sprintf(config.Get("labels.bindkey"), config.Get("DOMAIN"))]
 								if bindkey == "" || bindkey == "[]" {
-									klog.Warningf("service bind key is empty ns:%s serivce:%s \n", svc.Namespace, svc.Name)
+									klog.Warningf("service bind key is empty ns:%s service:%s \n", svc.Namespace, svc.Name)
 									bindkeyEmpty = true
 									break
 								}
@@ -163,7 +163,7 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 								Namespace: namespace,
 								Kind:      DeleteRule,
 								Name:      rl.Name,
-								Reason:    RuleSerivceBindkeyEmpty,
+								Reason:    RuleServiceBindkeyEmpty,
 							})
 						}
 						if noneExist == len(rl.ServiceGroup.Services) {
@@ -171,11 +171,15 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 								Namespace: namespace,
 								Kind:      DeleteRule,
 								Name:      rl.Name,
-								Reason:    RuleAllSerivceNonExist,
+								Reason:    RuleAllServiceNonExist,
 							})
 						}
 					}
 				}
+			}
+
+			if ft.IsgRPC() {
+				// TODO gc gRPC
 			}
 		}
 	}

@@ -458,6 +458,52 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
 }
 
+func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+	if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
+		ngxPolicy.Http.Tcp[ft.Port] = Policies{}
+	}
+
+	for _, rule := range ft.Rules {
+		if rule.DSLX == nil {
+			klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
+			continue
+		}
+
+		klog.V(3).Infof("Rule is %v", rule)
+		policy := Policy{}
+		policy.Subsystem = SubsystemHTTP
+		policy.Rule = rule.RuleID
+		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
+		if err != nil {
+			klog.Error("convert dslx to internal failed", err)
+			continue
+		}
+		policy.InternalDSL = internalDSL
+		policy.RawPriority = rule.GetRawPriority()
+		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
+		// policy-gen 设置rule的upstream
+		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
+		// for rewrite
+		policy.URL = rule.URL
+		policy.BackendProtocol = rule.BackendProtocol
+		policy.Config = rule.Config
+		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
+	}
+
+	// set default rule if ft have default backend.
+	if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
+		defaultPolicy := Policy{}
+		defaultPolicy.Rule = ft.FtName
+		defaultPolicy.RawPriority = 999 // default backend has the lowest priority
+		defaultPolicy.Subsystem = SubsystemHTTP
+		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
+		defaultPolicy.BackendProtocol = ft.BackendProtocol
+		defaultPolicy.Upstream = ft.BackendGroup.Name
+		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
+	}
+	sort.Sort(ngxPolicy.Http.Tcp[ft.Port])
+}
+
 // fetch cert and backend info that lb config neeed, constructs a "dynamic config" used by openresty.
 func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	certificateMap := getCertMap(alb, nc.Driver)
@@ -480,6 +526,10 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 
 		if ft.IsHttpMode() {
 			nc.initHttpModeFt(ft, &ngxPolicy)
+		}
+
+		if ft.IsGRPCMode() {
+			nc.initGRPCModeFt(ft, &ngxPolicy)
 		}
 	}
 
@@ -524,8 +574,9 @@ func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]C
 		}
 		isHTTP := ft.Protocol == albv1.FtProtocolHTTP
 		isHTTPS := ft.Protocol == albv1.FtProtocolHTTPS
-		if isHTTP || isHTTPS {
-			if isHTTPS && ft.CertificateName != "" {
+		isGRPC := ft.Protocol == albv1.FtProtocolgRPC
+		if isHTTP || isHTTPS || isGRPC {
+			if (isHTTPS || isGRPC) && ft.CertificateName != "" {
 				secretNs, secretName, err := ParseCertificateName(ft.CertificateName)
 				if err != nil {
 					klog.Errorf("invalid certificateName, %s", ft.CertificateName)

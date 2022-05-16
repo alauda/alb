@@ -59,12 +59,12 @@ type Frontend struct {
 	FtName          string            `json:"-"`        // ft name
 	AlbName         string            `json:"alb_name"` // alb name
 	Port            int               `json:"port"`
-	Protocol        v1.FtProtocol     `json:"protocol"` // ft的协议 http/https/tcp/udp tcp和udp代表stream mode
+	Protocol        v1.FtProtocol     `json:"protocol"` // ft支持的协议 http/https/tcp/udp/grpc tcp和udp代表stream mode
 	Rules           RuleList          `json:"rules"`
-	Services        []*BackendService `json:"services"`         // ft的默认后端路由组
-	BackendProtocol string            `json:"backend_protocol"` // 这个默认后端路由组的协议
-	BackendGroup    *BackendGroup     `json:"-"`                // 默认后端路由的pod地址 在
-	CertificateName string            `json:"certificate_name"` // ft的默认证书
+	Services        []*BackendService `json:"services"`         // ft默认后端路由组
+	BackendProtocol string            `json:"backend_protocol"` // ft默认后端路由组对应的协议
+	BackendGroup    *BackendGroup     `json:"-"`                // ft默认后端路由组对应的endpoint权重、均衡算法等相关信息
+	CertificateName string            `json:"certificate_name"` // ft默认证书
 	Conflict        bool              `json:"-"`
 }
 
@@ -86,11 +86,16 @@ func (ft *Frontend) IsHttpMode() bool {
 	return ft.Protocol == v1.FtProtocolHTTP || ft.Protocol == v1.FtProtocolHTTPS
 }
 
+func (ft *Frontend) IsGRPCMode() bool {
+	return ft.Protocol == v1.FtProtocolgRPC
+}
+
 func (ft *Frontend) IsValidProtocol() bool {
 	return ft.Protocol == v1.FtProtocolHTTP ||
 		ft.Protocol == v1.FtProtocolHTTPS ||
 		ft.Protocol == v1.FtProtocolTCP ||
-		ft.Protocol == v1.FtProtocolUDP
+		ft.Protocol == v1.FtProtocolUDP ||
+		ft.Protocol == v1.FtProtocolgRPC
 }
 
 type Backend struct {
@@ -138,6 +143,7 @@ const (
 	ModeTCP  = "tcp"
 	ModeHTTP = "http"
 	ModeUDP  = "udp"
+	ModegRPC = "grpc"
 )
 
 func FtProtocolToBackendMode(protocol v1.FtProtocol) string {
@@ -150,6 +156,8 @@ func FtProtocolToBackendMode(protocol v1.FtProtocol) string {
 		return ModeHTTP
 	case v1.FtProtocolHTTPS:
 		return ModeHTTP
+	case v1.FtProtocolgRPC:
+		return ModegRPC
 	}
 	return ""
 }

@@ -51,7 +51,7 @@ spec:
               description: if need enable cors headers
               type: boolean
             backendProtocol:
-              description: proxy_pass backend protocol, http or https
+              description: http/https/grpc/grpcs
               type: string
             serviceGroup:
               description: serviceGroup is a group of k8s services

@@ -94,6 +94,13 @@ func (ft *Frontend) IsHttpOrHttps() bool {
 	return false
 }
 
+func (ft *Frontend) IsgRPC() bool {
+	if ft.Protocol == alb2v1.FtProtocolgRPC {
+		return true
+	}
+	return false
+}
+
 func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
 	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string, annotations map[string]string) (*Rule, error) {
 

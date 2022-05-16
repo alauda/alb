@@ -171,6 +171,8 @@ spec:
             path: http.conf
           - key: http_server
             path: http_server.conf
+          - key: grpc_server
+            path: grpc_server.conf
           - key: upstream
             path: upstream.conf
           - key: stream-tcp
