@@ -58,7 +58,7 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []ga
 	if rule.Config == nil {
 		rule.Config = &RuleConfig{}
 	}
-	rule.Config.RewriteResponse = &RewriteResponseConfig{
+	rule.Config.RewriteRequest = &RewriteRequestConfig{
 		Headers:       set,
 		HeadersAdd:    add,
 		HeadersRemove: remove,

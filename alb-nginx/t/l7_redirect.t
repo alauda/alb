@@ -101,7 +101,6 @@ __DATA__
 --- response_body: ok
 
 === TEST 2: redirect should ok
---- ONLY
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test

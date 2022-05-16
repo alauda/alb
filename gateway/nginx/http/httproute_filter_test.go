@@ -60,16 +60,16 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 				Remove: []string{"r1", "r2"},
 			},
 		}})
-	t.Logf("%+v", rule.Config.RewriteResponse)
-	assert.Equal(t, rule.Config.RewriteResponse.Headers, map[string]string{
+	t.Logf("%+v", rule.Config.RewriteRequest)
+	assert.Equal(t, rule.Config.RewriteRequest.Headers, map[string]string{
 		"sa": "sa2",
 		"sb": "sb1",
 	})
-	assert.Equal(t, rule.Config.RewriteResponse.HeadersAdd, map[string][]string{
+	assert.Equal(t, rule.Config.RewriteRequest.HeadersAdd, map[string][]string{
 		"a": {"a1", "a2"},
 	})
 
-	assert.Equal(t, rule.Config.RewriteResponse.HeadersRemove, []string{
+	assert.Equal(t, rule.Config.RewriteRequest.HeadersRemove, []string{
 		"r1", "r2",
 	})
 }

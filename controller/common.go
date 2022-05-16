@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -175,30 +174,6 @@ func RandomStr(pixff string, length int) string {
 	return string(result)
 }
 
-func getCertificate(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, *CaCertificate, error) {
-	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(secret.Data[apiv1.TLSCertKey]) == 0 || len(secret.Data[apiv1.TLSPrivateKeyKey]) == 0 {
-		return nil, nil, errors.New("invalid secret")
-	}
-	_, err = tls.X509KeyPair(secret.Data[apiv1.TLSCertKey], secret.Data[apiv1.TLSPrivateKeyKey])
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(secret.Data[CaCert]) == 0 {
-		return &Certificate{
-			Cert: string(secret.Data[apiv1.TLSCertKey]),
-			Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
-		}, nil, nil
-	}
-	return &Certificate{
-		Cert: string(secret.Data[apiv1.TLSCertKey]),
-		Key:  string(secret.Data[apiv1.TLSPrivateKeyKey]),
-	}, &CaCertificate{Cert: string(secret.Data[CaCert])}, nil
-}
-
 func mergeFullchainCert(cert *Certificate, caCert *CaCertificate) *Certificate {
 	var fullChainCert string
 	if strings.HasSuffix(cert.Cert, "\n") {
@@ -222,25 +197,6 @@ func workerLimit() int {
 
 func cpu_preset() int {
 	return config.GetInt("CPU_LIMIT")
-}
-
-func ParseCertificateName(n string) (string, string, error) {
-	// backward compatibility
-	if strings.Contains(n, "_") {
-		slice := strings.Split(n, "_")
-		if len(slice) != 2 {
-			return "", "", errors.New("invalid certificate name")
-		}
-		return slice[0], slice[1], nil
-	}
-	if strings.Contains(n, "/") {
-		slice := strings.Split(n, "/")
-		if len(slice) != 2 {
-			return "", "", fmt.Errorf("invalid certificate name, %s", n)
-		}
-		return slice[0], slice[1], nil
-	}
-	return "", "", fmt.Errorf("invalid certificate name, %s", n)
 }
 
 func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {

@@ -4,8 +4,8 @@ if matched_policy == nil then
     return
 end
 local cors = require "cors"
-local rewrite_response = require "rewrite_response"
+local rewrite_header = require "rewrite_header"
 
 cors.header_filter()
-rewrite_response.header_filter()
+rewrite_header.rewrite_response_header()
 

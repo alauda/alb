@@ -2,6 +2,7 @@
 
 configmap_to_file() {
   local output_dir=$1
+  mkdir -p $output_dir
   local configmap=$ALB/chart/templates/configmap.yaml
   echo $configmap
   sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.http' -  |sed '/access_log*/d' |sed '/keepalive*/d' > $output_dir/http.conf || true
@@ -10,6 +11,7 @@ configmap_to_file() {
   sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-common' - | sed '/access_log*/d' | sed '/error_log*/d' > $output_dir/stream-common.conf || true
   sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-tcp' - > $output_dir/stream-tcp.conf || true
   sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
+
 }
 
 ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220214184520
@@ -19,7 +21,6 @@ test-nginx() {
   then
     filter=$1
   fi
-
   docker run \
       -e TEST_NGINX_SLEEP=0.00001 \
       -e TEST_NGINX_VERBOSE=true \

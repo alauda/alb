@@ -254,15 +254,20 @@ func (bg BackendGroup) Eq(other BackendGroup) bool {
 
 type RuleConfig struct {
 	RewriteResponse *RewriteResponseConfig             `json:"rewrite_response,omitempty"`
+	RewriteRequest  *RewriteRequestConfig              `json:"rewrite_request,omitempty"`
 	Timeout         *gatewayPolicy.TimeoutPolicyConfig `json:"timeout,omitempty"`
 }
 
 type RewriteResponseConfig struct {
-	Headers        map[string]string   `json:"headers,omitempty"`
-	HeadersRemove  []string            `json:"headers_remove,omitempty"`
-	HeadersAdd     map[string][]string `json:"headers_add,omitempty"`
-	HeadersUpdate  map[string]string   `json:"headers_update,omitempty"`
-	HeadersDefault map[string]string   `json:"headers_default,omitempty"`
+	Headers       map[string]string   `json:"headers,omitempty"`
+	HeadersRemove []string            `json:"headers_remove,omitempty"`
+	HeadersAdd    map[string][]string `json:"headers_add,omitempty"`
+}
+
+type RewriteRequestConfig struct {
+	Headers       map[string]string   `json:"headers,omitempty"`
+	HeadersRemove []string            `json:"headers_remove,omitempty"`
+	HeadersAdd    map[string][]string `json:"headers_add,omitempty"`
 }
 
 func (r RewriteResponseConfig) IsEmpty() bool {

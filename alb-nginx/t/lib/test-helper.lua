@@ -36,8 +36,15 @@ function _M.assert_table_equals(t1, t2, ignore_mt)
 end
 
 function _M.assert_contains(left, right)
-	if left:find(right) then return true end
+	if left:find(right,1,true) then return true end
 	ngx.log(ngx.ERR, "could not find " .. right .. " in " .. left)
+	ngx.exit(ngx.ERR)
+end
+
+function _M.assert_not_contains(left, right)
+	local find = left:find(right,1,true)
+	if  find == nil then return true end
+	ngx.log(ngx.ERR, "could find " .. right .. " in " .. left)
 	ngx.exit(ngx.ERR)
 end
 
@@ -73,7 +80,7 @@ function _M.assert_curl_success(res, err, body)
 	if body == nil then body = "success" end
 	local res_body = _M.trim(res.body)
 	if err ~= nil or res.status ~= 200 or res_body ~= body then
-		local msg = "fail " .. tostring(err) .. " " .. tostring(res.status) .. " -" .. tostring(res_body).."- ".. tostring(res_body == body)
+		local msg = "fail " .. tostring(err) .. " " .. tostring(res.status) .. " -" .. tostring(body).." -" .. tostring(res_body).."- ".. tostring(res_body == body)
 		ngx.log(ngx.ERR,msg)
 		ngx.exit(ngx.ERR,msg)
 		return
