@@ -29,6 +29,7 @@ scripts/loop.sh
 alb-nginx/actions/loop.sh
 test/e2e/viper-config.toml
 bin
+vendor
 .alb.local
 test/e2e/alb-config.toml
 *.log

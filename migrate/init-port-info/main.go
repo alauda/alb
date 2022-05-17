@@ -90,7 +90,7 @@ func updatePeerAlb(drv *driver.KubernetesDriver, alb albv1.ALB2) error {
 	}
 	ports := []int{}
 	for _, ft := range fts.Items {
-		ports = append(ports, ft.Spec.Port)
+		ports = append(ports, int(ft.Spec.Port))
 	}
 	klog.Infof("ft of alb %v: %v", alb.Name, ports)
 

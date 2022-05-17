@@ -48,7 +48,7 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 gen-alb-crd: controller-gen
-	rm -rf ./chart/crds &&  controller-gen  crd paths=./pkg/apis/alauda/v1  output:crd:dir=./chart/crds/alb
+	rm -rf ./chart/crds/alb &&  controller-gen  crd paths=./pkg/apis/alauda/v1  output:crd:dir=./chart/crds/alb
 
 gen-gateway-policyattachemt-crd: controller-gen
 	rm -rf ./chart/crds/gateway_policyattachment &&  controller-gen  crd paths=./pkg/apis/alauda/gateway/v1alpha1  output:crd:dir=./chart/crds/gateway_policyattachment

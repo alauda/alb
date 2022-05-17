@@ -36,7 +36,7 @@ import (
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 )
 
-// a framework represent a alb
+// a framework represent an alb
 type Framework struct {
 	k8sClient     kubernetes.Interface
 	albClient     albclient.Interface
@@ -54,15 +54,15 @@ type Framework struct {
 	policyPath    string
 	albLogPath    string
 	domain        string
-	defaultFt     int    // this port is meaningless just to make sure alb running healthily
-	deployCfg     Config // config used to deploy a alb
+	defaultFt     alb2v1.PortNumber // this port is meaningless just to make sure alb running healthily
+	deployCfg     Config            // config used to deploy an alb
 }
 
 type Config struct {
 	RandomBaseDir bool
 	RandomNs      bool
 	AlbName       string
-	AlbAddress    string // address seted in alb cr.
+	AlbAddress    string // address set in alb cr.
 	RestCfg       *rest.Config
 	InstanceMode  bool
 	Project       []string
@@ -726,7 +726,7 @@ func (f *Framework) CreateIngress(name string, path string, svc string, port int
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func (f *Framework) CreateFt(port int, protocol string, svcName string, svcNs string) {
+func (f *Framework) CreateFt(port alb2v1.PortNumber, protocol string, svcName string, svcNs string) {
 	name := fmt.Sprintf("%s-%05d", f.AlbName, port)
 	if protocol == "udp" {
 		name = name + "-udp"

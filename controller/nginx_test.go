@@ -216,7 +216,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 									},
 								},
 								Spec: albv1.FrontendSpec{
-									Port:     ftPort,
+									Port:     albv1.PortNumber(ftPort),
 									Protocol: "http",
 									ServiceGroup: &albv1.ServiceGroup{
 										Services: []albv1.Service{
@@ -465,7 +465,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 									},
 								},
 								Spec: albv1.FrontendSpec{
-									Port:     ftPort,
+									Port:     albv1.PortNumber(ftPort),
 									Protocol: "tcp",
 									ServiceGroup: &albv1.ServiceGroup{
 										Services: []albv1.Service{
@@ -568,7 +568,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 									},
 								},
 								Spec: albv1.FrontendSpec{
-									Port:     ftPort,
+									Port:     albv1.PortNumber(ftPort),
 									Protocol: "udp",
 									ServiceGroup: &albv1.ServiceGroup{
 										Services: []albv1.Service{

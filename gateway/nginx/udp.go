@@ -11,7 +11,7 @@ import (
 
 	. "alauda.io/alb2/gateway/nginx/types"
 	. "alauda.io/alb2/gateway/nginx/utils"
-	albType "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
@@ -58,8 +58,8 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 		t.log.Info("generated rule ", "port", port, "route", route)
 
 		ft := &Frontend{
-			Port:     int(port),
-			Protocol: albType.FtProtocolUDP,
+			Port:     albv1.PortNumber(port),
+			Protocol: albv1.FtProtocolUDP,
 		}
 		// TODO we donot support multiple udp rules
 		if len(route.Spec.Rules) != 1 {
