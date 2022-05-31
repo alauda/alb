@@ -37,16 +37,24 @@ spec:
           spec:
             properties:
               address:
+                description: address is only used to display at front-end.
                 type: string
               bind_address:
+                description: bind_address is deprecated, default ""
                 type: string
               domains:
+                description: domains is deprecated, default []
                 items:
                   type: string
                 type: array
               iaas_id:
+                description: iaas_id is deprecated, default ""
                 type: string
               type:
+                description: type defines the loadbalance alb2 uses, now only support
+                  nginx
+                enum:
+                - nginx
                 type: string
             type: object
           status:
@@ -55,8 +63,12 @@ spec:
                 format: int64
                 type: integer
               reason:
+                description: reason defines the possible cause of alb2 state change
                 type: string
               state:
+                description: state defines the status of alb2, the possible values
+                  are ready/warning state:ready means ok state:warning can be caused
+                  by port conflict in alb2
                 type: string
             type: object
         type: object

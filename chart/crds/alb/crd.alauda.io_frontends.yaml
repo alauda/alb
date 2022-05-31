@@ -37,8 +37,11 @@ spec:
           spec:
             properties:
               backendProtocol:
+                description: backendProtocol defines protocol used by backend servers,
+                  it could be https/http/grpc
                 type: string
               certificate_name:
+                description: certificate_name defines certificate used for https frontend
                 type: string
               port:
                 description: PortNumber defines a network port

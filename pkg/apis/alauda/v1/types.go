@@ -38,15 +38,25 @@ type ALB2 struct {
 }
 
 type ALB2Spec struct {
-	Address     string   `json:"address"`      // just for display in website
-	BindAddress string   `json:"bind_address"` //deprecated
-	Domains     []string `json:"domains"`      // deprecated
-	IaasID      string   `json:"iaas_id"`      // deprecated
-	Type        string   `json:"type"`
+	// address is only used to display at front-end.
+	Address string `json:"address"` // just for display in website
+	// bind_address is deprecated, default ""
+	BindAddress string `json:"bind_address"` // deprecated
+	// domains is deprecated, default []
+	Domains []string `json:"domains"` // deprecated
+	// iaas_id is deprecated, default ""
+	IaasID string `json:"iaas_id"` // deprecated
+	// type defines the loadbalance alb2 uses, now only support nginx
+	// +kubebuilder:validation:Enum=nginx
+	Type string `json:"type"`
 }
 
 type ALB2Status struct {
-	State     string `json:"state"`
+	// state defines the status of alb2, the possible values are ready/warning
+	// state:ready means ok
+	// state:warning can be caused by port conflict in alb2
+	State string `json:"state"`
+	// reason defines the possible cause of alb2 state change
 	Reason    string `json:"reason"`
 	ProbeTime int64  `json:"probeTime"`
 }
@@ -89,12 +99,16 @@ const (
 )
 
 type FrontendSpec struct {
-	Port            PortNumber    `json:"port"`
-	Protocol        FtProtocol    `json:"protocol"`
-	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
-	Source          *Source       `json:"source,omitempty"`
-	CertificateName string        `json:"certificate_name"`
-	BackendProtocol string        `json:"backendProtocol"`
+	Port     PortNumber `json:"port"`
+	Protocol FtProtocol `json:"protocol"`
+	// +optional
+	ServiceGroup *ServiceGroup `json:"serviceGroup,omitempty"`
+	// +optional
+	Source *Source `json:"source,omitempty"`
+	// certificate_name defines certificate used for https frontend
+	CertificateName string `json:"certificate_name"`
+	// backendProtocol defines protocol used by backend servers, it could be https/http/grpc
+	BackendProtocol string `json:"backendProtocol"`
 }
 
 type FrontendStatus struct {
@@ -135,7 +149,9 @@ type Service struct {
 }
 
 type ServiceGroup struct {
-	SessionAffinityPolicy    string    `json:"session_affinity_policy,omitempty"`
+	// +optional
+	SessionAffinityPolicy string `json:"session_affinity_policy,omitempty"`
+	// +optional
 	SessionAffinityAttribute string    `json:"session_affinity_attribute,omitempty"`
 	Services                 []Service `json:"services"`
 }
@@ -152,7 +168,8 @@ type Source struct {
 type DSLXTerm struct {
 	Values [][]string `json:"values"`
 	Type   string     `json:"type"`
-	Key    string     `json:"key,omitempty"`
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 type DSLX []DSLXTerm
@@ -161,21 +178,35 @@ type RuleSpec struct {
 	Description string `json:"description"`
 	Domain      string `json:"domain"`
 	// +optional
-	DSL              string        `json:"dsl"` // deprecated
-	DSLX             DSLX          `json:"dslx"`
-	Priority         int           `json:"priority"`
-	ServiceGroup     *ServiceGroup `json:"serviceGroup,omitempty"`
-	Source           *Source       `json:"source,omitempty"`
-	Type             string        `json:"type"`
-	URL              string        `json:"url"`
-	CertificateName  string        `json:"certificate_name"`
-	EnableCORS       bool          `json:"enableCORS"`
-	CORSAllowHeaders string        `json:"corsAllowHeaders"`
-	CORSAllowOrigin  string        `json:"corsAllowOrigin"`
-	BackendProtocol  string        `json:"backendProtocol"`
-	RedirectURL      string        `json:"redirectURL"`
-	VHost            string        `json:"vhost"`
-	RedirectCode     int           `json:"redirectCode"`
+	// dsl is deprecated
+	DSL string `json:"dsl"` // deprecated
+	// dslx defines the matching criteria
+	DSLX DSLX `json:"dslx"`
+	// priority ranges from [1,10], if multiple rules match, less value prioritize
+	Priority int `json:"priority"`
+	// +optional
+	ServiceGroup *ServiceGroup `json:"serviceGroup,omitempty"`
+	// +optional
+	// source is where the frontend or rule came from. It's type can be "bind" for those created for service annotations. And carries information about ingress when rule is generalized by ingress
+	Source *Source `json:"source,omitempty"`
+	// type is deprecated
+	Type string `json:"type"`
+	URL  string `json:"url"`
+	// certificate_name defines certificate used with specified hostname in rule at https frontend
+	CertificateName string `json:"certificate_name"`
+	// enableCORS is the switch whether enable cross domain, when EnableCORS is false, alb2 transports information to backend servers which determine whether allow cross-domain
+	EnableCORS bool `json:"enableCORS"`
+	// corsAllowHeaders defines the headers allowed by cors when enableCORS is true
+	CORSAllowHeaders string `json:"corsAllowHeaders"`
+	// corsAllowOrigin defines the origin allowed by cors when enableCORS is true
+	CORSAllowOrigin string `json:"corsAllowOrigin"`
+	// backendProtocol defines protocol used by backend servers, it could be https/http/grpc
+	BackendProtocol string `json:"backendProtocol"`
+	RedirectURL     string `json:"redirectURL"`
+	// vhost allows user to override the request Host
+	VHost string `json:"vhost"`
+	// redirectCode could be 301(Permanent Redirect)/302(Temporal Redirect), default 0
+	RedirectCode int `json:"redirectCode"`
 	// +optional
 	RewriteBase string `json:"rewrite_base,omitempty"`
 	// +optional

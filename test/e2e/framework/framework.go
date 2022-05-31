@@ -251,6 +251,7 @@ func (f *Framework) Init() {
 		Spec: alb2v1.ALB2Spec{
 			Domains: []string{},
 			Address: f.deployCfg.AlbAddress,
+			Type:    "nginx",
 		},
 	}, metav1.CreateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "creating alb")

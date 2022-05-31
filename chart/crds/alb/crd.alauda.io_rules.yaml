@@ -37,20 +37,30 @@ spec:
           spec:
             properties:
               backendProtocol:
+                description: backendProtocol defines protocol used by backend servers,
+                  it could be https/http/grpc
                 type: string
               certificate_name:
+                description: certificate_name defines certificate used with specified
+                  hostname in rule at https frontend
                 type: string
               corsAllowHeaders:
+                description: corsAllowHeaders defines the headers allowed by cors
+                  when enableCORS is true
                 type: string
               corsAllowOrigin:
+                description: corsAllowOrigin defines the origin allowed by cors when
+                  enableCORS is true
                 type: string
               description:
                 type: string
               domain:
                 type: string
               dsl:
+                description: dsl is deprecated
                 type: string
               dslx:
+                description: dslx defines the matching criteria
                 items:
                   properties:
                     key:
@@ -66,10 +76,17 @@ spec:
                   type: object
                 type: array
               enableCORS:
+                description: enableCORS is the switch whether enable cross domain,
+                  when EnableCORS is false, alb2 transports information to backend
+                  servers which determine whether allow cross-domain
                 type: boolean
               priority:
+                description: priority ranges from [1,10], if multiple rules match,
+                  less value prioritize
                 type: integer
               redirectCode:
+                description: redirectCode could be 301(Permanent Redirect)/302(Temporal
+                  Redirect), default 0
                 type: integer
               redirectURL:
                 type: string
@@ -98,9 +115,9 @@ spec:
                     type: string
                 type: object
               source:
-                description: Source is where the frontend or rule came from. It's
+                description: source is where the frontend or rule came from. It's
                   type can be "bind" for those created for service annotations. And
-                  be "ingress" for those created for ingress resource
+                  carries information about ingress when rule is generalized by ingress
                 properties:
                   name:
                     type: string
@@ -110,10 +127,12 @@ spec:
                     type: string
                 type: object
               type:
+                description: type is deprecated
                 type: string
               url:
                 type: string
               vhost:
+                description: vhost allows user to override the request Host
                 type: string
             type: object
         type: object
