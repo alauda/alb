@@ -38,7 +38,7 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: v3.9-47-g1bf294e
+      tag: v3.9-50-g14d9fc3
     nginx:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
