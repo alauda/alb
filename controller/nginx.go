@@ -72,12 +72,12 @@ type NgxPolicy struct {
 }
 
 type HttpPolicy struct {
-	Tcp map[int]Policies `json:"tcp"`
+	Tcp map[albv1.PortNumber]Policies `json:"tcp"`
 }
 
 type StreamPolicy struct {
-	Tcp map[int]Policies `json:"tcp"`
-	Udp map[int]Policies `json:"udp"`
+	Tcp map[albv1.PortNumber]Policies `json:"tcp"`
+	Udp map[albv1.PortNumber]Policies `json:"udp"`
 }
 
 type Policies []*Policy
@@ -511,8 +511,8 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 
 	ngxPolicy := NgxPolicy{
 		CertificateMap: certificateMap,
-		Http:           HttpPolicy{Tcp: make(map[int]Policies)},
-		Stream:         StreamPolicy{Tcp: make(map[int]Policies), Udp: make(map[int]Policies)},
+		Http:           HttpPolicy{Tcp: make(map[albv1.PortNumber]Policies)},
+		Stream:         StreamPolicy{Tcp: make(map[albv1.PortNumber]Policies), Udp: make(map[albv1.PortNumber]Policies)},
 		BackendGroup:   backendGroup,
 	}
 
@@ -552,7 +552,7 @@ func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDrive
 		conflict := false
 		if ft.IsTcpBaseProtocol() {
 			for _, port := range listenTCPPorts {
-				if ft.Port == port {
+				if int(ft.Port) == port {
 					conflict = true
 					ft.Conflict = true
 					klog.Errorf("skip port: %d has conflict", ft.Port)
@@ -589,10 +589,10 @@ func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]C
 					if caCert != nil {
 						// fullchain cert for port ft.Port, including cert of dex.tls
 						fullChainCert := mergeFullchainCert(cert, caCert)
-						certMap[strconv.Itoa(ft.Port)] = *fullChainCert
+						certMap[strconv.Itoa(int(ft.Port))] = *fullChainCert
 					} else {
 						// default cert for port ft.Port
-						certMap[strconv.Itoa(ft.Port)] = *cert
+						certMap[strconv.Itoa(int(ft.Port))] = *cert
 					}
 				}
 
@@ -649,7 +649,7 @@ func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
 			// current projects
 			portProjects := GetOwnProjects(ft.FtName, ft.Labels)
 			// desired projects
-			desiredPortProjects, err := getPortProject(ft.Port, portInfo)
+			desiredPortProjects, err := getPortProject(int(ft.Port), portInfo)
 			if err != nil {
 				klog.Errorf("get port %d desired projects failed, %v", ft.Port, err)
 				return

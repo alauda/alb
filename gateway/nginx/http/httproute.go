@@ -9,7 +9,7 @@ import (
 	. "alauda.io/alb2/gateway/nginx/types"
 	. "alauda.io/alb2/gateway/nginx/utils"
 	albType "alauda.io/alb2/pkg/apis/alauda/v1"
-	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 
@@ -85,8 +85,8 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 	// now, we could generate alb rule
 	for port, ctxList := range portMap {
 		ft := &Frontend{}
-		ft.Port = int(port)
-		ft.Protocol = v1.FtProtocolHTTP
+		ft.Port = albv1.PortNumber(port)
+		ft.Protocol = albv1.FtProtocolHTTP
 		rules := []*Rule{}
 		// TODO now each match will generate a rule, that seems odd.
 		// the essence of this problem is : how could we sort policy without dslx?
@@ -176,8 +176,8 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) err
 
 	for port, ctxList := range portMap {
 		ft := &Frontend{}
-		ft.Port = int(port)
-		ft.Protocol = v1.FtProtocolHTTPS
+		ft.Port = albv1.PortNumber(port)
+		ft.Protocol = albv1.FtProtocolHTTPS
 		rules := []*Rule{}
 		for _, ctx := range ctxList {
 			rule, err := h.generateHttpsRule(ctx)

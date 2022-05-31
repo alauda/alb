@@ -7,6 +7,7 @@ import (
 
 	c "alauda.io/alb2/controller"
 	ct "alauda.io/alb2/controller/types"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +76,7 @@ func (p NgxPolicy) FindPolicy(mode, rule string) (*c.Policy, int, *ct.BackendGro
 	var retP *c.Policy
 	var retPort int
 	var retBg *ct.BackendGroup
-	var psMap map[int]c.Policies
+	var psMap map[albv1.PortNumber]c.Policies
 	switch mode {
 	case "http":
 		psMap = p.Http.Tcp
@@ -88,7 +89,7 @@ func (p NgxPolicy) FindPolicy(mode, rule string) (*c.Policy, int, *ct.BackendGro
 		for _, p := range ps {
 			if p.Rule == rule {
 				retP = p
-				retPort = port
+				retPort = int(port)
 				break
 			}
 		}

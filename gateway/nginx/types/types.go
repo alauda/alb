@@ -5,6 +5,7 @@ import (
 	"time"
 
 	pmType "alauda.io/alb2/gateway/nginx/policyattachment/types"
+	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -22,7 +23,7 @@ type Listener struct {
 
 type FtMap map[string]*Frontend
 
-func (f FtMap) SetFt(protocol string, port int, ft *Frontend) {
+func (f FtMap) SetFt(protocol string, port albv1.PortNumber, ft *Frontend) {
 	key := fmt.Sprintf("%v:%v", protocol, port)
 	f[key] = ft
 }

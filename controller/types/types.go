@@ -58,7 +58,7 @@ type Frontend struct {
 	Labels          map[string]string `json:"-"`
 	FtName          string            `json:"-"`        // ft name
 	AlbName         string            `json:"alb_name"` // alb name
-	Port            int               `json:"port"`
+	Port            v1.PortNumber     `json:"port"`
 	Protocol        v1.FtProtocol     `json:"protocol"` // ft支持的协议 http/https/tcp/udp/grpc tcp和udp代表stream mode
 	Rules           RuleList          `json:"rules"`
 	Services        []*BackendService `json:"services"`         // ft默认后端路由组

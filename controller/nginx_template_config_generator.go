@@ -60,7 +60,7 @@ func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam Ngi
 		fts[fmt.Sprintf("%d-%s", ft.Port, ft.Protocol)] = FtConfig{
 			IpV4BindAddress: ipv4,
 			IpV6BindAddress: ipv6,
-			Port:            ft.Port,
+			Port:            int(ft.Port),
 			Protocol:        ft.Protocol,
 			CertificateName: ft.CertificateName,
 		}

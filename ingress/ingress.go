@@ -843,10 +843,10 @@ func (c *Controller) onIngressCreateOrUpdate(ingress *networkingv1.Ingress) erro
 	var httpFt *m.Frontend
 	var httpsFt *m.Frontend
 	for _, f := range alb.Frontends {
-		if needFtTypes.Has(m.ProtoHTTP) && f.Port == IngressHTTPPort {
+		if needFtTypes.Has(m.ProtoHTTP) && int(f.Port) == IngressHTTPPort {
 			httpFt = f
 		}
-		if needFtTypes.Has(m.ProtoHTTPS) && f.Port == IngressHTTPSPort {
+		if needFtTypes.Has(m.ProtoHTTPS) && int(f.Port) == IngressHTTPSPort {
 			httpsFt = f
 		}
 	}
@@ -981,7 +981,7 @@ func (c *Controller) onIngressDelete(name, namespace string) error {
 	}
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {
-		if f.Port == IngressHTTPPort || f.Port == IngressHTTPSPort {
+		if int(f.Port) == IngressHTTPPort || int(f.Port) == IngressHTTPSPort {
 			ft = f
 			if ft.Source != nil &&
 				ft.Source.Type == m.TypeIngress &&
@@ -1058,10 +1058,10 @@ func (c *Controller) needEnqueueObject(object interface{}, needCheckIngressClass
 		httpPortProjects := []string{}
 		httpsPortProjects := []string{}
 		for _, ft := range alb.Frontends {
-			if ft.Port == IngressHTTPPort {
+			if int(ft.Port) == IngressHTTPPort {
 				hasHTTPPort = true
 				httpPortProjects = ctl.GetOwnProjects(ft.Name, ft.Lables)
-			} else if ft.Port == IngressHTTPSPort {
+			} else if int(ft.Port) == IngressHTTPSPort {
 				hasHTTPSPort = true
 				httpsPortProjects = ctl.GetOwnProjects(ft.Name, ft.Lables)
 			}

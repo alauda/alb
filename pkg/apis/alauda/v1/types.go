@@ -60,6 +60,12 @@ type ALB2List struct {
 	Items []ALB2 `json:"items"`
 }
 
+// PortNumber defines a network port
+//
+// +kubebuilder:validation:Minimum=1
+// +kubebuilder:validation:Maximum=65535
+type PortNumber int32
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=ft,scope=Namespaced
@@ -83,7 +89,7 @@ const (
 )
 
 type FrontendSpec struct {
-	Port            int           `json:"port"` // port in service
+	Port            PortNumber    `json:"port"`
 	Protocol        FtProtocol    `json:"protocol"`
 	ServiceGroup    *ServiceGroup `json:"serviceGroup,omitempty"`
 	Source          *Source       `json:"source,omitempty"`

@@ -27,7 +27,7 @@ func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol alb2v1.FtProtocol,
 	ft := &Frontend{
 		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
 		FrontendSpec: alb2v1.FrontendSpec{
-			Port:     port,
+			Port:     alb2v1.PortNumber(port),
 			Protocol: protocol,
 		},
 		LB: alb,

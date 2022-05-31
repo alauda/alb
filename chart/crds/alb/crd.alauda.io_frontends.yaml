@@ -41,6 +41,10 @@ spec:
               certificate_name:
                 type: string
               port:
+                description: PortNumber defines a network port
+                format: int32
+                maximum: 65535
+                minimum: 1
                 type: integer
               protocol:
                 type: string
