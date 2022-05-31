@@ -32,4 +32,10 @@ function _M.time_spend(f)
 	return stop-start,unpack(ret)
 end
 
+function _M.shell_curl(cmd)
+    local shell = require "resty.shell"
+    local ok,stdout, stderr = shell.run(cmd)
+	return stdout,stderr
+end
+
 return _M

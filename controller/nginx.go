@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -564,71 +563,6 @@ func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDrive
 			}
 		}
 	}
-}
-
-func getCertMap(alb *LoadBalancer, driver *driver.KubernetesDriver) map[string]Certificate {
-	certMap := make(map[string]Certificate)
-	for _, ft := range alb.Frontends {
-		if ft.Conflict {
-			continue
-		}
-		isHTTP := ft.Protocol == albv1.FtProtocolHTTP
-		isHTTPS := ft.Protocol == albv1.FtProtocolHTTPS
-		isGRPC := ft.Protocol == albv1.FtProtocolgRPC
-		if isHTTP || isHTTPS || isGRPC {
-			if (isHTTPS || isGRPC) && ft.CertificateName != "" {
-				secretNs, secretName, err := ParseCertificateName(ft.CertificateName)
-				if err != nil {
-					klog.Errorf("invalid certificateName, %s", ft.CertificateName)
-					continue
-				}
-				cert, caCert, err := getCertificate(driver, secretNs, secretName)
-				if err != nil {
-					klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
-				} else {
-					if caCert != nil {
-						// fullchain cert for port ft.Port, including cert of dex.tls
-						fullChainCert := mergeFullchainCert(cert, caCert)
-						certMap[strconv.Itoa(int(ft.Port))] = *fullChainCert
-					} else {
-						// default cert for port ft.Port
-						certMap[strconv.Itoa(int(ft.Port))] = *cert
-					}
-				}
-
-			}
-			for _, rule := range ft.Rules {
-				if isHTTPS && rule.Domain != "" && rule.CertificateName != "" {
-					secretNs, secretName, err := ParseCertificateName(rule.CertificateName)
-					if err != nil {
-						klog.Errorf("invalid certificateName, %s", rule.CertificateName)
-						continue
-					}
-					cert, caCert, err := getCertificate(driver, secretNs, secretName)
-					if err != nil {
-						klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
-						continue
-					}
-					if existCert, ok := certMap[strings.ToLower(rule.Domain)]; ok {
-						if existCert.Cert != cert.Cert || existCert.Key != cert.Key {
-							klog.Warningf("declare different cert for host %s", strings.ToLower(rule.Domain))
-							continue
-						}
-					}
-					if caCert != nil {
-						// fullchain cert for rule domain, including cert of dex.tls
-						fullChainCert := mergeFullchainCert(cert, caCert)
-						certMap[strings.ToLower(rule.Domain)] = *fullChainCert
-					} else {
-						// default cert for rule domain
-						certMap[strings.ToLower(rule.Domain)] = *cert
-					}
-				}
-				rule.Domain = strings.ToLower(rule.Domain)
-			}
-		}
-	}
-	return certMap
 }
 
 func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {

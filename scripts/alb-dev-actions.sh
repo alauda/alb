@@ -1,14 +1,10 @@
 #!/bin/bash
-# give [zmx](https://github.com/woodgear/zmx) a try
+
+source $ALB_ACTIONS_ROOT/init-env-actions.sh
+source $ALB_ACTIONS_ROOT/alb-test-actions.sh
+
 
 # install kind kubectl sed cp python3 first
-unset HTTP_PROXY
-unset HTTPS_PROXY
-unset http_proxy
-unset https_proxy
-unset ALL_PROXY
-unset all_proxy
-
 function install-envtest {
   echo "install envtest"
   if [[ ! -d "/usr/local/kubebuilder" ]]; then
@@ -62,19 +58,6 @@ function alb-gen-rule {
   local backendSvc=$5
   local ruleFile=/tmp/$kindName.$ft.rule.json
   $ALB_ACTIONS_ROOT/rule-gen.py $alb $ft $backendNs $backendSvc
-}
-
-function wait-curl-success {
-  local url=$1
-  while true; do
-    if curl --fail $url; then
-      echo "success"
-      break
-    else
-      echo "fail"
-    fi
-    sleep 1s
-  done
 }
 
 function alb-gen-ft {
@@ -180,26 +163,6 @@ EOF
   echo $YAML | kubectl apply -f -
 }
 
-function generate_kind_config {
-  local kind2node=$1
-  if [[ "$kind2node" == "true" ]]; then
-    read -r -d "" KINDCONFIG <<EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-- role: worker
-- role: worker
-EOF
-  else
-    read -r -d "" KINDCONFIG <<EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-EOF
-  fi
-}
 
 function alb-build-iamge {
   docker build -f ./Dockerfile . -t alb-dev
@@ -214,171 +177,6 @@ function alb-kind-build-and-replace {
   tmux-send-key-to-pane alb 'C-c' 'md5sum ./alb/alb;sleep 3s; /alb/alb 2>&1  | tee alb.log' 'C-m'
 }
 
-function alb-init-kind-env {
-  # required
-  # helm: >= 3.7.0
-  # docker: login to build-harbor.alauda.cn
-  # how to use
-  # . ./scripts/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
-  # . ./scripts/alb-dev-actions.sh; KIND_NAME=alb-38 CHART=build-harbor.alauda.cn/acp/chart-alauda-alb2:v3.8.0-alpha.3 alb-init-kind-env
-  # . ./scripts/alb-dev-actions.sh;OLD_ALB=true KIND_VER=v1.19.11 KIND_NAME=alb-342-lowercase CHART=harbor-b.alauda.cn/acp/chart-alauda-alb2:v3.4.2 alb-init-kind-env
-  if [ "$DEBUG" = "true" ]; then
-    set -x
-  fi
-  if [ ! -d $ALB_ACTIONS_ROOT ]; then
-    echo "could not find $ALB_ACTIONS_ROOT"
-    exit
-  fi
-  temp=~/.temp
-  echo $ALB_ACTIONS_ROOT
-  local chart=${CHART-"$ALB_ACTIONS_ROOT/../chart"}
-  local kindName=${KIND_NAME-"kind-alb-${RANDOM:0:5}"}
-  local kindVersion=${KIND_VER-"v1.22.2"}
-  local kind2node=${KIND_2_NODE-"false"}
-  local kindImage="kindest/node:$kindVersion"
-  local nginx="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
-  echo $chart
-  echo $kindName
-  echo $kindImage
-  echo $kind2node
-  echo $temp
-  rm -rf $temp/$kindName
-  mkdir -p $temp/$kindName
-  generate_kind_config "$kind2node"
-  echo "$KINDCONFIG" >$temp/$kindName/kindconfig.yaml
-  echo "$KINDCONFIG"
-  cat $temp/$kindName/kindconfig.yaml
-  kind delete cluster --name $kindName
-  cd $temp/$kindName
-
-  # init chart
-  echo "chart is $chart"
-  if [ -d $chart ]; then
-    echo "cp alb chart " $chart
-    cp -r $chart ./alauda-alb2
-  else
-    echo "fetch alb chart " $chart
-    helm-chart-export $chart
-  fi
-  ls ./alauda-alb2
-  if [[ $? -ne 0 ]]; then return; fi
-
-  _initKind $kindName $kindImage $temp/$kindName/kindconfig.yaml
-
-  local base="build-harbor.alauda.cn"
-  for im in $(cat ./alauda-alb2/values.yaml | yq eval -o=j | jq -cr '.global.images[]'); do
-    local repo=$(echo $im | jq -r '.repository' -)
-    local tag=$(echo $im | jq -r '.tag' -)
-    local image="$base/$repo:$tag"
-    echo "load image $image to $kindName"
-    _makesureImage $image $kindName
-  done
-
-  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.15" $kindName
-  _makesureImage $nginx $kindName
-
-  local lbName="alb-dev"
-  local ftPort="8080"
-
-  local globalNs="cpaas-system"
-  #init echo-resty yaml
-  local echoRestyPath=$temp/$kindName/echo-resty.yaml
-  cp "$ALB_ACTIONS_ROOT/yaml/echo-resty.yaml" $echoRestyPath
-
-  sed -i -e "s#{{nginx-image}}#$nginx#" $echoRestyPath
-  kubectl apply -f $echoRestyPath
-  echo "init echo resty ok"
-
-  # # init ip-provider yaml
-  # local ipProviderPath=./.tmp/ip-provider.yaml
-  # cp "./yaml/ip-provider.yaml" $ipProviderPath
-  # kubectl apply -f $ipProviderPath
-
-  kubectl create ns cpaas-system
-
-  sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
-  # alb <=3.7
-  if [ "$OLD_ALB" = "true" ]; then
-    echo "init crd(old)"
-    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
-  else
-    echo "init crd(new)"
-    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
-    kubectl apply -R -f ./alauda-alb2/crds/
-  fi
-  echo "helm dry run start"
-
-  read -r -d "" OVERRIDE <<EOF
-nodeSelector:
-  node-role.kubernetes.io/master: ""
-loadbalancerName: alb-dev
-global:
-  labelBaseDomain: cpaas.io
-  namespace: cpaas-system
-  registry:
-    address: build-harbor.alauda.cn
-project: all_all
-replicas: 1
-EOF
-  echo "$OVERRIDE" >./override.yaml
-
-  helm install --dry-run --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
-  echo "helm dry run over"
-
-  echo "helm install"
-
-  helm install --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
-
-  echo "init alb"
-  init-alb
-  tmux select-pane -T $kindName # set tmux pane title
-  cd -
-}
-
-function init-alb {
-  alb-gen-ft 8080 default echo-resty http 80 http
-  alb-gen-ft 8443 default echo-resty https 443 https
-  alb-gen-ft 8081 default echo-resty tcp 80 tcp
-  if [ -z "$OLD_ALB" ]; then
-    alb-gen-ft 8553 default echo-resty udp 53 udp
-  fi
-}
-
-function _initKind {
-  local kindName=$1
-  local kindImage=$2
-  local config=$3
-  echo "init kind $kindName $kindImage"
-  http_proxy="" https_proxy="" all_proxy="" HTTPS_PROXY="" HTTP_PROXY="" ALL_PROXY=""
-  kind create cluster --name $kindName --image=$kindImage --config $config
-
-  # TODO fixme kind node notready when set nf_conntrack_max
-  kubectl get configmaps -n kube-system kube-proxy -o yaml | sed -r 's/maxPerCore: 32768/maxPerCore: 0/' | kubectl replace -f -
-  kubectl create clusterrolebinding lbrb --clusterrole=cluster-admin --serviceaccount=cpaas-system:default
-  echo "init kind ok $kindName"
-}
-
-function _init_required_crd {
-  if [ "$OLD_ALB" = "true" ]; then
-    echo "apply feature crd (old)"
-    kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
-    return
-  fi
-  kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1/
-}
-
-function _makesureImage {
-  local image=$1
-
-  local kindName=$2
-  echo "makesureImage " $image $kindName
-  if [[ "$(docker images -q $image 2>/dev/null)" == "" ]]; then
-    echo "image not exist, pull it $image"
-    docker pull $image
-  fi
-  kind load docker-image $image --name $kindName
-}
-
 function alb-patch-gateway-hostname() {
   jsonpatch=$(
     cat <<EOF
@@ -390,40 +188,6 @@ EOF
   kubectl get gateway -n alb-test g1 -o yaml
 }
 
-function alb-list-e2e-testcase {
-  for suite_test in $(find ./test/e2e -name suite_test.go); do
-    local suite=$(dirname "$suite_test")
-    ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
-  done
-}
-
-function alb-run-all-e2e-test {
-  export ALB_IGNORE_FOCUS="true"
-  local base=$(pwd)
-  local ginkgoCmds=""
-  for suite_test in $(find ./test/e2e -name suite_test.go); do
-    local suite=$(dirname "$suite_test")
-    local suiteName=$(basename "$suite")
-    local ginkgoTest="$suite/$suiteName.test"
-    rm -rf $suite/viper-config.toml
-    cp $base/viper-config.toml $suite
-
-    ginkgo build $suite 
-    file $ginkgoTest
-    if [ $? != 0 ]; then
-      echo "build $suite failed"
-      exit 1
-    fi
-    while IFS= read -r testcase _; do
-      cmd="$ginkgoTest -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
-      ginkgoCmds="$ginkgoCmds\n$cmd"
-    done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
-  done
-  shopt -s xpg_echo
-  touch $HOME/.ack-ginkgo-rc
-  echo "$ginkgoCmds" > cmds.cfg
-  parallel -j 4 < cmds.cfg
-}
 
 function get-alb-images-from-values {
   local base="build-harbor.alauda.cn"
@@ -444,106 +208,6 @@ function helm-chart-export {
     helm-alauda chart pull $chart 2>&1 >/dev/null
   fi
   helm-alauda chart export $chart 2>&1 >/dev/null
-}
-
-TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua" "l7_redirect.lua" "cors.lua" "rewrite_response.lua")
-function alb-lua-format-check {
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo check format of $f
-    local lua=./template/nginx/lua/$f
-    lua-format --check -v $lua
-  done
-}
-
-function alb-lua-format-format {
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo format $f
-    local lua=./template/nginx/lua/$f
-    lua-format -i -v $lua
-  done
-}
-
-function alb-init-git-hook {
-  read -r -d "" PREPUSH <<EOF
-#!/bin/bash
-set -e
-
-function check-branch-name {
-    current_branch=\$(git branch --show-current |tr -d '\n\r')
-    if [[ \$current_branch == *acp* ]] ; 
-    then
-        echo "let's use ACP.."
-        exit -1
-    fi
-}
-
-sudo rm -rf ./alb-nginx/t/servroot # T_T
-check-branch-name
-make test
-make all-e2e-envtest
-make lua-test
-cd chart
-helm lint -f ./values.yaml
-EOF
-  echo "$PREPUSH" >./.git/hooks/pre-push
-  chmod a+x ./.git/hooks/pre-push
-}
-
-function alb-go-coverage {
-  # copy from https://github.com/ory/go-acc
-  touch ./coverage.tmp
-  echo 'mode: atomic' >coverage.txt
-  go list ./... | grep -v /e2e | grep -v /pkg | xargs -n1 -I{} sh -c 'go test -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg $(go list ./... | grep -v /pkg |grep -v /e2e | tr "\n" ",") {} && tail -n +2 coverage.tmp >> coverage.txt || exit 255' && rm coverage.tmp
-  go tool cover -func=./coverage.txt
-  go tool cover -html=./coverage.txt -o coverage.html
-}
-
-function go-fmt-fix {
-  gofmt -w .
-}
-
-function go-lint {
-  if [ ! "$(gofmt -l $(find . -type f -name '*.go' | grep -v ".deepcopy"))" = "" ]; then
-    echo "go fmt check fail"
-    exit 1
-  fi
-  go vet .../..
-}
-
-function go-unit-test {
-  if [ -d ./alb-nginx/t/servroot ]; then
-    rm -rf ./alb-nginx/t/servroot || true
-  fi
-  go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
-}
-
-function alb-test-all-in-ci {
-  # the current dir in ci is sth like /home/xx/xx/acp-alb-test
-  set -e # exit on err
-  echo alb is $ALB
-  echo pwd is $(pwd)
-  source /root/.gvm/scripts/gvm
-  gvm list
-  gvm use go1.18 || true
-  go version
-  local START=$(date +%s)
-  go env -w GO111MODULE=on
-  go env -w GOPROXY=https://goproxy.cn,direct
-  go-lint
-  luacheck ./template/nginx/lua
-  alb-lua-format-check
-  go-unit-test
-  echo "unit-test ok"
-  go install github.com/onsi/ginkgo/ginkgo
-  which ginkgo
-  echo $?
-  alb-run-all-e2e-test
-  source ./alb-nginx/actions/common.sh
-  test-nginx-in-ci
-  local END=$(date +%s)
-  echo "all-time: " $(echo "scale=3; $END - $START" | bc) "s"
 }
 
 function alb-run-local {

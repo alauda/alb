@@ -23,9 +23,14 @@ local single_matcher = {
     HOST    = "HOST",
     URL     = "URL",
     SRC_IP  = "SRC_IP",
+    METHOD  = "METHOD",
 }
 
 local function parse_single_matcher(matcher)
+
+    if(matcher == "METHOD") then
+		return ngx.ctx.alb_ctx["method"]
+	end
     if(matcher == "HOST") then
         local host = ngx.ctx.alb_ctx.host
         -- https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.23

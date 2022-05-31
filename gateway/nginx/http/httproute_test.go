@@ -16,14 +16,30 @@ func TestHttpMatchesToDSLX(t *testing.T) {
 	matchHeaderRegex := gatewayType.HeaderMatchRegularExpression
 	matchQueryExact := gatewayType.QueryParamMatchExact
 	matchQueryRegex := gatewayType.QueryParamMatchRegularExpression
-
+	putMethod := gatewayType.HTTPMethod("PUT")
 	type TestCase struct {
-		hostnames []gatewayType.Hostname
+		hostnames []string
 		rule      gatewayType.HTTPRouteRule
+		expect    string
 	}
 	cases := []TestCase{
 		{
-			hostnames: []gatewayType.Hostname{gatewayType.Hostname("a.com"), gatewayType.Hostname("a.b.com")},
+			expect:    `["AND",["ENDS_WITH","HOST","*.com"],["STARTS_WITH","URL","/v1"]]`,
+			hostnames: []string{"*.com"},
+			rule: gatewayType.HTTPRouteRule{
+				Matches: []gatewayType.HTTPRouteMatch{
+					{
+						Path: &gatewayType.HTTPPathMatch{
+							Type:  &matchPathPrefix,
+							Value: utils.StringRefs("/v1"),
+						},
+					},
+				},
+			},
+		},
+		{
+			expect:    `["AND",["IN","HOST","a.com","a.b.com"],["EQ","PARAM","page","1"],["REGEX","PARAM","location","c*"],["STARTS_WITH","URL","/v1"],["EQ","HEADER","version","1.1"],["REGEX","HEADER","name","w*"],["EQ","METHOD","PUT"]]`,
+			hostnames: []string{"a.com", "a.b.com"},
 			rule: gatewayType.HTTPRouteRule{
 				Matches: []gatewayType.HTTPRouteMatch{
 					{
@@ -55,18 +71,58 @@ func TestHttpMatchesToDSLX(t *testing.T) {
 								Name:  "location",
 							},
 						},
+						Method: &putMethod,
 					},
 				},
 			},
 		},
 	}
-	c := cases[0]
-	dslx, err := HttpRuleMatchToDSLX(c.hostnames, c.rule.Matches[0])
-	assert.NoError(t, err)
-	internalDslStr, err := toInternalDslJsonStr(dslx)
-	assert.NoError(t, err)
-	expected := `["AND",["IN","HOST","a.com","a.b.com"],["EQ","PARAM","page","1"],["REGEX","PARAM","location","c*"],["STARTS_WITH","URL","/v1"],["EQ","HEADER","version","1.1"],["REGEX","HEADER","name","w*"]]`
-	assert.Equal(t, internalDslStr, expected)
+	for _, c := range cases {
+		dslx, err := HttpRuleMatchToDSLX(c.hostnames, c.rule.Matches[0])
+		assert.NoError(t, err)
+		internalDslStr, err := toInternalDslJsonStr(dslx)
+		assert.NoError(t, err)
+		assert.Equal(t, internalDslStr, c.expect)
+	}
+}
+
+func TestJoinHostname(t *testing.T) {
+	type TestCase struct {
+		listenHostName string
+		routeHostName  []string
+		expected       []string
+	}
+
+	cases := []TestCase{
+		{
+			listenHostName: "*.com",
+			routeHostName:  []string{"a.com"},
+			expected:       []string{"a.com"},
+		},
+		{
+			listenHostName: "*.com",
+			routeHostName:  []string{},
+			expected:       []string{"*.com"},
+		},
+		{
+			listenHostName: "*.com",
+			routeHostName:  []string{"*.a.com"},
+			expected:       []string{"*.a.com"},
+		},
+		{
+			listenHostName: "",
+			routeHostName:  []string{"*.a.com"},
+			expected:       []string{"*.a.com"},
+		},
+		{
+			listenHostName: "a.com",
+			routeHostName:  []string{"a.com"},
+			expected:       []string{"a.com"},
+		},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.expected, JoinHostnames(&c.listenHostName, c.routeHostName))
+	}
 }
 
 func toInternalDslJsonStr(dslx v1.DSLX) (string, error) {

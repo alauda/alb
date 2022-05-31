@@ -43,9 +43,7 @@ type PolicyAssert func(p c.Policy) bool
 func (p NgxPolicy) PolicyEq(mode, rule string, expectPort int, expectDsl string, expectBg ct.BackendGroup, policyasserts ...PolicyAssert) (bool, error) {
 	policy, port, bg := p.FindPolicy(mode, rule)
 	if policy == nil {
-		Logf("could not find this policy %s %s", mode, rule)
-		// QUESTION: return a not found error?
-		return false, nil
+		return false, fmt.Errorf("policy not found %v", rule)
 	}
 	if port != expectPort {
 		return false, fmt.Errorf("port not eq %v %v", port, expectPort)
@@ -61,8 +59,8 @@ func (p NgxPolicy) PolicyEq(mode, rule string, expectPort int, expectDsl string,
 		Logf("left -%s- right -%s-", dslStr, expectDsl)
 		return false, fmt.Errorf("dsl not eq %v %v", dsl, expectDsl)
 	}
-	if !bg.Eq(expectBg) {
-		return false, fmt.Errorf("bg not eq %v %v", bg, expectBg)
+	if !bg.Backends.Eq(expectBg.Backends) {
+		return false, fmt.Errorf("bg not eq %v %v", bg.Backends, expectBg.Backends)
 	}
 	for i, a := range policyasserts {
 		if !a(*policy) {

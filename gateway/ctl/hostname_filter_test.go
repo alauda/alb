@@ -3,6 +3,7 @@ package ctl
 import (
 	"testing"
 
+	"alauda.io/alb2/gateway/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,9 +20,19 @@ func TestHostNameFilter(t *testing.T) {
 			result: []string{"a.com"},
 		},
 		{
+			host:   "a.com",
+			route:  []string{},
+			result: []string{"a.com"},
+		},
+		{
 			host:   "*.a.com",
 			route:  []string{"a.com"},
 			result: []string{},
+		},
+		{
+			host:   "*.a.com",
+			route:  []string{},
+			result: []string{"*.a.com"},
 		},
 		{
 			host:   "*.a.com",
@@ -35,7 +46,7 @@ func TestHostNameFilter(t *testing.T) {
 		},
 	}
 	for _, test := range cases {
-		result := FindIntersection(test.host, test.route)
+		result := utils.FindIntersection(test.host, test.route)
 		assert.Equal(t, test.result, result)
 	}
 }

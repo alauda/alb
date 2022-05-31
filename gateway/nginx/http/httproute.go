@@ -2,16 +2,19 @@ package http
 
 import (
 	"fmt"
+	"strings"
 
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/gateway/nginx/types"
 	. "alauda.io/alb2/gateway/nginx/utils"
+	u "alauda.io/alb2/gateway/utils"
 	albType "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
+	"github.com/samber/lo"
 
 	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -125,9 +128,11 @@ func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*Rule, error) {
 	rule := &Rule{}
 	rule.Type = RuleTypeGateway
 	rule.RuleID = genRuleIdViaCtx(ctx)
-
+	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gatewayType.Hostname, _ int) string {
+		return string(h)
+	}))
 	// gen rule dsl
-	dslx, err := HttpRuleMatchToDSLX(route.Spec.Hostnames, match)
+	dslx, err := HttpRuleMatchToDSLX(hostnames, match)
 	if err != nil {
 		return nil, err
 	}
@@ -219,8 +224,10 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	rule.RuleID = genRuleIdViaCtx(ctx.HttpCtx)
 	rule.Domain = ctx.certDomain
 	rule.CertificateName = fmt.Sprintf("%s/%s", ctx.cert.Namespace, ctx.cert.Name)
+
+	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gatewayType.Hostname, _ int) string { return string(h) }))
 	// gen rule dsl
-	dslx, err := HttpRuleMatchToDSLX(route.Spec.Hostnames, match)
+	dslx, err := HttpRuleMatchToDSLX(hostnames, match)
 	if err != nil {
 		return nil, err
 	}
@@ -235,20 +242,17 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	return rule, nil
 }
 
-func HttpRuleMatchToDSLX(hostnames []gatewayType.Hostname, m gatewayType.HTTPRouteMatch) (albType.DSLX, error) {
+func HttpRuleMatchToDSLX(hostnameStrs []string, m gatewayType.HTTPRouteMatch) (albType.DSLX, error) {
 	dslx := albType.DSLX{}
 
-	hostnameStrs := []string{}
-	for _, h := range hostnames {
-		hostnameStrs = append(hostnameStrs, string(h))
-	}
-
-	// match method
-	if m.Method != nil {
-		return nil, fmt.Errorf("method match not support yet")
-	}
 	// match hostname
-	if len(hostnameStrs) != 0 {
+	// generic domain name
+	if len(hostnameStrs) == 1 && strings.HasPrefix(hostnameStrs[0], "*.") {
+		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
+			[]string{utils.OP_ENDS_WITH, hostnameStrs[0]},
+		}}
+		dslx = append(dslx, exp)
+	} else {
 		vals := []string{utils.OP_IN}
 		vals = append(vals, hostnameStrs...)
 		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
@@ -256,6 +260,7 @@ func HttpRuleMatchToDSLX(hostnames []gatewayType.Hostname, m gatewayType.HTTPRou
 		}}
 		dslx = append(dslx, exp)
 	}
+
 	// match query
 	if m.QueryParams != nil {
 		for _, q := range m.QueryParams {
@@ -294,6 +299,12 @@ func HttpRuleMatchToDSLX(hostnames []gatewayType.Hostname, m gatewayType.HTTPRou
 			dslx = append(dslx, exp)
 		}
 	}
+
+	if m.Method != nil {
+		exp := albType.DSLXTerm{Type: utils.KEY_METHOD, Values: [][]string{{utils.OP_EQ, string(*m.Method)}}}
+		dslx = append(dslx, exp)
+	}
+
 	return dslx, nil
 }
 
@@ -310,4 +321,18 @@ func genRuleIdViaCtx(ctx HttpCtx) string {
 		ctx.ruleIndex,
 		ctx.matchIndex,
 	)
+}
+
+func JoinHostnames(listenerHostname *string, routeHostnames []string) []string {
+	if listenerHostname == nil {
+		return routeHostnames
+	}
+	if len(routeHostnames) == 0 {
+		return []string{*listenerHostname}
+	}
+	host := u.FindIntersection(*listenerHostname, routeHostnames)
+	if len(host) == 0 {
+		return routeHostnames
+	}
+	return host
 }

@@ -121,12 +121,90 @@ spec:
 					},
 				},
 			}, func(p c.Policy) bool {
-				return p.BackendProtocol == "http"
+				return p.BackendProtocol == "http" && p.Config.RewriteRequest.Headers["my-header"] == "bar"
 			})
 		})
 	})
 
-	// TODO 当gateway的http/https listener没有hostname时，默认行为是什么,现在是拒绝了，这种行为是否正确
+	GIt("wildcard https should work", func() {
+		f.AssertKubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1 
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: "*.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: secret-1
+            kind: Secret
+            namespace: {{.ns}}
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h1
+    namespace: {{.ns}}
+spec:
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: https
+    rules:
+    - matches:
+      - path:
+          value: "/foo"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+`, map[string]interface{}{"ns": ns, "class": f.AlbName}))
+
+		secret, _ := f.CreateTlsSecret("*.com", "secret-1", ns)
+		f.WaitNginxConfigStr("listen.*443.*ssl")
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			if !p.CertEq("*.com", secret) {
+				return false, nil
+			}
+			defaultBackend := ct.Backends{
+				{
+					Address: "192.168.1.1",
+					Port:    80,
+					Weight:  50,
+				},
+				{
+					Address: "192.168.1.2",
+					Port:    80,
+					Weight:  50,
+				},
+			}
+			defaultMatch := `["AND",["ENDS_WITH","HOST","*.com"],["STARTS_WITH","URL","/foo"]]`
+			name := "443-" + ns + "-g1" + "-https-" + ns + "-h1-0-0"
+			_, err := p.PolicyEq("http", name, 443, defaultMatch, ct.BackendGroup{
+				Name:     name,
+				Mode:     "https",
+				Backends: defaultBackend,
+			})
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		})
+
+	})
 	GIt("i want my app been access by both http and https", func() {
 		f.InitSvcWithOpt(SvcOpt{
 			Ns:   ns,
@@ -147,10 +225,8 @@ spec:
 				},
 			},
 		})
-		secret, err := f.CreateTlsSecret("a.com", "secret-1", ns)
-		_ = secret
-		assert.NoError(ginkgo.GinkgoT(), err)
-		_, err = f.KubectlApply(Template(`
+		secret, _ := f.CreateTlsSecret("a.com", "secret-1", ns)
+		f.AssertKubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
@@ -231,8 +307,6 @@ spec:
           weight: 1
 `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
 
-		assert.NoError(ginkgo.GinkgoT(), err)
-
 		f.WaitNginxConfigStr("listen.*80")
 		f.WaitNginxConfigStr("listen.*443.*ssl")
 
@@ -240,70 +314,62 @@ spec:
 			if !p.CertEq("a.com", secret) {
 				return false, nil
 			}
-			name := "80-" + ns + "-g1" + "-http-" + ns + "-h1-0-0"
-			defaultMatch := `["AND",["IN","HOST","a.com"],["STARTS_WITH","URL","/foo"]]`
-			findHttpPolicy, err := p.PolicyEq("http", name, 80, defaultMatch, ct.BackendGroup{
-				Name: name,
-				Mode: "http",
-				Backends: ct.Backends{
-					{
-						Address: "172.0.0.1",
-						Port:    80,
-						Weight:  100,
-					},
+			defaultBackend := ct.Backends{
+				{
+					Address: "172.0.0.1",
+					Port:    80,
+					Weight:  100,
 				},
+			}
+			default443Backend := ct.Backends{
+				{
+					Address: "172.0.0.1",
+					Port:    443,
+					Weight:  100,
+				},
+			}
+			defaultMatch := `["AND",["IN","HOST","a.com"],["STARTS_WITH","URL","/foo"]]`
+			name := "80-" + ns + "-g1" + "-http-" + ns + "-h1-0-0"
+			_, err := p.PolicyEq("http", name, 80, defaultMatch, ct.BackendGroup{
+				Name:     name,
+				Mode:     "http",
+				Backends: defaultBackend,
 			}, func(p c.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
-				Logf("err %v", err)
 				return false, err
 			}
 			name = "443-" + ns + "-g1" + "-https-" + ns + "-h1-0-0"
-			findHttpsPolicy, err := p.PolicyEq("http", name, 443, `["AND",["IN","HOST","a.com"],["STARTS_WITH","URL","/foo"]]`, ct.BackendGroup{
-				Name: name,
-				Mode: "http",
-				Backends: ct.Backends{
-					{
-						Address: "172.0.0.1",
-						Port:    80,
-						Weight:  100,
-					},
-				},
+			_, err = p.PolicyEq("http", name, 443, `["AND",["IN","HOST","a.com"],["STARTS_WITH","URL","/foo"]]`, ct.BackendGroup{
+				Name:     name,
+				Mode:     "http",
+				Backends: defaultBackend,
 			}, func(p c.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
-
 			if err != nil {
 				return false, err
 			}
 
 			name = "80-" + ns + "-g1" + "-http-" + ns + "-h2-0-0"
-			findHttpToHttpsPolicy, err := p.PolicyEq("http", name, 80, defaultMatch, ct.BackendGroup{
-				Name: name,
-				Mode: "http",
-				Backends: ct.Backends{
-					{
-						Address: "172.0.0.1",
-						Port:    443,
-						Weight:  100,
-					},
-				},
+			_, err = p.PolicyEq("http", name, 80, defaultMatch, ct.BackendGroup{
+				Name:     name,
+				Mode:     "http",
+				Backends: default443Backend,
 			}, func(p c.Policy) bool {
 				return p.BackendProtocol == "https"
 			})
 			if err != nil {
 				return false, err
 			}
-			Logf("%v %v %v", findHttpPolicy, findHttpsPolicy, findHttpToHttpsPolicy)
-			return findHttpPolicy && findHttpsPolicy && findHttpToHttpsPolicy, nil
+			return true, nil
 		})
 	})
 
 	GIt("i want my mutliple app use different cert in different hostname in same port", func() {
 		secretInit, _ := f.CreateTlsSecret("init.com", "secret-init", ns)
 		secretHarbor, _ := f.CreateTlsSecret("harbor.com", "secret-harbor", ns)
-		// TODO 还有一种配置的方法是配置一个空的hostname+多个证书,然后想办法从证书中获取到hostname
 		_ = secretInit
 		_ = secretHarbor
 

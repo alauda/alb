@@ -20,9 +20,10 @@ our $policy = <<'_EOC_';
           ],
           "upstream": "test-upstream-1",
           "config": {
-              "rewrite_response": {
+              "rewrite_request": {
                   "headers": {
-                      "a": "b"
+                      "a": "b",
+                      "test": "xxxx"
                   }
               }
           }
@@ -38,7 +39,7 @@ our $policy = <<'_EOC_';
           ],
           "upstream": "test-upstream-1",
           "config": {
-              "rewrite_response": {
+              "rewrite_request": {
                   "headers_remove": [
                       "test","test1"
                   ]
@@ -56,7 +57,7 @@ our $policy = <<'_EOC_';
           ],
           "upstream": "test-upstream-1",
           "config": {
-              "rewrite_response": {
+              "rewrite_request": {
                   "headers_add": {
                       "test": ["2","3"] ,
                       "a1": ["b1"] ,
@@ -85,15 +86,7 @@ server {
     listen 9999;
     location / {
        content_by_lua_block {
-           for k,v in pairs(ngx.req.get_headers()) do
-               local find,last = string.find(k, "upstream-",1,true) 
-               if find ~=nil then
-                       local newk = string.sub(k,last+1,#k) 
-                    ngx.log(ngx.ERR,"nk "..newk)
-                    ngx.header[newk] = v
-               end
-           end
-           ngx.print("ok")
+           ngx.print(ngx.req.raw_header())
       }
     }
 }
@@ -108,69 +101,47 @@ run_tests();
 
 __DATA__
 
-=== TEST 1: test rewrite_response headers echo-server
+=== TEST 1: test rewrite_request headers echo-server
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
     local F = require("F");local u = require("util");local h = require("test-helper");
-    do
-        local httpc = require("resty.http").new()
-        local res, err = httpc:request_uri("http://127.0.0.1:9999/t",{
-            headers = {
-                ["upstream-test"] = "sss"
-            }
-        })
-        h.assert_eq(res.headers.test,"sss")
-        h.assert_eq(res.body,"ok")
-    end
+    local out, verbose = u.shell_curl([[ curl -v -s http://127.0.0.1:9999/t -H "test: sss"]])
+	u.log(F"out--\n{out}\nverbose\n{verbose}\n")
+    h.assert_contains(verbose,"test: sss")
 
-=== TEST 2: test rewrite_response headers set 
+=== TEST 2: test rewrite_request headers set 
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
     local F = require("F");local u = require("util");local h = require("test-helper");
-    local httpc = require("resty.http").new()
-
-    local res, err = httpc:request_uri("http://127.0.0.1:80/set-header",{
-        headers = {
-            ["test"] = "sss"
-        }
-    })
-    h.assert_eq(res.headers.a,"b")
-    h.assert_eq(res.headers.test,nil)
+    local out, verbose = u.shell_curl([[ curl -v -s http://127.0.0.1:80/set-header -H "test: sss"]])
+	u.log(F"out--\n{out}\nverbose\n{verbose}\n")
+    h.assert_contains(out,"test: xxxx")
+    h.assert_contains(out,"a: b")
 
 
-=== TEST 2: test rewrite_response headers remove
+=== TEST 2: test rewrite_request headers remove
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
     local F = require("F");local u = require("util");local h = require("test-helper");
-    local httpc = require("resty.http").new()
+    local out, verbose = u.shell_curl([[ curl -v -s http://127.0.0.1:80/remove-header -H "test2: s" -H "test1: s" -H "test: s"]])
+    h.assert_not_contains(out,"test: s")
+    h.assert_not_contains(out,"test1: s")
+    h.assert_contains(out,"test2: s")
 
-    -- remove header ok
-    local res, err = httpc:request_uri("http://127.0.0.1:80/remove-header",{
-        headers = {
-            ["upstream-test"] = "sss",
-			["upstream-test1"] = "sss1",
-            ["upstream-test2"] = "sss2"
-        }
-    })
-    h.assert_eq(res.headers.test,nil)
-    h.assert_eq(res.headers.test1,nil)
-    h.assert_eq(res.headers.test2,"sss2")
-
-=== TEST 3: test rewrite_response headers add
+=== TEST 3: test rewrite_request headers add
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
     local F = require("F");local u = require("util");local h = require("test-helper");
     -- add header ok
     local out, verbose = u.shell_curl([[ curl -v -s http://127.0.0.1:80/add-header -H "upstream-test: sss"  -H "upstream-a2: a2"]])
-    h.assert_contains(verbose,"< test: sss")
-    h.assert_contains(verbose,"< test: 2")
-    h.assert_contains(verbose,"< test: 3")
+    h.assert_contains(out,"test: sss")
+    h.assert_contains(out,"test: 2")
+    h.assert_contains(out,"test: 3")
+    h.assert_contains(out,"a1: b1")
 
-    h.assert_contains(verbose,"< a1: b1")
-
-    h.assert_contains(verbose,"< a2: b1")
-    h.assert_contains(verbose,"< a2: b2")
+    h.assert_contains(out,"a2: b1")
+    h.assert_contains(out,"a2: b2")

@@ -2,9 +2,9 @@ package ctl
 
 import (
 	"context"
-	"strings"
 
 	. "alauda.io/alb2/gateway"
+	. "alauda.io/alb2/gateway/utils"
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,28 +42,4 @@ func (c *HostNameFilter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *Lis
 		return false
 	}
 	return true
-}
-
-func FindIntersection(lsHost string, routeHost []string) []string {
-	ret := []string{}
-	for _, rh := range routeHost {
-		if matchDomain(lsHost, rh) {
-			ret = append(ret, rh)
-		}
-	}
-	return ret
-}
-
-func matchDomain(host, route string) bool {
-	hostIsWildcard := strings.HasPrefix(host, "*.")
-	routeIsWildcard := strings.HasPrefix(route, "*.")
-	if hostIsWildcard && !routeIsWildcard {
-		hostWithoutWildcard := strings.TrimPrefix(host, "*")
-		return strings.HasSuffix(route, hostWithoutWildcard)
-	}
-	if !hostIsWildcard && routeIsWildcard {
-		routeWithoutWildcard := strings.TrimPrefix(route, "*")
-		return strings.HasSuffix(host, routeWithoutWildcard)
-	}
-	return host == route
 }

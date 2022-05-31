@@ -81,6 +81,10 @@ __END
         warn "set server_port to $server_port";
         server_port_for_client($server_port);
         $block->set_value("request","GET /t");
+
+    	if (!defined  $block->response_body) {
+			$block->set_value("response_body","ok");
+		}
 	}
 
     open(FH,'>','/usr/local/openresty/nginx/conf/policy.new') or die $!;
@@ -204,6 +208,34 @@ _END_
     server {
         listen     0.0.0.0:443 ssl http2 backlog=2048;
         listen     [::]:443 ssl http2 backlog=2048;
+
+        server_name _;
+
+        include       /alb/tweak/http_server.conf;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        ssl_certificate /alb/template/nginx/placeholder.crt;
+        ssl_certificate_key /alb/template/nginx/placeholder.key;
+        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+
+        location / {
+            set \$upstream default;
+            set \$rule_name "";
+            set \$backend_protocol http;
+
+            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            proxy_pass \$backend_protocol://http_backend;
+            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+
+            log_by_lua_block {
+                --require("metrics").log()
+            }
+        }
+    }
+
+    server {
+        listen     0.0.0.0:2443 ssl http2 backlog=2048;
+        listen     [::]:2443 ssl http2 backlog=2048;
 
         server_name _;
 
