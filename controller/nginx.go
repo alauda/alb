@@ -678,6 +678,11 @@ func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, 
 		klog.Errorf("Failed to create new policy file %s", err.Error())
 		return err
 	}
+	err = policyWriter.Chmod(0644)
+	if err != nil {
+		klog.Errorf("Failed to add read permission of policy.new for nginx user %s", err.Error())
+		return err
+	}
 	defer policyWriter.Close()
 
 	t, err := template.New("nginx.tmpl").ParseFiles(nc.TemplatePath)

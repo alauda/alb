@@ -1,5 +1,5 @@
 {{ $cfg := .NginxParam }}
-user  root;
+user  nginx;
 worker_rlimit_nofile 100000;
 worker_processes     {{.CPUNum}};
 worker_cpu_affinity  auto;
