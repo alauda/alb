@@ -51,6 +51,11 @@ alb-nginx:20220424210109
 　　upgrade openresty to 1.19.9.1  
 　　upgrade openssl version in openresty to 1.1.1n
 
+alb-nginx:v3.9-57-gb40a7de
+    upgrade openssl to 1.1.1o
+    update base-image to 3.16
+    remove curl and related certs in /etc/ssl/certs
+
 ### alb-nginx-test
 ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-test-runner-image
 
