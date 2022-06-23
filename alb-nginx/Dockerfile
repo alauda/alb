@@ -1,12 +1,12 @@
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.15"
+ARG RESTY_IMAGE_TAG="3.16"
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG} AS builder
 RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.cloud.tencent.com|g' /etc/apk/repositories
 
 ARG LUA_RESTY_BALANCER_VERSION="0.04"
 ARG LUA_VAR_NGINX_MODULE_VERSION="0.6"
 ARG RESTY_VERSION="1.19.9.1"
-ARG RESTY_OPENSSL_VERSION="1.1.1n"
+ARG RESTY_OPENSSL_VERSION="1.1.1o"
 ARG RESTY_OPENSSL_PATCH_VERSION="1.1.1f"
 ARG RESTY_OPENSSL_URL_BASE="https://www.openssl.org/source"
 ARG RESTY_PCRE_VERSION="8.44"
@@ -174,13 +174,18 @@ RUN update-ca-certificates \
 
 RUN chmod 755 -R /usr/local/openresty
 
+# remove unwanted certs imported from curl
+RUN apk del curl
+RUN ls /etc/ssl/certs/* | grep -v ca-certificates.crt | xargs rm
+RUN rm -rf /usr/share/ca-certificates/
+
 # Copy everything into a fresh scratch image so that naive CVE scanners don't pick up binaries and libraries
 # that have been removed in our later layers.
 FROM scratch
 COPY --from=builder / /
 
 ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.15"
+ARG RESTY_IMAGE_TAG="3.16"
 ARG RESTY_VERSION="1.19.9.1"
 
 LABEL resty_image_base="${RESTY_IMAGE_BASE}"
