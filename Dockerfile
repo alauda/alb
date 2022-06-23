@@ -9,9 +9,9 @@ RUN apk update && apk add git gcc musl-dev
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
-FROM build-harbor.alauda.cn/ops/alpine:3.15
+FROM build-harbor.alauda.cn/ops/alpine:3.16
 
-RUN apk update && apk add --no-cache curl iproute2 jq openssl
+RUN apk update && apk add --no-cache iproute2 jq openssl
 
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl

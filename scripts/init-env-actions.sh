@@ -60,7 +60,7 @@ function alb-init-kind-env {
     _makesureImage $image $kindName
   done
 
-  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.15" $kindName
+  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.16" $kindName
   _makesureImage $nginx $kindName
 
   local lbName="alb-dev"
