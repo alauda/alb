@@ -1,4 +1,4 @@
-FROM build-harbor.alauda.cn/3rdparty/alb-nginx:20220424210109
+FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
 
 RUN uname -m 
 RUN chmod || true 
