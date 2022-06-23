@@ -126,6 +126,8 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo) (ipv4Addres
 		ipv6Address = append(ipv6Address, "[::]")
 	}
 
+	ipv4Address = utils.StrListRemoveDuplicates(ipv4Address)
+	ipv6Address = utils.StrListRemoveDuplicates(ipv6Address)
 	klog.Infof("[bind_nic] bind ipv4 %v ip v6 %v", ipv4Address, ipv6Address)
 	return ipv4Address, ipv6Address, nil
 }

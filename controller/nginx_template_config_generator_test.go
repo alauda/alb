@@ -60,6 +60,24 @@ func TestBindIp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, v4[0], "0.0.0.0")
 	assert.Equal(t, len(v6), 0)
+
+	v4, _, err = getBindIp(
+		BindNICConfig{Nic: []string{"eth0", "eth1"}},
+		NetWorkInfo{
+			"eth0": InterfaceInfo{
+				"eth0",
+				[]string{"192.168.1.1"},
+				[]string{},
+			},
+			"eth1": InterfaceInfo{
+				"eth1",
+				[]string{"192.168.1.1"},
+				[]string{},
+			},
+		})
+	assert.NoError(t, err)
+	assert.Equal(t, v4[0], "192.168.1.1")
+	assert.Equal(t, len(v4), 1)
 }
 
 func setBindIpConfig(configStr *string) {
