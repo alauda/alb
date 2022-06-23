@@ -16,7 +16,7 @@ data:
 
     # Show alb info to identify error response
     server_tokens off;
-    more_set_headers 'Via: 1.1 alb/{{ .Chart.Version }}';
+    more_set_headers 'Via: alb'
     proxy_pass_header Server;
 
     # Disable checking of client request body size
