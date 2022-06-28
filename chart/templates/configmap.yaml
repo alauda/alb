@@ -141,7 +141,7 @@ data:
 ---
 apiVersion: v1
 data:
-  range: "[]"
+  range: '{{ .Values.portProjects}}'
 kind: ConfigMap
 metadata:
   name: {{ .Values.loadbalancerName }}-port-info
