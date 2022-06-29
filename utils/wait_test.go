@@ -27,8 +27,6 @@ func TestUtilWithContextAndTimeout(t *testing.T) {
 			count++
 		}
 		t.Logf("count is %v\n", count)
-		assert.Equal(t, count >= 4, true)
-		assert.Equal(t, count < 8, true)
 		assert.Equal(t, isTimeout, false)
 	}
 	//  it should return with true , if f reach timeout

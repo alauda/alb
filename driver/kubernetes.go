@@ -104,10 +104,6 @@ func (kd *KubernetesDriver) GetType() string {
 }
 
 func GetKubeCfg() (*rest.Config, error) {
-	cf, err := rest.InClusterConfig()
-	if err == nil {
-		return cf, nil
-	}
 	klog.Infof("driver: out cluster")
 	// respect KUBECONFIG env
 	if os.Getenv("USE_KUBECONFIG") == "true" {
@@ -115,6 +111,10 @@ func GetKubeCfg() (*rest.Config, error) {
 		kubecfg := os.Getenv("KUBECONFIG")
 		cf, err := clientcmd.BuildConfigFromFlags("", kubecfg)
 		return cf, err
+	}
+	cf, err := rest.InClusterConfig()
+	if err == nil {
+		return cf, nil
 	}
 
 	// respect KUBERNETES_XXX env. only used for test

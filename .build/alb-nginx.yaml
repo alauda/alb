@@ -1,0 +1,78 @@
+apiVersion: builds.katanomi.dev/v1alpha1
+kind: Build
+spec:
+  workspaces:
+    - description: >
+        This workspace is shared among all the pipeline tasks to read/write
+        common resources
+      name: source
+  tasks:
+    # generate-version
+    - name: generate-version
+      timeout: 5m
+      retries: 1
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-version
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: repo-type
+          value: gitlab
+        - name: repo-url
+          value: $(params.git-url)
+        - name: repo-ref
+          value: $(params.git-revision)
+    - name: alauda-build-image
+      runAfter:
+        - generate-version
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-build-image
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: container-image
+          value: build-harbor.alauda.cn/3rdparty/alb-nginx
+        - name: container-image-tag
+          value: $(tasks.generate-version.results.version)
+        - name: dockerfile
+          value: ./alb-nginx/Dockerfile
+        - name: platform
+          value:
+            - linux/amd64
+            - linux/arm64
+        - name: tools-image
+          value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
+        - name: verbose
+          value: "true"
+    - name: build-chart
+      runAfter:
+        - alauda-build-image
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-build-oci-chart-update
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: dir
+          value: ./chart
+        - name: address
+          value: build-harbor.alauda.cn/acp/chart-alauda-alb2
+        - name: version
+          value: $(tasks.generate-version.results.semver-version)
+        - name: image-tag
+          value: $(tasks.generate-version.results.version)
+        - name: branch
+          value: $(tasks.generate-version.results.branch)
+        - name: git-revision
+          value: $(params.git-revision)
+        - name: values-path
+          value: global.images.nginx.tag
