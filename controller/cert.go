@@ -21,6 +21,7 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 
 	certProtocol := map[albv1.FtProtocol]bool{
 		albv1.FtProtocolHTTPS: true,
+		albv1.FtProtocolgRPC:  true,
 	}
 
 	getPortDefaultCert := func(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]client.ObjectKey {
