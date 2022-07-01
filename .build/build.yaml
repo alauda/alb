@@ -129,3 +129,25 @@ spec:
           value: $(params.git-revision)
         - name: values-path
           value: global.images.alb2.tag
+    - name: alauda-release-tag
+      runAfter:
+        - build-chart
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-release-tag
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: verbose
+          value: "true"
+        - name: base-image
+          value: build-harbor.alauda.cn/devops/builder-tools:ubuntu-v3.6-14-g56f12fa
+        - name: version
+          value: $(tasks.generate-version.results.version)
+        - name: git-user-name
+          value: Alauda Bot
+        - name: git-user-email
+          value: alaudabot@alauda.io
