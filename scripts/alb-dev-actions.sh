@@ -1,7 +1,7 @@
 #!/bin/bash
 
-source $ALB_ACTIONS_ROOT/init-env-actions.sh
-source $ALB_ACTIONS_ROOT/alb-test-actions.sh
+source $ALB/scripts/init-env-actions.sh
+source $ALB/scripts/alb-test-actions.sh
 
 
 # install kind kubectl sed cp python3 first
@@ -57,7 +57,7 @@ function alb-gen-rule {
   local backendNs=$4
   local backendSvc=$5
   local ruleFile=/tmp/$kindName.$ft.rule.json
-  $ALB_ACTIONS_ROOT/rule-gen.py $alb $ft $backendNs $backendSvc
+  $ALB/scripts/rule-gen.py $alb $ft $backendNs $backendSvc
 }
 
 function alb-gen-ft {
