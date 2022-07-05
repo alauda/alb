@@ -16,7 +16,7 @@ metadata:
   annotations:
     {{ .Values.global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
 spec:
-  address: {{ .Values.address }}
+  address: {{ .Values.address | quote }}
   bind_address: ''
   domains: {{ .Values.domains }}
   iaas_id: ''
