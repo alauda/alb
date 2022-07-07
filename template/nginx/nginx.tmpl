@@ -78,11 +78,6 @@ http {
             }
         }
 
-        location /policies {
-            content_by_lua_file /alb/template/nginx/lua/policy.lua;
-            client_body_buffer_size 5m;
-            client_max_body_size 10m;
-        }
     }
     {{end}}
 
