@@ -130,25 +130,36 @@ function alb-test-all-in-ci-golang {
   set -e # exit on err
   echo alb is $ALB
   echo pwd is $(pwd)
+  local start=$(date +"%Y %m %e %T.%6N")
   alb-install-golang-test-dependency
+  local end_install=$(date +"%Y %m %e %T.%6N")
   git config --global --add safe.directory $PWD
   go version
-  local START=$(date +%s)
   go env -w GO111MODULE=on
   go env -w GOPROXY=https://goproxy.cn,direct
   export GOFLAGS=-buildvcs=false
   go-lint
+  local end_lint=$(date +"%Y %m %e %T.%6N")
   go-unit-test
+  local end_unit_test=$(date +"%Y %m %e %T.%6N")
   echo "unit-test ok"
   go install github.com/onsi/ginkgo/ginkgo
+  local end_ginkgo=$(date +"%Y %m %e %T.%6N")
   which ginkgo
   echo $?
   alb-run-all-e2e-test
+  local end_e2e=$(date +"%Y %m %e %T.%6N")
+  echo "start" $start
+  echo "install" $end_install
+  echo "lint" $end_lint
+  echo "unit-test" $end_unit_test
+  echo "ginkgo" $end_ginkgo
+  echo "e2e" $end_e2e
 }
 
 function alb-install-nginx-test-dependency {
   apk update && apk add  luacheck lua  perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
-  cpanm -v --notest Test::Nginx IPC::Run 
+  cpanm --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/  -v --notest Test::Nginx IPC::Run 
   cd / 
   git clone https://gitclone.com/github.com/ledgetech/lua-resty-http.git && cp lua-resty-http/lib/resty/* /usr/local/openresty/site/lualib/resty/
   cd -
@@ -160,13 +171,20 @@ function alb-test-all-in-ci-nginx {
   set -e # exit on err
   echo alb is $ALB
   echo pwd is $(pwd)
+  local start=$(date +"%Y %m %e %T.%6N")
   alb-install-nginx-test-dependency
+  local end_install=$(date +"%Y %m %e %T.%6N")
   source ./alb-nginx/actions/common.sh
   luacheck ./template/nginx/lua
+  local end_check=$(date +"%Y %m %e %T.%6N")
 #   alb-lua-format-check
   test-nginx-in-ci
+  local end_test=$(date +"%Y %m %e %T.%6N")
+  echo "start " $start
+  echo "install " $end_install
+  echo "check" $end_check
+  echo "test" $end_test
 }
-
 
 function alb-test-all-in-ci {
   # keep build env still work
@@ -195,8 +213,6 @@ function alb-test-all-in-ci {
   local END=$(date +%s)
   echo "all-time: " $(echo "scale=3; $END - $START" | bc) "s"
 }
-
-
 
 function alb-list-e2e-testcase {
   for suite_test in $(find ./test/e2e -name suite_test.go); do

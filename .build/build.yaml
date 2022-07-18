@@ -141,6 +141,8 @@ spec:
         - name: verbose
           value: "true"
     - name: nginx-test
+      timeout: 30m
+      retries: 3
       runAfter:
         - build-nginx
       params:
@@ -173,8 +175,29 @@ spec:
             script: |
               #!/bin/sh
               scripts/nginx-test.sh
+    - name: alauda-generate-chart-version
+      runAfter:
+        - generate-version
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-chart-version
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: chart-path
+          value: ./chart
+        - name: branch
+          value: $(tasks.generate-version.results.branch)
+        - name: namespace
+          value: acp
+        - name: comfigmap-name
+          value: alauda-gitlab-container-platform-alb2
     - name: build-chart
       runAfter:
+        - alauda-generate-chart-version
         - build-nginx
         - build-alb
         - alb-test
@@ -193,7 +216,7 @@ spec:
         - name: address
           value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
-          value: $(tasks.generate-version.results.semver-version)
+          value: $(tasks.alauda-generate-chart-version.results.version)
         - name: image-tag
           value: $(tasks.generate-version.results.version)
         - name: branch
