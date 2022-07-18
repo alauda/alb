@@ -54,6 +54,7 @@ resources:
     memory: 128Mi
 project: ""
 projects: []
+portProjects: '[]'
 displayName: ""
 antiAffinityKey: "local"
 bindNIC: "{}"
