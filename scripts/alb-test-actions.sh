@@ -114,7 +114,80 @@ function go-unit-test {
   go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
 }
 
+function alb-install-golang-test-dependency {
+  wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf  kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
+  apk update && apk add parallel python3 py3-pip curl git build-base jq iproute2 openssl
+  pip install crossplane
+  curl --progress-bar  -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.19.2/$(go env GOOS)/$(go env GOARCH)" && \
+    mkdir -p /usr/local/kubebuilder && \
+    tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz && \
+    rm envtest-bins.tar.gz && \
+	ls /usr/local/kubebuilder 
+}
+
+function alb-test-all-in-ci-golang {
+  # base image build-harbor.alauda.cn/ops/golang:1.18-alpine3.15
+  set -e # exit on err
+  echo alb is $ALB
+  echo pwd is $(pwd)
+  local start=$(date +"%Y %m %e %T.%6N")
+  alb-install-golang-test-dependency
+  local end_install=$(date +"%Y %m %e %T.%6N")
+  git config --global --add safe.directory $PWD
+  go version
+  go env -w GO111MODULE=on
+  go env -w GOPROXY=https://goproxy.cn,direct
+  export GOFLAGS=-buildvcs=false
+  go-lint
+  local end_lint=$(date +"%Y %m %e %T.%6N")
+  go-unit-test
+  local end_unit_test=$(date +"%Y %m %e %T.%6N")
+  echo "unit-test ok"
+  go install github.com/onsi/ginkgo/ginkgo
+  local end_ginkgo=$(date +"%Y %m %e %T.%6N")
+  which ginkgo
+  echo $?
+  alb-run-all-e2e-test
+  local end_e2e=$(date +"%Y %m %e %T.%6N")
+  echo "start" $start
+  echo "install" $end_install
+  echo "lint" $end_lint
+  echo "unit-test" $end_unit_test
+  echo "ginkgo" $end_ginkgo
+  echo "e2e" $end_e2e
+}
+
+function alb-install-nginx-test-dependency {
+  apk update && apk add  luacheck lua  perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
+  cpanm --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/  -v --notest Test::Nginx IPC::Run 
+  cd / 
+  git clone https://gitclone.com/github.com/ledgetech/lua-resty-http.git && cp lua-resty-http/lib/resty/* /usr/local/openresty/site/lualib/resty/
+  cd -
+#   wget -O lua-format https://github.com/Koihik/vscode-lua-format/raw/master/bin/linux/lua-format && chmod a+x ./lua-format &&  mv ./lua-format /usr/bin/ && lua-format --help
+}
+
+function alb-test-all-in-ci-nginx {
+  # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
+  set -e # exit on err
+  echo alb is $ALB
+  echo pwd is $(pwd)
+  local start=$(date +"%Y %m %e %T.%6N")
+  alb-install-nginx-test-dependency
+  local end_install=$(date +"%Y %m %e %T.%6N")
+  source ./alb-nginx/actions/common.sh
+  luacheck ./template/nginx/lua
+  local end_check=$(date +"%Y %m %e %T.%6N")
+#   alb-lua-format-check
+  test-nginx-in-ci
+  local end_test=$(date +"%Y %m %e %T.%6N")
+  echo "start " $start
+  echo "install " $end_install
+  echo "check" $end_check
+  echo "test" $end_test
+}
+
 function alb-test-all-in-ci {
+  # keep build env still work
   # the current dir in ci is sth like /home/xx/xx/acp-alb-test
   set -e # exit on err
   echo alb is $ALB

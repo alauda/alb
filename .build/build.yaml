@@ -1,6 +1,17 @@
 apiVersion: builds.katanomi.dev/v1alpha1
 kind: Build
 spec:
+  runTemplate:
+    spec:
+      workspaces:
+      - name: source
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+              - ReadWriteMany
+            resources:
+              requests:
+                storage: 500Mi
   workspaces:
     - description: >
         This workspace is shared among all the pipeline tasks to read/write
@@ -11,12 +22,12 @@ spec:
     - name: generate-version
       timeout: 5m
       retries: 1
-      taskRef:
-        kind: ClusterTask
-        name: alauda-generate-version
       workspaces:
         - name: source
           workspace: source
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-version
       params:
         - name: repo-type
           value: gitlab
@@ -27,14 +38,14 @@ spec:
     - name: code-scan
       runAfter:
         - generate-version
+      workspaces:
+        - name: source
+          workspace: source
       timeout: 30m
       retries: 1
       taskRef:
         kind: ClusterTask
         name: alauda-codescan-sonarqube
-      workspaces:
-        - name: source
-          workspace: source
       params:
         - name: address
           value: https://build-sonar.alauda.cn
@@ -51,33 +62,33 @@ spec:
             - 'sonar.projectVersion=$(tasks.generate-version.results.version)'
     - name: alb-test
       runAfter:
-        - generate-version
+        - code-scan
+      retries: 3
       workspaces:
         - name: source
           workspace: source
       taskSpec:
         description: >
-          run all alb test
+          run alb test
         workspaces:
           - name: source
             workspace: source
         steps:
-          - image: build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220407172357
+          - image: build-harbor.alauda.cn/ops/golang:1.18-alpine3.15 # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
             resources:
               requests:
-                cpu: "4"
+                cpu: "2"
                 memory: "4G"
               limits:
-                cpu: "4"
+                cpu: "2"
                 memory: "4G"              
             script: |
               #!/bin/sh
-              scripts/ci.sh
-              
-    - name: alauda-build-image
+              scripts/go-test.sh
+    - name: build-alb
       runAfter:
         - alb-test
       timeout: 30m
@@ -103,9 +114,94 @@ spec:
           value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
         - name: verbose
           value: "true"
+    - name: build-nginx
+      runAfter:
+        - code-scan
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-build-image
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: container-image
+          value: build-harbor.alauda.cn/3rdparty/alb-nginx
+        - name: container-image-tag
+          value: $(tasks.generate-version.results.version)
+        - name: dockerfile
+          value: ./alb-nginx/Dockerfile
+        - name: platform
+          value:
+            - linux/amd64
+            - linux/arm64
+        - name: tools-image
+          value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
+        - name: verbose
+          value: "true"
+    - name: nginx-test
+      timeout: 30m
+      retries: 3
+      runAfter:
+        - build-nginx
+      params:
+      - name: nginx-tag
+        value: $(tasks.generate-version.results.version)
+      workspaces:
+        - name: source
+          workspace: source
+      taskSpec:
+        description: >
+          run nginx test
+        workspaces:
+          - name: source
+            workspace: source
+        params:
+        - name: nginx-tag
+          value: $(params.nginx-tag)
+        steps:
+          - image: build-harbor.alauda.cn/3rdparty/alb-nginx:$(params.nginx-tag)
+            name: build
+            imagePullPolicy: IfNotPresent
+            workingDir: '$(workspaces.source.path)'
+            resources:
+              requests:
+                cpu: "4"
+                memory: "4G"
+              limits:
+                cpu: "4"
+                memory: "4G"              
+            script: |
+              #!/bin/sh
+              scripts/nginx-test.sh
+    - name: alauda-generate-chart-version
+      runAfter:
+        - generate-version
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-chart-version
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: chart-path
+          value: ./chart
+        - name: branch
+          value: $(tasks.generate-version.results.branch)
+        - name: namespace
+          value: acp
+        - name: comfigmap-name
+          value: alauda-gitlab-container-platform-alb2
     - name: build-chart
       runAfter:
-        - alauda-build-image
+        - alauda-generate-chart-version
+        - build-nginx
+        - build-alb
+        - alb-test
+        - nginx-test
       timeout: 30m
       retries: 3
       taskRef:
@@ -120,15 +216,15 @@ spec:
         - name: address
           value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
-          value: $(tasks.generate-version.results.semver-version)
+          value: $(tasks.alauda-generate-chart-version.results.version)
         - name: image-tag
           value: $(tasks.generate-version.results.version)
         - name: branch
           value: $(tasks.generate-version.results.branch)
         - name: git-revision
-          value: $(params.git-revision)
+          value: $(params.git-revision),$(params.git-revision)
         - name: values-path
-          value: global.images.alb2.tag
+          value: global.images.alb2.tag,global.images.nginx.tag
     - name: alauda-release-tag
       runAfter:
         - build-chart
