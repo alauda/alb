@@ -5,10 +5,9 @@ directory t: test files of alb/template/nginx/lua.
 directory actions: scripts used in develop.  
 
 ## QA
-### what the different between this and [official-resty-image](https://github.com/openresty/docker-openresty/blob/1.19.9.1-11/bionic/Dockerfile)
+### what the different between this and [official-resty-image](https://github.com/openresty/docker-openresty/blob/59d43df176d2635f7fe429c58ffd0f307580614e/alpine/Dockerfile)
 1. use alpine image
-2. use custom luajit version
-3. different build config
+2. different build config
 	1. nginx --with-debug
 	2. install some lua module
 		* lua-var-nginx-module
@@ -16,13 +15,6 @@ directory actions: scripts used in develop.
 		* xiangnanscu/lua-resty-cookie
 		* lua-resty-balancer
 	3. ignore luarocks
-### why use custom luajit version instead of built in
-1. to fix http://jira.alauda.cn/browse/ACP-5137 we need luajit which contains commit 787736990ac3b7d5ceaba2697c7d0f58f77bb782.
-2. I don't know what the commit id 787736990ac3b7d5ceaba2697c7d0f58f77bb782 mean (commit 67dbec82f4f05a416a78a560a726553beaa7a223 behind this seems more meaningful).
-3. to keep the compatibility we need to make sure all of luajit used here contains this commit.
-4. different version of luajit will cause huge different when benchmark. watch it out.
-5. the current header of [luajit2](https://github.com/openresty/luajit2) is 886d5f895b8ae19def724677376322b1f7ae2d4a at 2021/6/23.
-6. this step should be removed when openresty built in luajit update.
 ### 如何更新alb-nginx镜像
 1. 更新alb-nginx/Dockerfile, alb-nginx流水线构建3rdparty/alb-nginx镜像
 2. 更新alb-nginx/alb-test-runner.dockerfile中的alb-nginx镜像版本号, alb-test-runner-image流水线构建test-runner镜像
