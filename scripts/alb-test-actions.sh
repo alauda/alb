@@ -160,10 +160,7 @@ function alb-test-all-in-ci-golang {
 function alb-install-nginx-test-dependency {
   apk update && apk add  luacheck lua  perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
   cpanm --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/  -v --notest Test::Nginx IPC::Run 
-  cd / 
-  git clone https://gitclone.com/github.com/ledgetech/lua-resty-http.git && cp lua-resty-http/lib/resty/* /usr/local/openresty/site/lualib/resty/
-  cd -
-#   wget -O lua-format https://github.com/Koihik/vscode-lua-format/raw/master/bin/linux/lua-format && chmod a+x ./lua-format &&  mv ./lua-format /usr/bin/ && lua-format --help
+  cp ./alb-nginx/t/lib/lua-resty-http/* /usr/local/openresty/site/lualib/resty/
 }
 
 function alb-test-all-in-ci-nginx {
