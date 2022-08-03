@@ -225,6 +225,8 @@ spec:
           value: $(params.git-revision),$(params.git-revision)
         - name: values-path
           value: global.images.alb2.tag,global.images.nginx.tag
+        - name: commit 
+          value:  $(tasks.generate-version.results.commit-id)
     - name: alauda-release-tag
       runAfter:
         - build-chart
