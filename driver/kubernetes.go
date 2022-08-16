@@ -4,16 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"os"
-	"sort"
-	"strings"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
+	"net"
+	"os"
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
 	gatewayLister "sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
+	"strings"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/modules"
@@ -36,29 +34,16 @@ import (
 )
 
 type Backend struct {
-	InstanceID  string  `json:"instance_id"`
-	IP          string  `json:"ip"`
-	Protocol    string  `json:"-"`
-	AppProtocol *string `json:"-"`
-	Port        int     `json:"port"`
+	InstanceID        string  `json:"instance_id"`
+	IP                string  `json:"ip"`
+	Protocol          string  `json:"-"`
+	AppProtocol       *string `json:"-"`
+	Port              int     `json:"port"`
+	FromOtherClusters bool    `json:"otherclusters"`
 }
 
 func (b *Backend) String() string {
 	return fmt.Sprintf("%s:%d", b.IP, b.Port)
-}
-
-type ByBackend []*Backend
-
-func (b ByBackend) Len() int {
-	return len(b)
-}
-
-func (b ByBackend) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
-func (b ByBackend) Less(i, j int) bool {
-	return fmt.Sprintf("%s-%d", b[i].IP, b[i].Port) < fmt.Sprintf("%s-%d", b[j].IP, b[j].Port)
 }
 
 type Service struct {
@@ -231,18 +216,14 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 }
 
 // GetEndPointAddress return a list of pod ip in the endpoint, we assume all protocol are tcp now.
-func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNum int, protocol v1types.Protocol) (*Service, error) {
-	svc, err := kd.ServiceLister.Services(namespace).Get(name)
+func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svc *v1types.Service, svcPortNum int, protocol v1types.Protocol) (*Service, error) {
 
-	if err != nil {
-		return nil, err
-	}
 	ep, err := kd.EndpointLister.Endpoints(namespace).Get(name)
 
 	if err != nil {
 		return nil, err
 	}
-	containerPort, appProtocol, err := findContainerPort(svc, ep, svcPortNum, protocol)
+	containerPort, appProtocol, svcPortName, err := findContainerPort(svc, ep, svcPortNum, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -259,16 +240,23 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNu
 	for _, subset := range ep.Subsets {
 		for _, addr := range subset.Addresses {
 			service.Backends = append(service.Backends, &Backend{
-				InstanceID:  addr.Hostname,
-				IP:          addr.IP,
-				Protocol:    string(protocol),
-				AppProtocol: appProtocol,
-				Port:        containerPort,
+				InstanceID:        addr.Hostname,
+				IP:                addr.IP,
+				Protocol:          string(protocol),
+				AppProtocol:       appProtocol,
+				Port:              containerPort,
+				FromOtherClusters: false,
 			})
 		}
 	}
-	sort.Sort(ByBackend(service.Backends))
-	klog.V(3).Infof("backends of svc %s %s : %+v", name, protocol, service.Backends)
+	klog.V(3).Infof("backends of svc %s/%s : %+v", name, protocol, service.Backends)
+
+	if config.GetBool("SERVE_CROSSCLUSTERS") {
+		klog.Infof("begin serve cross-cluster endpointslice")
+		service.Backends = kd.mergeSubmarinerCrossClusterBackends(namespace, name, svcPortName, service.Backends, protocol)
+		klog.V(3).Infof("added cross-cluster backends of svc %s/%s : %+v", name, protocol, service.Backends)
+	}
+
 	if len(service.Backends) == 0 {
 		klog.Warningf("service %s has 0 backends, means has no health pods", name)
 	}
@@ -278,9 +266,10 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svcPortNu
 // findContainerPort via given svc and endpoints, we assume protocol are tcp now.
 //
 // endpoint-controller https://github.com/kubernetes/kubernetes/blob/e8cf412e5ec70081477ad6f126c7f7ef7449109c/pkg/controller/endpoint/endpoints_controller.go#L442-L442
-func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum int, protocol v1types.Protocol) (int, *string, error) {
+func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum int, protocol v1types.Protocol) (int, *string, string, error) {
 	containerPort := 0
 	var appProtocol *string
+	var svcPortName string
 	for _, svcPort := range svc.Spec.Ports {
 		if svcPort.Protocol == "" {
 			svcPort.Protocol = "tcp"
@@ -289,7 +278,7 @@ func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum i
 			continue
 		}
 		if svcPortNum == int(svcPort.Port) {
-			svcPortName := svcPort.Name
+			svcPortName = svcPort.Name
 			appProtocol = svcPort.AppProtocol
 			if svcPort.TargetPort.Type == intstr.Int {
 				containerPort = int(svcPort.TargetPort.IntVal)
@@ -308,9 +297,9 @@ func findContainerPort(svc *v1types.Service, ep *v1types.Endpoints, svcPortNum i
 	}
 
 	if containerPort == 0 {
-		return 0, nil, fmt.Errorf("could not find container port in svc %s/%s port %v svc.ports %v ep %v", svc.Namespace, svc.Name, svcPortNum, svc.Spec.Ports, ep)
+		return 0, nil, svcPortName, fmt.Errorf("could not find container port in svc %s/%s port %v svc.ports %v ep %v", svc.Namespace, svc.Name, svcPortNum, svc.Spec.Ports, ep)
 	}
-	return containerPort, appProtocol, nil
+	return containerPort, appProtocol, svcPortName, nil
 }
 
 // GetExternalNameAddress return a fqdn address for service
@@ -339,7 +328,6 @@ func (kd *KubernetesDriver) GetExternalNameAddress(svc *v1types.Service, port in
 			})
 		}
 	}
-	sort.Sort(ByBackend(service.Backends))
 	klog.V(3).Infof("backends of svc %s: %+v", svc.Name, service.Backends)
 	return service, nil
 }
@@ -348,14 +336,27 @@ func (kd *KubernetesDriver) GetExternalNameAddress(svc *v1types.Service, port in
 func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePort int, protocol v1types.Protocol) (*Service, error) {
 	svc, err := kd.ServiceLister.Services(namespace).Get(name)
 	if err != nil || svc == nil {
-		klog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
-		return nil, err
+		if !config.GetBool("SERVE_CROSSCLUSTERS") {
+			klog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
+			return nil, err
+		} else {
+			klog.Infof("begin serve cross-cluster endpointslice")
+			service := &Service{
+				Name:        name,
+				Namespace:   namespace,
+				ServicePort: servicePort,
+				Protocol:    string(protocol),
+				Backends:    make([]*Backend, 0),
+			}
+			service.Backends = kd.mergeSubmarinerCrossClusterBackends(namespace, name, "", service.Backends, protocol)
+			return service, nil
+		}
 	}
 	switch svc.Spec.Type {
 	case v1types.ServiceTypeClusterIP:
-		return kd.GetEndPointAddress(name, namespace, servicePort, protocol)
+		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	case v1types.ServiceTypeNodePort:
-		return kd.GetEndPointAddress(name, namespace, servicePort, protocol)
+		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	case v1types.ServiceTypeExternalName:
 		return kd.GetExternalNameAddress(svc, servicePort, protocol)
 	default:
@@ -395,6 +396,53 @@ func (kd *KubernetesDriver) GetServicePortNumber(namespace, name string, port in
 
 func (kd *KubernetesDriver) GetServiceByName(namespace, name string, servicePort int, protocol v1types.Protocol) (*Service, error) {
 	return kd.GetServiceAddress(name, namespace, servicePort, protocol)
+}
+
+func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name, svcPortName string, Backends []*Backend, protocol v1types.Protocol) []*Backend {
+
+	sel := metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "submariner-io/clusterID",
+				Operator: metav1.LabelSelectorOpExists,
+			},
+		},
+	}
+	selector, err := metav1.LabelSelectorAsSelector(&sel)
+	if err != nil {
+		klog.Errorf("label selector:%s, for endpointslice is wrong: %s", selector, err.Error())
+		return Backends
+	}
+	endpointSlices, err := kd.Informers.K8s.EndpointSlice.Lister().EndpointSlices(namespace).List(selector)
+	if err != nil {
+		klog.Errorf("Get cross-cluster endpointSlices from ns: %s, failed: %s", namespace, err.Error())
+		return Backends
+	} else {
+		klog.Infof("Got endpointslice cross-clusters from ns:%s, %s", namespace, endpointSlices)
+	}
+	for _, endpointSlice := range endpointSlices {
+		if strings.HasPrefix(endpointSlice.Name, name) {
+			for _, port := range endpointSlice.Ports {
+				if svcPortName == "" || svcPortName == *port.Name {
+					for _, endpoint := range endpointSlice.Endpoints {
+						if *endpoint.Conditions.Ready == true {
+							for _, ip := range endpoint.Addresses {
+								containerPort := int(*port.Port)
+								Backends = append(Backends, &Backend{
+									InstanceID:        *endpoint.Hostname,
+									IP:                ip,
+									Protocol:          string(protocol),
+									Port:              containerPort,
+									FromOtherClusters: true,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return Backends
 }
 
 // IsPodReady returns true if a pod is ready; false otherwise.

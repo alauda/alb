@@ -99,11 +99,12 @@ func (ft *Frontend) IsValidProtocol() bool {
 }
 
 type Backend struct {
-	Address     string  `json:"address"`
-	Port        int     `json:"port"`
-	Weight      int     `json:"weight"`
-	Protocol    string  `json:"-"`
-	AppProtocol *string `json:"-"`
+	Address           string  `json:"address"`
+	FromOtherClusters bool    `json:"otherclusters"`
+	Port              int     `json:"port"`
+	Weight            int     `json:"weight"`
+	Protocol          string  `json:"-"`
+	AppProtocol       *string `json:"-"`
 }
 
 func (b *Backend) Eq(other *Backend) bool {
@@ -123,8 +124,9 @@ func (bs Backends) Len() int {
 func (bs Backends) Less(i, j int) bool {
 	return bs[i].String() < bs[j].String()
 }
-func (bs Backends) Swap(i, j int) bool {
-	return bs[i].String() < bs[j].String()
+
+func (bs Backends) Swap(i, j int) {
+	bs[i], bs[j] = bs[j], bs[i]
 }
 
 func (bs Backends) Eq(other Backends) bool {

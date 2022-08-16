@@ -98,7 +98,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 			f.WaitPolicy(func(policyRaw string) bool {
 				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 port:80 weight:50] map[address:192.168.2.2 port:80 weight:50]]`)
+				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod
 			})
 
@@ -149,7 +149,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			assert.Equal(ginkgo.GinkgoT(), rule.Spec.ServiceGroup.Services[0].Port, 81)
 			f.WaitPolicy(func(policyRaw string) bool {
 				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.3.1 port:112 weight:50] map[address:192.168.3.2 port:112 weight:50]]`)
+				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.3.1 otherclusters:false port:112 weight:50] map[address:192.168.3.2 otherclusters:false port:112 weight:50]]`)
 				return hasRule && hasPod
 			})
 		})
@@ -170,7 +170,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 			f.WaitPolicy(func(policyRaw string) bool {
 				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 port:80 weight:50] map[address:192.168.2.2 port:80 weight:50]]`)
+				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod
 			})
 		})

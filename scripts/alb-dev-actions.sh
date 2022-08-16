@@ -8,7 +8,7 @@ source $ALB/scripts/alb-test-actions.sh
 function install-envtest {
   echo "install envtest"
   if [[ ! -d "/usr/local/kubebuilder" ]]; then
-    export K8S_VERSION=1.19.2
+    export K8S_VERSION=1.21.2
     curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
     # TODO need sudo permissions
     mkdir -p /usr/local/kubebuilder

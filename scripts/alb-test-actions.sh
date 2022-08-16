@@ -118,7 +118,7 @@ function alb-install-golang-test-dependency {
   wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf  kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
   apk update && apk add parallel python3 py3-pip curl git build-base jq iproute2 openssl
   pip install crossplane
-  curl --progress-bar  -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.19.2/$(go env GOOS)/$(go env GOARCH)" && \
+  curl --progress-bar  -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.21.2/$(go env GOOS)/$(go env GOARCH)" && \
     mkdir -p /usr/local/kubebuilder && \
     tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz && \
     rm envtest-bins.tar.gz && \

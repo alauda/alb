@@ -12,6 +12,7 @@ enablePortProject: false
 enableIPV6: "true"
 enableHTTP2: "true"
 enableIngress: "true"
+enableCrossClusters: "false"
 enableGzip: "true"
 defaultSSLCert: ""
 defaultSSLStrategy: Never

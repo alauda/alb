@@ -431,9 +431,9 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				assert.Equal(t, albPolicy.Http.Tcp[8000][1].Upstream, "rule-1")
 				assert.Equal(t, albPolicy.Http.Tcp[8000][2].Upstream, "rule-2")
 				assert.Equal(t, albPolicy.Http.Tcp[8000][3].Upstream, "alb-1-8000-http")
-				AssertBackendsEq(t, albPolicy.GetBackendGroup("rule-1").Backends, []*Backend{{"192.168.20.3", 8002, 50, "", nil}, {"192.168.20.4", 8002, 50, "", nil}})
-				AssertBackendsEq(t, albPolicy.GetBackendGroup("rule-2").Backends, []*Backend{{"192.168.20.3", 8004, 25, "", nil}, {"192.168.20.4", 8004, 25, "", nil}, {"192.168.20.3", 8002, 25, "", nil}, {"192.168.20.4", 8002, 25, "", nil}})
-				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-http").Backends, []*Backend{{"192.168.10.4", 8001, 50, "", nil}, {"192.168.10.5", 8001, 50, "", nil}})
+				AssertBackendsEq(t, albPolicy.GetBackendGroup("rule-1").Backends, []*Backend{{"192.168.20.3", false, 8002, 50, "", nil}, {"192.168.20.4", false, 8002, 50, "", nil}})
+				AssertBackendsEq(t, albPolicy.GetBackendGroup("rule-2").Backends, []*Backend{{"192.168.20.3", false, 8004, 25, "", nil}, {"192.168.20.4", false, 8004, 25, "", nil}, {"192.168.20.3", false, 8002, 25, "", nil}, {"192.168.20.4", false, 8002, 25, "", nil}})
+				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-http").Backends, []*Backend{{"192.168.10.4", false, 8001, 50, "", nil}, {"192.168.10.5", false, 8001, 50, "", nil}})
 			},
 		},
 		{
@@ -536,7 +536,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				policies := albPolicy.Stream.Tcp[8000]
 				assert.Equal(t, len(policies), 1)
 				assert.Equal(t, policies[0].Upstream, "alb-1-8000-tcp")
-				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-tcp").Backends, []*Backend{{"192.168.10.4", 8001, 50, "", nil}, {"192.168.10.5", 8001, 50, "", nil}})
+				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-tcp").Backends, []*Backend{{"192.168.10.4", false, 8001, 50, "", nil}, {"192.168.10.5", false, 8001, 50, "", nil}})
 			},
 		},
 		{
@@ -645,7 +645,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				policies := albPolicy.Stream.Udp[8000]
 				assert.Equal(t, len(policies), 1)
 				assert.Equal(t, policies[0].Upstream, "alb-1-8000-udp")
-				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-udp").Backends, []*Backend{{"192.168.10.4", 8001, 50, "", nil}, {"192.168.10.5", 8001, 50, "", nil}})
+				AssertBackendsEq(t, albPolicy.GetBackendGroup("alb-1-8000-udp").Backends, []*Backend{{"192.168.10.4", false, 8001, 50, "", nil}, {"192.168.10.5", false, 8001, 50, "", nil}})
 			},
 		},
 		{

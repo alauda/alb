@@ -10,6 +10,7 @@ import (
 	albGateway "alauda.io/alb2/pkg/client/informers/externalversions/gateway/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/informers/core/v1"
+	discoveryv1 "k8s.io/client-go/informers/discovery/v1"
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	gatewayExternal "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
@@ -24,11 +25,12 @@ type Informers struct {
 }
 
 type K8sInformers struct {
-	Ingress      networkingV1.IngressInformer
-	IngressClass networkingV1.IngressClassInformer
-	Service      v1.ServiceInformer
-	Endpoint     v1.EndpointsInformer
-	Namespace    v1.NamespaceInformer
+	Ingress       networkingV1.IngressInformer
+	IngressClass  networkingV1.IngressClassInformer
+	Service       v1.ServiceInformer
+	Endpoint      v1.EndpointsInformer
+	EndpointSlice discoveryv1.EndpointSliceInformer
+	Namespace     v1.NamespaceInformer
 }
 
 type GatewayInformers struct {
@@ -68,6 +70,9 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	endpointInformer := kubeInformerFactory.Core().V1().Endpoints()
 	endpointSynced := endpointInformer.Informer().HasSynced
+
+	endpointSliceInformer := kubeInformerFactory.Discovery().V1().EndpointSlices()
+	endpointSliceSynced := endpointSliceInformer.Informer().HasSynced
 
 	kubeInformerFactory.Start(ctx.Done())
 
@@ -121,6 +126,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 		ingressClassSynced,
 		serviceSynced,
 		endpointSynced,
+		endpointSliceSynced,
 		alb2Synced,
 		frontendSynced,
 		ruleSynced,
@@ -139,11 +145,12 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	return &Informers{
 		K8s: K8sInformers{
-			Ingress:      ingressInformer,
-			IngressClass: ingressClassInformer,
-			Service:      serviceInformer,
-			Endpoint:     endpointInformer,
-			Namespace:    namespaceInformer,
+			Ingress:       ingressInformer,
+			IngressClass:  ingressClassInformer,
+			Service:       serviceInformer,
+			Endpoint:      endpointInformer,
+			EndpointSlice: endpointSliceInformer,
+			Namespace:     namespaceInformer,
 		},
 		Alb: AlbInformers{
 			Alb:           alb2Informer,

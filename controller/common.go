@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -75,15 +76,18 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 			}
 			bes = append(bes,
 				&Backend{
-					Address:     be.IP,
-					Port:        port,
-					Weight:      weight,
-					Protocol:    be.Protocol,
-					AppProtocol: be.AppProtocol,
+					Address:           be.IP,
+					Port:              port,
+					Weight:            weight,
+					Protocol:          be.Protocol,
+					AppProtocol:       be.AppProtocol,
+					FromOtherClusters: be.FromOtherClusters,
 				})
 		}
 	}
-	return Backends(bes)
+	sortedBackends := Backends(bes)
+	sort.Sort(sortedBackends)
+	return sortedBackends
 }
 
 func sameFiles(file1, file2 string) bool {

@@ -14,7 +14,7 @@ configmap_to_file() {
 
 }
 
-ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220214184520
+ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220711193217
 test-nginx() {
   local filter=""
   if [ ! -z "$1" ]

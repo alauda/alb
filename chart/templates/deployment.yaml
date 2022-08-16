@@ -62,6 +62,8 @@ spec:
               value: "{{ .Values.enableGzip }}"
             - name: SERVE_INGRESS
               value: "{{ .Values.enableIngress }}"
+            - name: SERVE_CROSSCLUSTERS
+              value: "{{ .Values.enableCrossClusters }}"
             - name: ENABLE_PROFILE
               value: "{{ .Values.enableProfile }}"
             - name: DEFAULT-SSL-CERTIFICATE

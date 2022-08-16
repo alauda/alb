@@ -59,3 +59,9 @@ alb-nginx-test:20220317113027
 
 alb-nginx-test:20220407172357
     use go1.18
+
+alb-nginx-test:20220609230028
+    use alb-nginx:v3.9-57-gb40a7de(openresty 1.19.9.1)
+
+alb-nginx-test:20220711193217
+    upgrade kubebuilder test-tools from 1.19.2 to 1.21.2
