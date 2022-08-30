@@ -24,6 +24,7 @@ func TestEnvConfig(t *testing.T) {
 		"NEW_POLICY_PATH":     "new",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
+		"MY_POD_NAME":         "abc-xx",
 		"DOMAIN":              "alauda.io",
 	}
 	for key, val := range ENV {
@@ -35,7 +36,7 @@ func TestEnvConfig(t *testing.T) {
 		a.Equal(val, Get(key))
 	}
 
-	err := ValidateConfig()
+	err := Init()
 	a.Nil(err)
 
 	cleanenv(ENV)
@@ -52,6 +53,7 @@ func TestStandAlone(t *testing.T) {
 	ENV := map[string]string{
 		"LB_TYPE":             Nginx,
 		"SCHEDULER":           Kubernetes,
+		"MY_POD_NAME":         "abc-xx",
 		"NEW_CONFIG_PATH":     "new",
 		"OLD_CONFIG_PATH":     "old",
 		"NGINX_TEMPLATE_PATH": "tpl",
@@ -70,7 +72,7 @@ func TestStandAlone(t *testing.T) {
 	os.Setenv("ALB_STANDALONE", "true")
 	Initialize()
 	a.True(IsStandalone())
-	err := ValidateConfig()
+	err := Init()
 	a.Nil(err)
 
 	cleanenv(ENV)
@@ -95,14 +97,19 @@ func TestDefault(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	os.Setenv("ALB_LOCK_TIMEOUT", "100")
-	ret := GetInt("LOCK_TIMEOUT")
-	assert.Equal(t, ret, 100)
+	os.Setenv("MY_POD_NAME", "abc-xx")
 	os.Setenv("CPU_LIMIT", "8")
+	Init()
+	t.Logf("get env %v\n", os.Getenv("CPU_LIMIT"))
 	ret2 := GetInt("CPU_LIMIT")
 	assert.Equal(t, ret2, 8)
 	CleanCache()
-	os.Setenv("CPU_LIMIT", "1600m")
+	os.Setenv("ALB_CPU_LIMIT", "1600m")
 	ret3 := GetInt("CPU_LIMIT")
+	t.Logf("ret 3 %v\n", ret3)
 	assert.Equal(t, ret3, 2)
+
+	ret4 := Get("MY_POD_NAME")
+	t.Logf("ret 4 %v\n", ret4)
+	assert.Equal(t, ret4, "abc-xx")
 }

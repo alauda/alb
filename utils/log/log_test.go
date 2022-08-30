@@ -7,7 +7,6 @@ import (
 )
 
 func TestLog(t *testing.T) {
-	Init()
 	klogv2.Info("klog v2 info")
 	l := L()
 	l.V(-100).Info("test v-100")

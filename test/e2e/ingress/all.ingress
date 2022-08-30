@@ -1,0 +1,1813 @@
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: apollo
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      chart: alauda-base-v3.10.0-alpha.476-2.0
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: alauda-base
+    name: apollo
+    namespace: cpaas-system
+    resourceVersion: "6847"
+    uid: 45373213-99b7-41ec-a8ea-a7285db824e1
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /auth(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: apollo-aiops
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+    name: apollo-aiops
+    namespace: cpaas-system
+    resourceVersion: "6858"
+    uid: e164bd9e-edaa-478f-813e-e30eb8929a9f
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/alerts
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v2/alerts
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/metrics
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v2/metrics
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v2/dashboards
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/config/alerts
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/templates/render
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/securityrules/messages
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/securityrules/messages/aggregation
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/securityalerts
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/archivelogs
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v4/logs
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v4/events
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v4/events/summary
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/meter
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/alerthistories
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/kubernetes-audits
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v5/logs
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/operationdata
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /v1/query/list
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: apollo-aiops-diagnose
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: $1
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+      service_name: apollo-aiops-diagnose
+    name: apollo-aiops-diagnose
+    namespace: cpaas-system
+    resourceVersion: "6877"
+    uid: 929554f0-c89a-4673-9658-3c789f40582b
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /morgans(/_diagnose)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: apollo-functiontest
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+    name: apollo-functiontest
+    namespace: cpaas-system
+    resourceVersion: "6888"
+    uid: 0e6caf70-4d10-4960-9f96-bf93e7ea9b70
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: apollo
+              port:
+                number: 8080
+          path: /testing(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: archon
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      app.cpaas.io/name: archon.cpaas-system
+      chart: alauda-base-v3.10.0-alpha.476-2.0
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+    name: archon
+    namespace: cpaas-system
+    resourceVersion: "6894"
+    uid: af14d57f-6352-4a68-97cf-d50a67682bfe
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /acp
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /fg
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /lic
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /catalog/v1
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /certificate/v1
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: archon
+              port:
+                number: 80
+          path: /operators/v1
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-10T01:52:21Z"
+    generation: 1
+    name: cluster-proxy-high
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: high
+      uid: 800e844d-1fcc-404f-a6fc-bab416bde30c
+    resourceVersion: "881114"
+    uid: d220614c-9530-4cce-bd2b-6ef8615bb2eb
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-high
+              port:
+                number: 80
+          path: /clusters/high/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-high
+              port:
+                number: 80
+          path: /clusters/high$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-10T02:35:50Z"
+    generation: 1
+    name: cluster-proxy-pxc
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: pxc
+      uid: af695858-4b7a-4c94-8b1a-bcd1aab77af2
+    resourceVersion: "939260"
+    uid: 46aff8e2-1281-47b0-ae89-6a7e4c7a7a74
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-pxc
+              port:
+                number: 80
+          path: /clusters/pxc/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-pxc
+              port:
+                number: 80
+          path: /clusters/pxc$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-10T02:12:43Z"
+    generation: 1
+    name: cluster-proxy-redis
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: redis
+      uid: 7623f9a0-7643-4427-972c-d56e1d3fc5e9
+    resourceVersion: "908357"
+    uid: 6eb6b55f-0a9f-4579-acd3-8efcc1a887e4
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-redis
+              port:
+                number: 80
+          path: /clusters/redis/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-redis
+              port:
+                number: 80
+          path: /clusters/redis$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:43:46Z"
+    generation: 1
+    name: cluster-proxy-region-calico
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-calico
+      uid: 6cc39cb9-f1bc-45cd-942d-4306b3d12ad2
+    resourceVersion: "76697"
+    uid: 6cd64f51-13d2-46ad-87ff-ce1d82e46434
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-calico
+              port:
+                number: 80
+          path: /clusters/region-calico/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-region-calico
+              port:
+                number: 80
+          path: /clusters/region-calico$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T16:02:43Z"
+    generation: 1
+    name: cluster-proxy-region-devops
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-devops
+      uid: cc245554-3068-4c67-a85b-ce539e745e03
+    resourceVersion: "101715"
+    uid: d6872ecc-bbe0-433d-ab76-5ce11346ff0d
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-devops
+              port:
+                number: 80
+          path: /clusters/region-devops/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-region-devops
+              port:
+                number: 80
+          path: /clusters/region-devops$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T16:20:01Z"
+    generation: 1
+    name: cluster-proxy-region-ovn
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-ovn
+      uid: 4c27fff4-f297-4b6f-ae53-795a5d0f295c
+    resourceVersion: "124689"
+    uid: a48a718b-93f1-43a1-a78e-7a82670c1c54
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-ovn
+              port:
+                number: 80
+          path: /clusters/region-ovn/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: cluster-proxy-region-ovn
+              port:
+                number: 80
+          path: /clusters/region-ovn$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:07:21Z"
+    generation: 1
+    name: cluster-proxy-rewrite-global
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: global
+      uid: c2fe0913-af38-4100-b6c5-a2984b4d7b55
+    resourceVersion: "8256"
+    uid: c5f3b0e0-f3d1-4110-b220-8af21c5ec0e4
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-global
+              port:
+                number: 443
+          path: /clusters-rewrite/global(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-10T01:52:21Z"
+    generation: 1
+    name: cluster-proxy-rewrite-high
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: high
+      uid: 800e844d-1fcc-404f-a6fc-bab416bde30c
+    resourceVersion: "881115"
+    uid: a1c92ff8-0f77-4ce9-868e-d78e73d32fcd
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-high
+              port:
+                number: 80
+          path: /clusters-rewrite/high(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-10T02:35:50Z"
+    generation: 1
+    name: cluster-proxy-rewrite-pxc
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: pxc
+      uid: af695858-4b7a-4c94-8b1a-bcd1aab77af2
+    resourceVersion: "939261"
+    uid: 502cf6b6-4fc6-4b7f-9cf1-a221866220e4
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-pxc
+              port:
+                number: 80
+          path: /clusters-rewrite/pxc(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-10T02:12:43Z"
+    generation: 1
+    name: cluster-proxy-rewrite-redis
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: redis
+      uid: 7623f9a0-7643-4427-972c-d56e1d3fc5e9
+    resourceVersion: "908359"
+    uid: 461bdfb0-b8a2-4beb-aaae-4ce8ed370daa
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-redis
+              port:
+                number: 80
+          path: /clusters-rewrite/redis(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:43:46Z"
+    generation: 1
+    name: cluster-proxy-rewrite-region-calico
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-calico
+      uid: 6cc39cb9-f1bc-45cd-942d-4306b3d12ad2
+    resourceVersion: "76699"
+    uid: 05730341-3f80-46fc-a0dc-a93bd8d168c3
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-calico
+              port:
+                number: 80
+          path: /clusters-rewrite/region-calico(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T16:02:43Z"
+    generation: 1
+    name: cluster-proxy-rewrite-region-devops
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-devops
+      uid: cc245554-3068-4c67-a85b-ce539e745e03
+    resourceVersion: "101716"
+    uid: d4a6139c-3e1a-400d-90f1-d6bd94c7b8d5
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-devops
+              port:
+                number: 80
+          path: /clusters-rewrite/region-devops(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: '{"headers":{"Content-Security-Policy":
+        "media-src ''self'';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}'
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T16:20:01Z"
+    generation: 1
+    name: cluster-proxy-rewrite-region-ovn
+    namespace: cpaas-system
+    ownerReferences:
+    - apiVersion: platform.tkestack.io/v1
+      kind: Cluster
+      name: region-ovn
+      uid: 4c27fff4-f297-4b6f-ae53-795a5d0f295c
+    resourceVersion: "124690"
+    uid: a4ba091f-acf1-40b8-a3ae-8dd7d3c29af4
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cluster-proxy-region-ovn
+              port:
+                number: 80
+          path: /clusters-rewrite/region-ovn(.|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.558
+      helm.sh/original-name: cpaas-elasticsearch
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:11:25Z"
+    generation: 1
+    labels:
+      chart: alauda-log-center
+      helm.sh/chart-name: alauda-log-center
+      helm.sh/release-name: logcenter
+      helm.sh/release-namespace: cpaas-system
+      service_name: cpaas-elasticsearch
+    name: cpaas-elasticsearch
+    namespace: cpaas-system
+    resourceVersion: "15442"
+    uid: 3b053c1b-ebef-4344-aad8-840fb85688b1
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cpaas-elasticsearch
+              port:
+                number: 9200
+          path: /es_proxy(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.558
+      helm.sh/original-name: cpaas-kibana
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:11:25Z"
+    generation: 1
+    labels:
+      chart: alauda-log-center
+      helm.sh/chart-name: alauda-log-center
+      helm.sh/release-name: logcenter
+      helm.sh/release-namespace: cpaas-system
+      service_name: cpaas-kibana
+    name: cpaas-kibana
+    namespace: cpaas-system
+    resourceVersion: "15462"
+    uid: bc6d85d3-8c38-46d2-b1ad-8f8481233b4f
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: cpaas-kibana
+              port:
+                number: 5601
+          path: /kibana(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.583
+      helm.sh/original-name: devops-api
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:14:21Z"
+    generation: 1
+    labels:
+      app: alauda-devops
+      chart: alauda-devops-v3.10.0-alpha.583-2.0
+      helm.sh/chart-name: alauda-devops
+      helm.sh/release-name: alauda-devops
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: alauda-devops
+    name: devops-api
+    namespace: cpaas-system
+    resourceVersion: "20578"
+    uid: f8dd826f-483d-46cb-8cab-e87a5403ce88
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: devops-api
+              port:
+                number: 8080
+          path: /devops(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.583
+      helm.sh/original-name: devops-next-eventlistener
+      ingress.kubernetes.io/enable-cors: "true"
+      ingress.kubernetes.io/rewrite-target: /$1
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$1
+    creationTimestamp: "2022-08-09T15:14:21Z"
+    generation: 1
+    labels:
+      app: alauda-devops
+      chart: alauda-devops-v3.10.0-alpha.583-2.0
+      helm.sh/chart-name: alauda-devops
+      helm.sh/release-name: alauda-devops
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: alauda-devops
+    name: devops-next-eventlistener
+    namespace: cpaas-system
+    resourceVersion: "20594"
+    uid: 4e958f6a-7d28-42d8-8f5d-b706ec8b23de
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: devops-next-eventlistener-service
+              port:
+                number: 8082
+          path: /events/(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.488
+      helm.sh/original-name: dex
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/secure-verify-ca-secret: dex.tls
+    creationTimestamp: "2022-08-09T15:05:26Z"
+    generation: 1
+    labels:
+      app: dex
+      chart: dex-v3.10.0-alpha.488
+      helm.sh/chart-name: dex
+      helm.sh/release-name: dex
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: dex
+    name: dex
+    namespace: cpaas-system
+    resourceVersion: "5313"
+    uid: 4e670e5e-e942-408d-ae11-a04a94fdc040
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: dex
+              port:
+                number: 5556
+          path: /dex/*
+          pathType: ImplementationSpecific
+    tls:
+    - {}
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.476
+      helm.sh/original-name: dex-public-key
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /dex/pubkey
+      nginx.ingress.kubernetes.io/secure-verify-ca-secret: dex.tls
+    creationTimestamp: "2022-08-09T15:06:17Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: alauda-base
+      helm.sh/release-name: alauda-base
+      helm.sh/release-namespace: cpaas-system
+    name: dex-public-key
+    namespace: cpaas-system
+    resourceVersion: "6890"
+    uid: ae2cf750-4174-4acb-9286-113c28a41f4d
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: dex
+              port:
+                number: 5556
+          path: /auth/v1/pubkey
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: dex-ui-favicon
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /api/v1/cm/ui-logos/favicon
+    creationTimestamp: "2022-08-09T15:13:54Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: dex-ui-favicon
+    namespace: cpaas-system
+    resourceVersion: "19442"
+    uid: 4fcc77e2-9ec1-405d-9826-729cf5f7b2f9
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: underlord
+              port:
+                number: 8080
+          path: /dex/static/logos/favicon.*
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: dex-ui-login-bg
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /api/v1/cm/ui-login-bg/login-bg
+    creationTimestamp: "2022-08-09T15:13:54Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: dex-ui-login-bg
+    namespace: cpaas-system
+    resourceVersion: "19428"
+    uid: 85f4896b-c951-4b31-b2b2-995bfabb5696
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: underlord
+              port:
+                number: 8080
+          path: /dex/static/logos/login-bg.*
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: dex-ui-login-logo
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /api/v1/cm/ui-login-logo/login-logo
+    creationTimestamp: "2022-08-09T15:13:54Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: dex-ui-login-logo
+    namespace: cpaas-system
+    resourceVersion: "19388"
+    uid: bef33a9e-8b48-47a1-a873-87d6e8c3c21b
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: underlord
+              port:
+                number: 8080
+          path: /dex/static/logos/dex-logo.*
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: diablo-frontend
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:13:54Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: diablo-frontend
+    namespace: cpaas-system
+    resourceVersion: "19473"
+    uid: 3b36b74e-fdeb-4135-a95c-17cf77ed7165
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: diablo-frontend
+              port:
+                number: 8080
+          path: /console-devops(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.465
+      helm.sh/original-name: erebus
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:05:53Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: cluster-manager
+      helm.sh/release-name: cluster-manager
+      helm.sh/release-namespace: cpaas-system
+      service_name: erebus
+    name: erebus
+    namespace: cpaas-system
+    resourceVersion: "6328"
+    uid: 36c4a3e9-9563-4ea9-b372-646cb5efa3b5
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: erebus
+              port:
+                number: 443
+          path: /kubernetes/
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: erebus
+              port:
+                number: 443
+          path: /api
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: erebus
+              port:
+                number: 443
+          path: /apis
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: erebus
+              port:
+                number: 443
+          path: /version
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.575
+      helm.sh/original-name: hermes
+      nginx.ingress.kubernetes.io/cors-allow-headers: DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization,Accept,Origin,Referer
+      nginx.ingress.kubernetes.io/cors-allow-methods: GET, PUT, POST, DELETE, PATCH
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:14:01Z"
+    generation: 1
+    labels:
+      chart: global-asm
+      helm.sh/chart-name: global-asm
+      helm.sh/release-name: global-asm
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: global-asm
+    name: hermes
+    namespace: cpaas-system
+    resourceVersion: "19782"
+    uid: 57aad786-94ce-4987-8b1c-0523e8fe4517
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: hermes
+              port:
+                number: 8080
+          path: /asm(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: icarus
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:13:55Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: icarus
+    namespace: cpaas-system
+    resourceVersion: "19486"
+    uid: f2cf2069-186b-444c-a4fb-4884095b0826
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: icarus
+              port:
+                number: 8080
+          path: /console-acp(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      ingress.kubernetes.io/enable-cors: "true"
+      meta.helm.sh/release-name: katanomi-global
+      meta.helm.sh/release-namespace: cpaas-system
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+    creationTimestamp: "2022-08-09T15:09:41Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      control-plane: katanomi-api
+      devops.operator/name: katanomi-global
+      devops.operator/namespace: cpaas-system
+      devops.operator/releaseName: katanomi-global
+      service_name: katanomi-api
+    name: katanomi-api
+    namespace: cpaas-system
+    resourceVersion: "10992"
+    uid: ce09ef16-b8c5-4580-a390-fa109a7c3fd8
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: katanomi-api
+              port:
+                number: 80
+          path: /integrations
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: katanomi-api
+              port:
+                number: 80
+          path: /builds
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      ingress.kubernetes.io/enable-cors: "true"
+      meta.helm.sh/release-name: katanomi-global
+      meta.helm.sh/release-namespace: cpaas-system
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+    creationTimestamp: "2022-08-09T15:09:41Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      control-plane: katanomi-plugin
+      devops.operator/name: katanomi-global
+      devops.operator/namespace: cpaas-system
+      devops.operator/releaseName: katanomi-global
+      service_name: katanomi-plugin
+    name: katanomi-plugin
+    namespace: cpaas-system
+    resourceVersion: "10994"
+    uid: e87ab4c7-8c72-4d7f-a207-509ee71bc7aa
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: katanomi-plugin
+              port:
+                number: 80
+          path: /plugins
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      ingress.kubernetes.io/enable-cors: "true"
+      ingress.kubernetes.io/rewrite-target: /$2
+      meta.helm.sh/release-name: katanomi-global
+      meta.helm.sh/release-namespace: cpaas-system
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:09:41Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/managed-by: Helm
+      control-plane: katanomi-api
+      devops.operator/name: katanomi-global
+      devops.operator/namespace: cpaas-system
+      devops.operator/releaseName: katanomi-global
+      service_name: katanomi-api
+    name: katanomi-rewrite-api
+    namespace: cpaas-system
+    resourceVersion: "10993"
+    uid: 388d8418-943e-4a40-b7fd-2fbb602b449f
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: katanomi-api
+              port:
+                number: 80
+          path: /katanomi(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      app: prometheus
+      chart: prometheus-0.0.50
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      prometheus: kube-prometheus
+      release: kube-prometheus
+    name: kube-prometheus
+    namespace: cpaas-system
+    resourceVersion: "13683"
+    uid: 599f113e-aaaa-40df-84b4-e401c315bb0b
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-0-web
+              port:
+                number: 9090
+          path: /clusters/global/prometheus-0($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus-1
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      app: prometheus
+      chart: prometheus-0.0.50
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      prometheus: kube-prometheus
+      release: kube-prometheus
+    name: kube-prometheus-1
+    namespace: cpaas-system
+    resourceVersion: "13686"
+    uid: 329857ef-afa0-4e68-a3a1-54070ee8b1b8
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-1-web
+              port:
+                number: 9090
+          path: /clusters/global/prometheus-1($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus-2
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      app: prometheus
+      chart: prometheus-0.0.50
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      prometheus: kube-prometheus
+      release: kube-prometheus
+    name: kube-prometheus-2
+    namespace: cpaas-system
+    resourceVersion: "13690"
+    uid: f39fbe84-e6bf-47af-8094-3dd5c2ebe3e3
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-2-web
+              port:
+                number: 9090
+          path: /clusters/global/prometheus-2($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus-alertmanager
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      alertmanager: kube-prometheus
+      app: alertmanager
+      chart: alertmanager-0.1.5
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: kube-prometheus
+    name: kube-prometheus-alertmanager
+    namespace: cpaas-system
+    resourceVersion: "13645"
+    uid: fabe0517-3338-4bc1-ad6c-da78fb6e6e29
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-alertmanager
+              port:
+                number: 9093
+          path: /clusters/global/alertmanager($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus-grafana
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      app: grafana
+      chart: grafana-0.0.37
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+      heritage: Helm
+      release: kube-prometheus
+    name: kube-prometheus-grafana
+    namespace: cpaas-system
+    resourceVersion: "13668"
+    uid: 2d81b0d7-10f6-4904-8434-35ba1d977bbb
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-grafana
+              port:
+                number: 80
+          path: /clusters/global/grafana($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.484
+      helm.sh/original-name: kube-prometheus-thanos-query-http
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    creationTimestamp: "2022-08-09T15:10:40Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/component: query
+      app.kubernetes.io/instance: kube-prometheus
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: thanos
+      app.kubernetes.io/version: 0.10.1
+      helm.sh/chart: thanos-0.3.18
+      helm.sh/chart-name: kube-prometheus
+      helm.sh/release-name: kube-prometheus
+      helm.sh/release-namespace: cpaas-system
+    name: kube-prometheus-thanos-query-http
+    namespace: cpaas-system
+    resourceVersion: "13702"
+    uid: 285f4920-0f3c-4eb8-a0c5-2800a40ab653
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: kube-prometheus-thanos-query-http
+              port:
+                number: 10902
+          path: /clusters/global/prometheus($|/)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: meepo
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:13:55Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: meepo
+    namespace: cpaas-system
+    resourceVersion: "19493"
+    uid: 1172fabc-9d1f-4438-9cf0-5a130e48223b
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: meepo
+              port:
+                number: 8080
+          path: /console-dataservices(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: mephisto
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:13:55Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: mephisto
+    namespace: cpaas-system
+    resourceVersion: "19497"
+    uid: fe2938c7-6f35-41f2-b75a-79e86e55108d
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: mephisto
+              port:
+                number: 8080
+          path: /console-asm(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      helm.sh/chart-version: v3.10.0-alpha.184
+      helm.sh/original-name: middleware-api
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    creationTimestamp: "2022-08-09T15:13:50Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: middleware
+      helm.sh/release-name: global-data-services
+      helm.sh/release-namespace: cpaas-system
+      service_name: middleware-api
+    name: middleware-api
+    namespace: cpaas-system
+    resourceVersion: "19167"
+    uid: 99dea228-8fb1-4be7-abe0-81f79b1efcee
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: middleware-api
+              port:
+                number: 8081
+          path: /middleware-api$
+          pathType: ImplementationSpecific
+        - backend:
+            service:
+              name: middleware-api
+              port:
+                number: 8081
+          path: /middleware-api/
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1","Cache-Control":"no-cache","Pragma":"no-cache"}}
+      helm.sh/chart-version: v3.10.0-alpha.558
+      helm.sh/original-name: razor
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:11:25Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: alauda-log-center
+      helm.sh/release-name: logcenter
+      helm.sh/release-namespace: cpaas-system
+    name: razor
+    namespace: cpaas-system
+    resourceVersion: "15470"
+    uid: 6cee19c5-e5c8-428f-84b5-81d61561d174
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: razor
+              port:
+                number: 8080
+          path: /v4/callback
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: redirect
+      nginx.ingress.kubernetes.io/app-root: /console-platform/portal
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+      nginx.ingress.kubernetes.io/temporal-redirect: /console-platform/portal
+    creationTimestamp: "2022-08-09T15:13:54Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: redirect
+    namespace: cpaas-system
+    resourceVersion: "19448"
+    uid: 7f538766-5f0c-4460-89d4-8e4c16780932
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: none
+              port:
+                number: 8080
+          path: /$
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      alb.ingress.cpaas.io/rewrite-response: |
+        {"headers":{"Content-Security-Policy": "media-src 'self';", "X-Frame-Options":"SAMEORIGIN","X-Content-Type-Options":"nosniff","X-XSS-Protection":"1"}}
+      helm.sh/chart-version: v3.10.0-alpha.573
+      helm.sh/original-name: underlord
+      nginx.ingress.kubernetes.io/enable-cors: "false"
+    creationTimestamp: "2022-08-09T15:13:55Z"
+    generation: 1
+    labels:
+      helm.sh/chart-name: frontend
+      helm.sh/release-name: frontend
+      helm.sh/release-namespace: cpaas-system
+    name: underlord
+    namespace: cpaas-system
+    resourceVersion: "19504"
+    uid: da832643-3f5c-46e3-8970-02cacd1e9d26
+  spec:
+    rules:
+    - http:
+        paths:
+        - backend:
+            service:
+              name: underlord
+              port:
+                number: 8080
+          path: /console-platform(/|$)(.*)
+          pathType: ImplementationSpecific
+  status:
+    loadBalancer: {}
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""

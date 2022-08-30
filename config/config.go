@@ -3,12 +3,12 @@ package config
 import (
 	"fmt"
 	"math"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-
-	"alauda.io/alb2/utils"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thoas/go-funk"
@@ -32,16 +32,23 @@ var ConfigString sync.Map
 var ConfigBool sync.Map
 var ConfigInt sync.Map
 
+func CleanSyncMap(m sync.Map) {
+	m.Range(func(key interface{}, value interface{}) bool {
+		m.Delete(key)
+		return true
+	})
+}
 func CleanCache() {
-	utils.CleanSyncMap(ConfigBool)
-	utils.CleanSyncMap(ConfigString)
-	utils.CleanSyncMap(ConfigInt)
+	CleanSyncMap(ConfigBool)
+	CleanSyncMap(ConfigString)
+	CleanSyncMap(ConfigInt)
 }
 
 var requiredFields = []string{
 	"NAME",
 	"NAMESPACE",
 	"DOMAIN",
+	"MY_POD_NAME",
 }
 
 var optionalFields = []string{
@@ -58,11 +65,11 @@ var optionalFields = []string{
 	"RECORD_POST_BODY",
 	// set to "true" if want to use nodes which pods run on them
 	"USE_POD_HOST_IP",
-	"MY_POD_NAME",
 	"ENABLE_GC",
 	"ENABLE_GC_APP_RULE",
 	"ENABLE_IPV6",
 	"ENABLE_PROMETHEUS",
+	"ENABLE_PROFILE",
 	"ENABLE_PORTPROBE",
 	"DEFAULT-SSL-CERTIFICATE",
 	"DEFAULT-SSL-STRATEGY",
@@ -75,13 +82,19 @@ var optionalFields = []string{
 	"WORKER_LIMIT",
 	"CPU_LIMIT",
 	"RESYNC_PERIOD",
-	"ENABLE_PROFILE",
+	"ENABLE_GO_MONITOR",
+	"GO_MONITOR_PORT",
 	"METRICS_PORT",
 	"BACKLOG",
 	"ENABLE_GZIP",
 
 	// gateway related config
 	"ENABLE_GATEWAY",
+
+	// leader related config
+	"LEADER_LEASE_DURATION",
+	"LEADER_RENEW_DEADLINE",
+	"LEADER_RETRY_PERIOD",
 }
 
 var nginxRequiredFields = []string{
@@ -91,17 +104,15 @@ var nginxRequiredFields = []string{
 	"NEW_POLICY_PATH",
 }
 
-func init() {
-	initViper()
-	Initialize()
-}
-
 func initViper() {
 	viper.SetConfigName("viper-config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("../")
 	viper.AddConfigPath("/alb/")
-
+	viper_base := os.Getenv("VIPER_BASE")
+	if viper_base != "" {
+		viper.AddConfigPath(viper_base)
+	}
 	viper.SetEnvPrefix("alb")
 }
 
@@ -138,7 +149,9 @@ func checkEmpty(requiredFields []string) []string {
 	return emptyRequiredEnv
 }
 
-func ValidateConfig() error {
+func Init() error {
+	initViper()
+	Initialize()
 	emptyRequiredEnv := checkEmpty(requiredFields)
 	if len(emptyRequiredEnv) > 0 {
 		return fmt.Errorf("%s env vars are requied but empty", strings.Join(emptyRequiredEnv, ","))
@@ -221,18 +234,6 @@ func GetLabelSourceType() string {
 	return fmt.Sprintf(Get("labels.source_type"), Get("DOMAIN"))
 }
 
-func GetAlbName() string {
-	return Get("NAME")
-}
-
-func GetNs() string {
-	return Get("NAMESPACE")
-}
-
-func GetDomain() string {
-	return Get("DOMAIN")
-}
-
 func GetLabelAlbName() string {
 	return fmt.Sprintf(Get("labels.name"), Get("DOMAIN"))
 }
@@ -264,4 +265,96 @@ type IngressClassConfiguration struct {
 	//IngressClassByName defines if the Controller should watch for Ingress Classes by
 	// .metadata.name together with .spec.Controller
 	IngressClassByName bool
+}
+
+// a wrapper of common used config.getXX
+type Config struct {
+}
+
+func (c *Config) GetNs() string {
+	return Get("NAMESPACE")
+}
+
+func (c *Config) GetAlbName() string {
+	return Get("NAME")
+}
+
+func (c *Config) GetDomain() string {
+	return Get("DOMAIN")
+}
+
+func (c *Config) GetPodName() string {
+	return Get("MY_POD_NAME")
+}
+
+func (c *Config) GetLabelLeader() string {
+	return fmt.Sprintf(Get("labels.leader"), c.GetDomain())
+}
+
+func (c *Config) GetDefaultSSLSCert() string {
+	return Get("DEFAULT-SSL-CERTIFICATE")
+}
+
+func (c *Config) GetDefaultSSLStrategy() string {
+	return Get("DEFAULT-SSL-STRATEGY")
+}
+
+func (c *Config) GetIngressHttpPort() int {
+	return GetInt("INGRESS_HTTP_PORT")
+}
+
+func (c *Config) GetIngressHttpsPort() int {
+	return GetInt("INGRESS_HTTPS_PORT")
+}
+
+func (c *Config) GetLabelSourceIngressVer() string {
+	sourceIngressVersion := fmt.Sprintf(Get("labels.source_ingress_version"), c.GetDomain())
+	return sourceIngressVersion
+}
+
+func (c *Config) GetLabelSourceIngressPathIndex() string {
+	return fmt.Sprintf(Get("labels.source_ingress_path_index"), c.GetDomain())
+}
+
+func (c *Config) GetLabelSourceIngressRuleIndex() string {
+	return fmt.Sprintf(Get("labels.source_ingress_rule_index"), c.GetDomain())
+}
+
+func GetConfig() *Config {
+	return &Config{}
+}
+
+// Deprecated: use GetConfig()
+func GetAlbName() string {
+	return Get("NAME")
+}
+
+// Deprecated: use GetConfig()
+func GetNs() string {
+	return Get("NAMESPACE")
+}
+
+// Deprecated: use GetConfig()
+func GetDomain() string {
+	return Get("DOMAIN")
+}
+
+func (c *Config) GetLeaderConfig() LeaderConfig {
+	return LeaderConfig{
+		LeaseDuration: time.Second * time.Duration(GetInt("LEADER_LEASE_DURATION")),
+		RenewDeadline: time.Second * time.Duration(GetInt("LEADER_RENEW_DEADLINE")),
+		RetryPeriod:   time.Second * time.Duration(GetInt("LEADER_RETRY_PERIOD")),
+	}
+}
+
+func (c *Config) DebugRuleSync() bool {
+	return os.Getenv("DEBUG_RULESYNC") == "true"
+}
+
+func (c *Config) GetLabelAlbName() string {
+	return fmt.Sprintf(Get("labels.name"), c.GetDomain())
+}
+
+func (c *Config) GetLabelSourceType() string {
+	return fmt.Sprintf(Get("labels.source_type"), c.GetDomain())
 }

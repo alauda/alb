@@ -17,17 +17,17 @@ import (
 )
 
 const DEFAULT_NS = "ns-1"
+const DEFAULT_ALB = "alb-1"
 
 var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"DOMAIN":               "alauda.io",
 	"TWEAK_DIRECTORY":      "../driver/texture", // set TWEAK_DIRECTORY to an existing path: make calculate hash happy
-	"NAME":                 "alb-1",
+	"NAME":                 DEFAULT_ALB,
 	"NAMESPACE":            DEFAULT_NS,
 	"bindkey":              "loadbalancer.%s/bind",
-	"name":                 "alb2.%s/name",
-	"frontend":             "alb2.%s/frontend",
-	"lock":                 "alb2.%s/locker",
-	"source_type":          "alb2.%s/source-type",
+	"labels.name":          "alb2.%s/name",
+	"labels.frontend":      "alb2.%s/frontend",
+	"labels.source_type":   "alb2.%s/source-type",
 	"DEFAULT-SSL-STRATEGY": "Request",
 }
 
@@ -57,7 +57,7 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 		config.Set(key, val)
 	}
 
-	drv, err := driver.GetKubernetesDriver(true)
+	drv, err := driver.GetKubernetesDriver(ctx, true)
 
 	a := assert.New(t)
 	a.NoError(err)

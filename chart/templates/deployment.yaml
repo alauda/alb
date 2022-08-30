@@ -40,6 +40,8 @@ spec:
           command:
             - ./run.sh
           env:
+            - name: MAX_TERM_SECONDS
+              value: "{{ .Values.maxTermSeconds }}"
             - name: NAME
               value: {{ .Values.loadbalancerName }}
             - name: NAMESPACE
@@ -64,8 +66,12 @@ spec:
               value: "{{ .Values.enableIngress }}"
             - name: SERVE_CROSSCLUSTERS
               value: "{{ .Values.enableCrossClusters }}"
+            - name: ENABLE_GO_MONITOR
+              value: "{{ .Values.enableGoMonitor }}"
             - name: ENABLE_PROFILE
               value: "{{ .Values.enableProfile }}"
+            - name: GO_MONITOR_PORT
+              value: "{{ .Values.goMonitorPort }}"
             - name: DEFAULT-SSL-CERTIFICATE
               value: "{{ .Values.defaultSSLCert }}"
             - name: DEFAULT-SSL-STRATEGY
@@ -131,6 +137,9 @@ spec:
           - name: nginx-pid
             mountPath: /var/run/
           env:
+            - name: MAX_TERM_SECONDS
+              value: "{{ .Values.maxTermSeconds }}"
+            - name: NAME
             - name: SYNC_POLICY_INTERVAL
               value: "{{ .Values.syncPolicyInterval }}"
             - name: CLEAN_METRICS_INTERVAL
@@ -146,8 +155,25 @@ spec:
           - /bin/sh
           - -c
           - |
-            openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048 &&
-            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf -e stderr
+            _term() {
+              echo "Caught SIGTERM signal! term $child"
+              local max_term_seconds="$MAX_TERM_SECONDS"
+              if [ -z "$max_term_seconds" ]; then
+                  max_term_seconds="30"
+              fi
+              echo "wait $max_term_seconds"
+              sleep $max_term_seconds
+              echo "send term to nginx $child"
+              kill -TERM "$child" 2>/dev/null
+              echo "send term to nginx $child over"
+              exit 0
+            }
+            trap _term SIGTERM
+            openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048
+            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf -e /dev/stderr &
+            child=$!
+            echo "nginx pid $child"
+            wait "$child"
           livenessProbe:
             httpGet:
               path: /status

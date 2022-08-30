@@ -165,19 +165,6 @@ func jsonEqual(a, b []byte) bool {
 	return reflect.DeepEqual(j2, j)
 }
 
-const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
-func RandomStr(pixff string, length int) string {
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
-	}
-	if pixff != "" {
-		return pixff + "-" + string(result)
-	}
-	return string(result)
-}
-
 func mergeFullchainCert(cert *Certificate, caCert *CaCertificate) *Certificate {
 	var fullChainCert string
 	if strings.HasSuffix(cert.Cert, "\n") {

@@ -62,7 +62,7 @@ func TestLoadAlb(t *testing.T) {
 	config.Set("TWEAK_DIRECTORY", "./texture") // set TWEAK_DIRECTORY to a exist path, make calculate hash happy
 
 	a := assert.New(t)
-	driver, err := GetKubernetesDriver(true)
+	driver, err := GetKubernetesDriver(ctx, true)
 	a.NoError(err)
 	crdDataset, err := loadData("./texture", "crd")
 	a.NoError(err)

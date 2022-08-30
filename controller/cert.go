@@ -147,3 +147,15 @@ func ParseCertificateName(n string) (string, string, error) {
 	}
 	return "", "", fmt.Errorf("invalid certificate name, %s", n)
 }
+
+func SameCertificateName(left, right string) (bool, error) {
+	ln, lc, err := ParseCertificateName(left)
+	if err != nil {
+		return false, err
+	}
+	rn, rc, err := ParseCertificateName(left)
+	if err != nil {
+		return false, err
+	}
+	return ln == rn && lc == rc, nil
+}

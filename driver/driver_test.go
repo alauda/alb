@@ -25,7 +25,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestLoadALByName(t *testing.T) {
-
 	type FakeALBResource struct {
 		albs      []albv1.ALB2
 		frontends []albv1.Frontend
@@ -93,15 +92,14 @@ func TestLoadALByName(t *testing.T) {
 	}
 
 	defaultCfg := map[string]string{
-		"DOMAIN":          "alauda.io",
-		"TWEAK_DIRECTORY": "../driver/texture", // set TWEAK_DIRECTORY to a exist path: make calculate hash happy
-		"NAME":            "alb-1",
-		"NAMESPACE":       defaultNs,
-		"bindkey":         "loadbalancer.%s/bind",
-		"name":            "alb2.%s/name",
-		"frontend":        "alb2.%s/frontend",
-		"lock":            "alb2.%s/locker",
-		"source_type":     "alb2.%s/source-type",
+		"DOMAIN":             "alauda.io",
+		"TWEAK_DIRECTORY":    "../driver/texture", // set TWEAK_DIRECTORY to a exist path: make calculate hash happy
+		"NAME":               "alb-1",
+		"NAMESPACE":          defaultNs,
+		"bindkey":            "loadbalancer.%s/bind",
+		"labels.name":        "alb2.%s/name",
+		"labels.frontend":    "alb2.%s/frontend",
+		"labels.source_type": "alb2.%s/source-type",
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -111,7 +109,7 @@ func TestLoadALByName(t *testing.T) {
 		config.Set(key, val)
 	}
 
-	driver, err := GetKubernetesDriver(true)
+	driver, err := GetKubernetesDriver(ctx, true)
 
 	a := assert.New(t)
 	a.NoError(err)

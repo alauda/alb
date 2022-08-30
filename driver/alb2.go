@@ -13,11 +13,11 @@ import (
 	"alauda.io/alb2/utils/dirhash"
 	jsonpatch "github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -49,116 +49,6 @@ func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
 	return nil
 }
 
-func UpdateSourceLabels(labels map[string]string, source *alb2v1.Source) {
-	if source == nil {
-		return
-	}
-	labels[config.GetLabelSourceType()] = source.Type
-	labels[config.GetLabelSourceIngressHash()] = HashSource(source)
-}
-
-func HashSource(source *alb2v1.Source) string {
-	return dirhash.LabelSafetHash(fmt.Sprintf("%s.%s", source.Name, source.Namespace))
-}
-
-// UpsertFrontends will create new frontend if it not exist, otherwise update
-func (kd *KubernetesDriver) UpsertFrontends(alb *m.AlaudaLoadBalancer, ft *m.Frontend) error {
-	klog.Infof("upsert frontend: %s", ft.Name)
-	var ftRes *alb2v1.Frontend
-	var err error
-	ftRes, err = kd.FrontendLister.Frontends(alb.Namespace).Get(ft.Name)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			ftRes = &alb2v1.Frontend{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: alb.Namespace,
-					Name:      ft.Name,
-					Labels:    map[string]string{},
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: alb2v1.SchemeGroupVersion.String(),
-							Kind:       alb2v1.ALB2Kind,
-							Name:       alb.Name,
-							UID:        alb.UID,
-						},
-					},
-				},
-				Spec: ft.FrontendSpec,
-			}
-			ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
-
-			ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Create(context.TODO(), ftRes, metav1.CreateOptions{})
-			if err != nil {
-				klog.Error(err)
-				return err
-			}
-		} else {
-			klog.Error(err)
-			return err
-		}
-	}
-	ftRes.Labels[fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))] = alb.Name
-	ftRes.Spec = ft.FrontendSpec
-	ftRes, err = kd.ALBClient.CrdV1().Frontends(alb.Namespace).Update(context.TODO(), ftRes, metav1.UpdateOptions{})
-	if err != nil {
-		klog.Error(err)
-		return err
-	}
-	ft.UID = ftRes.UID
-	return nil
-}
-
-func (kd *KubernetesDriver) CreateRule(rule *m.Rule) error {
-	ruleRes := &alb2v1.Rule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        rule.Name,
-			Namespace:   rule.FT.LB.Namespace,
-			Annotations: rule.Annotations,
-			Labels: map[string]string{
-				fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     rule.FT.LB.Name,
-				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): rule.FT.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: alb2v1.SchemeGroupVersion.String(),
-					Kind:       alb2v1.FrontendKind,
-					Name:       rule.FT.Name,
-					UID:        rule.FT.UID,
-				},
-			},
-		},
-		Spec: rule.RuleSpec,
-	}
-	UpdateSourceLabels(ruleRes.Labels, rule.Source)
-	_, err := kd.ALBClient.CrdV1().Rules(ruleRes.Namespace).Create(context.TODO(), ruleRes, metav1.CreateOptions{})
-	if err != nil {
-		klog.Error(err)
-	}
-	return err
-}
-
-func (kd *KubernetesDriver) DeleteRule(rule *m.Rule) error {
-	err := kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Delete(context.TODO(), rule.Name, metav1.DeleteOptions{})
-	if err != nil {
-		klog.Error(err)
-	}
-	return err
-}
-
-func (kd *KubernetesDriver) UpdateRule(rule *m.Rule) error {
-	oldRule, err := kd.RuleLister.Rules(rule.FT.LB.Namespace).Get(rule.Name)
-	if err != nil {
-		return err
-	}
-
-	oldRule.Spec = rule.RuleSpec
-	_, err = kd.ALBClient.CrdV1().Rules(rule.FT.LB.Namespace).Update(context.TODO(), oldRule, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.Frontend, error) {
 	sel := labels.Set{fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): lbname}.AsSelector()
 	resList, err := kd.FrontendLister.Frontends(namespace).List(sel)
@@ -181,6 +71,10 @@ func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]*alb2
 		return nil, err
 	}
 	return resList, nil
+}
+
+func (kd *KubernetesDriver) LoadALB(key client.ObjectKey) (*m.AlaudaLoadBalancer, error) {
+	return kd.LoadALBbyName(key.Namespace, key.Name)
 }
 
 func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
@@ -213,13 +107,13 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		return nil, err
 	}
 	for _, res := range resList {
+		if res == nil {
+			continue
+		}
 		ft := &m.Frontend{
-			UID:          res.UID,
-			Name:         res.Name,
-			Lables:       res.Labels,
-			FrontendSpec: res.Spec,
-			Rules:        []*m.Rule{},
-			LB:           &alb2,
+			Frontend: res,
+			Rules:    []*m.Rule{},
+			LB:       &alb2,
 		}
 		ruleList, err := kd.LoadRules(namespace, name, res.Name)
 		if err != nil {
@@ -229,11 +123,8 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 
 		for _, r := range ruleList {
 			rule := &m.Rule{
-				Annotations: r.Annotations,
-				RuleSpec:    r.Spec,
-				Name:        r.Name,
-				Labels:      r.Labels,
-				FT:          ft,
+				Rule: r,
+				FT:   ft,
 			}
 			ft.Rules = append(ft.Rules, rule)
 		}

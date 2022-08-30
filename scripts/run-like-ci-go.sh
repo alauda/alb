@@ -1,7 +1,11 @@
 #!/bin/sh
-if [ "$1" = "shell" ]
-then
-    docker run -v $PWD:/acp-alb-test -it registry.alauda.cn:60080/ops/golang:1.18-alpine3.15  sh
+base="build-harbor.alauda.cn/ops/golang:1.18.3-alpine3.16"
+if [ "$1" = "shell" ]; then
+    docker run -v $PWD:/acp-alb-test -it "$base" sh
 else
-    docker run --network=host -e HTTP_PROXY=$HTTP_PROXY -e HTTPS_PROXY=$HTTPS_PROXY  -v $PWD:/acp-alb-test -it registry.alauda.cn:60080/ops/golang:1.18-alpine3.15  sh -c "cd /acp-alb-test ;/acp-alb-test/scripts/go-test.sh"
+    proxy=""
+    if [ -n "$USE_PROXY" ]; then
+        proxy="--network=host -e HTTP_PROXY=$HTTP_PROXY -e HTTPS_PROXY=$HTTPS_PROXY "
+    fi
+    docker run $proxy -v $PWD:/acp-alb-test -it $base sh -c "cd /acp-alb-test ;/acp-alb-test/scripts/go-test.sh"
 fi

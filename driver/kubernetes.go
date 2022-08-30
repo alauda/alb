@@ -76,12 +76,13 @@ type KubernetesDriver struct {
 	ServiceLister  corev1lister.ServiceLister
 	EndpointLister corev1lister.EndpointsLister
 	GatewayLister  gatewayLister.GatewayLister
+	Ctx            context.Context
 }
 
-func GetDriver() (*KubernetesDriver, error) {
+func GetDriver(ctx context.Context) (*KubernetesDriver, error) {
 	// TEST != "" means we are debugging or testing
 	testMode := config.Get("TEST") == "true"
-	return GetKubernetesDriver(testMode)
+	return GetKubernetesDriver(ctx, testMode)
 }
 
 func (kd *KubernetesDriver) GetType() string {
@@ -117,7 +118,8 @@ func GetKubeCfg() (*rest.Config, error) {
 	return cf, nil
 }
 
-func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
+// TODO inject rest.config
+func GetKubernetesDriver(ctx context.Context, isFake bool) (*KubernetesDriver, error) {
 	klog.Infof("fake mode %v", isFake)
 	var client kubernetes.Interface
 	var albClient albclient.Interface
@@ -150,7 +152,7 @@ func GetKubernetesDriver(isFake bool) (*KubernetesDriver, error) {
 			return nil, err
 		}
 	}
-	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient}, nil
+	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient, Ctx: ctx}, nil
 }
 
 func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
@@ -206,7 +208,7 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 		Group:    "app.k8s.io",
 		Version:  "v1beta1",
 		Resource: "applications",
-	}).Namespace(appNamespace).Get(context.TODO(), appName, metav1.GetOptions{})
+	}).Namespace(appNamespace).Get(kd.Ctx, appName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// The owner application is not found, the rule is orphaned.
 		return true, nil

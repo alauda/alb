@@ -1,16 +1,11 @@
 package modules
 
 import (
-	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"math/rand"
-	"strings"
-
-	"alauda.io/alb2/config"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"alauda.io/alb2/utils"
-	networkingv1 "k8s.io/api/networking/v1"
+	"golang.org/x/exp/maps"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AlaudaLoadBalancer struct {
@@ -23,188 +18,162 @@ type AlaudaLoadBalancer struct {
 	TweakHash string // used to make nginx.conf change when tweak_dir change
 }
 
-func (alb *AlaudaLoadBalancer) NewFrontend(port int, protocol alb2v1.FtProtocol, certificateName string) (*Frontend, error) {
-	ft := &Frontend{
-		Name: fmt.Sprintf("%s-%05d", alb.Name, port),
-		FrontendSpec: alb2v1.FrontendSpec{
-			Port:     alb2v1.PortNumber(port),
-			Protocol: protocol,
-		},
-		LB: alb,
-	}
-	if certificateName != "" {
-		ft.CertificateName = certificateName
-	}
-	alb.Frontends = append(alb.Frontends, ft)
-	return ft, nil
-}
-
-func (alb *AlaudaLoadBalancer) ListDomains() []string {
-	domains := make([]string, 0, len(alb.Spec.Domains))
-	for _, d := range alb.Spec.Domains {
-		offset := 0
-		for idx, c := range d {
-			if c != '*' && c != '.' && c != ' ' {
-				offset = idx
-				break
-			}
-		}
-		domains = append(domains, d[offset:])
-	}
-	return domains
-}
-
 type Frontend struct {
-	UID    types.UID
-	Lables map[string]string
-	Name   string
-	alb2v1.FrontendSpec
+	*alb2v1.Frontend
 	Rules []*Rule
-
-	LB *AlaudaLoadBalancer
-}
-
-const ALPHANUM = "0123456789abcdefghijklmnopqrstuvwxyz"
-
-func RandomStr(pixff string, length int) string {
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
-	}
-	return pixff + "-" + string(result)
-}
-
-func (ft *Frontend) IsTcpOrUdp() bool {
-	if ft.Protocol == alb2v1.FtProtocolTCP {
-		return true
-	}
-	if ft.Protocol == alb2v1.FtProtocolUDP {
-		return true
-	}
-	return false
-}
-
-func (ft *Frontend) IsHttpOrHttps() bool {
-	if ft.Protocol == alb2v1.FtProtocolHTTP {
-		return true
-	}
-	if ft.Protocol == alb2v1.FtProtocolHTTPS {
-		return true
-	}
-	return false
-}
-
-func (ft *Frontend) IsgRPC() bool {
-	if ft.Protocol == alb2v1.FtProtocolgRPC {
-		return true
-	}
-	return false
-}
-
-func (ft *Frontend) NewRule(ingressInfo, domain, url, rewriteTarget, backendProtocol, certificateName string,
-	enableCORS bool, corsAllowHeaders string, corsAllowOrigin string, redirectURL string, redirectCode int, vhost string, priority int, pathType networkingv1.PathType, ingressVersion string, annotations map[string]string) (*Rule, error) {
-
-	var (
-		dslx alb2v1.DSLX
-	)
-	if domain != "" || url != "" {
-		dslx = GetDSLX(domain, url, pathType)
-	}
-	sourceIngressVersion := fmt.Sprintf(config.Get("labels.source_ingress_version"), config.Get("DOMAIN"))
-	annotations[sourceIngressVersion] = ingressVersion
-	r := Rule{
-		Name:        RandomStr(ft.Name, 4),
-		Annotations: annotations,
-		RuleSpec: alb2v1.RuleSpec{
-			Domain:           domain,
-			URL:              url,
-			DSLX:             dslx,
-			Priority:         priority,
-			RewriteBase:      url,
-			RewriteTarget:    rewriteTarget,
-			BackendProtocol:  backendProtocol,
-			CertificateName:  certificateName,
-			EnableCORS:       enableCORS,
-			CORSAllowHeaders: corsAllowHeaders,
-			CORSAllowOrigin:  corsAllowOrigin,
-			RedirectURL:      redirectURL,
-			RedirectCode:     redirectCode,
-			VHost:            vhost,
-			Description:      ingressInfo,
-		},
-		FT: ft,
-	}
-	ft.Rules = append(ft.Rules, &r)
-	return &r, nil
+	LB    *AlaudaLoadBalancer
 }
 
 type Rule struct {
-	alb2v1.RuleSpec
-	Name        string
-	Labels      map[string]string
-	Annotations map[string]string
-	FT          *Frontend
+	*alb2v1.Rule
+	FT *Frontend
 }
 
-func GetDSLX(domain, url string, pathType networkingv1.PathType) alb2v1.DSLX {
-	var dslx alb2v1.DSLX
-	if url != "" {
-		if pathType == networkingv1.PathTypeExact {
-			dslx = append(dslx, alb2v1.DSLXTerm{
-				Values: [][]string{
-					{utils.OP_EQ, url},
-				},
-				Type: utils.KEY_URL,
-			})
-		} else if pathType == networkingv1.PathTypePrefix {
-			dslx = append(dslx, alb2v1.DSLXTerm{
-				Values: [][]string{
-					{utils.OP_STARTS_WITH, url},
-				},
-				Type: utils.KEY_URL,
-			})
-		} else {
-			// path is regex
-			if strings.ContainsAny(url, "^$():?[]*\\") {
-				if !strings.HasPrefix(url, "^") {
-					url = "^" + url
-				}
+func (alb *AlaudaLoadBalancer) GetAlbKey() client.ObjectKey {
+	return client.ObjectKey{
+		Namespace: alb.Namespace,
+		Name:      alb.Name,
+	}
+}
 
-				dslx = append(dslx, alb2v1.DSLXTerm{
-					Values: [][]string{
-						{utils.OP_REGEX, url},
-					},
-					Type: utils.KEY_URL,
-				})
-			} else {
-				dslx = append(dslx, alb2v1.DSLXTerm{
-					Values: [][]string{
-						{utils.OP_STARTS_WITH, url},
-					},
-					Type: utils.KEY_URL,
-				})
+func (alb *AlaudaLoadBalancer) FindIngressFt(port int, protocol alb2v1.FtProtocol) *Frontend {
+	for _, f := range alb.Frontends {
+		if int(f.Spec.Port) == port && f.Spec.Protocol == protocol {
+			return f
+		}
+	}
+	return nil
+}
+
+func (alb *AlaudaLoadBalancer) FindHandledIngressKey() []client.ObjectKey {
+	keyM := map[client.ObjectKey]bool{}
+	for _, f := range alb.Frontends {
+		fsource := f.Spec.Source
+		if fsource != nil && fsource.Type == TypeIngress {
+			key := client.ObjectKey{Namespace: fsource.Namespace, Name: fsource.Name}
+			keyM[key] = true
+		}
+		for _, r := range f.Rules {
+			rsource := r.Spec.Source
+			if rsource != nil && rsource.Type == TypeIngress {
+				key := client.ObjectKey{Namespace: rsource.Namespace, Name: rsource.Name}
+				keyM[key] = true
 			}
 		}
 	}
+	return maps.Keys(keyM)
+}
 
-	if domain != "" {
-		if strings.HasPrefix(domain, "*") {
-			dslx = append(dslx, alb2v1.DSLXTerm{
-				Values: [][]string{
-					{utils.OP_ENDS_WITH, domain},
-				},
-				Type: utils.KEY_HOST,
-			})
-		} else {
-			dslx = append(dslx, alb2v1.DSLXTerm{
-				Values: [][]string{
-					{utils.OP_EQ, domain},
-				},
-				Type: utils.KEY_HOST,
-			})
+func (alb *AlaudaLoadBalancer) FindIngressFtRaw(port int, protocol alb2v1.FtProtocol) *alb2v1.Frontend {
+	f := alb.FindIngressFt(port, protocol)
+	if f != nil {
+		return f.Frontend
+	}
+	return nil
+}
+
+func (ft *Frontend) IsTcpOrUdp() bool {
+	if ft.Spec.Protocol == alb2v1.FtProtocolTCP {
+		return true
+	}
+	if ft.Spec.Protocol == alb2v1.FtProtocolUDP {
+		return true
+	}
+	return false
+}
+
+func (f *Frontend) IsCreateByThisIngress(ns, name string) bool {
+	ft := f.Spec
+	return ft.Source != nil &&
+		ft.Source.Type == TypeIngress &&
+		ft.Source.Namespace == ns &&
+		ft.Source.Name == name
+}
+
+func (ft *Frontend) IsHttpOrHttps() bool {
+	return ft.IsHttp() || ft.IsHttpS()
+}
+
+func (ft *Frontend) IsHttp() bool {
+	return ft.Spec.Protocol == alb2v1.FtProtocolHTTP
+}
+
+func (ft *Frontend) IsHttpS() bool {
+	return ft.Spec.Protocol == alb2v1.FtProtocolHTTPS
+}
+
+func (ft *Frontend) IsgRPC() bool {
+	return ft.Spec.Protocol == alb2v1.FtProtocolgRPC
+}
+
+func (ft *Frontend) SamePort(other int) bool {
+	return int(ft.Spec.Port) == other
+}
+
+func (ft *Frontend) FindIngressRule(key client.ObjectKey) []*Rule {
+	if ft == nil {
+		return nil
+	}
+	ret := []*Rule{}
+	for _, r := range ft.Rules {
+		source := r.Spec.Source
+		if source == nil {
+			continue
+		}
+		if source.Type != TypeIngress {
+			continue
+		}
+		if source.Name == key.Name && source.Namespace == key.Namespace {
+			ret = append(ret, r)
 		}
 	}
-	return dslx
+	return ret
+}
+
+func (ft *Frontend) FindIngressRuleRaw(key client.ObjectKey) []*alb2v1.Rule {
+	ret := []*alb2v1.Rule{}
+	for _, r := range ft.FindIngressRule(key) {
+		ret = append(ret, r.Rule)
+	}
+	return ret
+}
+
+func (ft *Frontend) Raw() *alb2v1.Frontend {
+	if ft == nil {
+		return nil
+	}
+	return ft.Frontend
+}
+
+func (ft *Frontend) HaveDefaultBackend() bool {
+	return ft.Spec.BackendProtocol != "" && len(ft.Spec.ServiceGroup.Services) != 0
+}
+
+func SetDefaultBackend(ft *alb2v1.Frontend, protocol string, svc *alb2v1.ServiceGroup) {
+	ft.Spec.BackendProtocol = protocol
+	ft.Spec.ServiceGroup = svc
+}
+
+func (rule *Rule) IsCreateByThisIngress(ns, name string) bool {
+	source := rule.Spec.Source
+	return source != nil &&
+		source.Type == TypeIngress &&
+		source.Namespace == ns &&
+		source.Name == name
+}
+
+func (r *Rule) Key() client.ObjectKey {
+	return client.ObjectKey{
+		Namespace: r.FT.Namespace,
+		Name:      r.Name,
+	}
+}
+
+func RuleKey(r *alb2v1.Rule) client.ObjectKey {
+	return client.ObjectKey{
+		Namespace: r.Namespace,
+		Name:      r.Name,
+	}
 }
 
 func FtProtocolToServiceProtocol(protocol alb2v1.FtProtocol) corev1.Protocol {

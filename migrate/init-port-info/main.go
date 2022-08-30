@@ -198,7 +198,7 @@ func getDriver() (*driver.KubernetesDriver, error) {
 	if *kubeConfig != "" {
 		return drvFromLocalConfig(*kubeConfig)
 	}
-	return driver.GetDriver()
+	return driver.GetDriver(context.Background())
 }
 
 func drvFromLocalConfig(configPath string) (*driver.KubernetesDriver, error) {

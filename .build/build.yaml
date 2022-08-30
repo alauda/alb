@@ -90,7 +90,7 @@ spec:
               scripts/go-test.sh
     - name: build-alb
       runAfter:
-        - alb-test
+        - code-scan
       timeout: 30m
       retries: 3
       taskRef:
@@ -217,12 +217,12 @@ spec:
           value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
           value: $(tasks.alauda-generate-chart-version.results.version)
-        - name: image-tag
-          value: $(tasks.generate-version.results.version)
         - name: branch
           value: $(tasks.generate-version.results.branch)
         - name: git-revision
-          value: $(params.git-revision),$(params.git-revision)
+          value: $(params.git-revision)
+        - name: image-tag
+          value: $(tasks.generate-version.results.version),$(tasks.generate-version.results.version)
         - name: values-path
           value: global.images.alb2.tag,global.images.nginx.tag
         - name: commit 
@@ -230,6 +230,13 @@ spec:
     - name: alauda-release-tag
       runAfter:
         - build-chart
+      when:
+       # only in release or custom release branches
+        - input: "true"
+          operator: in
+          values:
+          - "$(tasks.generate-version.results.is-custom-release-branch)"
+          - "$(tasks.generate-version.results.is-release-branch)"
       timeout: 30m
       retries: 3
       taskRef:

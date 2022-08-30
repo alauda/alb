@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			f.CreateFt(5553, "tcp", "svc-default", ns)
 			f.WaitFtState("alb-dev-05553", func(ft *alb2v1.Frontend) (bool, error) {
 				framework.Logf("ft status %+v", ft.Status)
-				if ft.Status.Instances[host].Conflict == true {
+				if ft.Status.Instances[host].Conflict {
 					return true, nil
 				}
 				return false, nil
@@ -55,7 +55,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 			f.WaitFtState("alb-dev-05553", func(ft *alb2v1.Frontend) (bool, error) {
 				framework.Logf("ft status %+v", ft.Status)
-				if ft.Status.Instances[host].Conflict == false {
+				if !ft.Status.Instances[host].Conflict {
 					return true, nil
 				}
 				return false, nil

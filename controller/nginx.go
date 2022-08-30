@@ -37,6 +37,7 @@ type NginxController struct {
 	NewPolicyPath string
 	BinaryPath    string
 	Driver        *driver.KubernetesDriver
+	Ctx           context.Context
 }
 
 type Policy struct {
@@ -100,19 +101,17 @@ func (p Policies) Less(i, j int) bool {
 
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func NewNginxController(kd *driver.KubernetesDriver) *NginxController {
+func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context) *NginxController {
 	return &NginxController{
+		BackendType:   kd.GetType(),
 		TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
 		NewConfigPath: config.Get("NEW_CONFIG_PATH"),
 		OldConfigPath: config.Get("OLD_CONFIG_PATH"),
 		NewPolicyPath: config.Get("NEW_POLICY_PATH"),
-		BackendType:   kd.GetType(),
 		BinaryPath:    config.Get("NGINX_BIN_PATH"),
-		Driver:        kd}
-}
-
-func (nc *NginxController) GetLoadBalancerType() string {
-	return "Nginx"
+		Driver:        kd,
+		Ctx:           ctx,
+	}
 }
 
 func (nc *NginxController) GenerateConf() error {
@@ -136,7 +135,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		return nil, err
 	}
 	detectAndMaskConflictPort(lb, nc.Driver)
-	migratePortProject(lb, nc.Driver)
+	migratePortProject(nc.Ctx, lb, nc.Driver)
 
 	if !config.GetBool("ENABLE_GATEWAY") {
 		return lb, nil
@@ -145,7 +144,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		return lb, nil
 	}
 	log := L().WithName(g.ALB_GATEWAY_NGINX)
-	lbFromGateway, err := gateway.GetLBConfig(context.Background(), nc.Driver, name)
+	lbFromGateway, err := gateway.GetLBConfig(nc.Ctx, nc.Driver, name)
 	if err != nil {
 		log.Error(err, "get lb from gateway fail", "class", name)
 		return nil, err
@@ -218,12 +217,12 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 		ft := &Frontend{
 			FtName:          mft.Name,
 			AlbName:         mAlb.Name,
-			Port:            mft.Port,
-			Protocol:        mft.Protocol,
+			Port:            mft.Spec.Port,
+			Protocol:        mft.Spec.Protocol,
 			Rules:           RuleList{},
-			CertificateName: mft.CertificateName,
-			BackendProtocol: mft.BackendProtocol,
-			Labels:          mft.Lables,
+			CertificateName: mft.Spec.CertificateName,
+			BackendProtocol: mft.Spec.BackendProtocol,
+			Labels:          mft.Labels,
 		}
 		if !ft.IsValidProtocol() {
 			klog.Errorf("frontend %s %s has no valid protocol", ft.FtName, ft.Protocol)
@@ -236,11 +235,12 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 		}
 
 		// migrate rule
-		for _, arl := range mft.Rules {
-			ruleConfig := RuleConfigFromRuleAnnotation(arl.Name, arl.Annotations)
+		for _, marl := range mft.Rules {
+			arl := marl.Spec
+			ruleConfig := RuleConfigFromRuleAnnotation(marl.Name, marl.Annotations)
 			rule := &Rule{
 				Config:           ruleConfig,
-				RuleID:           arl.Name,
+				RuleID:           marl.Name,
 				Priority:         arl.Priority,
 				Type:             arl.Type,
 				Domain:           strings.ToLower(arl.Domain),
@@ -276,15 +276,15 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 			ft.Rules = append(ft.Rules, rule)
 		}
 
-		if mft.ServiceGroup != nil {
+		if mft.Spec.ServiceGroup != nil {
 			ft.Services = []*BackendService{}
 			ft.BackendGroup = &BackendGroup{
 				Name:                     ft.String(),
-				SessionAffinityAttribute: mft.ServiceGroup.SessionAffinityAttribute,
-				SessionAffinityPolicy:    mft.ServiceGroup.SessionAffinityPolicy,
+				SessionAffinityAttribute: mft.Spec.ServiceGroup.SessionAffinityAttribute,
+				SessionAffinityPolicy:    mft.Spec.ServiceGroup.SessionAffinityPolicy,
 			}
 
-			for _, svc := range mft.ServiceGroup.Services {
+			for _, svc := range mft.Spec.ServiceGroup.Services {
 				ft.Services = append(ft.Services, &BackendService{
 					ServiceNs:   svc.Namespace,
 					ServiceName: svc.Name,
@@ -565,7 +565,7 @@ func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDrive
 	}
 }
 
-func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
+func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.KubernetesDriver) {
 	var portInfo map[string][]string
 	if GetAlbRoleType(alb.Labels) != RolePort {
 		return
@@ -591,7 +591,7 @@ func migratePortProject(alb *LoadBalancer, driver *driver.KubernetesDriver) {
 			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
-				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ctx, ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
 					klog.Errorf("patch port %s project failed, %v", ft.FtName, err)
 				}
 			}

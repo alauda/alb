@@ -20,14 +20,17 @@ ingressHTTPPort: 80
 ingressHTTPSPort: 443
 ingressController: "alb2"
 metricsPort: 1936
+enableGoMonitor: true
 enableProfile: false
+goMonitorPort: 1937
 workerLimit: 8
 resyncPeriod: 300
 syncPolicyInterval: 1
 cleanMetricsInterval: 2592000
 backlog: 2048
+maxTermSeconds: 30
 gateway:
-  enable: true
+  enable: false
 global:
   platformscenario: base
   labelBaseDomain: cpaas.io
@@ -45,7 +48,6 @@ global:
       support_arm: true
       repository: 3rdparty/alb-nginx
       tag: "v3.9-57-gb40a7de"
-      thirdparty: true
 resources:
   limits:
     cpu: "2"

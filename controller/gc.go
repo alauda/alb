@@ -96,9 +96,9 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 		for _, ft := range alb.Frontends {
 			if ft.IsTcpOrUdp() {
 				// gc frontend
-				hasDefaultBackendService := ft.Source != nil && ft.Source.Type == m.TypeBind && ft.ServiceGroup != nil && len(ft.ServiceGroup.Services) == 1
+				hasDefaultBackendService := ft.Spec.Source != nil && ft.Spec.Source.Type == m.TypeBind && ft.Spec.ServiceGroup != nil && len(ft.Spec.ServiceGroup.Services) == 1
 				if hasDefaultBackendService {
-					svc := ft.ServiceGroup.Services[0]
+					svc := ft.Spec.ServiceGroup.Services[0]
 					service, err := kd.ServiceLister.Services(svc.Namespace).Get(svc.Name)
 					if err != nil {
 						if k8serrors.IsNotFound(err) {
@@ -126,23 +126,23 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 			if ft.IsHttpOrHttps() {
 				// gc rules
 				for _, rl := range ft.Rules {
-					if rl.RedirectURL != "" {
+					if rl.Spec.RedirectURL != "" {
 						// for redirect rule, service is meaningless
 						continue
 					}
-					if rl.Source != nil && rl.Source.Type == m.TypeIngress {
+					if rl.Spec.Source != nil && rl.Spec.Source.Type == m.TypeIngress {
 						// only gc bind rules
 						continue
 					}
 					// gc bind rules
-					isValidBindRule := rl.Source != nil &&
-						rl.Source.Type == m.TypeBind &&
-						rl.ServiceGroup != nil && len(rl.ServiceGroup.Services) != 0
+					isValidBindRule := rl.Spec.Source != nil &&
+						rl.Spec.Source.Type == m.TypeBind &&
+						rl.Spec.ServiceGroup != nil && len(rl.Spec.ServiceGroup.Services) != 0
 
 					if isValidBindRule {
 						noneExist := 0
 						bindkeyEmpty := false
-						for _, svc := range rl.ServiceGroup.Services {
+						for _, svc := range rl.Spec.ServiceGroup.Services {
 							service, err := kd.ServiceLister.Services(svc.Namespace).Get(svc.Name)
 							if err != nil && k8serrors.IsNotFound(err) {
 								noneExist++
@@ -166,7 +166,7 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 								Reason:    RuleServiceBindkeyEmpty,
 							})
 						}
-						if noneExist == len(rl.ServiceGroup.Services) {
+						if noneExist == len(rl.Spec.ServiceGroup.Services) {
 							gcActions = append(gcActions, GCAction{
 								Namespace: namespace,
 								Kind:      DeleteRule,

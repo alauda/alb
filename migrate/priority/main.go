@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 	defer klog.Flush()
 	ensureEnv()
-	k8sDriver, err := driver.GetDriver()
+	k8sDriver, err := driver.GetDriver(context.Background())
 	if err != nil {
 		panic(err)
 	}

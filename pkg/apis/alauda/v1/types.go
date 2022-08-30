@@ -3,7 +3,9 @@ package v1
 // +kubebuilder:validation:Optional
 
 import (
+	"bytes"
 	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -268,4 +270,29 @@ func (dslx DSLX) Priority() int {
 		}
 	}
 	return p
+}
+
+// TODO use code generator
+// converting rules to deterministic strings,since that we could hash/diff rulespec.
+func (r *RuleSpec) Identity() string {
+	var b bytes.Buffer
+	b.WriteString(r.Domain)
+	b.WriteString(r.DSL)
+	b.WriteString(fmt.Sprintf("%v", r.DSLX))
+	b.WriteString(fmt.Sprintf("%v", r.Priority))
+	b.WriteString(fmt.Sprintf("%v", r.ServiceGroup))
+	b.WriteString(fmt.Sprintf("%v", r.Source))
+	b.WriteString(r.Type)
+	b.WriteString(r.URL)
+	b.WriteString(r.CertificateName)
+	b.WriteString(fmt.Sprintf("%v", r.EnableCORS))
+	b.WriteString(r.CORSAllowHeaders)
+	b.WriteString(r.BackendProtocol)
+	b.WriteString(r.RedirectURL)
+	b.WriteString(r.CORSAllowHeaders)
+	b.WriteString(r.VHost)
+	b.WriteString(fmt.Sprintf("%v", r.RedirectCode))
+	b.WriteString(r.RewriteBase)
+	b.WriteString(r.RewriteTarget)
+	return b.String()
 }

@@ -1,67 +1,80 @@
 #!/bin/bash
 
 function alb-build-e2e-test {
-  local base=$(pwd)
-  local ginkgoCmds=""
-  for suite_test in $(find ./test/e2e -name suite_test.go); do
-    local suite=$(dirname "$suite_test")
-    local suiteName=$(basename "$suite")
-    local ginkgoTest="$suite/$suiteName.test"
-    ginkgo build $suite 
-  done
+    local base=$(pwd)
+    local ginkgoCmds=""
+    for suite_test in $(find ./test/e2e -name suite_test.go); do
+        local suite=$(dirname "$suite_test")
+        local suiteName=$(basename "$suite")
+        local ginkgoTest="$suite/$suiteName.test"
+        ginkgo build $suite
+    done
 
+}
+
+function alb-gen-all-e2e-test {
+    export ALB_IGNORE_FOCUS="true"
+    local base=$(pwd)
+    local ginkgoCmds=""
+    for suite_test in $(find ./test/e2e -name suite_test.go); do
+        local suite=$(dirname "$suite_test")
+        local suiteName=$(basename "$suite")
+        local ginkgoTest="$suite/$suiteName.test"
+        rm -rf $suite/viper-config.toml
+        cp $base/viper-config.toml $suite
+
+        ginkgo build $suite
+        file $ginkgoTest
+        if [ $? != 0 ]; then
+            echo "build $suite failed"
+            exit 1
+        fi
+        while IFS= read -r testcase _; do
+            cmd="$ginkgoTest -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
+            ginkgoCmds="$ginkgoCmds\n$cmd"
+        done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
+    done
+    printf "$ginkgoCmds" > ./cmds.cfg
 }
 
 function alb-run-all-e2e-test {
-  export ALB_IGNORE_FOCUS="true"
-  local base=$(pwd)
-  local ginkgoCmds=""
-  for suite_test in $(find ./test/e2e -name suite_test.go); do
-    local suite=$(dirname "$suite_test")
-    local suiteName=$(basename "$suite")
-    local ginkgoTest="$suite/$suiteName.test"
-    rm -rf $suite/viper-config.toml
-    cp $base/viper-config.toml $suite
-
-    ginkgo build $suite 
-    file $ginkgoTest
-    if [ $? != 0 ]; then
-      echo "build $suite failed"
-      exit 1
+    alb-gen-all-e2e-test
+    cat ./cmds.cfg
+    if command -v shopt &>/dev/null; then
+        echo "set shopt"
+        shopt -s xpg_echo
     fi
-    while IFS= read -r testcase _; do
-      cmd="$ginkgoTest -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
-      ginkgoCmds="$ginkgoCmds\n$cmd"
-    done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
-  done
-  shopt -s xpg_echo
-  touch $HOME/.ack-ginkgo-rc
-  echo "$ginkgoCmds" > cmds.cfg
-  parallel -j 4 < cmds.cfg
+    if [ -n "$E2E_ONE_BY_ONE" ]; then
+        echo "one by one"
+        bash -x cmds.cfg
+    else
+        echo "parallel"
+        touch $HOME/.ack-ginkgo-rc
+        parallel -j 4 <cmds.cfg
+    fi
 }
-
 
 TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua" "l7_redirect.lua" "cors.lua" "rewrite_response.lua" "cert.lua")
 function alb-lua-format-check {
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo check format of $f
-    local lua=./template/nginx/lua/$f
-    lua-format --check -v $lua
-  done
+    # shellcheck disable=SC2068
+    for f in ${TOUCHED_LUA_FILE[@]}; do
+        echo check format of $f
+        local lua=./template/nginx/lua/$f
+        lua-format --check -v $lua
+    done
 }
 
 function alb-lua-format-format {
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo format $f
-    local lua=./template/nginx/lua/$f
-    lua-format -i -v $lua
-  done
+    # shellcheck disable=SC2068
+    for f in ${TOUCHED_LUA_FILE[@]}; do
+        echo format $f
+        local lua=./template/nginx/lua/$f
+        lua-format -i -v $lua
+    done
 }
 
 function alb-init-git-hook {
-  read -r -d "" PREPUSH <<EOF
+    read -r -d "" PREPUSH <<EOF
 #!/bin/bash
 set -e
 
@@ -82,42 +95,52 @@ make lua-test
 cd chart
 helm lint -f ./values.yaml
 EOF
-  echo "$PREPUSH" >./.git/hooks/pre-push
-  chmod a+x ./.git/hooks/pre-push
+    echo "$PREPUSH" >./.git/hooks/pre-push
+    chmod a+x ./.git/hooks/pre-push
 }
 
 function alb-go-coverage {
-  # copy from https://github.com/ory/go-acc
-  touch ./coverage.tmp
-  echo 'mode: atomic' >coverage.txt
-  go list ./... | grep -v /e2e | grep -v /pkg | xargs -n1 -I{} sh -c 'go test -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg $(go list ./... | grep -v /pkg |grep -v /e2e | tr "\n" ",") {} && tail -n +2 coverage.tmp >> coverage.txt || exit 255' && rm coverage.tmp
-  go tool cover -func=./coverage.txt
-  go tool cover -html=./coverage.txt -o coverage.html
+    # copy from https://github.com/ory/go-acc
+    touch ./coverage.tmp
+    echo 'mode: atomic' >coverage.txt
+    go list ./... | grep -v /e2e | grep -v /pkg | xargs -n1 -I{} sh -c 'go test -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg $(go list ./... | grep -v /pkg |grep -v /e2e | tr "\n" ",") {} && tail -n +2 coverage.tmp >> coverage.txt || exit 255' && rm coverage.tmp
+    go tool cover -func=./coverage.txt
+    go tool cover -html=./coverage.txt -o coverage.html
 }
 
 function go-fmt-fix {
-  gofmt -w .
+    gofmt -w .
 }
 
 function go-lint {
-  if [ ! "$(gofmt -l $(find . -type f -name '*.go' | grep -v ".deepcopy"))" = "" ]; then
-    echo "go fmt check fail"
-    exit 1
-  fi
-  go vet .../..
+    local out=$(gofmt -l $(find . -type f -name '*.go' | grep -v ".deepcopy"))
+    echo $out
+    # make gofmt happy https://github.com/golang/go/issues/45953
+    if [ -n "$out" ]; then
+        exit 1
+    fi
+    go vet .../..
+    # check syntax
+    go test -run=nope ./...
 }
 
+# run go-lint in subshell,since that it will not exit current shell.
+function go-lint-dev() (
+    go-fmt-fix # just fix it
+    go-lint
+)
+
 function go-unit-test {
-  if [ -d ./alb-nginx/t/servroot ]; then
-    rm -rf ./alb-nginx/t/servroot || true
-  fi
-  go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
+    if [ -d ./alb-nginx/t/servroot ]; then
+        rm -rf ./alb-nginx/t/servroot || true
+    fi
+    go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
 }
 
 function alb-install-golang-test-dependency {
   wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf  kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
   apk update && apk add parallel python3 py3-pip curl git build-base jq iproute2 openssl
-  pip install crossplane
+  pip install crossplane -i  https://mirrors.aliyun.com/pypi/simple
   curl --progress-bar  -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.21.2/$(go env GOOS)/$(go env GOARCH)" && \
     mkdir -p /usr/local/kubebuilder && \
     tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz && \
@@ -126,94 +149,101 @@ function alb-install-golang-test-dependency {
 }
 
 function alb-test-all-in-ci-golang {
-  # base image build-harbor.alauda.cn/ops/golang:1.18-alpine3.15
-  set -e # exit on err
-  echo alb is $ALB
-  echo pwd is $(pwd)
-  local start=$(date +"%Y %m %e %T.%6N")
-  alb-install-golang-test-dependency
-  local end_install=$(date +"%Y %m %e %T.%6N")
-  git config --global --add safe.directory $PWD
-  go version
-  go env -w GO111MODULE=on
-  go env -w GOPROXY=https://goproxy.cn,direct
-  export GOFLAGS=-buildvcs=false
-  go-lint
-  local end_lint=$(date +"%Y %m %e %T.%6N")
-  go-unit-test
-  local end_unit_test=$(date +"%Y %m %e %T.%6N")
-  echo "unit-test ok"
-  go install github.com/onsi/ginkgo/ginkgo
-  local end_ginkgo=$(date +"%Y %m %e %T.%6N")
-  which ginkgo
-  echo $?
-  alb-run-all-e2e-test
-  local end_e2e=$(date +"%Y %m %e %T.%6N")
-  echo "start" $start
-  echo "install" $end_install
-  echo "lint" $end_lint
-  echo "unit-test" $end_unit_test
-  echo "ginkgo" $end_ginkgo
-  echo "e2e" $end_e2e
+    # base image build-harbor.alauda.cn/ops/golang:1.18-alpine3.15
+    set -e # exit on err
+    echo alb is $ALB
+    echo pwd is $(pwd)
+    local start=$(date +"%Y %m %e %T.%6N")
+    alb-install-golang-test-dependency
+    local end_install=$(date +"%Y %m %e %T.%6N")
+    git config --global --add safe.directory $PWD
+    go version
+    go env -w GO111MODULE=on
+    go env -w GOPROXY=https://goproxy.cn,direct
+    export GOFLAGS=-buildvcs=false
+    go-lint
+    local end_lint=$(date +"%Y %m %e %T.%6N")
+    go-unit-test
+    local end_unit_test=$(date +"%Y %m %e %T.%6N")
+    echo "unit-test ok"
+    go install github.com/onsi/ginkgo/ginkgo
+    local end_ginkgo=$(date +"%Y %m %e %T.%6N")
+    which ginkgo
+    echo $?
+    alb-run-all-e2e-test
+    local end_e2e=$(date +"%Y %m %e %T.%6N")
+    echo "start" $start
+    echo "install" $end_install
+    echo "lint" $end_lint
+    echo "unit-test" $end_unit_test
+    echo "ginkgo" $end_ginkgo
+    echo "e2e" $end_e2e
 }
 
 function alb-install-nginx-test-dependency {
-  apk update && apk add  luacheck lua  perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
-  cpanm --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/  -v --notest Test::Nginx IPC::Run 
-  cp ./alb-nginx/t/lib/lua-resty-http/* /usr/local/openresty/site/lualib/resty/
+    apk update && apk add luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
+    cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
 }
 
 function alb-test-all-in-ci-nginx {
-  # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
-  set -e # exit on err
-  echo alb is $ALB
-  echo pwd is $(pwd)
-  local start=$(date +"%Y %m %e %T.%6N")
-  alb-install-nginx-test-dependency
-  local end_install=$(date +"%Y %m %e %T.%6N")
-  source ./alb-nginx/actions/common.sh
-  luacheck ./template/nginx/lua
-  local end_check=$(date +"%Y %m %e %T.%6N")
-#   alb-lua-format-check
-  test-nginx-in-ci
-  local end_test=$(date +"%Y %m %e %T.%6N")
-  echo "start " $start
-  echo "install " $end_install
-  echo "check" $end_check
-  echo "test" $end_test
+    # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
+    set -e # exit on err
+    echo alb is $ALB
+    echo pwd is $(pwd)
+    local start=$(date +"%Y %m %e %T.%6N")
+    if [ -z "$SKIP_INSTALL_NGINX_TEST_DEP" ]; then
+        alb-install-nginx-test-dependency
+    fi
+    cp ./alb-nginx/t/lib/lua-resty-http/* /usr/local/openresty/site/lualib/resty/
+    local end_install=$(date +"%Y %m %e %T.%6N")
+    source ./alb-nginx/actions/common.sh
+    luacheck ./template/nginx/lua
+    local end_check=$(date +"%Y %m %e %T.%6N")
+    #   alb-lua-format-check
+    test-nginx-in-ci
+    local end_test=$(date +"%Y %m %e %T.%6N")
+    echo "start " $start
+    echo "install " $end_install
+    echo "check" $end_check
+    echo "test" $end_test
 }
 
 function alb-test-all-in-ci {
-  # keep build env still work
-  # the current dir in ci is sth like /home/xx/xx/acp-alb-test
-  set -e # exit on err
-  echo alb is $ALB
-  echo pwd is $(pwd)
-  source /root/.gvm/scripts/gvm
-  gvm list
-  gvm use go1.18 || true
-  go version
-  local START=$(date +%s)
-  go env -w GO111MODULE=on
-  go env -w GOPROXY=https://goproxy.cn,direct
-  go-lint
-  luacheck ./template/nginx/lua
-  alb-lua-format-check
-  go-unit-test
-  echo "unit-test ok"
-  go install github.com/onsi/ginkgo/ginkgo
-  which ginkgo
-  echo $?
-  alb-run-all-e2e-test
-  source ./alb-nginx/actions/common.sh
-  test-nginx-in-ci
-  local END=$(date +%s)
-  echo "all-time: " $(echo "scale=3; $END - $START" | bc) "s"
+    # keep build env still work
+    # the current dir in ci is sth like /home/xx/xx/acp-alb-test
+    set -e # exit on err
+    echo alb is $ALB
+    echo pwd is $(pwd)
+    source /root/.gvm/scripts/gvm
+    gvm list
+    gvm use go1.18 || true
+    go version
+    local START=$(date +%s)
+    go env -w GO111MODULE=on
+    go env -w GOPROXY=https://goproxy.cn,direct
+    go-lint
+    luacheck ./template/nginx/lua
+    alb-lua-format-check
+    go-unit-test
+    echo "unit-test ok"
+    go install github.com/onsi/ginkgo/ginkgo
+    which ginkgo
+    echo $?
+    alb-run-all-e2e-test
+    source ./alb-nginx/actions/common.sh
+    test-nginx-in-ci
+    local END=$(date +%s)
+    echo "all-time: " $(echo "scale=3; $END - $START" | bc) "s"
 }
 
 function alb-list-e2e-testcase {
-  for suite_test in $(find ./test/e2e -name suite_test.go); do
-    local suite=$(dirname "$suite_test")
-    ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
-  done
+    for suite_test in $(find ./test/e2e -name suite_test.go); do
+        local suite=$(dirname "$suite_test")
+        ginkgo -v -noColor -dryRun $suite | grep 'alb-test-case'
+    done
+}
+
+function alb-run-e2e-demo {
+    export DEV_MODE=true
+    ginkgo -v -focus "should detect tcp port conflict" ./test/e2e 
 }

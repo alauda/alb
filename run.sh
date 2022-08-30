@@ -35,8 +35,26 @@ if [ "$LB_TYPE" = "nginx" ]; then
     ulimit -c 0
 fi
 
-if [ -n "$TAIL_MODE" ] ;then
+if [ -n "$TAIL_MODE" ]; then
     echo "tail mode wait forever"
     tail -f /dev/null
 fi
-/alb/alb $ARGS
+
+_term() {
+    echo "Caught SIGTERM signal! term $child"
+    kill -TERM "$child" 2>/dev/null
+    local max_term_seconds="$MAX_TERM_SECONDS"
+    if [ -z "$max_term_seconds" ]; then
+        max_term_seconds="30"
+    fi
+    echo "$max_term_seconds"
+    sleep $max_term_seconds
+    exit 0
+}
+
+trap _term SIGTERM
+
+/alb/alb $ARGS &
+child=$!
+echo "alb pid $child"
+wait "$child"

@@ -19,25 +19,20 @@ type Log struct {
 	logr logr.Logger
 }
 
-func Init() {
+func L() logr.Logger {
 	_globalMu.Lock()
 	defer _globalMu.Unlock()
 	if _globalL != nil {
-		panic("log already initialized")
+		return _globalL.logr
 	}
 	initKlogV2()
 	logger := klogr.NewWithOptions(klogr.WithFormat("Klog"))
 	_globalL = &Log{logr: logger}
+	return _globalL.logr
 }
 
-func L() logr.Logger {
-	_globalMu.RLock()
-	defer _globalMu.RUnlock()
-	l := _globalL
-	if l == nil {
-		panic("init log first")
-	}
-	return l.logr
+func Flush() {
+	klogv2.Flush()
 }
 
 func initKlogV2() {

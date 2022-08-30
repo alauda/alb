@@ -4,16 +4,9 @@ package utils
 import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	"math/rand"
 	"os"
-	"sync"
 )
-
-func CleanSyncMap(m sync.Map) {
-	m.Range(func(key interface{}, value interface{}) bool {
-		m.Delete(key)
-		return true
-	})
-}
 
 // FileExists return true if file exist and is a file.
 func FileExists(filename string) (bool, error) {
@@ -49,4 +42,16 @@ func AddTypeInformationToObject(scheme *runtime.Scheme, obj runtime.Object) erro
 		break
 	}
 	return nil
+}
+
+func RandomStr(pixff string, length int) string {
+	const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
+	}
+	if pixff != "" {
+		return pixff + "-" + string(result)
+	}
+	return string(result)
 }
