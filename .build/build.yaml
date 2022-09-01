@@ -227,6 +227,25 @@ spec:
           value: global.images.alb2.tag,global.images.nginx.tag
         - name: commit 
           value:  $(tasks.generate-version.results.commit-id)
+    - name: commit-push
+      taskRef:
+        name: alauda-git-commit-push
+        kind: ClusterTask
+      runAfter:
+        - build-chart
+      params:
+      - name: branch
+        value: $(tasks.generate-version.results.branch)
+      workspaces:
+        - name: source
+          workspace: source
+      when:
+      - input: "true"
+        operator: in
+        values:
+          - "$(tasks.generate-version.results.is-custom-release-branch)"
+          - "$(tasks.generate-version.results.is-release-branch)"
+          - "$(tasks.generate-version.results.is-main-branch)"
     - name: alauda-release-tag
       runAfter:
         - build-chart

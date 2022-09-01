@@ -32,12 +32,8 @@ func NewDriver(d *driver.KubernetesDriver, cfg config.IConfig, log logr.Logger) 
 	}
 }
 
-func (kd *IngressDriver) CreateFt(ft *alb2v1.Frontend) error {
-	_, err := kd.ALBClient.CrdV1().Frontends(ft.Namespace).Create(kd.Ctx, ft, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
+func (kd *IngressDriver) CreateFt(ft *alb2v1.Frontend) (*alb2v1.Frontend, error) {
+	return kd.ALBClient.CrdV1().Frontends(ft.Namespace).Create(kd.Ctx, ft, metav1.CreateOptions{})
 }
 
 func (kd *IngressDriver) UpdateFt(ft *alb2v1.Frontend) error {
@@ -53,12 +49,8 @@ func (kd *IngressDriver) DeleteRule(key client.ObjectKey) error {
 	return err
 }
 
-func (kd *IngressDriver) CreateRule(r *alb2v1.Rule) error {
-	_, err := kd.ALBClient.CrdV1().Rules(r.Namespace).Create(kd.Ctx, r, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
+func (kd *IngressDriver) CreateRule(r *alb2v1.Rule) (*alb2v1.Rule, error) {
+	return kd.ALBClient.CrdV1().Rules(r.Namespace).Create(kd.Ctx, r, metav1.CreateOptions{})
 }
 
 func (kd *IngressDriver) FindIngress(key client.ObjectKey) (*networkingv1.Ingress, error) {

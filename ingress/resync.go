@@ -66,7 +66,7 @@ func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
 				return err
 			}
 			if need {
-				log.Info("find a over handled ingress", "key", ing)
+				log.Info("find a unsynced ingress", "key", ing)
 				unSyncdIngress = append(unSyncdIngress, key)
 			}
 		}

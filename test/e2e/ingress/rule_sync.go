@@ -1,6 +1,7 @@
 package ingress
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"runtime"
@@ -27,19 +28,30 @@ var _ = Describe("Ingress", func() {
 		os.Setenv("ALB_LEADER_RENEW_DEADLINE", "2000")
 		os.Setenv("ALB_LEADER_RETRY_PERIOD", "1000")
 		os.Setenv("DEFAULT-SSL-CERTIFICATE", "cpaas-system/default")
-		os.Setenv("DEFAULT-SSL-STRATEGY", "Both")
+		os.Setenv("DEFAULT-SSL-STRATEGY", "Always")
 		deployCfg := framework.Config{InstanceMode: true, RestCfg: framework.CfgFromEnv(), Project: []string{"ALL_ALL"}}
 		f = framework.NewAlb(deployCfg)
 		f.Init()
 		defer f.Destroy()
 
-		expectRuleNum := 162
+		expectRuleNum := 81
 		f.AssertKubectlApplyFile(path.Join(cfd(), "./all.ingress"))
 		f.Wait(func() (bool, error) {
 			// 检查rule数量
 			rules, err := f.GetAlbClient().CrdV1().Rules(f.GetNamespace()).List(f.GetCtx(), v1.ListOptions{})
 			if err != nil {
 				return false, err
+			}
+			httpsftid := ""
+			for _, r := range rules.Items {
+				ft := r.OwnerReferences[0]
+				tlog("rule ft id %v %v", ft.UID, ft.Name)
+				if ft.Name == "alb-dev-00443" && httpsftid == "" {
+					httpsftid = string(ft.UID)
+				}
+				if httpsftid != string(ft.UID) {
+					return false, fmt.Errorf("invalid ft id")
+				}
 			}
 			tlog("rule len %v", len(rules.Items))
 			if len(rules.Items) == expectRuleNum {

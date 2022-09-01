@@ -22,7 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"time"
 )
 
@@ -77,18 +76,22 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	if err != nil {
 		return false, err
 	}
-	if dryRun {
-		if httpfa.needDo() || httpsfa.needDo() {
-			return true, nil
-		}
-	} else {
+	if dryRun && (httpfa.needDo() || httpsfa.needDo()) {
+		return true, nil
+	}
+
+	if httpfa.needDo() {
 		if err := c.doUpdateFt(httpfa); err != nil {
 			return false, err
 		}
+		return false, fmt.Errorf("http ft not update,we must create it first, requeue this ingress")
+	}
 
+	if httpsfa.needDo() {
 		if err := c.doUpdateFt(httpsfa); err != nil {
 			return false, err
 		}
+		return false, fmt.Errorf("https ft not update,we must create it first, requeue this ingress")
 	}
 
 	ohttpRules := c.getIngresHttpFt(alb).FindIngressRuleRaw(IngKey(ing))
@@ -104,18 +107,17 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	if err != nil {
 		return false, err
 	}
-	if dryRun {
-		if httprule.needDo() || httpsrule.needDo() {
-			return true, nil
-		}
-	} else {
-		if err := c.doUpdateRule(httprule); err != nil {
-			return false, err
-		}
-		if err := c.doUpdateRule(httpsrule); err != nil {
-			return false, err
 
-		}
+	if dryRun && (httprule.needDo() || httpsrule.needDo()) {
+		return true, nil
+	}
+
+	if err := c.doUpdateRule(httprule); err != nil {
+		return false, err
+	}
+	if err := c.doUpdateRule(httpsrule); err != nil {
+		return false, err
+
 	}
 	return false, nil
 }
@@ -157,10 +159,11 @@ func (c *Controller) doUpdateFt(fa *SyncFt) error {
 		return nil
 	}
 	for _, f := range fa.Create {
-		c.log.Info("ft not-synced create it", "eft", f.Name, "ver", f.ResourceVersion)
-		if err := c.kd.CreateFt(f); err != nil {
+		cft, err := c.kd.CreateFt(f)
+		if err != nil {
 			return err
 		}
+		c.log.Info("ft not-synced create it", "eft", f.Name, "ver", f.ResourceVersion, "id", f.UID, "cid", cft.UID)
 	}
 	return nil
 }
@@ -345,9 +348,8 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	}
 
 	if need.NeedHttp() && albhttpFt == nil {
-		uid := uuid.NewUUID()
 		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPPort)
-		c.log.Info("need ft and ft not exist create one", "name", name, "uid", uid)
+		c.log.Info("need http ft and ft not exist create one", "name", name)
 
 		albhttpFt = &alb2v1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
@@ -356,7 +358,6 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 				Labels: map[string]string{
 					alblabelKey: alb.Name,
 				},
-				UID: uid, // we must create a new uid, rule will set ownerref to it.
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: alb2v1.SchemeGroupVersion.String(),
@@ -378,16 +379,15 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 		}
 	}
 	if need.NeedHttps() && albhttpsFt == nil {
-		uid := uuid.NewUUID()
-
+		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPSPort)
+		c.log.Info("need https ft and ft not exist create one", "name", name)
 		albhttpsFt = &alb2v1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: alb.Namespace,
-				Name:      fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPSPort),
+				Name:      name,
 				Labels: map[string]string{
 					alblabelKey: alb.Name,
 				},
-				UID: uid, // we must create a new uid, rule will set ownerref to it.
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: alb2v1.SchemeGroupVersion.String(),
@@ -616,14 +616,19 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 
 	// we want create rule first. since that if this pod crash, it will not lossing rule at least.
 	for _, r := range r.Create {
-		if err := c.kd.CreateRule(r); err != nil {
+		crule, err := c.kd.CreateRule(r)
+		if err != nil {
+			c.log.Error(err, "create rule fail", "rule", r.Name)
 			return err
 		}
+		c.log.Info("create rule ok", "rule", crule.Name, "id", crule.UID)
 	}
 	for _, r := range r.Delete {
 		if err := c.kd.DeleteRule(m.RuleKey(r)); err != nil && errors.IsNotFound(err) {
+			c.log.Error(err, "delete rule fail", "rule", r.Name)
 			return err
 		}
+		c.log.Info("delete rule ok", "rule", r.Name)
 	}
 	return nil
 }
@@ -671,20 +676,26 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	for _, r := range existRules {
 		hash := ruleHash(r)
 		if !expectRuleHash[hash] {
-			log.Info("exist rule not find in expect,delete it", showRule(r)...)
 			needDelete = append(needDelete, r)
 		}
 	}
 	for _, r := range expectRules {
 		hash := ruleHash(r)
 		if !existRuleHash[hash] {
-			log.Info("expect rule not find in exist,create it", showRule(r)...)
 			needCreate = append(needCreate, r)
 		}
 	}
 	if len(needCreate) == 0 && len(needDelete) == 0 {
 		log.Info("nothing need todo ingress synced.")
 	}
+
+	for _, r := range needCreate {
+		log.Info("should create rule", showRule(r)...)
+	}
+	for _, r := range needDelete {
+		log.Info("should delete rule", showRule(r)...)
+	}
+
 	// we want create rule first. since that if this popd crash, it will not lossing rule at least.
 	return &SyncRule{
 		Create: needCreate,
@@ -721,6 +732,9 @@ func ruleIdentify(r *alb2v1.Rule) string {
 		b.WriteString(v)
 	}
 	b.WriteString(spec.Identity())
+	for _, owner := range r.OwnerReferences {
+		b.WriteString(string(owner.UID))
+	}
 	return b.String()
 }
 
