@@ -42,12 +42,12 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: v3.10-13-gc726a65
+      tag: v3.10-25-gc1048fd
     nginx:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: 3rdparty/alb-nginx
-      tag: "v3.9-57-gb40a7de"
+      tag: "v3.10-25-gc1048fd"
 resources:
   limits:
     cpu: "2"
