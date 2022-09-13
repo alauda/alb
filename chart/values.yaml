@@ -46,8 +46,8 @@ global:
     nginx:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
-      repository: 3rdparty/alb-nginx
-      tag: "v3.10-28-g1135476"
+      repository: acp/alb-nginx
+      tag: "v1.22.0"
 resources:
   limits:
     cpu: "2"

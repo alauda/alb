@@ -114,9 +114,40 @@ spec:
           value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
         - name: verbose
           value: "true"
+    - name: build-nginx
+      runAfter:
+        - code-scan
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-build-image
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: container-image
+          value: build-harbor.alauda.cn/3rdparty/alb-nginx
+        - name: container-image-tag
+          value: $(tasks.generate-version.results.version)
+        - name: dockerfile
+          value: ./alb-nginx/Dockerfile
+        - name: platform
+          value:
+            - linux/amd64
+            - linux/arm64
+        - name: tools-image
+          value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
+        - name: verbose
+          value: "true"
     - name: nginx-test
       timeout: 30m
       retries: 3
+      runAfter:
+        - build-nginx
+      params:
+      - name: nginx-tag
+        value: $(tasks.generate-version.results.version)
       workspaces:
         - name: source
           workspace: source
@@ -126,8 +157,11 @@ spec:
         workspaces:
           - name: source
             workspace: source
+        params:
+        - name: nginx-tag
+          value: $(params.nginx-tag)
         steps:
-          - image: build-harbor.alauda.cn/acp/alb-nginx:v1.22.0
+          - image: build-harbor.alauda.cn/3rdparty/alb-nginx:$(params.nginx-tag)
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
@@ -164,6 +198,7 @@ spec:
     - name: build-chart
       runAfter:
         - alauda-generate-chart-version
+        - build-nginx
         - build-alb
         - alb-test
         - nginx-test
@@ -187,9 +222,9 @@ spec:
         - name: git-revision
           value: $(params.git-revision)
         - name: image-tag
-          value: $(tasks.generate-version.results.version)
+          value: $(tasks.generate-version.results.version),$(tasks.generate-version.results.version)
         - name: values-path
-          value: global.images.alb2.tag
+          value: global.images.alb2.tag,global.images.nginx.tag
         - name: commit 
           value:  $(tasks.generate-version.results.commit-id)
     - name: commit-push
