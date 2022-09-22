@@ -4,6 +4,7 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -152,6 +153,14 @@ func (ft *Frontend) HaveDefaultBackend() bool {
 func SetDefaultBackend(ft *alb2v1.Frontend, protocol string, svc *alb2v1.ServiceGroup) {
 	ft.Spec.BackendProtocol = protocol
 	ft.Spec.ServiceGroup = svc
+}
+
+func SetSource(ft *alb2v1.Frontend, ing *networkingv1.Ingress) {
+	ft.Spec.Source = &alb2v1.Source{
+		Name:      ing.Name,
+		Namespace: ing.Namespace,
+		Type:      TypeIngress,
+	}
 }
 
 func (rule *Rule) IsCreateByThisIngress(ns, name string) bool {

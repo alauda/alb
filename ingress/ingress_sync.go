@@ -19,10 +19,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"time"
 )
 
 // this is the reconcile
@@ -68,26 +69,39 @@ func (c *Controller) Reconcile(key client.ObjectKey) (err error) {
 }
 
 func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalancer, expect *ExpectFtAndRule, dryRun bool) (needdo bool, err error) {
-	httpfa, err := c.genSyncFtAction(c.getIngresHttpFtRaw(alb), expect.http, c.log)
+	log := c.log.WithName("do-update").WithValues("ingress", ing.Name, "dry-run", dryRun)
+	ohttpft := c.getIngresHttpFtRaw(alb)
+	if ohttpft != nil {
+		log.Info("ohttp", "ver", ohttpft.ResourceVersion, "svc", ohttpft.Spec.ServiceGroup, "src", ohttpft.Spec.Source)
+	}
+	httpfa, err := c.genSyncFtAction(ohttpft, expect.http, c.log)
 	if err != nil {
 		return false, err
 	}
-	httpsfa, err := c.genSyncFtAction(c.getIngresHttpsFtRaw(alb), expect.https, c.log)
+	ohttpsft := c.getIngresHttpsFtRaw(alb)
+	if ohttpsft != nil {
+		log.Info("ohttps", "ver", ohttpsft.ResourceVersion, "https", ohttpsft.Spec.ServiceGroup)
+	}
+	httpsfa, err := c.genSyncFtAction(ohttpsft, expect.https, c.log)
 	if err != nil {
 		return false, err
 	}
 	if dryRun && (httpfa.needDo() || httpsfa.needDo()) {
 		return true, nil
 	}
+	needupdateHttp := httpfa.needDo()
+	log.Info("need update http", "updatehttpft", needupdateHttp, "http", httpfa)
 
-	if httpfa.needDo() {
+	if needupdateHttp {
 		if err := c.doUpdateFt(httpfa); err != nil {
 			return false, err
 		}
-		return false, fmt.Errorf("http ft not update,we must create it first, requeue this ingress")
+		return false, fmt.Errorf("http ft not update,we must sync it first, requeue this ingress")
 	}
 
-	if httpsfa.needDo() {
+	needupdateHttps := httpsfa.needDo()
+	log.Info("need update https", "updatehttpsft", needupdateHttps, "https", httpsfa)
+	if needupdateHttps {
 		if err := c.doUpdateFt(httpsfa); err != nil {
 			return false, err
 		}
@@ -124,6 +138,7 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 
 type SyncFt struct {
 	Create []*alb2v1.Frontend
+	Update []*alb2v1.Frontend
 	Delete []*alb2v1.Frontend
 }
 
@@ -131,7 +146,7 @@ func (f *SyncFt) needDo() bool {
 	if f == nil {
 		return false
 	}
-	return len(f.Create) != 0 || len(f.Delete) != 0
+	return len(f.Create) != 0 || len(f.Delete) != 0 || len(f.Update) != 0
 }
 
 func (c *Controller) genSyncFtAction(oft *alb2v1.Frontend, eft *alb2v1.Frontend, log logr.Logger) (*SyncFt, error) {
@@ -151,10 +166,24 @@ func (c *Controller) genSyncFtAction(oft *alb2v1.Frontend, eft *alb2v1.Frontend,
 		log.Info("expect to delete ft? it may happens when change to https only mode.but just ignore it now")
 		return nil, nil
 	}
+	// we only update ft when source group change to exist
+	if oft != nil && eft != nil {
+		log.Info("ft both exist", "oft-v", oft.ResourceVersion, "oft-src", oft.Spec.Source, "oft-svc", oft.Spec.ServiceGroup, "eft-src", eft.Spec.Source, "eft-svc", eft.Spec.ServiceGroup)
+		// oft it get from k8s, eft is crate via our. we should update the exist ft.
+		if oft.Spec.ServiceGroup == nil && eft.Spec.ServiceGroup != nil {
+			log.Info("ft default backend changed ", "backend", eft.Spec.ServiceGroup, "source", eft.Spec.Source)
+			f := oft.DeepCopy()
+			f.Spec = eft.Spec
+			return &SyncFt{
+				Update: []*alb2v1.Frontend{f},
+			}, nil
+		}
+	}
 	return nil, nil
 }
 
 func (c *Controller) doUpdateFt(fa *SyncFt) error {
+	c.log.Info("do update ft", "crate", len(fa.Create), "update", len(fa.Update), "delete", len(fa.Delete))
 	if !fa.needDo() {
 		return nil
 	}
@@ -164,6 +193,14 @@ func (c *Controller) doUpdateFt(fa *SyncFt) error {
 			return err
 		}
 		c.log.Info("ft not-synced create it", "eft", f.Name, "ver", f.ResourceVersion, "id", f.UID, "cid", cft.UID)
+	}
+	for _, f := range fa.Update {
+		c.log.Info("ft not-synced update it ", "sepc", f.Spec)
+		cft, err := c.kd.UpdateFt(f)
+		if err != nil {
+			return err
+		}
+		c.log.Info("ft not-synced update it", "eft", f.Name, "ver", f.ResourceVersion, "id", f.UID, "cid", cft.UID)
 	}
 	return nil
 }
@@ -240,37 +277,42 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey) error {
 	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
 	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
-	c.log.Info(fmt.Sprintf("on ingress delete, %s", key))
+	log := c.log.WithName("cleanup").WithValues("ingress", key)
+	log.Info("clean up")
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {
 		if int(f.Spec.Port) == IngressHTTPPort || int(f.Spec.Port) == IngressHTTPSPort {
 			ft = f
 			// 如果这个ft是因为这个ingress创建起来的,当ingress被删除时,要更新这个ft
-			if ft.IsCreateByThisIngress(key.Namespace, key.Name) && ft.HaveDefaultBackend() {
+			createBythis := ft.IsCreateByThisIngress(key.Namespace, key.Name)
+			log.Info("find ft", "createBythis", createBythis, "backend", ft.Spec.ServiceGroup, "souce", ft.Spec.Source)
+			if createBythis {
 				// wipe default backend
 				ft.Spec.ServiceGroup = nil
 				ft.Spec.Source = nil
 				ft.Spec.BackendProtocol = ""
-				c.log.Info("wipe ft default backend cause of ingres been delete", "ft", ft.Name, "ingress", key)
-				err := c.kd.UpdateFt(ft.Frontend)
+				log.Info("wipe ft default backend cause of ingres been delete", "nft-ver", ft.ResourceVersion, "ft", ft.Name, "ingress", key)
+				nft, err := c.kd.UpdateFt(ft.Frontend)
 				if err != nil {
-					c.log.Error(nil, fmt.Sprintf("upsert ft failed: %s", err))
+					log.Error(nil, fmt.Sprintf("upsert ft failed: %s", err))
 					return err
 				}
+				log.Info("after update", "nft-ver", nft.ResourceVersion, "svc", nft.Spec.ServiceGroup)
 			}
 
 			for _, rule := range ft.Rules {
 				if rule.IsCreateByThisIngress(key.Namespace, key.Name) {
-					c.log.Info(fmt.Sprintf("delete-rules  ingress key: %s  rule name %s reason: ingress-delete", key, rule.Name))
+					log.Info(fmt.Sprintf("delete-rules  ingress key: %s  rule name %s reason: ingress-delete", key, rule.Name))
 					err := c.kd.DeleteRule(rule.Key())
 					if err != nil && !errors.IsNotFound(err) {
-						c.log.Error(err, "delete rule fial", "rule", rule.Name)
+						log.Error(err, "delete rule fial", "rule", rule.Name)
 						return err
 					}
 				}
 			}
 		}
 	}
+	// TODO we should find all should handled ingress ,and find one which has defaultBackend.now just left this job to resync.
 	return nil
 }
 
@@ -412,6 +454,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 
 	// for default backend, we will not create rules but save services to frontends' service-group
 	if HasDefaultBackend(ingress) {
+		c.log.Info("ingress has default backend", "ing", ingress.Name)
 		// just update it, let the resolver decide should we really upate it.
 		annotations := ingress.GetAnnotations()
 		backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
@@ -432,9 +475,11 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 		}
 		if albhttpFt != nil {
 			m.SetDefaultBackend(albhttpFt, backendProtocol, svc)
+			m.SetSource(albhttpFt, ingress)
 		}
 		if albhttpsFt != nil {
 			m.SetDefaultBackend(albhttpsFt, backendProtocol, svc)
+			m.SetSource(albhttpsFt, ingress)
 		}
 	}
 	return albhttpFt, albhttpsFt, nil

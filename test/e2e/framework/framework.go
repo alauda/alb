@@ -118,7 +118,6 @@ func CfgFromEnv() *rest.Config {
 func NewAlb(deployCfg Config) *Framework {
 	cfg := deployCfg.RestCfg
 	if !(os.Getenv("DEV_MODE") == "true") {
-		deployCfg.RandomNs = true
 		deployCfg.RandomBaseDir = true
 	}
 	if deployCfg.AlbAddress == "" {

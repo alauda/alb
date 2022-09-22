@@ -36,12 +36,12 @@ func (kd *IngressDriver) CreateFt(ft *alb2v1.Frontend) (*alb2v1.Frontend, error)
 	return kd.ALBClient.CrdV1().Frontends(ft.Namespace).Create(kd.Ctx, ft, metav1.CreateOptions{})
 }
 
-func (kd *IngressDriver) UpdateFt(ft *alb2v1.Frontend) error {
-	_, err := kd.ALBClient.CrdV1().Frontends(ft.Namespace).Update(kd.Ctx, ft, metav1.UpdateOptions{})
+func (kd *IngressDriver) UpdateFt(ft *alb2v1.Frontend) (*alb2v1.Frontend, error) {
+	ft, err := kd.ALBClient.CrdV1().Frontends(ft.Namespace).Update(kd.Ctx, ft, metav1.UpdateOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return ft, nil
 }
 
 func (kd *IngressDriver) DeleteRule(key client.ObjectKey) error {

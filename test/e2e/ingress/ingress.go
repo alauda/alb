@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/test/e2e/framework"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -15,11 +15,11 @@ import (
 )
 
 var _ = ginkgo.Describe("Ingress", func() {
-	var f *framework.Framework
+	var f *Framework
 
 	ginkgo.BeforeEach(func() {
-		deployCfg := framework.Config{InstanceMode: true, RestCfg: framework.CfgFromEnv(), Project: []string{"project1"}}
-		f = framework.NewAlb(deployCfg)
+		deployCfg := Config{InstanceMode: true, RestCfg: CfgFromEnv(), Project: []string{"project1"}}
+		f = NewAlb(deployCfg)
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-default", []string{"192.168.1.1", "192.168.2.2"})
 		f.Init()
@@ -30,7 +30,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 		f = nil
 	})
 
-	framework.GIt("should compatible with redirect ingress", func() {
+	GIt("should compatible with redirect ingress", func() {
 		ns := f.GetProductNs()
 		// should generate rule and policy when use ingress.backend.port.number even svc not exist.
 		pathType := networkingv1.PathTypeImplementationSpecific
@@ -77,14 +77,14 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 		f.WaitPolicy(func(policyRaw string) bool {
 			fmt.Printf("policyRaw %s", policyRaw)
-			hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-			hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[]`)
+			hasRule := PolicyHasRule(policyRaw, 80, ruleName)
+			hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[]`)
 			return hasRule && hasPod
 		})
 	})
 
 	ginkgo.Context("basic ingress", func() {
-		framework.GIt("should translate ingress to rule and generate nginx config,policy.new", func() {
+		GIt("should translate ingress to rule and generate nginx config,policy.new", func() {
 			ns := f.GetProductNs()
 			name := "ingress-a"
 
@@ -97,18 +97,18 @@ var _ = ginkgo.Describe("Ingress", func() {
 			ruleName := rule.Name
 
 			f.WaitPolicy(func(policyRaw string) bool {
-				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
+				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
+				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod
 			})
 
 		})
 
-		framework.GIt("should get correct backend port when ingress use port.name", func() {
+		GIt("should get correct backend port when ingress use port.name", func() {
 			// give a svc.port tcp-81 which point to pod name pod-tcp-112 which point to pod container port 112
 			// if ingress.backend.port.name=tcp-81, the backend should be xxxx:112
 			ns := f.GetProductNs()
-			ingressCase := framework.IngressCase{
+			ingressCase := IngressCase{
 				Namespace: ns,
 				Name:      "svc2",
 				SvcPort: map[string]struct {
@@ -145,16 +145,16 @@ var _ = ginkgo.Describe("Ingress", func() {
 			rules := f.WaitIngressRule(ingressCase.Ingress.Name, ingressCase.Namespace, 1)
 			rule := rules[0]
 			ruleName := rule.Name
-			framework.Logf("created rule %+v", rule)
+			Logf("created rule %+v", rule)
 			assert.Equal(ginkgo.GinkgoT(), rule.Spec.ServiceGroup.Services[0].Port, 81)
 			f.WaitPolicy(func(policyRaw string) bool {
-				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.3.1 otherclusters:false port:112 weight:50] map[address:192.168.3.2 otherclusters:false port:112 weight:50]]`)
+				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
+				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.3.1 otherclusters:false port:112 weight:50] map[address:192.168.3.2 otherclusters:false port:112 weight:50]]`)
 				return hasRule && hasPod
 			})
 		})
 
-		framework.GIt("should work when ingress has longlong name", func() {
+		GIt("should work when ingress has longlong name", func() {
 			ns := f.GetProductNs()
 			_ = ns
 			name := "ingress-aaa" + strings.Repeat("a", 100)
@@ -169,10 +169,123 @@ var _ = ginkgo.Describe("Ingress", func() {
 			_ = ruleName
 
 			f.WaitPolicy(func(policyRaw string) bool {
-				hasRule := framework.PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := framework.PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
+				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
+				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod
 			})
 		})
+
+		GIt("should work with none path ingress", func() {
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-onlyhost
+  namespace:  alb-test
+spec:
+  rules:
+  - host: local.ares.acp.ingress.domain
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-normal
+  namespace:  alb-test
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /xx
+        pathType: ImplementationSpecific
+`)
+			f.Wait(func() (bool, error) {
+				rs, err := f.K8sClient.GetAlbClient().CrdV1().Rules("cpaas-system").List(f.GetCtx(), metav1.ListOptions{})
+				Logf("rs %v %v", rs.Items, err)
+				if err != nil {
+					return false, err
+				}
+				return len(rs.Items) == 1, err
+			})
+		})
+
+		GIt("should handle defaultbackend correctly", func() {
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-nodefault
+  namespace: alb-test
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /xx
+        pathType: ImplementationSpecific
+`)
+			f.Wait(func() (bool, error) {
+				ft, err := f.K8sClient.GetAlbClient().CrdV1().Frontends("cpaas-system").Get(f.GetCtx(), "alb-dev-00080", metav1.GetOptions{})
+				Logf("%v %v", ft.Spec.ServiceGroup, err)
+				if err != nil {
+					return false, err
+				}
+				return ft.Spec.ServiceGroup == nil, nil
+			})
+
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-hasdefault
+  namespace: alb-test
+spec:
+  defaultBackend:
+    service:
+      name: svc-default
+      port:
+        number: 80
+`)
+			f.Wait(func() (bool, error) {
+				ft, err := f.K8sClient.GetAlbClient().CrdV1().Frontends("cpaas-system").Get(f.GetCtx(), "alb-dev-00080", metav1.GetOptions{})
+				Logf("shoule be 1 %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
+				if err != nil {
+					return false, err
+				}
+				if ft.Spec.ServiceGroup != nil && ft.Spec.Source.Name == "ing-hasdefault" {
+					return true, nil
+				}
+				return false, nil
+			})
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-hasdefault1
+  namespace: alb-test
+spec:
+  defaultBackend:
+    service:
+      name: svc-default
+      port:
+        number: 80
+`)
+			err := f.K8sClient.GetK8sClient().NetworkingV1().Ingresses("alb-test").Delete(f.GetCtx(), "ing-hasdefault", metav1.DeleteOptions{})
+			assert.NoError(ginkgo.GinkgoT(), err)
+			f.Wait(func() (bool, error) {
+				ft, err := f.K8sClient.GetAlbClient().CrdV1().Frontends("cpaas-system").Get(f.GetCtx(), "alb-dev-00080", metav1.GetOptions{})
+				Logf("shoule be empty %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
+				return ft.Spec.ServiceGroup == nil, nil
+			})
+		})
+
 	})
 })
