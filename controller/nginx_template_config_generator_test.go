@@ -78,6 +78,20 @@ func TestBindIp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, v4[0], "192.168.1.1")
 	assert.Equal(t, len(v4), 1)
+
+	v4, v6, err = getBindIp(
+		BindNICConfig{Nic: []string{"eth0"}},
+		NetWorkInfo{"eth0": InterfaceInfo{
+			"eth0",
+			[]string{"192.168.0.2", "192.168.0.1"},
+			[]string{},
+		}})
+	assert.NoError(t, err)
+	assert.Equal(t, len(v6), 0)
+	//must be sorted,otherwise it will reload nginx everytime.
+	assert.Equal(t, v4[0], "192.168.0.1")
+	assert.Equal(t, v4[1], "192.168.0.2")
+	assert.Equal(t, len(v4), 2)
 }
 
 func setBindIpConfig(configStr *string) {

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -125,9 +126,10 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo) (ipv4Addres
 		klog.Info("[bind_nic] could not find any ipv6 address and enableIpv6 bind [::]")
 		ipv6Address = append(ipv6Address, "[::]")
 	}
-
 	ipv4Address = utils.StrListRemoveDuplicates(ipv4Address)
 	ipv6Address = utils.StrListRemoveDuplicates(ipv6Address)
+	sort.Strings(ipv4Address)
+	sort.Strings(ipv6Address)
 	klog.Infof("[bind_nic] bind ipv4 %v ip v6 %v", ipv4Address, ipv6Address)
 	return ipv4Address, ipv6Address, nil
 }
