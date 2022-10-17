@@ -49,11 +49,18 @@ global:
       repository: acp/alb-nginx
       tag: "v1.22.0"
 resources:
+  alb:
+    limits:
+      cpu: "200m"
+      memory: 2Gi
+    requests:
+      cpu: 50m
+      memory: 128Mi
   limits:
     cpu: "2"
     memory: 2Gi
   requests:
-    cpu: 200m
+    cpu: 50m
     memory: 128Mi
 project: ""
 projects: []

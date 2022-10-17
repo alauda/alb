@@ -102,10 +102,10 @@ spec:
           imagePullPolicy: Always
           resources:
             limits:
-              cpu: 200m
+              cpu: {{ .Values.resources.alb.limits.cpu }}
               memory: {{ .Values.resources.limits.memory }}
             requests:
-              cpu: 200m
+              cpu: {{ .Values.resources.alb.requests.cpu }}
               memory: {{ .Values.resources.requests.memory }}
           volumeMounts:
           - name: tweak-conf
