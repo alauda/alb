@@ -5,75 +5,50 @@ configmap_to_file() {
   mkdir -p $output_dir
   local configmap=$ALB/chart/templates/configmap.yaml
   echo $configmap
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.http' -  |sed '/access_log*/d' |sed '/keepalive*/d' > $output_dir/http.conf || true
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.http_server' - > $output_dir/http_server.conf || true
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.upstream' - > $output_dir/upstream.conf || true
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-common' - | sed '/access_log*/d' | sed '/error_log*/d' > $output_dir/stream-common.conf || true
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-tcp' - > $output_dir/stream-tcp.conf || true
-  sed -n '/{{-/!p' $configmap |yq  e 'select(documentIndex == 0)|.data.stream-udp' - > $output_dir/stream-udp.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.http' - | sed '/access_log*/d' | sed '/keepalive*/d' >$output_dir/http.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.http_server' - >$output_dir/http_server.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.upstream' - >$output_dir/upstream.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.stream-common' - | sed '/access_log*/d' | sed '/error_log*/d' >$output_dir/stream-common.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.stream-tcp' - >$output_dir/stream-tcp.conf || true
+  sed -n '/{{-/!p' $configmap | yq e 'select(documentIndex == 0)|.data.stream-udp' - >$output_dir/stream-udp.conf || true
 
-}
-
-ALB_TEST_RUNNER_IMAGE=build-harbor.alauda.cn/3rdparty/alb-nginx-test:20220711193217
-test-nginx() {
-  local filter=""
-  if [ ! -z "$1" ]
-  then
-    filter=$1
-  fi
-  docker run \
-      -e TEST_NGINX_SLEEP=0.00001 \
-      -e TEST_NGINX_VERBOSE=true \
-      -e SYNC_POLICY_INTERVAL=1 \
-      -e CLEAN_METRICS_INTERVAL=2592000 \
-      -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
-      -v $ALB/alb-nginx/t:/t \
-      -v $ALB:/alb \
-      $ALB_TEST_RUNNER_IMAGE prove -I / -I /test-nginx/lib/ -r t/$filter
 }
 
 test-nginx-in-ci() {
+  set -e
   echo "test-nginx-in-ci" alb is $ALB
   export TEST_NGINX_VERBOSE=true
   export SYNC_POLICY_INTERVAL=1
   export CLEAN_METRICS_INTERVAL=2592000
-  export NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new
+  export NEW_POLICY_PATH=/etc/alb2/nginx/policy.new
   export TEST_NGINX_RANDOMIZE=0
   export TEST_NGINX_SERVROOT=/t/servroot
   export TEST_NGINX_SLEEP=0.0001
-  mkdir -p /t/servroot
-  cp -r $ALB /alb
-  rm -rf /alb/tweak || true
-  cp -r /alb/alb-nginx/t/* /t
+  mkdir -p /etc/alb2/nginx
+  if [ ! -d /t/servroot ]; then
+    mkdir -p /t/servroot
+  fi
+  configmap_to_file /alb/tweak
+  openssl dhparam -dsaparam -out /etc/alb2/nginx/dhparam.pem 2048
+  cp -r $ALB/alb-nginx/t/* /t
+  tree /alb
   cd /
-  prove -I / -I /test-nginx/lib/ -r t
-}
-
-
-test-nginx-exec() {
-  echo "run  'prove -I / -I /test-nginx/lib/' in this docker"
-  docker run -it \
-      -e TEST_NGINX_SLEEP=0.0001 \
-      -e TEST_NGINX_VERBOSE=true \
-      -e SYNC_POLICY_INTERVAL=1 \
-      -e CLEAN_METRICS_INTERVAL=2592000 \
-      -e NEW_POLICY_PATH=/usr/local/openresty/nginx/conf/policy.new \
-      -v $ALB/alb-nginx/t:/t \
-      -v $ALB:/alb \
-      -v $ALB/chart/:/alb/chart \
-      -v /tmp/alb/dhparam.pem:/etc/ssl/dhparam.pem \
-      $ALB_TEST_RUNNER_IMAGE sh
+  local filter=""
+  if [ ! -z "$1" ]; then
+    filter=$1
+  fi
+  prove -I / -I /test-nginx/lib/ -r t/$filter
 }
 
 # given a policy.new i want to run alb-nginx
 function alb-nginx-run() {
-	# generate nginx.conf
-	# volume lua script
-	echo $PWD
-	mkdir -p ./alb/tweak
-	configmap_to_file ./alb/tweak
-	# copy from a running alb-nginx container
-	local nginx_conf=$(
+  # generate nginx.conf
+  # volume lua script
+  echo $PWD
+  mkdir -p ./alb/tweak
+  configmap_to_file ./alb/tweak
+  # copy from a running alb-nginx container
+  local nginx_conf=$(
     cat <<'EOF'
 user  root;
 worker_rlimit_nofile 100000;
@@ -82,7 +57,7 @@ worker_cpu_affinity  auto;
 worker_shutdown_timeout 240s;
 
 error_log  /var/log/nginx/error.log notice;
-pid        /var/run/nginx.pid;
+pid        /etc/alb2/nginx/nginx.pid;
 
 env SYNC_POLICY_INTERVAL;
 env CLEAN_METRICS_INTERVAL;
@@ -264,9 +239,9 @@ stream {
 }
 EOF
   )
-    echo "$nginx_conf" > ./alb/nginx.conf
-	
-	local policy=$(
+  echo "$nginx_conf" >./alb/nginx.conf
+
+  local policy=$(
     cat <<EOF
 {
   "certificate_map": {},
@@ -294,9 +269,9 @@ EOF
   ]
 }
 EOF
-)
-    echo "$policy" > ./alb/policy.new
-	local docker_env=$(
+  )
+  echo "$policy" >./alb/policy.new
+  local docker_env=$(
     cat <<EOF
 DEFAULT-SSL-STRATEGY=Both
 INGRESS_HTTPS_PORT=443
@@ -304,21 +279,20 @@ SYNC_POLICY_INTERVAL=1
 NEW_POLICY_PATH=/alb/policy.new
 CLEAN_METRICS_INTERVAL=2592000
 EOF
-)
-	echo "$docker_env" > ./docker-env
-	local nginx_image="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
-	local nginx_image="alb-nginx:latest"
-	local nginx_image="alb-nginx-ubuntu:latest"
+  )
+  echo "$docker_env" >./docker-env
+  local nginx_image="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
+  local nginx_image="alb-nginx:latest"
+  local nginx_image="alb-nginx-ubuntu:latest"
 
-	echo "ssl"
-	openssl dhparam -dsaparam -out ./dhparam.pem 2048 
-	local uid=$(id -u)
-	local gid=$(id -g)
-	local lua_dir=$ALB/template/nginx
-	echo "run alb-nginx"
+  echo "ssl"
+  openssl dhparam -dsaparam -out ./dhparam.pem 2048
+  local uid=$(id -u)
+  local gid=$(id -g)
+  local lua_dir=$ALB/template/nginx
+  echo "run alb-nginx"
 
-	docker run --env-file ./docker-env --network host -it  -v $PWD/log:/var/log/nginx -v $PWD/dhparam.pem:/etc/ssl/dhparam.pem -v $lua_dir:/alb/template/nginx -v $PWD/alb:/alb  $nginx_image  nginx -g "daemon off;" -c /alb/nginx.conf
-	# docker run -it --env-file ./docker-env --network host -it  -v $PWD/log:/var/log/nginx -v $PWD/dhparam.pem:/etc/ssl/dhparam.pem -v $lua_dir:/alb/template/nginx -v $PWD/alb:/alb  $nginx_image sh 
-	return
+  docker run --env-file ./docker-env --network host -it -v $PWD/log:/var/log/nginx -v $PWD/dhparam.pem:/etc/ssl/dhparam.pem -v $lua_dir:/alb/template/nginx -v $PWD/alb:/alb $nginx_image nginx -g "daemon off;" -c /alb/nginx.conf
+  # docker run -it --env-file ./docker-env --network host -it  -v $PWD/log:/var/log/nginx -v $PWD/dhparam.pem:/etc/ssl/dhparam.pem -v $lua_dir:/alb/template/nginx -v $PWD/alb:/alb  $nginx_image sh
+  return
 }
-

@@ -8,7 +8,7 @@ import (
 )
 
 func GetProcessId() (string, error) {
-	process := "/nginx/nginx-pid/nginx.pid"
+	process := "/etc/alb2/nginx/nginx.pid"
 	out, err := ioutil.ReadFile(process)
 	if err != nil {
 		klog.Errorf("nginx process is not started: %s", err.Error())

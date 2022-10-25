@@ -6,16 +6,6 @@ use Test::Nginx::Socket::Lua::Stream -Base;
 
 # to knowing how/why those $block->set_value work, take a look at https://github.com/openresty/test-nginx/blob/be75f595236eef83e4274363e13affdf08b05737/lib/Test/Nginx/Util.pm#L968  
 add_block_preprocessor(sub {
-    if (! -d  "/alb/tweak") {
-        warn "generate tweak conf";
-        system("bash -c 'source /alb/alb-nginx/actions/common.sh && mkdir -p /alb/tweak && ALB=/alb configmap_to_file /alb/tweak'");
-    }
-
-    if (! -f  "/etc/ssl/dhparam.pem") {
-        warn "generate dhparam.pem";
-        system("openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048");
-    }
-
     my $block = shift;
     my $server_port= $block->server_port;
     if (defined $server_port) {
@@ -87,7 +77,7 @@ __END
 		}
 	}
 
-    open(FH,'>','/usr/local/openresty/nginx/conf/policy.new') or die $!;
+    open(FH,'>','/etc/alb2/nginx/policy.new') or die $!;
     print FH $policy;
     close(FH);
 
@@ -117,21 +107,21 @@ stream {
                 balancer = res
             end
     }
-    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
     $stream_config
 
     server {
         include       /alb/tweak/stream-tcp.conf;
         listen     0.0.0.0:81;
-        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
     
     server {
         include       /alb/tweak/stream-udp.conf;
         listen     0.0.0.0:82 udp;
-        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
 
@@ -178,7 +168,7 @@ _END_
             end
             --require("metrics").init()
     }
-    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
     server {
         listen     0.0.0.0:80 backlog=2048 default_server;
@@ -194,9 +184,9 @@ _END_
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
 
             log_by_lua_block {
@@ -214,18 +204,19 @@ _END_
         include       /alb/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-        ssl_certificate /alb/template/nginx/placeholder.crt;
-        ssl_certificate_key /alb/template/nginx/placeholder.key;
-        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+        ssl_certificate /alb/nginx/placeholder.crt;
+        ssl_certificate_key /alb/nginx/placeholder.key;
+        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
+        ssl_dhparam /etc/alb2/nginx/dhparam.pem;
 
         location / {
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
                 --require("metrics").log()
@@ -242,18 +233,18 @@ _END_
         include       /alb/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-        ssl_certificate /alb/template/nginx/placeholder.crt;
-        ssl_certificate_key /alb/template/nginx/placeholder.key;
-        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+        ssl_certificate /alb/nginx/placeholder.crt;
+        ssl_certificate_key /alb/nginx/placeholder.key;
+        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
 
         location / {
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
                 --require("metrics").log()

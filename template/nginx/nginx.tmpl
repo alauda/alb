@@ -1,12 +1,11 @@
 {{ $cfg := .NginxParam }}
-user  nginx;
 worker_rlimit_nofile 100000;
 worker_processes     {{.CPUNum}};
 worker_cpu_affinity  auto;
 worker_shutdown_timeout 240s;
 
-error_log  stderr   info;
-pid        /var/run/nginx.pid;
+error_log  stderr   notice;
+pid        /etc/alb2/nginx/nginx.pid;
 
 env SYNC_POLICY_INTERVAL;
 env CLEAN_METRICS_INTERVAL;
@@ -14,6 +13,7 @@ env SYNC_BACKEND_INTERVAL;
 env NEW_POLICY_PATH;
 env DEFAULT-SSL-STRATEGY;
 env INGRESS_HTTPS_PORT;
+env POLICY_ZIP;
 
 events {
     multi_accept        on;
@@ -47,7 +47,7 @@ http {
             end
             require("metrics").init()
     }
-    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
     {{if eq $.Phase "running"}}
     server {
@@ -77,7 +77,6 @@ http {
                 require("metrics").clear()
             }
         }
-
     }
     {{end}}
 
@@ -100,9 +99,9 @@ http {
             set $rule_name "";
             set $backend_protocol http;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             {{if $cfg.EnablePrometheus}}
             log_by_lua_block {
@@ -111,12 +110,14 @@ http {
             {{end}}
         }
     }
+
     {{end}}
     {{end}}
 
     {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "https"}}
     server {
+
         {{range $address := $ft.IpV4BindAddress}}
             listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
         {{end}}
@@ -130,19 +131,19 @@ http {
         include       /alb/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-        ssl_certificate /alb/template/nginx/placeholder.crt;
-        ssl_certificate_key /alb/template/nginx/placeholder.key;
-
-        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+        ssl_certificate /alb/nginx/placeholder.crt;
+        ssl_certificate_key /alb/nginx/placeholder.key;
+        ssl_dhparam /etc/alb2/nginx/dhparam.pem;
+        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
 
         location / {
             set $upstream default;
             set $rule_name "";
             set $backend_protocol http;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/template/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             {{if $cfg.EnablePrometheus}}
             log_by_lua_block {
@@ -171,7 +172,7 @@ http {
             set $upstream default;
             set $backend_protocol grpc;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
@@ -198,16 +199,16 @@ http {
 
         include       /alb/tweak/grpc_server.conf;
 
-        ssl_certificate /alb/template/nginx/placeholder.crt;
-        ssl_certificate_key /alb/template/nginx/placeholder.key;
-
-        ssl_certificate_by_lua_file /alb/template/nginx/lua/cert.lua;
+        ssl_certificate /alb/nginx/placeholder.crt;
+        ssl_certificate_key /alb/nginx/placeholder.key;
+        ssl_dhparam /etc/alb2/nginx/dhparam.pem;
+        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
 
         location / {
             set $upstream default;
             set $backend_protocol grpc;
 
-            rewrite_by_lua_file /alb/template/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
@@ -246,7 +247,7 @@ stream {
                 balancer = res
             end
     }
-    init_worker_by_lua_file /alb/template/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
     {{range $_, $ft := .Frontends}}
     {{if eq $ft.Protocol "tcp"}}
@@ -260,7 +261,7 @@ stream {
             listen     {{$address}}:{{$ft.Port}} ;
         {{end}}
 
-        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
     {{end}}
@@ -279,7 +280,7 @@ stream {
             listen     {{$address}}:{{$ft.Port}} udp;
         {{end}}
 
-        preread_by_lua_file /alb/template/nginx/lua/l4_preread.lua;
+        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
     {{end}}

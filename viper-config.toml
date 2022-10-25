@@ -3,7 +3,6 @@ LB_TYPE = "nginx"
 SCHEDULER = "kubernetes"
 KUBERNETES_TIMEOUT = 30
 INTERVAL = 5
-CERTIFICATE_DIRECTORY = "/alb/certificates"
 TWEAK_DIRECTORY = "/alb/tweak/"
 RECORD_POST_BODY = false
 USE_POD_HOST_IP = true
@@ -12,7 +11,7 @@ RELOAD_TIMEOUT = 600
 timeout = 30
 FULL_SYNC = true
 RELOAD_NGINX = true
-STATUSFILE_PARENTPATH = "/var/run/alb/last_status"
+STATUSFILE_PARENTPATH = "/alb/last_status"
 RESYNC_PERIOD = 300
 # for test
 KUBERNETES_SERVER = "https://127.0.0.1:6443"

@@ -8,3 +8,4 @@ ignore= {"411","421","431"}
 read_globals = {
     "coroutine._yield"
 }
+exclude_files = {"template/nginx/lua/vendor/**"}

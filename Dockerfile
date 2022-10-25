@@ -3,21 +3,22 @@ FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.15  AS builder
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
+ENV GOFLAGS=-buildvcs=false
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
-RUN apk update && apk add git gcc musl-dev
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 
-FROM build-harbor.alauda.cn/ops/alpine:3.16
-
-RUN apk update && apk add --no-cache iproute2 jq openssl
+FROM build-harbor.alauda.cn/ops/alpine:3.16 AS base
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update && apk add --no-cache iproute2 jq sudo
 
 ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
-ENV NGINX_TEMPLATE_PATH /alb/template/nginx/nginx.tmpl
-ENV NEW_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf.new
-ENV OLD_CONFIG_PATH /usr/local/openresty/nginx/conf/nginx.conf
-ENV NEW_POLICY_PATH /usr/local/openresty/nginx/conf/policy.new
+ENV NGINX_TEMPLATE_PATH /alb/ctl/template/nginx/nginx.tmpl
+ENV NEW_CONFIG_PATH /etc/alb2/nginx/nginx.conf.new
+ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
+ENV NEW_POLICY_PATH /etc/alb2/nginx/policy.new
 ENV INTERVAL 5
 ENV SYNC_POLICY_INTERVAL 1
 ENV CLEAN_METRICS_INTERVAL 2592000
@@ -33,18 +34,25 @@ ENV ENABLE_GC false
 ENV BACKLOG 2048
 
 
-CMD ["/sbin/tini", "--", "/run.sh"]
+RUN umask 027 && \
+    mkdir -p /alb && \
+    mkdir -p /alb/ctl/migrate
 
-RUN mkdir -p /var/log/mathilde && \
-    mkdir -p /alb/certificates && \
-    mkdir -p /alb/tweak && \
-    mkdir -p /migrate
+COPY run-alb.sh /alb/ctl/run-alb.sh
+RUN chmod +x /alb/ctl/run-alb.sh
+COPY viper-config.toml /alb/ctl/viper-config.toml
+COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
+COPY --from=builder /alb /alb/ctl/alb
+COPY --from=builder /migrate/init-port-info /alb/ctl/migrate/init-port-info
 
-COPY run.sh /run.sh
-RUN chmod +x /run.sh
-COPY viper-config.toml /alb/viper-config.toml
-COPY ./template/nginx /alb/template/nginx
-COPY --from=builder /alb /alb/alb
-COPY --from=builder /migrate/init-port-info /migrate/init-port-info
-
-RUN chmod 755 -R /alb
+RUN chown -R nonroot:nonroot /alb && \
+    setcap CAP_SYS_PTRACE=+eip /sbin/ss && \
+    mkdir -p /etc/sudoers.d && \
+    echo "nonroot ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nonroot && \
+    chmod 0440 /etc/sudoers.d/nonroot && \
+    chmod 550 /alb/ctl/run-alb.sh && \
+    chmod 550 /alb/ctl/migrate/init-port-info && \
+    chmod 550 /alb/ctl/alb && \
+    chmod 750 /alb/ctl/template && chmod 750 /alb/ctl/template/nginx && chmod 640 /alb/ctl/template/nginx/nginx.tmpl
+USER nonroot
+CMD ["/sbin/tini", "--", "/alb/ctl/run-alb.sh"]

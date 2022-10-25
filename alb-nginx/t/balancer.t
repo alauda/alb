@@ -95,7 +95,7 @@ __DATA__
 --- config
     location /t {
       content_by_lua_block {
-          package.path = '/t/?.lua;' .. package.path;
+          package.path = '/t/?.lua;/t/lib/?.lua;' .. package.path;
           local test = require("balancer_test");
           if test.test_balancer("roundrobin") then 
             ngx.print("success");
@@ -137,7 +137,7 @@ GET /ping
 --- config
     location /t {
       content_by_lua_block {
-          package.path = '/t/?.lua;' .. package.path;
+          package.path = '/t/?.lua;/t/lib/?.lua;' .. package.path;
           local test = require("balancer_test");
            if test.test_balancer("sticky_header","h1") then
              ngx.print("success");
@@ -177,7 +177,7 @@ qq|
 --- config
     location /t {
       content_by_lua_block {
-          package.path = '/t/?.lua;' .. package.path;
+          package.path = '/t/?.lua;/t/lib/?.lua;' .. package.path;
           local test = require("balancer_test");
            if test.test_balancer("sticky_cookie","h1") then
              ngx.print("success");
@@ -216,7 +216,7 @@ qq|
 --- config
     location /t {
       content_by_lua_block {
-          package.path = '/t/?.lua;' .. package.path;
+          package.path = '/t/?.lua;/t/lib/?.lua;' .. package.path;
           local test = require("balancer_test");
            if test.test_balancer("sticky_cookie","") then
              ngx.print("success");

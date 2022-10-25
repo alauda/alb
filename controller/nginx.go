@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -35,7 +34,6 @@ type NginxController struct {
 	NewConfigPath string // in fact, the updated nginx.conf
 	OldConfigPath string // in fact, the current nginx.conf
 	NewPolicyPath string
-	BinaryPath    string
 	Driver        *driver.KubernetesDriver
 	Ctx           context.Context
 }
@@ -108,7 +106,6 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context) *Nginx
 		NewConfigPath: config.Get("NEW_CONFIG_PATH"),
 		OldConfigPath: config.Get("OLD_CONFIG_PATH"),
 		NewPolicyPath: config.Get("NEW_POLICY_PATH"),
-		BinaryPath:    config.Get("NGINX_BIN_PATH"),
 		Driver:        kd,
 		Ctx:           ctx,
 	}
@@ -662,46 +659,29 @@ func (nc *NginxController) LoadServices(alb *LoadBalancer) map[string]*driver.Se
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
-	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
-	if err != nil {
-		klog.Error()
-		return err
-	}
 	configWriter, err := os.Create(nc.NewConfigPath)
 	if err != nil {
 		klog.Errorf("Failed to create new config file %s", err.Error())
 		return err
 	}
 	defer configWriter.Close()
-	policyWriter, err := os.Create(nc.NewPolicyPath)
-	if err != nil {
-		klog.Errorf("Failed to create new policy file %s", err.Error())
-		return err
-	}
-	err = policyWriter.Chmod(0644)
-	if err != nil {
-		klog.Errorf("Failed to add read permission of policy.new for nginx user %s", err.Error())
-		return err
-	}
-	defer policyWriter.Close()
 
 	t, err := template.New("nginx.tmpl").ParseFiles(nc.TemplatePath)
 	if err != nil {
 		klog.Errorf("Failed to parse template %s", err.Error())
 		return err
 	}
-	if _, err := policyWriter.Write(policyBytes); err != nil {
-		klog.Errorf("Write policy file failed %s", err.Error())
-		return err
-	}
-	policyWriter.Sync()
-
 	err = t.Execute(configWriter, nginxTemplateConfig)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
 	if err := configWriter.Sync(); err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	if err := nc.UpdatePolicyFile(ngxPolicies); err != nil {
 		klog.Error(err)
 		return err
 	}

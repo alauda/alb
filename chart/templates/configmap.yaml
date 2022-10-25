@@ -24,7 +24,7 @@ data:
 
     # Lua shared dict
     lua_code_cache on;
-    lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_package_path '/usr/local/lib/lua/?.lua;/alb/nginx/lua/?.lua;/alb/nginx/lua/vendor/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
     lua_shared_dict http_policy   10m;
     lua_shared_dict http_certs_cache   10m;
@@ -68,12 +68,11 @@ data:
     ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
     ssl_early_data off;
     ssl_ciphers TLS13-AES-256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES-128-GCM-SHA256:TLS13-AES-128-CCM-8-SHA256:TLS13-AES-128-CCM-SHA256:EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:DH+AESGCM:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
-    ssl_dhparam /etc/ssl/dhparam.pem;
+    ssl_dhparam /etc/alb2/nginx/dhparam.pem;
     ssl_ecdh_curve secp384r1;
 
-    http2_max_field_size            4k;
-    http2_max_header_size           16k;
-    http2_max_requests              1000;
+    large_client_header_buffers            4 16k;
+    keepalive_requests              1000;
     http2_max_concurrent_streams    128;
 
   http_server: |
@@ -113,7 +112,7 @@ data:
     error_log   stderr       info;
 
     lua_code_cache on;
-    lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+    lua_package_path '/usr/local/lib/lua/?.lua;/alb/nginx/lua/?.lua;/alb/nginx/lua/vendor/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
     
     # Lua shared dict

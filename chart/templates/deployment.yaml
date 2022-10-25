@@ -30,7 +30,6 @@ spec:
         - operator: Exists
       containers:
         - securityContext:
-            privileged: true
             capabilities:
               add:
                 - SYS_PTRACE
@@ -38,7 +37,7 @@ spec:
           image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
           terminationMessagePolicy: File
           command:
-            - ./run.sh
+            - /alb/ctl/run-alb.sh
           env:
             - name: MAX_TERM_SECONDS
               value: "{{ .Values.maxTermSeconds }}"
@@ -98,6 +97,8 @@ spec:
                   fieldPath: metadata.name
             - name: ENABLE_GATEWAY
               value: "{{ .Values.gateway.enable }}"
+            - name: POLICY_ZIP
+              value: "{{ .Values.policyZip }}"
 
           imagePullPolicy: Always
           resources:
@@ -111,20 +112,13 @@ spec:
           - name: tweak-conf
             mountPath: /alb/tweak/
           - name: share-conf
-            mountPath: /usr/local/openresty/nginx/conf/
-          - name: nginx-code
-            mountPath: /nginx/nginx-code/
-          - name: nginx-pid
-            mountPath: /nginx/nginx-pid/
-
+            mountPath: /etc/alb2/nginx/
         - name: nginx
           securityContext:
-            privileged: true
             capabilities:
               add:
-                - SYS_PTRACE
-                - NET_ADMIN
-                - NET_RAW
+                - SYS_RESOURCE
+                - NET_BIND_SERVICE
           image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.nginx.repository }}:{{ .Values.global.images.nginx.tag }}"
           imagePullPolicy: Always
           volumeMounts:
@@ -132,10 +126,6 @@ spec:
             mountPath: /etc/alb2/nginx/
           - name: tweak-conf
             mountPath: /alb/tweak/
-          - name: nginx-code
-            mountPath: /alb/template/
-          - name: nginx-pid
-            mountPath: /var/run/
           env:
             - name: MAX_TERM_SECONDS
               value: "{{ .Values.maxTermSeconds }}"
@@ -150,30 +140,11 @@ spec:
               value: "{{ .Values.defaultSSLStrategy }}"
             - name: INGRESS_HTTPS_PORT
               value: "{{ .Values.ingressHTTPSPort }}"
+            - name: POLICY_ZIP
+              value: "{{ .Values.policyZip }}"
 
           command:
-          - /bin/sh
-          - -c
-          - |
-            _term() {
-              echo "Caught SIGTERM signal! term $child"
-              local max_term_seconds="$MAX_TERM_SECONDS"
-              if [ -z "$max_term_seconds" ]; then
-                  max_term_seconds="30"
-              fi
-              echo "wait $max_term_seconds"
-              sleep $max_term_seconds
-              echo "send term to nginx $child"
-              kill -TERM "$child" 2>/dev/null
-              echo "send term to nginx $child over"
-              exit 0
-            }
-            trap _term SIGTERM
-            openssl dhparam -dsaparam -out /etc/ssl/dhparam.pem 2048
-            nginx -g "daemon off;" -c /etc/alb2/nginx/nginx.conf -e /dev/stderr &
-            child=$!
-            echo "nginx pid $child"
-            wait "$child"
+            - /alb/nginx/boot-nginx.sh
           livenessProbe:
             httpGet:
               path: /status
@@ -212,10 +183,6 @@ spec:
           - key: bind_nic
             path: bind_nic.json
       - name: share-conf
-        emptyDir: { }
-      - name: nginx-code
-        emptyDir: { }
-      - name: nginx-pid
         emptyDir: { }
     metadata:
       annotations:

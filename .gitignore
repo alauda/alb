@@ -29,7 +29,6 @@ scripts/loop.sh
 alb-nginx/actions/loop.sh
 test/e2e/viper-config.toml
 bin
-vendor
 .alb.local
 test/e2e/alb-config.toml
 *.log
@@ -39,3 +38,7 @@ test/e2e/*/*/viper-config.toml
 test/e2e/*.test
 test/e2e/*/*.test
 test/e2e/*/*/*.test
+cmds.cfg
+.t/
+loop.sh
+alauda-alb2/

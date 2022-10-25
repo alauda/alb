@@ -1,9 +1,22 @@
 #!/bin/bash
 
+# install kind kubectl sed cp python3 first
+function install-envtest {
+  echo "install envtest"
+  if [[ ! -d "/usr/local/kubebuilder" ]]; then
+    export K8S_VERSION=1.21.2
+    curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
+    # TODO need sudo permissions
+    mkdir -p /usr/local/kubebuilder
+    tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
+    rm envtest-bins.tar.gz
+  fi
+  if [[ ! "$PATH" =~ "/usr/local/kubebuilder" ]]; then
+    echo "you need add /usr/local/kubebuilder to you PATH"
+  fi
+}
+
 function alb-init-kind-env {
-  # required
-  # helm: >= 3.7.0
-  # docker: login to build-harbor.alauda.cn
   # how to use
   # . ./scripts/alb-dev-actions.sh;CHART=$PWD/chart KIND_NAME=test-alb  KIND_2_NODE=true alb-init-kind-env
   # . ./scripts/alb-dev-actions.sh; KIND_NAME=alb-38 CHART=build-harbor.alauda.cn/acp/chart-alauda-alb2:v3.8.0-alpha.3 alb-init-kind-env
@@ -18,11 +31,11 @@ function alb-init-kind-env {
   temp=~/.temp
   echo $ALB_ACTIONS_ROOT
   local chart=${CHART-"$ALB_ACTIONS_ROOT/../chart"}
-  local kindName=${KIND_NAME-"kind-alb-${RANDOM:0:5}"}
+  #   local kindName=${KIND_NAME-"kind-alb-${RANDOM:0:5}"}
+  local kindName=${KIND_NAME-"alb-dev"}
   local kindVersion=${KIND_VER-"v1.22.2"}
   local kind2node=${KIND_2_NODE-"false"}
   local kindImage="kindest/node:$kindVersion"
-  local nginx="build-harbor.alauda.cn/3rdparty/alb-nginx:20220118182511"
   echo $chart
   echo $kindName
   echo $kindImage
@@ -37,36 +50,10 @@ function alb-init-kind-env {
   kind delete cluster --name $kindName
   cd $temp/$kindName
 
-  # init chart
-  echo "chart is $chart"
-  if [ -d $chart ]; then
-    echo "cp alb chart " $chart
-    cp -r $chart ./alauda-alb2
-  else
-    echo "fetch alb chart " $chart
-    helm-chart-export $chart
-  fi
-  ls ./alauda-alb2
-  if [[ $? -ne 0 ]]; then return; fi
-
   _initKind $kindName $kindImage $temp/$kindName/kindconfig.yaml
 
-  local base="registry.alauda.cn:60080"
-  for im in $(cat ./alauda-alb2/values.yaml | yq eval -o=j | jq -cr '.global.images[]'); do
-    local repo=$(echo $im | jq -r '.repository' -)
-    local tag=$(echo $im | jq -r '.tag' -)
-    local image="$base/$repo:$tag"
-    echo "load image $image to $kindName"
-    _makesureImage $image $kindName
-  done
-
-  _makesureImage "build-harbor.alauda.cn/ops/alpine:3.16" $kindName
+  local nginx="build-harbor.alauda.cn/3rdparty/alb-nginx:v1.22.0"
   _makesureImage $nginx $kindName
-
-  local lbName="alb-dev"
-  local ftPort="8080"
-
-  local globalNs="cpaas-system"
   #init echo-resty yaml
   local echoRestyPath=$temp/$kindName/echo-resty.yaml
   cp "$ALB_ACTIONS_ROOT/yaml/echo-resty.yaml" $echoRestyPath
@@ -80,10 +67,45 @@ function alb-init-kind-env {
   # cp "./yaml/ip-provider.yaml" $ipProviderPath
   # kubectl apply -f $ipProviderPath
 
+  alb-deploy-chart-in-kind $chart $kindName
+  echo "init alb"
+  init-alb
+  tmux select-pane -T $kindName # set tmux pane title
+  cd -
+}
+
+function alb-deploy-chart-in-kind {
+  # helm uninstall alb-dev -n cpaas-system
+  # init chart
+  local chart=$1
+  local kindName=$2
+  echo "chart is $chart"
+  if [ -d $chart ]; then
+    echo "cp alb chart " $chart
+    rm -rf ./alauda-alb2
+    cp -r $chart ./alauda-alb2
+  else
+    echo "fetch alb chart " $chart
+    helm-chart-export $chart
+  fi
+  ls ./alauda-alb2
+  if [[ $? -ne 0 ]]; then return; fi
+
+  local base="registry.alauda.cn:60080"
+  cat ./alauda-alb2/values.yaml
+  for im in $(cat ./alauda-alb2/values.yaml | yq eval -o=j | jq -cr '.global.images[]'); do
+    local repo=$(echo $im | jq -r '.repository' -)
+    local tag=$(echo $im | jq -r '.tag' -)
+    local image="$base/$repo:$tag"
+    echo "image is $image"
+    echo "load image $image to $kindName"
+    _makesureImage $image $kindName
+  done
+
+  _makesureImage "registry.alauda.cn:60080/ops/alpine:3.16" $kindName
+  sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
   kubectl create ns cpaas-system
 
-  sed -i 's/imagePullPolicy: Always/imagePullPolicy: Never/g' ./alauda-alb2/templates/deployment.yaml
-  # alb <=3.7
   if [ "$OLD_ALB" = "true" ]; then
     echo "init crd(old)"
     kubectl apply -f $ALB_ACTIONS_ROOT/yaml/crds/v1beta1/
@@ -93,34 +115,57 @@ function alb-init-kind-env {
     kubectl apply -R -f ./alauda-alb2/crds/
   fi
   echo "helm dry run start"
-
   read -r -d "" OVERRIDE <<EOF
-nodeSelector:
-  node-role.kubernetes.io/master: ""
 loadbalancerName: alb-dev
+replicas: 1
 global:
   labelBaseDomain: cpaas.io
   namespace: cpaas-system
   registry:
     address: registry.alauda.cn:60080
-project: all_all
-replicas: 1
+project: ALL_ALL
 EOF
-  echo "$OVERRIDE" >./override.yaml
+  echo "$OVERRIDE" >./alauda-alb2/override.yaml
 
-  helm install --dry-run --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
+  helm-alauda install -n cpaas-system \
+    -f ./alauda-alb2/values.yaml \
+    -f ./alauda-alb2/override.yaml \
+    alb-dev \
+    ./alauda-alb2 \
+    --dry-run --debug
   echo "helm dry run over"
 
   echo "helm install"
-
-  helm install --debug alb-dev ./alauda-alb2 --namespace cpaas-system -f ./alauda-alb2/values.yaml -f ./override.yaml
-
-  echo "init alb"
-  init-alb
-  tmux select-pane -T $kindName # set tmux pane title
-  cd -
+  helm-alauda install -n cpaas-system \
+    -f ./alauda-alb2/values.yaml \
+    -f ./alauda-alb2/override.yaml \
+    alb-dev \
+    ./alauda-alb2
 }
 
+function init-alb {
+  alb-gen-ft 8080 default echo-resty http 80 http
+  alb-gen-ft 8443 default echo-resty https 443 https
+  alb-gen-ft 8081 default echo-resty tcp 80 tcp
+  if [ -z "$OLD_ALB" ]; then
+    alb-gen-ft 8553 default echo-resty udp 53 udp
+  fi
+}
+
+function alb-build-docker-and-update-chart() (
+  docker build -t build-harbor.alauda.cn/acp/alb2:local -f ./Dockerfile .
+  local arg=""
+  if [ -n "$HTTP_PROXY" ]; then
+    arg="--build-arg https_proxy=$HTTP_PROXY --build-arg http_proxy=$HTTP_PROXY --network=host"
+  fi
+  local nginx="docker build $arg -t build-harbor.alauda.cn/acp/alb-nginx:local -f ./alb-nginx/Dockerfile ."
+  echo "$nginx"
+  eval $nginx
+  docker tag build-harbor.alauda.cn/acp/alb2:local registry.alauda.cn:60080/acp/alb2:local
+  docker tag build-harbor.alauda.cn/acp/alb-nginx:local registry.alauda.cn:60080/acp/alb-nginx:local
+  yq -i '.global.images.alb2.tag="local"' ./chart/values.yaml
+  yq -i '.global.images.nginx.tag="local"' ./chart/values.yaml
+)
 
 function _initKind {
   local kindName=$1

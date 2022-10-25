@@ -31,6 +31,23 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 ./scripts: shell scripts for develop/debug alb,such as how to init alb env in kind.  
 ./Makefile: makefile of alb.
 
+## image file struct
+```plantuml
+@startmindmap
+* /alb/
+** nginx/
+*** lua/
+*** tweak/
+** ctl/
+*** alb
+** tools/
+* /etc/alb2/nginx/ (alb容器和nginx容器共享)
+** nginx.conf
+** policy.new
+** nginx.pid
+@endmindmap
+```
+
 
 ## git repo 
 https://gitlab-ce.alauda.cn/container-platform/alb2
@@ -40,5 +57,3 @@ http://confluence.alauda.cn/pages/viewpage.action?pageId=94878636
 http://confluence.alauda.cn/label/cp/alb-doc
 ### labels of alb in confluence
 alb-doc: all document that related to alb.
-## maintainer
-wucong congwu@alauda.io

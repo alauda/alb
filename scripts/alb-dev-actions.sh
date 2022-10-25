@@ -1,24 +1,9 @@
 #!/bin/bash
 
-source $ALB/scripts/init-env-actions.sh
+source $ALB/scripts/alb-env-actions.sh
 source $ALB/scripts/alb-test-actions.sh
-
-
-# install kind kubectl sed cp python3 first
-function install-envtest {
-  echo "install envtest"
-  if [[ ! -d "/usr/local/kubebuilder" ]]; then
-    export K8S_VERSION=1.21.2
-    curl -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/${K8S_VERSION}/$(go env GOOS)/$(go env GOARCH)"
-    # TODO need sudo permissions
-    mkdir -p /usr/local/kubebuilder
-    tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
-    rm envtest-bins.tar.gz
-  fi
-  if [[ ! "$PATH" =~ "/usr/local/kubebuilder" ]]; then
-    echo "you need add /usr/local/kubebuilder to you PATH"
-  fi
-}
+source $ALB/scripts/alb-lint-actions.sh
+source $ALB/scripts/alb-build-actions.sh
 
 function alb-test-qps {
   local defaultKindName=kind-alb-${RANDOM:0:5}
@@ -163,7 +148,6 @@ EOF
   echo $YAML | kubectl apply -f -
 }
 
-
 function alb-build-iamge {
   docker build -f ./Dockerfile . -t alb-dev
 }
@@ -187,7 +171,6 @@ EOF
   kubectl patch gateway -n alb-test g1 --type=json -p="$jsonpatch"
   kubectl get gateway -n alb-test g1 -o yaml
 }
-
 
 function get-alb-images-from-values {
   local base="build-harbor.alauda.cn"
@@ -231,12 +214,6 @@ function alb-run-local {
   export ALB_LOG_EXT=true
   export ALB_LOG_LEVEL=8
   go run main.go
-}
-
-function alb-build-static {
-  rm -rf ./bin/ || true
-  CC=/usr/bin/musl-gcc CGO_ENABLED=1 go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/alb alauda.io/alb2 && ldd ./bin/alb
-  CC=/usr/bin/musl-gcc CGO_ENABLED=1 go build -v -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-static' -v -o ./bin/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 }
 
 function alb-replace-in-pod {

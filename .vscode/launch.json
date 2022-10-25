@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ginkgo",
+            "type": "go",
+            "request": "launch",
+            "mode": "exec",
+            "args": [
+                "-ginkgo.v", "-ginkgo.focus", "should detect tcp port conflict", "./test/e2e"
+            ],
+            "program": "./test/e2e/e2e.test"
+        }
+    ]
+}

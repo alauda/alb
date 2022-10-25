@@ -90,7 +90,6 @@ func TestDefault(t *testing.T) {
 	CleanCache()
 	// read from viper-config.toml
 	a.Equal(5, GetInt("INTERVAL"))
-	a.Equal("/alb/certificates", Get("CERTIFICATE_DIRECTORY"))
 
 	a.False(GetBool("RECORD_POST_BODY"))
 	a.True(GetBool("USE_POD_HOST_IP"))

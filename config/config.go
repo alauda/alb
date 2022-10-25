@@ -59,8 +59,6 @@ var optionalFields = []string{
 	"LB_TYPE",
 	"KUBERNETES_TIMEOUT",
 	"INTERVAL",
-	"CERTIFICATE_DIRECTORY",
-	"NGINX_BIN_PATH",
 	//for xiaoying
 	"RECORD_POST_BODY",
 	// set to "true" if want to use nodes which pods run on them
@@ -87,7 +85,7 @@ var optionalFields = []string{
 	"METRICS_PORT",
 	"BACKLOG",
 	"ENABLE_GZIP",
-
+	"POLICY_ZIP",
 	// gateway related config
 	"ENABLE_GATEWAY",
 
@@ -108,7 +106,7 @@ func initViper() {
 	viper.SetConfigName("viper-config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("../")
-	viper.AddConfigPath("/alb/")
+	viper.AddConfigPath("/alb/ctl")
 	viper_base := os.Getenv("VIPER_BASE")
 	if viper_base != "" {
 		viper.AddConfigPath(viper_base)
