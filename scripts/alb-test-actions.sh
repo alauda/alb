@@ -143,8 +143,10 @@ function alb-install-golang-test-dependency {
   go version
   go env -w GO111MODULE=on
   go env -w GOPROXY=https://goproxy.cn,direct
+  cd /tmp
   go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
-  go install -v github.com/onsi/ginkgo/ginkgo
+  go install -v github.com/onsi/ginkgo/ginkgo@latest
+  cd -
   export GOFLAGS=-buildvcs=false
 }
 
