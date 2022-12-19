@@ -20,7 +20,7 @@ ingressHTTPPort: 80
 ingressHTTPSPort: 443
 ingressController: "alb2"
 metricsPort: 1936
-enableGoMonitor: true
+enableGoMonitor: false
 enableProfile: false
 goMonitorPort: 1937
 workerLimit: 8
