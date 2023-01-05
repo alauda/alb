@@ -45,19 +45,11 @@ spec:
       retries: 1
       taskRef:
         kind: ClusterTask
-        name: alauda-codescan-sonarqube
+        name: sonarqube-analysis
       params:
-        - name: address
+        - name: server
           value: https://build-sonar.alauda.cn
-        - name: version
-          value: $(tasks.generate-version.results.version)
-        - name: pr-id
-          value: '$(tasks.generate-version.results.pr-id)'
-        - name: target
-          value: '$(tasks.generate-version.results.target-branch)'
-        - name: branch
-          value: $(tasks.generate-version.results.branch)
-        - name: extra-key-values
+        - name: scan-flags
           value:
             - 'sonar.projectVersion=$(tasks.generate-version.results.version)'
     - name: alb-test
@@ -84,7 +76,7 @@ spec:
                 memory: "4G"
               limits:
                 cpu: "2"
-                memory: "4G"              
+                memory: "4G"
             script: |
               #!/bin/sh
               scripts/go-test.sh
@@ -179,7 +171,7 @@ spec:
                 memory: "4G"
               limits:
                 cpu: "4"
-                memory: "4G"              
+                memory: "4G"
             script: |
               #!/bin/sh
               sudo scripts/nginx-test.sh
@@ -233,7 +225,7 @@ spec:
           value: $(tasks.generate-version.results.version),$(tasks.generate-version.results.version)
         - name: values-path
           value: global.images.alb2.tag,global.images.nginx.tag
-        - name: commit 
+        - name: commit
           value:  $(tasks.generate-version.results.commit-id)
     - name: commit-push
       taskRef:
