@@ -13,6 +13,15 @@ import (
 //
 // if ctx is done, this function may not return immediately, but keep running util fn complete or fn timeout
 func UtilWithContextAndTimeout(ctx context.Context, fn func(), timeout time.Duration, delay time.Duration) (isTimeout bool) {
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+		isTimeout := UtilTimeout(fn, timeout)
+		if isTimeout {
+			return true
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():

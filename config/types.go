@@ -2,16 +2,42 @@ package config
 
 import "time"
 
-// TODO split it into more specific interface,like basic/ingress/gateway/label etc
+type Mode string
+
+var ModeKey = "MODE"
+
+const (
+	Controller Mode = "controller"
+	Operator   Mode = "operator"
+)
+
+type ControllerNetWorkMode string
+
+var NetworkModeKey = "NETWORK_MODE"
+
+const (
+	Host      ControllerNetWorkMode = "host"
+	Container ControllerNetWorkMode = "container"
+)
+
+type IModeConfig interface {
+	GetMode() Mode
+}
+
+// TODO use IControllerConfig
 type IConfig interface {
 	GetNs() string
 	GetAlbName() string
 	GetDomain() string
 	GetPodName() string
+	GetNetworkMode() ControllerNetWorkMode
+	IsEnableAlb() bool
+
 	ILabelConfig
 	IIngressConfig
 	ILeaderConfig
 	IDebugConfig
+	IGatewayConfig
 }
 
 type IIngressConfig interface {
@@ -41,4 +67,8 @@ type ILeaderConfig interface {
 
 type IDebugConfig interface {
 	DebugRuleSync() bool
+}
+
+type IGatewayConfig interface {
+	GetGatewayCfg() GatewayCfg
 }

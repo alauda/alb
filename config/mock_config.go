@@ -6,27 +6,33 @@ import (
 
 // a mock of config impl IConfig
 type MockConfig struct {
-	Name         string
-	NS           string
-	Domain       string
-	Pod          string
-	LeaderLabel  string
-	Http         int
-	Https        int
-	SSlCert      string
-	SSLStrategy  string
-	LeaderConfig LeaderConfig
+	Name                  string
+	NS                    string
+	Domain                string
+	Pod                   string
+	LeaderLabel           string
+	Http                  int
+	Https                 int
+	SSlCert               string
+	SSLStrategy           string
+	LeaderConfig          LeaderConfig
+	GatewayCfg            GatewayCfg
+	Mode                  Mode
+	ControllerNetWorkMode ControllerNetWorkMode
+	EnableAlb             bool
 }
 
 func DefaultMock() *MockConfig {
 	return &MockConfig{
-		Name:        "alb-dev",
-		NS:          "cpaas-system",
-		Domain:      "cpaas.io",
-		Pod:         "mock-pod",
-		LeaderLabel: "alb2.cpaas.ip/leader",
-		Http:        80,
-		Https:       443,
+		Name:                  "alb-dev",
+		NS:                    "cpaas-system",
+		Domain:                "cpaas.io",
+		Pod:                   "mock-pod",
+		LeaderLabel:           "alb2.cpaas.ip/leader",
+		Http:                  80,
+		Https:                 443,
+		Mode:                  Controller,
+		ControllerNetWorkMode: Host,
 		LeaderConfig: LeaderConfig{
 			LeaseDuration: time.Second * 15,
 			RenewDeadline: time.Second * 10,
@@ -92,6 +98,23 @@ func (c *MockConfig) DebugRuleSync() bool {
 func (c *MockConfig) GetLabelSourceIngressPathIndex() string {
 	return "path-index"
 }
+
 func (c *MockConfig) GetLabelSourceIngressRuleIndex() string {
 	return "rule-index"
+}
+
+func (c *MockConfig) GetGatewayCfg() GatewayCfg {
+	return c.GatewayCfg
+}
+
+func (c *MockConfig) GetMode() Mode {
+	return c.Mode
+}
+
+func (c *MockConfig) GetNetworkMode() ControllerNetWorkMode {
+	return c.ControllerNetWorkMode
+}
+
+func (c *MockConfig) IsEnableAlb() bool {
+	return c.EnableAlb
 }

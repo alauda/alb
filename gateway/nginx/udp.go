@@ -42,17 +42,17 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 				portMap[l.Port] = append(portMap[l.Port], udproute)
 			}
 		}
-		t.log.Info("translate udp protocol rule", "ls-len", len(ls), "udp-ports-len", len(portMap))
+		t.log.V(2).Info("translate udp protocol rule", "ls-len", len(ls), "udp-ports-len", len(portMap))
 	}
 
 	for port, rs := range portMap {
 		if len(rs) == 0 {
 			t.log.Info("could not found vaild route", "error", true)
-			return nil
+			continue
 		}
 		if len(rs) > 1 {
 			t.log.Info("udp has more than one route", "port", port)
-			return nil
+			continue
 		}
 		route := rs[0]
 		t.log.Info("generated rule ", "port", port, "route", route)
@@ -64,11 +64,11 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 		// TODO we donot support multiple udp rules
 		if len(route.Spec.Rules) != 1 {
 			t.log.Error(fmt.Errorf("we do not support multiple udp rules"), "port", port, "route", GetObjectKey(route))
-			return nil
+			continue
 		}
 		svcs, err := BackendRefsToService(route.Spec.Rules[0].BackendRefs)
 		if err != nil {
-			return nil
+			continue
 		}
 		ft.Services = svcs
 		ft.BackendGroup = &BackendGroup{

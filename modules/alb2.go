@@ -2,6 +2,7 @@ package modules
 
 import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -12,7 +13,7 @@ import (
 type AlaudaLoadBalancer struct {
 	UID       types.UID
 	Labels    map[string]string
-	Spec      alb2v1.ALB2Spec
+	Spec      albv2.ALB2Spec
 	Name      string
 	Namespace string
 	Frontends []*Frontend

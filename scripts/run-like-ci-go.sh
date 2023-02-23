@@ -1,5 +1,6 @@
 #!/bin/sh
 set -x
+base="registry.alauda.cn:60080/ops/golang:1.18-alpine3.15"
 base="build-harbor.alauda.cn/ops/golang:1.18.3-alpine3.16"
 if [ "$1" = "shell" ]; then
   docker run -v $PWD:/acp-alb-test -it "$base" sh

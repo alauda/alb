@@ -1,0 +1,146 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: rules.crd.alauda.io
+spec:
+  group: crd.alauda.io
+  names:
+    kind: Rule
+    listKind: RuleList
+    plural: rules
+    shortNames:
+    - rl
+    singular: rule
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              backendProtocol:
+                description: backendProtocol defines protocol used by backend servers,
+                  it could be https/http/grpc
+                type: string
+              certificate_name:
+                description: certificate_name defines certificate used with specified
+                  hostname in rule at https frontend
+                type: string
+              corsAllowHeaders:
+                description: corsAllowHeaders defines the headers allowed by cors
+                  when enableCORS is true
+                type: string
+              corsAllowOrigin:
+                description: corsAllowOrigin defines the origin allowed by cors when
+                  enableCORS is true
+                type: string
+              description:
+                type: string
+              domain:
+                type: string
+              dsl:
+                description: dsl is deprecated
+                type: string
+              dslx:
+                description: dslx defines the matching criteria
+                items:
+                  properties:
+                    key:
+                      type: string
+                    type:
+                      type: string
+                    values:
+                      items:
+                        items:
+                          type: string
+                        type: array
+                      type: array
+                  type: object
+                type: array
+              enableCORS:
+                description: enableCORS is the switch whether enable cross domain,
+                  when EnableCORS is false, alb2 transports information to backend
+                  servers which determine whether allow cross-domain
+                type: boolean
+              priority:
+                description: priority ranges from [1,10], if multiple rules match,
+                  less value prioritize
+                type: integer
+              redirectCode:
+                description: redirectCode could be 301(Permanent Redirect)/302(Temporal
+                  Redirect), default 0
+                type: integer
+              redirectURL:
+                type: string
+              rewrite_base:
+                type: string
+              rewrite_target:
+                type: string
+              serviceGroup:
+                properties:
+                  services:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        port:
+                          type: integer
+                        weight:
+                          type: integer
+                      type: object
+                    type: array
+                  session_affinity_attribute:
+                    type: string
+                  session_affinity_policy:
+                    type: string
+                type: object
+              source:
+                description: source is where the frontend or rule came from. It's
+                  type can be "bind" for those created for service annotations. And
+                  carries information about ingress when rule is generalized by ingress
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type:
+                description: type is deprecated
+                type: string
+              url:
+                type: string
+              vhost:
+                description: vhost allows user to override the request Host
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

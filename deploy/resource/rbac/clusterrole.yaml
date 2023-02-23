@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alb-operator
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "services", "pods"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["*"]
+  - apiGroups: ["crd.alauda.io"]
+    resources: ["alaudaloadbalancer2","alaudaloadbalancer2/status", "frontends", "rules"]
+    verbs: ["*"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses", "ingresses"]
+    verbs: ["*"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gatewayclasses", "gateways"]
+    verbs: ["*"]

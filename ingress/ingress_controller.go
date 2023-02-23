@@ -26,8 +26,8 @@ import (
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
 	"alauda.io/alb2/driver"
-	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	informerv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	informerv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
@@ -86,7 +86,7 @@ type Controller struct {
 	// configuration for ingressClass
 	icConfig *config.IngressClassConfiguration
 
-	albInformer          informerv1.ALB2Informer
+	albInformer          informerv2.ALB2Informer
 	ingressInformer      networkinginformers.IngressInformer
 	ingressClassInformer networkinginformers.IngressClassInformer
 	log                  logr.Logger
@@ -249,8 +249,8 @@ func (c *Controller) setUpEventHandler() {
 	// 3. reconcile ingress when alb project change.
 	c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
-			newAlb2 := new.(*alb2v1.ALB2)
-			oldAlb2 := old.(*alb2v1.ALB2)
+			newAlb2 := new.(*alb2v2.ALB2)
+			oldAlb2 := old.(*alb2v2.ALB2)
 			if oldAlb2.ResourceVersion == newAlb2.ResourceVersion {
 				return
 			}

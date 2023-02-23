@@ -177,10 +177,6 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 					}
 				}
 			}
-
-			if ft.IsgRPC() {
-				// TODO gc gRPC
-			}
 		}
 	}
 	return gcActions, nil

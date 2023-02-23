@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"net/http/pprof"
@@ -16,9 +18,12 @@ import (
 	"alauda.io/alb2/ingress"
 	"alauda.io/alb2/metrics"
 	"alauda.io/alb2/modules"
+	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
@@ -63,7 +68,10 @@ func (a *Alb) Start() error {
 	if err != nil {
 		return err
 	}
-	driver.InitDriver(drv, ctx)
+	err = driver.InitDriver(drv, ctx)
+	if err != nil {
+		return err
+	}
 
 	// start ingress loop
 	l.Info("SERVE_INGRESS", "enable", config.GetBool("SERVE_INGRESS"))
@@ -92,8 +100,9 @@ func (a *Alb) Start() error {
 
 	// start gateway loop
 	{
+		gcfg := config.GetConfig().GetGatewayCfg()
 		l := log.L().WithName(gateway.ALB_GATEWAY_CONTROLLER)
-		enableGateway := config.GetBool("ENABLE_GATEWAY")
+		enableGateway := gcfg.Enable
 		l.Info("init gateway ", "enable", enableGateway)
 
 		if enableGateway {
@@ -134,10 +143,10 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()
 
-		ctl := ctl.NewNginxController(drv, ctx)
+		ctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"))
 		// do leader stuff
 		if a.lc.AmILeader() {
-			err := LeaderUpdateAlbStatus(drv, a.albcfg)
+			err := LeaderUpdateAlbStatus(drv, a.albcfg, log.WithName("status"))
 			if err != nil {
 				log.Error(err, "leader update alb status fail")
 			}
@@ -173,9 +182,8 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 }
 
 // report ft status
-// TODO where should i place this function?
-// TODO 这东西和生成nginx配置有关系吗? 是否一定要放在一起?
-func LeaderUpdateAlbStatus(kd *driver.KubernetesDriver, cfg config.IConfig) error {
+func LeaderUpdateAlbStatus(kd *driver.KubernetesDriver, cfg config.IConfig, log logr.Logger) error {
+	//  only update alb when it changed.
 	name := cfg.GetAlbName()
 	namespace := cfg.GetNs()
 	albRes, err := kd.LoadAlbResource(namespace, name)
@@ -183,34 +191,59 @@ func LeaderUpdateAlbStatus(kd *driver.KubernetesDriver, cfg config.IConfig) erro
 		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
 		return err
 	}
-	if albRes.Annotations == nil {
-		albRes.Annotations = make(map[string]string)
-	}
-
-	// leader election use lease object now, this annotation just for identify who is leader.
-	albRes.Annotations[cfg.GetLabelLeader()] = cfg.GetPodName()
 	fts, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
 		return err
 	}
-	state := "ready"
-	reason := ""
+	status := v2beta1.AlbStatus{
+		PortStatus: map[string]v2beta1.PortStatus{},
+	}
 	for _, ft := range fts {
-		if ft.Status.Instances != nil {
-			for _, v := range ft.Status.Instances {
-				if v.Conflict {
-					state = "warning"
-					reason = "port conflict" // TODO 这是显示在界面上的报错吗? 如果是的,那最好把 pod port 也写出来.
-					break
-				}
+		if ft.Status.Instances == nil {
+			continue
+		}
+		conflictIns := []string{}
+		for name, v := range ft.Status.Instances {
+			if v.Conflict {
+				conflictIns = append(conflictIns, name)
+			}
+		}
+		sort.Strings(conflictIns)
+		if len(conflictIns) != 0 {
+			key := fmt.Sprintf("%v-%v", ft.Spec.Protocol, ft.Spec.Port)
+			msg := fmt.Sprintf("confilct on %s", strings.Join(conflictIns, ", "))
+			status.PortStatus[key] = v2beta1.PortStatus{
+				Msg:          msg,
+				Conflict:     true,
+				ProbeTimeStr: metav1.Time{Time: time.Now()},
 			}
 		}
 	}
-	albRes.Status.State = state
-	albRes.Status.Reason = reason
-	albRes.Status.ProbeTime = time.Now().Unix()
-	err = kd.UpdateAlbResource(albRes)
+
+	if !albStatusChange(albRes.Status.Detail.Alb, status) {
+		return nil
+	}
+	log.Info("alb status change", "diff", cmp.Diff(albRes.Status.Detail.Alb, status))
+	albRes.Status.Detail.Alb = status
+	err = kd.UpdateAlbStatus(albRes)
+	log.Info("alb status change update success", "ver", albRes.ResourceVersion)
 	return err
+}
+
+func albStatusChange(origin, new v2beta1.AlbStatus) bool {
+	if len(origin.PortStatus) != len(new.PortStatus) {
+		return true
+	}
+	for key, op := range origin.PortStatus {
+		np, find := new.PortStatus[key]
+		if !find {
+			return true
+		}
+		if np.Conflict != op.Conflict || np.Msg != op.Msg {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Alb) StartGoMonitorLoop(ctx context.Context) error {

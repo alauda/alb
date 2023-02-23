@@ -2,6 +2,17 @@
 ARG OPS_TOOLSETS_TAG=20221011122042
 FROM build-harbor.alauda.cn/ops/toolset:${OPS_TOOLSETS_TAG} AS tools
 
+FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.15  AS tweak_gen
+COPY ./ /alb/
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=0
+ENV GOFLAGS=-buildvcs=false
+WORKDIR /alb 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
+RUN cd cmd/utils/tweak_gen && go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb/out/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
+RUN ls -alh /alb/out/
+
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v1.22.0
 
 LABEL OPS_TOOLSETS_TAG="${OPS_TOOLSETS_TAG}"
@@ -9,17 +20,17 @@ LABEL OPS_TOOLSETS_TAG="${OPS_TOOLSETS_TAG}"
 RUN mkdir -p /alb/nginx
 COPY ./template/nginx /alb/nginx
 COPY --from=tools /usr/local/bin/gosu /usr/local/bin/
-RUN ls /alb/nginx && chown -R nonroot:nonroot /alb && \
-    apk add --no-cache sudo zlib-dev libcap && \
-    mkdir -p /etc/sudoers.d && \
-    echo "nonroot ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nonroot && \
-    setcap CAP_NET_BIND_SERVICE=+eip   /usr/local/openresty/nginx/sbin/nginx && \
-    chmod 0440 /etc/sudoers.d/nonroot && \
-    chmod 550 /alb/nginx/boot-nginx.sh && \
+COPY --from=tweak_gen /alb/out/tweak_gen /alb/tools/tweak_gen
+RUN chown -R nonroot:nonroot /alb && \ 
+    chown -R nonroot:nonroot /usr/local/lib/lua && \ 
+    chmod -R o-rwx /usr/local/lib/lua; chmod -R g-w /usr/local/lib/lua  && \
+    chown -R nonroot:nonroot /usr/local/openresty && \
+    chmod -R o-rwx /usr/local/openresty; chmod -R g-w /usr/local/openresty  && \
+    chmod -R o-rwx /alb && chmod -R g-w /alb && \
+    apk add --no-cache zlib-dev libcap && rm -rf /usr/bin/nc && \
     chmod 550 /alb/nginx/run-nginx.sh && \
-    chmod 750 /alb/nginx/lua && \
-    find /alb/nginx/lua -type f | xargs -I {} chmod 640 {} && \
-    find /alb/nginx -type d | xargs -I {} chmod 750 {}
+    setcap CAP_NET_BIND_SERVICE=+eip   /usr/local/openresty/nginx/sbin/nginx && \
+    ls -alh /usr/local/openresty/nginx/conf
 
 USER nonroot
 WORKDIR /alb

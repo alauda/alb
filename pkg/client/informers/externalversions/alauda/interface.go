@@ -20,6 +20,7 @@ package alauda
 
 import (
 	v1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	v2beta1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	internalinterfaces "alauda.io/alb2/pkg/client/informers/externalversions/internalinterfaces"
 )
 
@@ -27,6 +28,8 @@ import (
 type Interface interface {
 	// V1 provides access to shared informers for resources in V1.
 	V1() v1.Interface
+	// V2beta1 provides access to shared informers for resources in V2beta1.
+	V2beta1() v2beta1.Interface
 }
 
 type group struct {
@@ -43,4 +46,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // V1 returns a new v1.Interface.
 func (g *group) V1() v1.Interface {
 	return v1.New(g.factory, g.namespace, g.tweakListOptions)
+}
+
+// V2beta1 returns a new v2beta1.Interface.
+func (g *group) V2beta1() v2beta1.Interface {
+	return v2beta1.New(g.factory, g.namespace, g.tweakListOptions)
 }

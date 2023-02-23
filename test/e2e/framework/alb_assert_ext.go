@@ -1,16 +1,23 @@
 package framework
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	c "alauda.io/alb2/controller"
 	ct "alauda.io/alb2/controller/types"
+	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	. "alauda.io/alb2/utils/test_utils"
 )
 
 type NgxPolicy c.NgxPolicy
@@ -112,4 +119,91 @@ func (p NgxPolicy) FindUdpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup)
 
 func (p NgxPolicy) FindHttpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("http", rule)
+}
+
+type AlbHelper struct {
+	*K8sClient
+	AlbInfo
+}
+
+func (f *AlbHelper) CreateFt(port alb2v1.PortNumber, protocol string, svcName string, svcNs string) {
+	name := fmt.Sprintf("%s-%05d", f.AlbName, port)
+	if protocol == "udp" {
+		name = name + "-udp"
+	}
+	ft := alb2v1.Frontend{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: f.AlbNs,
+			Name:      name,
+			Labels: map[string]string{
+				"alb2.cpaas.io/name": f.AlbName,
+			},
+		},
+		Spec: alb2v1.FrontendSpec{
+			Port:     port,
+			Protocol: alb2v1.FtProtocol(protocol),
+			ServiceGroup: &alb2v1.ServiceGroup{Services: []alb2v1.Service{
+				{
+					Name:      svcName,
+					Namespace: svcNs,
+					Port:      80,
+				},
+			}},
+		},
+	}
+	f.GetAlbClient().CrdV1().Frontends(f.AlbNs).Create(context.Background(), &ft, metav1.CreateOptions{})
+}
+
+func (f *AlbHelper) WaitFtState(name string, check func(ft *alb2v1.Frontend) (bool, error)) *alb2v1.Frontend {
+	var ft *alb2v1.Frontend
+	var err error
+	err = wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+		ft, err = f.GetAlbClient().CrdV1().Frontends(f.AlbNs).Get(context.Background(), name, metav1.GetOptions{})
+		Logf("try get ft %s/%s ft %v", f.AlbNs, name, err)
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		ok, err := check(ft)
+		if err == nil {
+			return ok, nil
+		}
+		return ok, err
+	})
+	assert.NoError(ginkgo.GinkgoT(), err)
+	return ft
+}
+
+func (f *AlbHelper) WaitFt(name string) *alb2v1.Frontend {
+	return f.WaitFtState(name, func(ft *alb2v1.Frontend) (bool, error) {
+		if ft != nil {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+// TODO
+func (f *AlbHelper) WaitAlbState(name string, check func(alb *alb2v1.ALB2) (bool, error)) *alb2v1.ALB2 {
+	var globalAlb *alb2v1.ALB2
+	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+		alb, err := f.GetAlbClient().CrdV1().ALB2s(f.AlbNs).Get(context.Background(), name, metav1.GetOptions{})
+		Logf("try get alb %s/%s alb %v", f.AlbNs, name, err)
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		ok, err := check(alb)
+		if err == nil {
+			globalAlb = alb
+			return ok, nil
+		}
+		return ok, err
+	})
+	assert.NoError(ginkgo.GinkgoT(), err)
+	return globalAlb
 }

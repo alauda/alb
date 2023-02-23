@@ -6,16 +6,16 @@ import (
 	"html/template"
 	"math/rand"
 	"net"
-	"net/url"
 	"os"
-	"os/exec"
 	"time"
 
+	ct "alauda.io/alb2/controller/types"
 	"github.com/onsi/ginkgo"
+	"github.com/stretchr/testify/assert"
 	"github.com/thedevsaddam/gojsonq/v2"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	kcapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -76,6 +76,17 @@ func GFIt(text string, body interface{}, timeout ...float64) bool {
 	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
 }
 
+func GinkgoAssert(e error, msg string) {
+	assert.NoError(ginkgo.GinkgoT(), e, msg)
+}
+func GinkgoNoErr(e error) {
+	assert.NoError(ginkgo.GinkgoT(), e)
+}
+
+func GinkgoAssertTrue(v bool, msg string) {
+	assert.True(ginkgo.GinkgoT(), v, msg)
+}
+
 func random() string {
 	return fmt.Sprintf("%v", rand.Int())
 }
@@ -98,47 +109,6 @@ func ListenUdp(port string, stopCh chan struct{}) {
 	listen("udp", ":"+port, stopCh)
 }
 
-func KubeConfigFromREST(cfg *rest.Config, envtestName string) ([]byte, error) {
-	kubeConfig := kcapi.NewConfig()
-	protocol := "https"
-	if !rest.IsConfigTransportTLS(*cfg) {
-		protocol = "http"
-	}
-
-	// cfg.Host is a URL, so we need to parse it so we can properly append the API path
-	baseURL, err := url.Parse(cfg.Host)
-	if err != nil {
-		return nil, fmt.Errorf("unable to interpret config's host value as a URL: %w", err)
-	}
-
-	kubeConfig.Clusters[envtestName] = &kcapi.Cluster{
-		// TODO(directxman12): if client-go ever decides to expose defaultServerUrlFor(config),
-		// we can just use that.  Note that this is not the same as the public DefaultServerURL,
-		// which requires us to pass a bunch of stuff in manually.
-		Server:                   (&url.URL{Scheme: protocol, Host: baseURL.Host, Path: cfg.APIPath}).String(),
-		CertificateAuthorityData: cfg.CAData,
-	}
-	kubeConfig.AuthInfos[envtestName] = &kcapi.AuthInfo{
-		// try to cover all auth strategies that aren't plugins
-		ClientCertificateData: cfg.CertData,
-		ClientKeyData:         cfg.KeyData,
-		Token:                 cfg.BearerToken,
-		Username:              cfg.Username,
-		Password:              cfg.Password,
-	}
-	kcCtx := kcapi.NewContext()
-	kcCtx.Cluster = envtestName
-	kcCtx.AuthInfo = envtestName
-	kubeConfig.Contexts[envtestName] = kcCtx
-	kubeConfig.CurrentContext = envtestName
-
-	contents, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to serialize kubeconfig file: %w", err)
-	}
-	return contents, nil
-}
-
 func Template(templateStr string, data map[string]interface{}) string {
 	buf := new(bytes.Buffer)
 	t, err := template.New("s").Parse(templateStr)
@@ -152,15 +122,6 @@ func Template(templateStr string, data map[string]interface{}) string {
 	return buf.String()
 }
 
-func Kubectl(options ...string) (string, error) {
-	cmd := exec.Command("kubectl", options...)
-	stdout, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("%s err: %v", stdout, err)
-	}
-	return string(stdout), nil
-}
-
 func Access(f func()) {
 	defer func() {
 		recover()
@@ -168,13 +129,70 @@ func Access(f func()) {
 	f()
 }
 
-func TestEq(f func() bool) (ret bool) {
+func log(level string, format string, args ...interface{}) {
+	fmt.Fprintf(ginkgo.GinkgoWriter, nowStamp()+": "+level+": "+"envtest framework : "+format+"\n", args...)
+}
+
+func nowStamp() string {
+	return time.Now().Format(time.StampMilli)
+}
+
+// Logf logs to the INFO logs.
+// Deprecated: use GinkgoLog instead.
+func Logf(format string, args ...interface{}) {
+	log("INFO", format, args...)
+}
+
+func CfgFromFile(p string) *rest.Config {
+	Logf("cfg from file %v", p)
+	cf, err := clientcmd.BuildConfigFromFlags("", p)
+	if err != nil {
+		panic(err)
+	}
+	return cf
+}
+
+// TODO 废弃掉这种方法，应该使用ginkgo测试中的全局变量
+func CfgFromEnv() *rest.Config {
+	kubecfg := os.Getenv("KUBECONFIG")
+	return CfgFromFile(kubecfg)
+}
+
+func Wait(fn func() (bool, error)) {
+	const (
+		// Poll how often to poll for conditions
+		Poll = 1 * time.Second
+
+		// DefaultTimeout time to wait for operations to complete
+		DefaultTimeout = 50 * time.Minute
+	)
+	err := wait.Poll(Poll, DefaultTimeout, fn)
+	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
+}
+
+func GAssert[T any](f func() (T, error), msg string) T {
+	ret, err := f()
+	assert.NoError(ginkgo.GinkgoT(), err, msg)
+	return ret
+}
+
+func BuildBG(name, mode string, bs ct.Backends) ct.BackendGroup {
+	return ct.BackendGroup{
+		Name:     name,
+		Mode:     mode,
+		Backends: bs,
+	}
+}
+
+func TestEq(f func() bool, msg ...string) (ret bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			Logf("TestEq err: %+v", err)
+			Logf("TestEq %s err: %+v", msg, err)
 			ret = false
 		}
 	}()
-	return f()
+	ret = f()
+	Logf("TestEq %s  %v", msg, ret)
+	return ret
 }

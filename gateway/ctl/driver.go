@@ -4,26 +4,20 @@ import (
 	"context"
 	"fmt"
 
+	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/utils/log"
 
-	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gt "sigs.k8s.io/gateway-api/apis/v1alpha2"
+
+	coreV1 "k8s.io/api/core/v1"
 )
 
-func ListListenerByClass(ctx context.Context, c client.Client, name string) ([]*Listener, error) {
-	gateways := gatewayType.GatewayList{}
-	if err := c.List(ctx, &gateways, &client.ListOptions{}); err != nil {
-		return nil, err
-	}
-	gs := make([]gatewayType.Gateway, 0)
-	for _, g := range gateways.Items {
-		if string(g.Spec.GatewayClassName) == name {
-			gs = append(gs, g)
-		}
-	}
+func ListListener(ctx context.Context, c client.Client, sel config.GatewaySelector) ([]*Listener, error) {
+	gs := getGatewayList(ctx, c, sel)
 	ret := []*Listener{}
 	for _, g := range gs {
 		for _, ls := range g.Spec.Listeners {
@@ -33,13 +27,38 @@ func ListListenerByClass(ctx context.Context, c client.Client, name string) ([]*
 	return ret, nil
 }
 
+func getGatewayList(ctx context.Context, c client.Client, sel config.GatewaySelector) []gt.Gateway {
+	gs := make([]gt.Gateway, 0)
+	if sel.GatewayClass != nil {
+		class := *sel.GatewayClass
+		gateways := gt.GatewayList{}
+		if err := c.List(ctx, &gateways, &client.ListOptions{}); err != nil {
+			return nil
+		}
+		for _, g := range gateways.Items {
+			if string(g.Spec.GatewayClassName) == class {
+				gs = append(gs, g)
+			}
+		}
+	}
+	if sel.GatewayName != nil {
+		gateway := gt.Gateway{}
+		err := c.Get(ctx, *sel.GatewayName, &gateway)
+		if err != nil {
+			return nil
+		}
+		gs = []gt.Gateway{gateway}
+	}
+	return gs
+}
+
 func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.ObjectKey) ([]*Route, error) {
 	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithValues("gateway", gateway.String())
 	// TODO !!!! use client.object instead of xxroute
-	httpRouteList := &gatewayType.HTTPRouteList{}
-	tcpRouteList := &gatewayType.TCPRouteList{}
-	tlsRouteList := &gatewayType.TLSRouteList{}
-	udpRouteList := &gatewayType.UDPRouteList{}
+	httpRouteList := &gt.HTTPRouteList{}
+	tcpRouteList := &gt.TCPRouteList{}
+	tlsRouteList := &gt.TLSRouteList{}
+	udpRouteList := &gt.UDPRouteList{}
 	err := c.List(ctx, httpRouteList, &client.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -112,23 +131,23 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	return routes, nil
 }
 
-func findGatewayByRouteObject(ctx context.Context, c client.Client, object client.Object, class string) (bool, *client.ObjectKey, error) {
+func findGatewayByRouteObject(ctx context.Context, c client.Client, object client.Object, sel config.GatewaySelector) (bool, []client.ObjectKey, error) {
 	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithName("findgatewaybyroute").WithValues("route", client.ObjectKeyFromObject(object))
 	// TODO a better way
-	var refs []gatewayType.ParentRef
+	var refs []gt.ParentRef
 	switch object := object.(type) {
-	case *gatewayType.HTTPRoute:
+	case *gt.HTTPRoute:
 		refs = object.Spec.ParentRefs
-	case *gatewayType.TCPRoute:
+	case *gt.TCPRoute:
 		refs = object.Spec.ParentRefs
-	case *gatewayType.TLSRoute:
+	case *gt.TLSRoute:
 		refs = object.Spec.ParentRefs
-	case *gatewayType.UDPRoute:
+	case *gt.UDPRoute:
 		refs = object.Spec.ParentRefs
 	default:
 		return false, nil, fmt.Errorf("invalid route type %v", client.ObjectKeyFromObject(object))
 	}
-
+	keys := map[string]client.ObjectKey{}
 	for _, ref := range refs {
 		log.V(2).Info("check refs", "ref", RefsToString(ref))
 		if ref.Kind != nil && *ref.Kind != GatewayKind {
@@ -139,30 +158,59 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 			continue
 		}
 		key := client.ObjectKey{Namespace: string(*ref.Namespace), Name: string(ref.Name)}
-		gateway := gatewayType.Gateway{}
-		err := c.Get(ctx, key, &gateway)
+		if sel.GatewayName != nil {
+			if key == *sel.GatewayName {
+				keys[key.String()] = key
+			}
+		}
+		if sel.GatewayClass != nil {
+			class := *sel.GatewayClass
+			gateway := gt.Gateway{}
+			err := c.Get(ctx, key, &gateway)
 
-		if errors.IsNotFound(err) {
-			log.Info("could not find gateway ref in route", "ref", RefsToString(ref), "ignore", "true")
-			continue
+			if errors.IsNotFound(err) {
+				log.Info("could not find gateway ref in route", "ref", RefsToString(ref), "ignore", "true")
+				continue
+			}
+			if err != nil {
+				log.Info("find gateway ref in route err", "ref", RefsToString(ref), "ignore", "true", "err", err)
+				continue
+			}
+			if string(gateway.Spec.GatewayClassName) == class {
+				log.V(5).Info("same class", "ref", RefsToString(ref), "class", class)
+				keys[key.String()] = key
+			}
 		}
-		if err != nil {
-			log.Info("find gateway ref in route err", "ref", RefsToString(ref), "ignore", "true", "err", err)
-			continue
-		}
-		if string(gateway.Spec.GatewayClassName) != class {
-			log.V(2).Info("find gateway ref to other controler", "gateway", key, "class", class)
-		}
-		return true, &key, nil
 	}
-	return false, nil, nil
+	keyList := []client.ObjectKey{}
+	for _, key := range keys {
+		keyList = append(keyList, key)
+	}
+	log.V(5).Info("find gateway", "len", len(keyList))
+	return len(keyList) != 0, keyList, nil
 }
 
 func getAlbAddress(ctx context.Context, c client.Client, ns string, name string) (string, error) {
-	alb := alb2v1.ALB2{}
+	alb := alb2v2.ALB2{}
 	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &alb)
 	if err != nil {
 		return "", err
 	}
 	return alb.Spec.Address, nil
+}
+
+func getLbSvcLbIp(ctx context.Context, c client.Client, ns string, name string) (string, error) {
+	svc := coreV1.Service{}
+	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &svc)
+	if err != nil {
+		return "", err
+	}
+	if svc.Spec.Type != coreV1.ServiceTypeLoadBalancer {
+		return "", fmt.Errorf("invalid svc %s/%s type must be lb", ns, name)
+	}
+	ingress := svc.Status.LoadBalancer.Ingress
+	if len(ingress) != 1 {
+		return "", fmt.Errorf("invalid svc ingress %v", ingress)
+	}
+	return ingress[0].IP, nil
 }

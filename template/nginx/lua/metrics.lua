@@ -40,8 +40,8 @@ function _M.log()
       _metrics.request_sizes:inc(tonumber(ngx_var.request_length), ngx_var.server_port)
       _metrics.response_sizes:inc(tonumber(ngx_var.bytes_sent), ngx_var.server_port)
 
-      _metrics.upstream_requests:inc(1, ngx_var.server_port, rule_name, ngx_var.upstream_addr)
-      _metrics.upstream_requests_status:inc(1, ngx_var.server_port, rule_name, ngx_var.upstream_addr, ngx_var.status)
+      _metrics.upstream_requests:inc(1, ngx_var.server_port, rule_name, ngx_var.upstream_addr or "")
+      _metrics.upstream_requests_status:inc(1, ngx_var.server_port, rule_name, ngx_var.upstream_addr or "", ngx_var.status)
     else
       _metrics.requests:inc(1, ngx_var.server_port, "")
       _metrics.mismatch_rule_requests:inc(1, ngx_var.server_port)

@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
@@ -16,10 +17,11 @@ import (
 type Kubectl struct {
 	kubeCfgPath string
 	base        string
+	log         logr.Logger
 }
 
 // if base =="" it will create /tmp/kubectl-xx else create base/kubectl
-func NewKubectl(base string, kubeCfg *rest.Config) *Kubectl {
+func NewKubectl(base string, kubeCfg *rest.Config, log logr.Logger) *Kubectl {
 	if base == "" {
 		base = path.Join(os.TempDir(), fmt.Sprintf("kubectl-%d", rand.Int()))
 		os.Mkdir(base, 0777)
@@ -33,6 +35,7 @@ func NewKubectl(base string, kubeCfg *rest.Config) *Kubectl {
 	return &Kubectl{
 		base:        base,
 		kubeCfgPath: kubeCfgPath,
+		log:         log,
 	}
 }
 
@@ -43,7 +46,7 @@ func (k *Kubectl) KubectlApply(yaml string, options ...string) (string, error) {
 	}
 	cmds := []string{"apply", "-f", p}
 	cmds = append(cmds, options...)
-	Logf("cmds: kubectl %v", strings.Join(cmds, " "))
+	k.log.Info("kubectl", "cmd", strings.Join(cmds, " "))
 	return k.Kubectl(cmds...)
 }
 
@@ -56,7 +59,7 @@ func (k *Kubectl) AssertKubectlApply(yaml string, options ...string) string {
 func (k *Kubectl) AssertKubectlApplyFile(p string, options ...string) string {
 	cmds := []string{"apply", "-f", p}
 	cmds = append(cmds, options...)
-	Logf("cmds: kubectl %v", strings.Join(cmds, " "))
+	k.log.Info("kubectl", "cmd", strings.Join(cmds, " "))
 	return k.AssertKubectl(cmds...)
 }
 
@@ -65,7 +68,6 @@ func (k *Kubectl) Kubectl(cmds ...string) (string, error) {
 		cmds = strings.Split(cmds[0], " ")
 	}
 	cmds = append(cmds, "--kubeconfig", k.kubeCfgPath)
-	fmt.Printf("cmds %v", cmds)
 	cmd := exec.Command("kubectl", cmds...)
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {

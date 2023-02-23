@@ -1,0 +1,10 @@
+domain: alauda.io/alb2
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: alb-operator
+repo: https://gitlab-ce.alauda.cn/container-platform/alb2
+version: "3"
+

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    service_name: alb-operator
+  name: alb-operator
+  namespace: cpaas-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service.cpaas.io/name: alb-operator
+      service_name: alb-operator
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        alb2.cpaas.io/pod_type: alb2
+        cpaas.io/product: Platform-Center
+        service.cpaas.io/name: alb-operator
+        service_name: alb-operator
+    spec:
+      serviceAccountName: alb-operator
+      containers:
+      - command:
+        - /alb/ctl/operator
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: ALB_IMAGE
+          value: "registry.alauda.cn:60080/acp/alb2:feat-add-a.2212290731"
+        - name: NGINX_IMAGE
+          value: "registry.alauda.cn:60080/acp/alb2:feat-add-a.2212290731"
+        - name: LABEL_BASE_DOMAIN
+          value: "cpaas.io"
+        image: registry.alauda.cn:60080/acp/alb2:feat-add-a.2212290731
+        name: alb2
+        resources:
+          limits:
+            cpu: 200m
+            memory: 2Gi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+      restartPolicy: Always

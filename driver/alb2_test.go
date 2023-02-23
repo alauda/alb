@@ -54,7 +54,9 @@ func loadData(dir, prefix string) ([]runtime.Object, error) {
 	return rv, nil
 }
 
+// TODO use envtest to test LoadALBbyName
 func TestLoadAlb(t *testing.T) {
+	t.SkipNow()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

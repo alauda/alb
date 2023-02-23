@@ -19,12 +19,11 @@ var _ = ginkgo.Describe("Gateway", func() {
 	var ns string
 
 	ginkgo.BeforeEach(func() {
-		deployCfg := Config{InstanceMode: true, AlbAddress: "172.13.1.2", RestCfg: CfgFromEnv(), Project: []string{"project1"}, Gateway: true}
+		deployCfg := DefaultGatewayClass
+		deployCfg.RestCfg = CfgFromEnv()
 		f = NewAlb(deployCfg)
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.1.2"})
-		f.InitDefaultSvc("svc-2", []string{"192.168.2.1"})
-		f.InitDefaultSvc("svc-udp", []string{"192.168.3.1", "192.168.3.2"})
 		f.Init()
 		ctx = context.Background()
 		ns = f.GetProductNs()
@@ -36,15 +35,17 @@ var _ = ginkgo.Describe("Gateway", func() {
 	})
 
 	GIt("when i deploy an alb, it should create a default gatewayclass and controll all gateways attach to it", func() {
-
 		// should create a gatewayclass, and mark it's as accept
 		f.Wait(func() (bool, error) {
+			Logf("wait gateway class")
 			c := f.GetGatewayClient().GatewayV1alpha2().GatewayClasses()
 			class, err := c.Get(ctx, f.AlbName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
+				Logf("gateway class not found")
 				return false, nil
 			}
 			if len(class.Status.Conditions) != 1 {
+				Logf("gateway class not ready")
 				return false, nil
 			}
 			condition := class.Status.Conditions[0]

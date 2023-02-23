@@ -22,6 +22,8 @@ import (
 	clientset "alauda.io/alb2/pkg/client/clientset/versioned"
 	crdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1"
 	fakecrdv1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v1/fake"
+	crdv2beta1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v2beta1"
+	fakecrdv2beta1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/alauda/v2beta1/fake"
 	gatewayv1alpha1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/gateway/v1alpha1"
 	fakegatewayv1alpha1 "alauda.io/alb2/pkg/client/clientset/versioned/typed/gateway/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,11 +78,19 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // CrdV1 retrieves the CrdV1Client
 func (c *Clientset) CrdV1() crdv1.CrdV1Interface {
 	return &fakecrdv1.FakeCrdV1{Fake: &c.Fake}
+}
+
+// CrdV2beta1 retrieves the CrdV2beta1Client
+func (c *Clientset) CrdV2beta1() crdv2beta1.CrdV2beta1Interface {
+	return &fakecrdv2beta1.FakeCrdV2beta1{Fake: &c.Fake}
 }
 
 // GatewayV1alpha1 retrieves the GatewayV1alpha1Client

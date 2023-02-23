@@ -4,6 +4,7 @@ source $ALB/scripts/alb-env-actions.sh
 source $ALB/scripts/alb-test-actions.sh
 source $ALB/scripts/alb-lint-actions.sh
 source $ALB/scripts/alb-build-actions.sh
+source $ALB/scripts/alb-deploy-actions.sh
 
 function alb-test-qps {
   local defaultKindName=kind-alb-${RANDOM:0:5}
@@ -174,7 +175,7 @@ EOF
 
 function get-alb-images-from-values {
   local base="build-harbor.alauda.cn"
-  for im in $(yq eval -o=j ./chart/values.yaml | jq -cr '.global.images[]'); do
+  for im in $(yq eval -o=j ./deploy/chart/alb/values.yaml | jq -cr '.global.images[]'); do
     local repo=$(echo $im | jq -r '.repository' -)
     local tag=$(echo $im | jq -r '.tag' -)
     local image="$base/$repo:$tag"

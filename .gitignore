@@ -42,3 +42,11 @@ cmds.cfg
 .t/
 loop.sh
 alauda-alb2/
+coverage.*
+deploy/operator/bundle
+deploy/chart/alb-operator/crds
+deploy/chart/alb/crds
+deploy/operator/crds
+deploy/chart/alb-operator/templates/alb-operator.clusterserviceversion.yaml
+deploy/operator/bundle.Dockerfile
+.test/

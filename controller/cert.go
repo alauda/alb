@@ -65,6 +65,7 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	certFromRule := getCertFromRule(alb, d)
 
 	secretMap := make(map[string]client.ObjectKey)
+	klog.Infof("port-cert %v %v", portDefaultCert, certFromRule)
 
 	for port, secret := range portDefaultCert {
 		if _, ok := secretMap[port]; !ok {

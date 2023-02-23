@@ -153,6 +153,7 @@ func (l ListenerStatus) toConditions(gateway *gatewayType.Gateway) []metav1.Cond
 	return conditions
 }
 
+// TODO move to common
 func RefsToString(ref gatewayType.ParentRef) string {
 	kind := ""
 	if ref.Kind != nil {

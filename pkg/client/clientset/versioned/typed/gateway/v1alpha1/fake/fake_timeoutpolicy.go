@@ -117,7 +117,7 @@ func (c *FakeTimeoutPolicies) UpdateStatus(ctx context.Context, timeoutPolicy *v
 // Delete takes name of the timeoutPolicy and deletes it. Returns an error if one occurs.
 func (c *FakeTimeoutPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(timeoutpoliciesResource, c.ns, name), &v1alpha1.TimeoutPolicy{})
+		Invokes(testing.NewDeleteActionWithOptions(timeoutpoliciesResource, c.ns, name, opts), &v1alpha1.TimeoutPolicy{})
 
 	return err
 }

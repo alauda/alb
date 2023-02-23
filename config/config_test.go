@@ -24,8 +24,10 @@ func TestEnvConfig(t *testing.T) {
 		"NEW_POLICY_PATH":     "new",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
-		"MY_POD_NAME":         "abc-xx",
 		"DOMAIN":              "alauda.io",
+		"MODE":                "controller",
+		"NETWORK_MODE":        "host",
+		"MY_POD_NAME":         "p1",
 	}
 	for key, val := range ENV {
 		os.Setenv(key, val)
@@ -53,10 +55,12 @@ func TestStandAlone(t *testing.T) {
 	ENV := map[string]string{
 		"LB_TYPE":             Nginx,
 		"SCHEDULER":           Kubernetes,
-		"MY_POD_NAME":         "abc-xx",
 		"NEW_CONFIG_PATH":     "new",
 		"OLD_CONFIG_PATH":     "old",
 		"NGINX_TEMPLATE_PATH": "tpl",
+		"MODE":                "controller",
+		"NETWORK_MODE":        "host",
+		"MY_POD_NAME":         "p1",
 		"NEW_POLICY_PATH":     "new",
 		"NAMESPACE":           "default",
 		"NAME":                "ngx-test",
@@ -87,7 +91,6 @@ func TestDefault(t *testing.T) {
 	// read from env
 	a.Equal(10, GetInt("INTERVAL"))
 	os.Clearenv()
-	CleanCache()
 	// read from viper-config.toml
 	a.Equal(5, GetInt("INTERVAL"))
 
@@ -96,19 +99,24 @@ func TestDefault(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	os.Setenv("MY_POD_NAME", "abc-xx")
-	os.Setenv("CPU_LIMIT", "8")
 	Init()
-	t.Logf("get env %v\n", os.Getenv("CPU_LIMIT"))
-	ret2 := GetInt("CPU_LIMIT")
+	os.Setenv("ALB_LOCK_TIMEOUT", "100")
+	ret := GetInt("LOCK_TIMEOUT")
+	assert.Equal(t, ret, 100)
+	os.Setenv("CPU_PRESET", "8")
+	ret2 := GetInt("CPU_PRESET")
 	assert.Equal(t, ret2, 8)
-	CleanCache()
-	os.Setenv("ALB_CPU_LIMIT", "1600m")
-	ret3 := GetInt("CPU_LIMIT")
-	t.Logf("ret 3 %v\n", ret3)
+	os.Setenv("CPU_PRESET", "1600m")
+	ret3 := GetInt("CPU_PRESET")
 	assert.Equal(t, ret3, 2)
 
-	ret4 := Get("MY_POD_NAME")
-	t.Logf("ret 4 %v\n", ret4)
-	assert.Equal(t, ret4, "abc-xx")
+	Set("METRICS_PORT", "1936")
+	Set("BACKLOG", "100")
+	Set("MODE", "controller")
+	Set("NETWORK_MODE", "host")
+	Set("ALB_ENABLE", "true")
+	assert.Equal(t, GetConfig().IsEnableAlb(), true)
+	Set("ALB_ENABLE", "false")
+	assert.Equal(t, GetConfig().IsEnableAlb(), false)
+
 }

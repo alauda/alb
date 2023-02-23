@@ -7,6 +7,7 @@ import (
 
 	"alauda.io/alb2/config"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"alauda.io/alb2/utils/test_utils"
@@ -157,7 +158,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 		ingress       networkingv1.Ingress
 	}
 
-	defaultAlbs := []albv1.ALB2{
+	defaultAlbs := []albv2.ALB2{
 		{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Namespace: test_utils.DEFAULT_NS,
@@ -454,24 +455,4 @@ func TestFindUnSyncedIngress(t *testing.T) {
 	}
 	_ = fakeResource
 	_ = expect
-	// TODO
-	// klog.InitFlags(nil)
-	// defer klog.Flush()
-	// ctx, cancel := context.WithCancel(context.Background())
-	// a := assert.New(t)
-	// defer cancel()
-	// defaultConfig := test_utils.DEFAULT_CONFIG_FOR_TEST
-	// drv := test_utils.InitFakeAlb(t, ctx, fakeResource, defaultConfig)
-	// informers := drv.Informers
-
-	// ingressController := NewController(drv, informers, config.DefaultMock(), log.L())
-	// ingressList, err := ingressController.findUnSyncedIngress(ctx)
-	// ingressNameList := make([]string, 0)
-	// for _, ing := range ingressList {
-	// 	ingressNameList = append(ingressNameList, ing.Name)
-	// }
-
-	// sort.Strings(ingressNameList)
-	// a.NoError(err)
-	// a.Equal(ingressNameList, expect)
 }

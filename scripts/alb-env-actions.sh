@@ -163,8 +163,8 @@ function alb-build-docker-and-update-chart() (
   eval $nginx
   docker tag build-harbor.alauda.cn/acp/alb2:local registry.alauda.cn:60080/acp/alb2:local
   docker tag build-harbor.alauda.cn/acp/alb-nginx:local registry.alauda.cn:60080/acp/alb-nginx:local
-  yq -i '.global.images.alb2.tag="local"' ./chart/values.yaml
-  yq -i '.global.images.nginx.tag="local"' ./chart/values.yaml
+  yq -i '.global.images.alb2.tag="local"' ./deploy/chart/alb/values.yaml
+  yq -i '.global.images.nginx.tag="local"' ./deploy/chart/alb/values.yaml
 )
 
 function _initKind {

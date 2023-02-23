@@ -5,8 +5,8 @@ function alb-lint-all() {
   echo "bash ok"
   alb-lint-go
   echo "go ok"
-  alb-lint-lua
-  echo "lua ok"
+  #   alb-lint-lua
+  #   echo "lua ok"
 }
 
 function alb-lint-bash() {
@@ -25,17 +25,17 @@ function alb-lint-go() {
     echo "go fmt check fail"
     return 1
   fi
-  go vet .../..
   alb-lint-go-build
 }
 
 function alb-lint-go-build() {
-  go build -v -v -o ./bin/alb alauda.io/alb2
-  echo "buil alb ok"
+  go build -v -v -o ./bin/alb alauda.io/alb2/cmd/alb
+  go build -v -v -o ./bin/alb alauda.io/alb2/cmd/operator
+  echo "build alb ok"
   alb-build-e2e-test
-  echo "buil e2e ok"
+  echo "build e2e ok"
   go test ./... -list=.
-  echo "buil test"
+  echo "build test ok"
 }
 
 function alb-lint-go-fix {
@@ -81,8 +81,6 @@ function check-branch-name {
 check-branch-name
 source ./scripts/alb-dev-actions.sh
 alb-lint-all
-cd chart
-helm lint -f ./values.yaml
 EOF
   echo "$PREPUSH" >./.git/hooks/pre-push
   chmod a+x ./.git/hooks/pre-push

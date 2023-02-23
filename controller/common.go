@@ -187,7 +187,7 @@ func workerLimit() int {
 }
 
 func cpu_preset() int {
-	return config.GetInt("CPU_LIMIT")
+	return config.GetInt("CPU_PRESET")
 }
 
 func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {

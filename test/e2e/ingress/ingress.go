@@ -18,7 +18,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 	var f *Framework
 
 	ginkgo.BeforeEach(func() {
-		deployCfg := Config{InstanceMode: true, RestCfg: CfgFromEnv(), Project: []string{"project1"}}
+		deployCfg := Config{InstanceMode: true, RestCfg: KUBE_REST_CONFIG, Project: []string{"project1"}}
 		f = NewAlb(deployCfg)
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-default", []string{"192.168.1.1", "192.168.2.2"})
@@ -28,6 +28,10 @@ var _ = ginkgo.Describe("Ingress", func() {
 	ginkgo.AfterEach(func() {
 		f.Destroy()
 		f = nil
+	})
+
+	GIt("empty test", func() {
+		Logf("ok")
 	})
 
 	GIt("should compatible with redirect ingress", func() {
@@ -88,7 +92,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			ns := f.GetProductNs()
 			name := "ingress-a"
 
-			f.CreateIngress(name, "/a", "svc-default", 80)
+			f.CreateIngress(ns, name, "/a", "svc-default", 80)
 
 			f.WaitNginxConfigStr("listen.*80")
 
@@ -159,7 +163,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			_ = ns
 			name := "ingress-aaa" + strings.Repeat("a", 100)
 
-			f.CreateIngress(name, "/a", "svc-default", 80)
+			f.CreateIngress(ns, name, "/a", "svc-default", 80)
 
 			f.WaitNginxConfigStr("listen.*80")
 

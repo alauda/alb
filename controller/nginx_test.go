@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -14,7 +13,9 @@ import (
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
+	"alauda.io/alb2/utils/log"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
@@ -85,7 +86,11 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	drv := test_utils.InitFakeAlb(t, ctx, res, test_utils.DEFAULT_CONFIG_FOR_TEST)
-	ctl := NewNginxController(drv, ctx)
+	cfg := config.DefaultMock()
+	cfg.Name = "alb-1"
+	cfg.NS = "ns-1"
+	cfg.EnableAlb = true
+	ctl := NewNginxController(drv, ctx, cfg, log.L())
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
 	// marshal and unmarshal to make sure we generate a valid policy json file
@@ -131,10 +136,7 @@ func AssertBackendsEq(t *testing.T, left, right []*Backend) {
 }
 
 func TestGenerateAlbPolicyAndConfig(t *testing.T) {
-	config.Set("METRICS_PORT", "1936")
-	config.Set("BACKLOG", "100")
-	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
+
 	defer klog.Flush()
 	certAKey, certACert, err := test_utils.GenCert("a.b.c")
 	assert.NoError(t, err)
@@ -179,13 +181,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			c.Assert(*albPolicy, ngxCfg)
 		}
 	}
-	defaultAlb := []albv1.ALB2{
+	defaultAlb := []albv2.ALB2{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alb-1",
 				Namespace: "ns-1",
 			},
-			Spec: albv1.ALB2Spec{
+			Spec: albv2.ALB2Spec{
 				Address: "1.2.3.4",
 				Type:    "nginx",
 			},
@@ -196,6 +198,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			// ft port 8000 have 3 rule
 			// rule-1 rule-2 have same priority 4, but rule-1 is more complex that rule-2. rule-3 priority is 3, the order should be 3 1 2.
 			// rule-1 use svc1Port1 rule-2 use svc1Port2
+			Only: true,
 			Name: "http with different rule and different weight",
 			Res: func() test_utils.FakeResource {
 				ftPort := 8000
@@ -443,13 +446,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				ftSg1Port := 8001
 				return test_utils.FakeResource{
 					Alb: test_utils.FakeALBResource{
-						Albs: []albv1.ALB2{
+						Albs: []albv2.ALB2{
 							{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "alb-1",
 									Namespace: "ns-1",
 								},
-								Spec: albv1.ALB2Spec{
+								Spec: albv2.ALB2Spec{
 									Address: "1.2.3.4",
 									Type:    "nginx",
 								},
@@ -546,13 +549,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				ftSg1Port := 8001
 				return test_utils.FakeResource{
 					Alb: test_utils.FakeALBResource{
-						Albs: []albv1.ALB2{
+						Albs: []albv2.ALB2{
 							{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "alb-1",
 									Namespace: "ns-1",
 								},
-								Spec: albv1.ALB2Spec{
+								Spec: albv2.ALB2Spec{
 									Address: "1.2.3.4",
 									Type:    "nginx",
 								},

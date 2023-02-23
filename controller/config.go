@@ -3,7 +3,6 @@ package controller
 import (
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
-	"alauda.io/alb2/utils"
 	"strconv"
 )
 
@@ -37,12 +36,18 @@ type NginxParam struct {
 	GzipTypes        string
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 func newNginxParam() NginxParam {
 	return NginxParam{
 		EnablePrometheus: config.Get("ENABLE_PROMETHEUS") == "true",
 		EnableIPV6:       checkIPV6(),
 		EnableHTTP2:      config.Get("ENABLE_HTTP2") == "true",
-		CPUNum:           strconv.Itoa(utils.NumCPU(cpu_preset(), workerLimit())),
+		CPUNum:           strconv.Itoa(min(cpu_preset(), workerLimit())),
 		MetricsPort:      config.GetInt("METRICS_PORT"),
 		Backlog:          config.GetInt("BACKLOG"),
 		EnableGzip:       config.Get("ENABLE_GZIP") == "true",

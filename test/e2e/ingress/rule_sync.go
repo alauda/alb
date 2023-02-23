@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"runtime"
 
@@ -22,14 +21,16 @@ var _ = Describe("Ingress", func() {
 	var f *framework.Framework
 
 	framework.GIt("test ingress startup sync", func() {
-		os.Setenv("ALB_RELOAD_NGINX", "false")
-		os.Setenv("ALB_ENABLE_GATEWAY", "false")
-		os.Setenv("ALB_LEADER_LEASE_DURATION", "3000")
-		os.Setenv("ALB_LEADER_RENEW_DEADLINE", "2000")
-		os.Setenv("ALB_LEADER_RETRY_PERIOD", "1000")
-		os.Setenv("DEFAULT-SSL-CERTIFICATE", "cpaas-system/default")
-		os.Setenv("DEFAULT-SSL-STRATEGY", "Always")
-		deployCfg := framework.Config{InstanceMode: true, RestCfg: framework.CfgFromEnv(), Project: []string{"ALL_ALL"}}
+		env := map[string]string{
+			"ALB_RELOAD_NGINX":          "false",
+			"GATEWAY_ENABLE":            "false",
+			"ALB_LEADER_LEASE_DURATION": "3000",
+			"ALB_LEADER_RENEW_DEADLINE": "2000",
+			"ALB_LEADER_RETRY_PERIOD":   "1000",
+			"DEFAULT-SSL-CERTIFICATE":   "cpaas-system/default",
+			"DEFAULT-SSL-STRATEGY":      "Always",
+		}
+		deployCfg := framework.Config{InstanceMode: true, RestCfg: framework.CfgFromEnv(), Project: []string{"ALL_ALL"}, OverrideEnv: env}
 		f = framework.NewAlb(deployCfg)
 		f.Init()
 		defer f.Destroy()
@@ -49,8 +50,8 @@ var _ = Describe("Ingress", func() {
 				if ft.Name == "alb-dev-00443" && httpsftid == "" {
 					httpsftid = string(ft.UID)
 				}
-				if httpsftid != string(ft.UID) {
-					return false, fmt.Errorf("invalid ft id")
+				if httpsftid != "" && httpsftid != string(ft.UID) {
+					return false, fmt.Errorf("invalid ft id %v | %v", httpsftid, ft.UID)
 				}
 			}
 			tlog("rule len %v", len(rules.Items))
@@ -81,7 +82,4 @@ var _ = Describe("Ingress", func() {
 	framework.GIt("should keep ft default cert when restart", func() {
 	})
 
-	// TODO 删除了ingress,并且这个ingress是有默认路由的,应该把ft的默认后端删除
-	framework.GIt("should keep ft default cert when restart", func() {
-	})
 })

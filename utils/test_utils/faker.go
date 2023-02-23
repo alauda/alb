@@ -8,6 +8,7 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
@@ -37,7 +38,7 @@ type FakeResource struct {
 }
 
 type FakeALBResource struct {
-	Albs      []albv1.ALB2
+	Albs      []albv2.ALB2
 	Frontends []albv1.Frontend
 	Rules     []albv1.Rule
 }
@@ -63,7 +64,7 @@ func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, c
 	a.NoError(err)
 
 	albDataset := []runtime.Object{
-		&albv1.ALB2List{Items: fakeResource.Alb.Albs},
+		&albv2.ALB2List{Items: fakeResource.Alb.Albs},
 		&albv1.FrontendList{Items: fakeResource.Alb.Frontends},
 		&albv1.RuleList{Items: fakeResource.Alb.Rules},
 	}

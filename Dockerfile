@@ -7,31 +7,21 @@ ENV GOFLAGS=-buildvcs=false
 COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
-RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb alauda.io/alb2
-RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /migrate/init-port-info alauda.io/alb2/migrate/init-port-info
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/alb alauda.io/alb2/cmd/alb
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/operator alauda.io/alb2/cmd/operator
 
-FROM build-harbor.alauda.cn/ops/alpine:3.16 AS base
+FROM build-harbor.alauda.cn/ops/alpine:3.17.1 AS base
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
-RUN apk update && apk add --no-cache iproute2 jq sudo
+RUN apk update && apk add --no-cache iproute2 jq libcap && rm -rf /usr/bin/nc
 
-ENV NGINX_BIN_PATH /usr/local/openresty/nginx/sbin/nginx
 ENV NGINX_TEMPLATE_PATH /alb/ctl/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /etc/alb2/nginx/nginx.conf.new
 ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
 ENV NEW_POLICY_PATH /etc/alb2/nginx/policy.new
 ENV INTERVAL 5
-ENV SYNC_POLICY_INTERVAL 1
-ENV CLEAN_METRICS_INTERVAL 2592000
 ENV BIND_ADDRESS *
-ENV INGRESS_HTTP_PORT 80
-ENV INGRESS_HTTPS_PORT 443
 ENV GODEBUG=cgo
-ENV ENABLE_GO_MONITOR false
-ENV GO_MONITOR_PORT 1937
-ENV METRICS_PORT 1936
-ENV RESYNC_PERIOD 300
-ENV ENABLE_GC false
-ENV BACKLOG 2048
 
 
 RUN umask 027 && \
@@ -42,17 +32,15 @@ COPY run-alb.sh /alb/ctl/run-alb.sh
 RUN chmod +x /alb/ctl/run-alb.sh
 COPY viper-config.toml /alb/ctl/viper-config.toml
 COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
-COPY --from=builder /alb /alb/ctl/alb
-COPY --from=builder /migrate/init-port-info /alb/ctl/migrate/init-port-info
+COPY --from=builder /out/alb /alb/ctl/alb
+COPY --from=builder /out/operator /alb/ctl/operator
+COPY --from=builder /out/migrate/init-port-info /alb/ctl/migrate/init-port-info
 
 RUN chown -R nonroot:nonroot /alb && \
     setcap CAP_SYS_PTRACE=+eip /sbin/ss && \
-    mkdir -p /etc/sudoers.d && \
-    echo "nonroot ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/nonroot && \
-    chmod 0440 /etc/sudoers.d/nonroot && \
+    chmod -R o-rwx /alb; chmod -R g-w /alb  && \
     chmod 550 /alb/ctl/run-alb.sh && \
     chmod 550 /alb/ctl/migrate/init-port-info && \
-    chmod 550 /alb/ctl/alb && \
-    chmod 750 /alb/ctl/template && chmod 750 /alb/ctl/template/nginx && chmod 640 /alb/ctl/template/nginx/nginx.tmpl
+    chmod 550 /alb/ctl/alb 
+RUN ls /usr/bin |grep nc
 USER nonroot
-CMD ["/sbin/tini", "--", "/alb/ctl/run-alb.sh"]

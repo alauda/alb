@@ -1,0 +1,22 @@
+{{- $global := .Values.global }}
+{{- $value_without_global := unset .Values "global" }}
+{{- $cfg :=  $value_without_global }}
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+  name: {{ .Values.loadbalancerName }} 
+  namespace: {{ $global.namespace }}
+  labels:
+    alb.{{ $global.labelBaseDomain}}/managed-by: alb-operator
+    alb.{{ $global.labelBaseDomain}}/migrate-from: sentry 
+    alb.{{ $global.labelBaseDomain}}/deploy-by: sentry 
+  annotations:
+    {{ $global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
+    alb.{{ $global.labelBaseDomain }}/migrate-backup: | 
+        {{ $cfg | toJson }}
+    update-mode: put
+spec:
+  address: {{ .Values.address | quote }}
+  type: "nginx" 
+  config: 
+{{ $cfg | toYaml | indent 4 }}

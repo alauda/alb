@@ -10,6 +10,7 @@ import (
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils/dirhash"
 	jsonpatch "github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
@@ -26,22 +27,16 @@ const (
 	TypeRule     = "rules"
 )
 
-func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*alb2v1.ALB2, error) {
+func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*albv2.ALB2, error) {
 	alb, err := kd.ALB2Lister.ALB2s(namespace).Get(name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get alb fail err  %v %v %v", namespace, name, err)
 	}
 	return alb, nil
 }
 
-func (kd *KubernetesDriver) UpdateAlbResource(alb *alb2v1.ALB2) error {
-	newAlb, err := kd.ALBClient.CrdV1().ALB2s(alb.Namespace).Update(context.TODO(), alb, metav1.UpdateOptions{})
-	if err != nil {
-		klog.Errorf("Update alb %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
-		return err
-	}
-	newAlb.Status = alb.Status
-	_, err = kd.ALBClient.CrdV1().ALB2s(alb.Namespace).UpdateStatus(context.TODO(), newAlb, metav1.UpdateOptions{})
+func (kd *KubernetesDriver) UpdateAlbStatus(alb *albv2.ALB2) error {
+	_, err := kd.ALBClient.CrdV2beta1().ALB2s(alb.Namespace).UpdateStatus(context.TODO(), alb, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("Update alb status %s.%s failed: %s", alb.Name, alb.Namespace, err.Error())
 		return err
@@ -84,11 +79,11 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		Frontends: []*m.Frontend{},
 	}
 	alb2Res, err := kd.LoadAlbResource(namespace, name)
-	klog.V(4).Infof("load alb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
+	klog.V(4).Infof("load alb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	alb2.UID = alb2Res.UID
 	alb2.Spec = alb2Res.Spec
 	alb2.Labels = alb2Res.Labels
@@ -176,10 +171,10 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bo
 	if string(patch) == "{}" {
 		return nil
 	}
+	klog.Info("update ft status %v", string(patch))
 	if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
 		return err
 	}
-
 	return nil
 }
 

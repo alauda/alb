@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -28,30 +27,19 @@ const (
 	DefaultControllerName = "alb2"
 )
 
-var ConfigString sync.Map
-var ConfigBool sync.Map
-var ConfigInt sync.Map
-
-func CleanSyncMap(m sync.Map) {
-	m.Range(func(key interface{}, value interface{}) bool {
-		m.Delete(key)
-		return true
-	})
-}
-func CleanCache() {
-	CleanSyncMap(ConfigBool)
-	CleanSyncMap(ConfigString)
-	CleanSyncMap(ConfigInt)
-}
-
 var requiredFields = []string{
 	"NAME",
 	"NAMESPACE",
 	"DOMAIN",
 	"MY_POD_NAME",
+	"MODE",
+	"NETWORK_MODE",
 }
 
+// ALL ENV
+// TODO use enum
 var optionalFields = []string{
+	"ALB_ENABLE",
 	"NEW_NAMESPACE",
 	"KUBERNETES_SERVER",
 	"KUBERNETES_BEARERTOKEN",
@@ -78,7 +66,7 @@ var optionalFields = []string{
 	"ENABLE_HTTP2",
 	"SCENARIO",
 	"WORKER_LIMIT",
-	"CPU_LIMIT",
+	"CPU_PRESET",
 	"RESYNC_PERIOD",
 	"ENABLE_GO_MONITOR",
 	"GO_MONITOR_PORT",
@@ -87,7 +75,9 @@ var optionalFields = []string{
 	"ENABLE_GZIP",
 	"POLICY_ZIP",
 	// gateway related config
-	"ENABLE_GATEWAY",
+	"GATEWAY_ENABLE",
+	"GATEWAY_MODE",
+	"GATEWAY_NAME",
 
 	// leader related config
 	"LEADER_LEASE_DURATION",
@@ -180,40 +170,28 @@ func IsStandalone() bool {
 
 // Set key to val
 func Set(key, val string) {
-	ConfigString.Store(key, val)
 	viper.Set(key, val)
 }
 
 // Get return string value of keyGet
 func Get(key string) string {
-	if val, ok := ConfigString.Load(key); ok {
-		return val.(string)
-	}
 	v := viper.GetString(key)
-	ConfigString.Store(key, v)
 	return v
 }
 
-//GetBool return bool value of the key
+// GetBool return bool value of the key
 func GetBool(key string) bool {
-	if val, ok := ConfigBool.Load(key); ok {
-		return val.(bool)
-	}
 	v := viper.GetBool(key)
-	ConfigBool.Store(key, v)
 	return v
 }
 
 func SetBool(key string, val bool) {
-	ConfigBool.Store(key, val)
 	viper.Set(key, val)
 }
 
-//GetInt return int value of the key
+// TODO dont handle cpu limit here. operator should do it.
+// GetInt return int value of the key
 func GetInt(key string) int {
-	if val, ok := ConfigInt.Load(key); ok {
-		return val.(int)
-	}
 	v := viper.GetString(key)
 	// cpu limit could have value like 200m, need some calculation
 	re := regexp.MustCompile(`([0-9]+)m`)
@@ -224,7 +202,6 @@ func GetInt(key string) int {
 		val_decimal, _ := strconv.Atoi(string_decimal)
 		val = int(math.Ceil(float64(val_decimal) / 1000))
 	}
-	ConfigInt.Store(key, val)
 	return val
 }
 
@@ -355,4 +332,32 @@ func (c *Config) GetLabelAlbName() string {
 
 func (c *Config) GetLabelSourceType() string {
 	return fmt.Sprintf(Get("labels.source_type"), c.GetDomain())
+}
+
+func (c *Config) GetNetworkMode() ControllerNetWorkMode {
+	// TODO use map?
+	mode := Get(NetworkModeKey)
+	switch mode {
+	case string(Host):
+		return Host
+	case string(Container):
+		return Container
+	}
+	panic(fmt.Sprintf("invalid mode %v", mode))
+}
+
+func (c *Config) GetMode() Mode {
+	// TODO use map?
+	switch Get(ModeKey) {
+	case string(Controller):
+		return Controller
+	case string(Operator):
+		return Operator
+	}
+	panic("invalid mode")
+}
+
+// TODO a better name
+func (c *Config) IsEnableAlb() bool {
+	return GetBool("ALB_ENABLE")
 }

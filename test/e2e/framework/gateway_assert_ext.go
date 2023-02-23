@@ -61,7 +61,7 @@ func (g Gateway) LsAttachedRoutes() map[string]int32 {
 }
 
 func (f *Framework) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool, error) {
-	g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(key.Namespace).Get(f.ctx, key.Name, metav1.GetOptions{})
+	g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(key.Namespace).Get(f.fCtx, key.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -89,7 +89,7 @@ func NewParentRef(ns, name, section string) gatewayType.ParentRef {
 }
 
 func (f *Framework) WaitHttpRouteStatus(ns, name string, ref gatewayType.ParentRef, check func(status gatewayType.RouteParentStatus) (bool, error)) {
-	f.Wait(func() (bool, error) {
+	Wait(func() (bool, error) {
 		route, err := f.GetGatewayClient().GatewayV1alpha2().HTTPRoutes(ns).Get(f.ctx, name, metav1.GetOptions{})
 		if err != nil {
 			Logf("err %v", err)
@@ -112,5 +112,17 @@ func (f *Framework) WaitHttpRouteStatus(ns, name string, ref gatewayType.ParentR
 			Logf("wait http route status could not found route status %+v", route.Status)
 		}
 		return false, nil
+	})
+}
+
+func (f *Framework) WaitGateway(ns, name string, check func(g Gateway) (bool, error)) {
+	Wait(func() (bool, error) {
+		return TestEq(func() bool {
+			g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(ns).Get(f.ctx, name, metav1.GetOptions{})
+			GinkgoAssert(err, "get gateway fail")
+			ret, err := check(Gateway(*g))
+			GinkgoAssert(err, "check fail")
+			return ret
+		}, "wait gateway"), nil
 	})
 }

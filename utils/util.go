@@ -2,10 +2,12 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"math/rand"
 	"os"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // FileExists return true if file exist and is a file.
@@ -54,4 +56,12 @@ func RandomStr(pixff string, length int) string {
 		return pixff + "-" + string(result)
 	}
 	return string(result)
+}
+
+func PrettyJson(data interface{}) string {
+	out, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
+	}
+	return string(out)
 }

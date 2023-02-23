@@ -8,6 +8,7 @@ import (
 
 	"alauda.io/alb2/config"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,14 +27,14 @@ func TestMain(m *testing.M) {
 
 func TestLoadALByName(t *testing.T) {
 	type FakeALBResource struct {
-		albs      []albv1.ALB2
+		albs      []albv2.ALB2
 		frontends []albv1.Frontend
 		rules     []albv1.Rule
 	}
 
 	defaultNs := "ns-1"
 	testCase := FakeALBResource{
-		albs: []albv1.ALB2{
+		albs: []albv2.ALB2{
 			{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Namespace: defaultNs,
@@ -113,7 +114,7 @@ func TestLoadALByName(t *testing.T) {
 
 	a := assert.New(t)
 	a.NoError(err)
-	albs := []albv1.ALB2{
+	albs := []albv2.ALB2{
 		{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Namespace: defaultNs,
@@ -122,7 +123,7 @@ func TestLoadALByName(t *testing.T) {
 		},
 	}
 	albDataset := []runtime.Object{
-		&albv1.ALB2List{Items: albs},
+		&albv2.ALB2List{Items: albs},
 		&albv1.FrontendList{Items: testCase.frontends},
 		&albv1.RuleList{Items: testCase.rules},
 	}

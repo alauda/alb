@@ -18,6 +18,7 @@ import (
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/client/listers/alauda/v2beta1"
 	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +71,8 @@ type KubernetesDriver struct {
 	GatewayClient  gatewayVersioned.Interface
 	Informers      Informers
 	ALBClient      albclient.Interface
-	ALB2Lister     v1.ALB2Lister
+	ALBv2Client    albclient.Interface
+	ALB2Lister     albv2.ALB2Lister
 	FrontendLister v1.FrontendLister
 	RuleLister     v1.RuleLister
 	ServiceLister  corev1lister.ServiceLister
@@ -118,7 +120,7 @@ func GetKubeCfg() (*rest.Config, error) {
 	return cf, nil
 }
 
-// TODO inject rest.config
+// TODO 这里应该全部改成controller-runtime的client就不用在这里维护这么多的client了。
 func GetKubernetesDriver(ctx context.Context, isFake bool) (*KubernetesDriver, error) {
 	klog.Infof("fake mode %v", isFake)
 	var client kubernetes.Interface
@@ -217,7 +219,7 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 	return false, err
 }
 
-// GetEndPointAddress return a list of pod ip in the endpoint, we assume all protocol are tcp now.
+// GetEndPointAddress return a list of pod ip in the endpoint
 func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svc *v1types.Service, svcPortNum int, protocol v1types.Protocol) (*Service, error) {
 
 	ep, err := kd.EndpointLister.Endpoints(namespace).Get(name)
@@ -361,8 +363,9 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePor
 		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	case v1types.ServiceTypeExternalName:
 		return kd.GetExternalNameAddress(svc, servicePort, protocol)
+	case v1types.ServiceTypeLoadBalancer:
+		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	default:
-		// ServiceTypeLoadBalancer
 		klog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
 		return nil, errors.New("Unknown Service Type")
 	}

@@ -2,12 +2,15 @@
 # shellcheck disable=SC2120,SC2155,SC2181
 
 function alb-build-e2e-test() {
+  local coverpkg_list=$(go list ./... | sort | uniq)
+  local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
   local ginkgoCmds=""
   for suite_test in $(find ./test/e2e -name suite_test.go); do
     local suite=$(dirname "$suite_test")
     local suiteName=$(basename "$suite")
     local ginkgoTest="$suite/$suiteName.test"
-    ginkgo build $suite
+    echo "$suite"
+    ginkgo build --cover --covermode=atomic --coverpkg=$coverpkg $suite
     if [ $? != 0 ]; then
       echo "build $suite failed"
       return 1
@@ -15,9 +18,28 @@ function alb-build-e2e-test() {
   done
 }
 
+function alb-list-e2e-go() {
+  export ALB_IGNORE_FOCUS="true"
+  alb-build-e2e-test >/dev/null
+  local ginkgoCmds=""
+  # 生成能被直接运行的go test 的command.
+  # 找到所有的test_suite
+  for suite_test in $(find ./test/e2e -name suite_test.go); do
+    local suite=$(dirname "$suite_test")
+    local suiteName=$(basename "$suite")
+    local ginkgoTest="$suite/$suiteName.test"
+    while IFS= read -r testcase _; do
+      cmd="go test -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
+      ginkgoCmds="$ginkgoCmds\n$cmd"
+    done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
+  done
+  printf "$ginkgoCmds"
+}
+# ./test/e2e/ingress/ingress.test -ginkgo.v -ginkgo.focus "should handle defaultbackend correctly" ./test/e2e/ingress
 function alb-list-e2e-testcase() {
   export ALB_IGNORE_FOCUS="true"
   alb-build-e2e-test >/dev/null
+  mkdir -p ./.test
   local ginkgoCmds=""
   # 生成能被直接运行的ginkgo的command.
   # 找到所有的test_suite
@@ -26,7 +48,8 @@ function alb-list-e2e-testcase() {
     local suiteName=$(basename "$suite")
     local ginkgoTest="$suite/$suiteName.test"
     while IFS= read -r testcase _; do
-      cmd="$ginkgoTest -ginkgo.v -ginkgo.focus \"$testcase\" $suite"
+      local id=$RANDOM
+      cmd="$ginkgoTest -ginkgo.v -test.coverprofile=./.test/cover.$id -ginkgo.focus \"$testcase\" $suite"
       ginkgoCmds="$ginkgoCmds\n$cmd"
     done < <($ginkgoTest -ginkgo.v -ginkgo.noColor -ginkgo.dryRun $suite | grep 'alb-test-case' | sed -e 's/.*alb-test-case\s*//g')
   done
@@ -50,12 +73,14 @@ function alb-run-e2e-test-one() {
   eval $cmd
 }
 
-function alb-run-all-e2e-test() {
+function alb-run-all-e2e-test() (
+  # TODO 现在并行跑测试使用xargs，然后看log中有没有错来判断测试是否通过，担心会有并发写文件的问题，还是应该用ginkgo原生的方法。
+  # 在每个each中创建/销毁 k8s
   local concurrent=${1:-4}
   local filter=${2:-""}
-
+  set -e
   alb-build-e2e-test
-  echo concurrent is $concurrent
+  echo $concurrent $filter
   local cmds=$(alb-list-e2e-testcase | grep "$filter")
   echo all-test "$(printf "$cmds" | wc -l)"
 
@@ -64,7 +89,12 @@ function alb-run-all-e2e-test() {
   if [[ "$concurrent" == "1" ]]; then
     export DEV_MODE="true"
     bash -x -e ./cmds.cfg 2>&1 | tee ./test.log
-    return
+    if cat ./test.log | grep '1 Failed'; then
+      echo "e2e test wrong"
+      cat ./test.log | grep '1 Failed' | grep -C 10
+      return 1
+    fi
+    return 0
   fi
   unset DEV_MODE
   unset KUBECONFIG
@@ -73,18 +103,28 @@ function alb-run-all-e2e-test() {
   local end=$(date +"%Y %m %e %T.%6N")
   echo $start $end
   if cat ./test.log | grep '1 Failed'; then
-    echo "sth wrong"
+    echo "e2e test wrong"
+    cat ./test.log | grep '1 Failed' -C 10
     return 1
   fi
-}
+  for f in ./.test/cover.*; do
+    echo "merge cover $f"
+    tail -n +2 $f >>./coverage.txt
+  done
 
-function alb-go-coverage {
+  go tool cover -html=./coverage.txt -o coverage.html
+  go tool cover -func=./coverage.txt >./coverage.report
+  local total=$(grep total ./coverage.report | awk '{print $3}')
+  echo $total
+)
+
+function alb-go-unit-test {
   local filter=${1:-""}
   # TODO it shoult include e2e test
   # translate from https://github.com/ory/go-acc
   rm -rf ./coverage*
   echo 'mode: atomic' >coverage.txt
-  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v pkg | grep -v migrate | sort | grep "$filter")
+  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v migrate | sort | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
   local fail="0"
@@ -103,6 +143,7 @@ function alb-go-coverage {
   done <<<"$coverpkg_list"
 
   if [[ ! "$fail" == "0" ]]; then
+    echo "unit test wrong"
     return 1
   fi
 
@@ -110,14 +151,6 @@ function alb-go-coverage {
   go tool cover -func=./coverage.txt >./coverage.report
   local total=$(grep total ./coverage.report | awk '{print $3}')
   echo $total
-}
-
-function go-unit-test {
-  if [ -d ./alb-nginx/t/servroot ]; then
-    rm -rf ./alb-nginx/t/servroot || true
-  fi
-  go test -v -coverprofile=coverage-all.out $(go list ./... | grep -v e2e)
-  #   alb-go-coverage
 }
 
 function alb-envtest-install() {
@@ -150,55 +183,24 @@ function alb-install-golang-test-dependency {
   export GOFLAGS=-buildvcs=false
 }
 
-function alb-test-all-in-ci-golang {
-  # base image build-harbor.alauda.cn/ops/golang:1.18-alpine3.15
+function alb-test-all-in-ci-golang() {
   set -e # exit on err
+  #   set -x
   echo alb is $ALB
   echo pwd is $(pwd)
   local start=$(date +"%Y %m %e %T.%6N")
   alb-install-golang-test-dependency
   local end_install=$(date +"%Y %m %e %T.%6N")
-  alb-lint-bash
-  alb-lint-go
+  cp -r ./deploy/resource/crds/* ./deploy/chart/alb/crds/
+  alb-lint-all
   local end_lint=$(date +"%Y %m %e %T.%6N")
-  go-unit-test
-  local end_unit_test=$(date +"%Y %m %e %T.%6N")
-  echo "unit-test ok"
-  which ginkgo
-  echo $?
+  alb-go-unit-test
+  local end_unit=$(date +"%Y %m %e %T.%6N")
   alb-run-all-e2e-test
-  echo $?
   local end_e2e=$(date +"%Y %m %e %T.%6N")
-  echo "start" $start
-  echo "install" $end_install
-  echo "lint" $end_lint
-  echo "unit-test" $end_unit_test
-  echo "ginkgo" $end_ginkgo
-  echo "e2e" $end_e2e
-}
-
-function alb-install-nginx-test-dependency {
-  apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
-  cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
-}
-
-function alb-test-all-in-ci-nginx {
-  # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
-  set -e # exit on err
-  echo alb is $ALB
-  echo pwd is $(pwd)
-  local start=$(date +"%Y %m %e %T.%6N")
-  if [ -z "$SKIP_INSTALL_NGINX_TEST_DEP" ]; then
-    alb-install-nginx-test-dependency
-  fi
-  local end_install=$(date +"%Y %m %e %T.%6N")
-  source ./alb-nginx/actions/common.sh
-  #   alb-lint-lua # TODO
-  local end_check=$(date +"%Y %m %e %T.%6N")
-  test-nginx-in-ci
-  local end_test=$(date +"%Y %m %e %T.%6N")
-  echo "start " $start
-  echo "install " $end_install
-  echo "check" $end_check
-  echo "test" $end_test
+  echo "$start"
+  echo "$end_install"
+  echo "$end_lint"
+  echo "$end_unit"
+  echo "$end_e2e"
 }

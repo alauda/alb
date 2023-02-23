@@ -42,7 +42,8 @@ var _ = Describe("LeaderElection", func() {
 		macfg.Pod = "pa"
 		mbcfg := config.DefaultMock()
 		mbcfg.Pod = "pb"
-		k := NewKubectl("", G_CFG)
+		l := GinkgoLog()
+		k := NewKubectl("", G_CFG, l)
 		k.AssertKubectl("create ns cpaas-system")
 		log := L.L().WithName("leader-test")
 
@@ -56,12 +57,12 @@ var _ = Describe("LeaderElection", func() {
 		quit := make(chan bool)
 
 		go func() {
-			Logf("la b %v", la.AmILeader())
+			l.Info("la", "leader", la.AmILeader())
 			time.Sleep(1 * time.Second)
-			Logf("la m %v", la.AmILeader())
+			l.Info("la", "leader", la.AmILeader())
 			// graceful shutdown pod a
 			acancel()
-			Logf("la a %v", la.AmILeader())
+			l.Info("la", "leader", la.AmILeader())
 			for {
 				// pod b should be leader
 				if lb.AmILeader() {
@@ -83,6 +84,6 @@ var _ = Describe("LeaderElection", func() {
 		}()
 
 		<-quit
-		Logf("quit")
+		l.Info("quit")
 	})
 })

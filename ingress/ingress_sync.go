@@ -12,6 +12,7 @@ import (
 	ctl "alauda.io/alb2/controller"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -364,7 +365,7 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 	if funk.Contains(projects, belongProject) {
 		return true, ""
 	}
-	reason = fmt.Sprintf("role instance,project %v belog %v", projects, belongProject)
+	reason = fmt.Sprintf("role instance, alb project %v ingress project %v", projects, belongProject)
 	return false, reason
 }
 
@@ -402,7 +403,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: alb2v1.SchemeGroupVersion.String(),
+						APIVersion: alb2v2.SchemeGroupVersion.String(),
 						Kind:       alb2v1.ALB2Kind,
 						Name:       alb.Name,
 						UID:        alb.UID,
@@ -420,6 +421,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 			},
 		}
 	}
+	// TODO 当alb的默认证书变化时，已经创建的ft的默认证书不会变化,需要用户自己在去更新ft上的证书
 	if need.NeedHttps() && albhttpsFt == nil {
 		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPSPort)
 		c.log.Info("need https ft and ft not exist create one", "name", name)
@@ -432,8 +434,8 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: alb2v1.SchemeGroupVersion.String(),
-						Kind:       alb2v1.ALB2Kind,
+						APIVersion: alb2v2.SchemeGroupVersion.String(),
+						Kind:       alb2v2.ALB2Kind,
 						Name:       alb.Name,
 						UID:        alb.UID,
 					},
@@ -481,6 +483,9 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 			m.SetDefaultBackend(albhttpsFt, backendProtocol, svc)
 			m.SetSource(albhttpsFt, ingress)
 		}
+	}
+	if albhttpsFt != nil {
+		albhttpsFt.Spec.CertificateName = defaultSSLCert
 	}
 	return albhttpFt, albhttpsFt, nil
 }
@@ -660,6 +665,7 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 	}
 
 	// we want create rule first. since that if this pod crash, it will not lossing rule at least.
+	c.log.Info("update rule", "create", len(r.Create), "delte", len(r.Delete))
 	for _, r := range r.Create {
 		crule, err := c.kd.CreateRule(r)
 		if err != nil {

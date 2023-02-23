@@ -16,7 +16,7 @@ var (
 	processPattern = regexp.MustCompile(`\("(.*?)",pid=.*?\)`)
 )
 
-func GetListenTCPPorts() ([]int, error) {
+func GetListenTCPPorts() (map[int]bool, error) {
 	//	/ # ss -ntlp
 	//	State                           Recv-Q                          Send-Q                                                     Local Address:Port                                                      Peer Address:Port
 	//	LISTEN                          0                               128                                                              0.0.0.0:24220                                                          0.0.0.0:*
@@ -58,7 +58,7 @@ func GetListenTCPPorts() ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ports []int
+	ports := map[int]bool{}
 	output := strings.TrimSpace(string(raw))
 	lines := strings.Split(output, "\n")
 	if len(lines) > 0 {
@@ -79,7 +79,7 @@ func GetListenTCPPorts() ([]int, error) {
 				}
 			}
 			if !excludeProcess[processName] {
-				ports = append(ports, port)
+				ports[port] = true
 			}
 		}
 	}

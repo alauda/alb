@@ -117,7 +117,7 @@ func (c *FakeALB2s) UpdateStatus(ctx context.Context, aLB2 *alaudav1.ALB2, opts 
 // Delete takes name of the aLB2 and deletes it. Returns an error if one occurs.
 func (c *FakeALB2s) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(alb2sResource, c.ns, name), &alaudav1.ALB2{})
+		Invokes(testing.NewDeleteActionWithOptions(alb2sResource, c.ns, name, opts), &alaudav1.ALB2{})
 
 	return err
 }

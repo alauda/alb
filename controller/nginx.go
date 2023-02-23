@@ -11,6 +11,7 @@ import (
 
 	m "alauda.io/alb2/modules"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,10 +22,8 @@ import (
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
-	g "alauda.io/alb2/gateway"
 	gateway "alauda.io/alb2/gateway/nginx"
 	"alauda.io/alb2/utils"
-	. "alauda.io/alb2/utils/log"
 	"k8s.io/klog/v2"
 )
 
@@ -36,6 +35,8 @@ type NginxController struct {
 	NewPolicyPath string
 	Driver        *driver.KubernetesDriver
 	Ctx           context.Context
+	albcfg        config.IConfig
+	log           logr.Logger
 }
 
 type Policy struct {
@@ -99,7 +100,7 @@ func (p Policies) Less(i, j int) bool {
 
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context) *NginxController {
+func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg config.IConfig, log logr.Logger) *NginxController {
 	return &NginxController{
 		BackendType:   kd.GetType(),
 		TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
@@ -108,6 +109,8 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context) *Nginx
 		NewPolicyPath: config.Get("NEW_POLICY_PATH"),
 		Driver:        kd,
 		Ctx:           ctx,
+		albcfg:        cfg,
+		log:           log,
 	}
 }
 
@@ -125,39 +128,51 @@ func (nc *NginxController) GenerateConf() error {
 }
 
 func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
-	ns := config.Get("NAMESPACE")
-	name := config.Get("NAME")
-	lb, err := nc.GetLBConfigFromAlb(ns, name)
-	if err != nil {
-		return nil, err
-	}
-	detectAndMaskConflictPort(lb, nc.Driver)
-	migratePortProject(nc.Ctx, lb, nc.Driver)
+	var err error = nil
+	log := nc.log
+	cfg := nc.albcfg
+	ns := cfg.GetNs()
+	name := cfg.GetAlbName()
 
-	if !config.GetBool("ENABLE_GATEWAY") {
-		return lb, nil
+	albEnable := cfg.IsEnableAlb()
+	gcfg := cfg.GetGatewayCfg()
+	gatewayEnable := gcfg.Enable
+
+	log.Info("gen lb config", "ns", ns, "name", name, "alb", albEnable, "gateway", gatewayEnable, "networkmode", cfg.GetNetworkMode())
+	if !albEnable && !gatewayEnable {
+		return nil, fmt.Errorf("must enable at least one [gateway,alb]")
 	}
-	if config.GetBool("DISABLE_GATEWAY_NGINX_CONFIG") {
-		return lb, nil
+	var lbFromAlb *LoadBalancer
+	if albEnable {
+		lb, err := nc.GetLBConfigFromAlb(ns, name)
+		if err != nil {
+			return nil, err
+		}
+		// TODO mask gateway ft conflict state.
+		detectAndMaskConflictPort(lb, nc.Driver)
+		migratePortProject(nc.Ctx, lb, nc.Driver)
+		lbFromAlb = lb
 	}
-	log := L().WithName(g.ALB_GATEWAY_NGINX)
-	lbFromGateway, err := gateway.GetLBConfig(nc.Ctx, nc.Driver, name)
-	if err != nil {
-		log.Error(err, "get lb from gateway fail", "class", name)
-		return nil, err
-	}
-	// no gateway found
-	if lbFromGateway == nil {
-		log.Info("no gateway found ignore")
-		return lb, nil
+	var lbFromGateway *LoadBalancer
+	if gatewayEnable {
+		lbFromGateway, err = gateway.GetLBConfig(context.Background(), nc.Driver, cfg)
+		if err != nil {
+			log.Error(err, "get lb from gateway fail", "alb", name)
+			return nil, err
+		}
+		log.V(2).Info("lb config from gateway ", "lbconfig", lbFromGateway)
 	}
 
-	log.V(2).Info("lb config from gateway ", "lbconfig", lbFromGateway)
-	lb, err = nc.MergeLBConfig(lb, lbFromGateway)
+	if lbFromAlb == nil && lbFromGateway == nil {
+		return nil, fmt.Errorf("alb and gateway both nil")
+	}
+	lb, err := nc.MergeLBConfig(lbFromAlb, lbFromGateway)
 	if err != nil {
 		log.Error(err, "merge config fail ")
 		return nil, err
 	}
+	log.V(3).Info("gen lb config ok", "lb-from-alb", lbFromAlb, "lb-from-gateway", lbFromGateway, "lb", lb)
+
 	return lb, err
 }
 
@@ -182,6 +197,14 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if phase != m.PhaseTerminating {
 		phase = m.PhaseRunning
 	}
+
+	if nc.albcfg.GetNetworkMode() == config.Container {
+		err := nc.SyncLbSvcPort(alb.Frontends)
+		if err != nil {
+			nc.log.Error(err, "init lb svc fail")
+		}
+	}
+
 	cfg, err := GenerateNginxTemplateConfig(alb, phase, newNginxParam())
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
@@ -195,7 +218,8 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 	// cAlb LoadBalancer struct from controller package.
 	kd := nc.Driver
 	mAlb, err := kd.LoadALBbyName(ns, name)
-	klog.Infof("get alb %+v", mAlb)
+	// TODO 想在这里加log的，但是malb可能是有环的
+	// klog.Infof("get alb %s", utils.PrettyJson(mAlb))
 	if err != nil {
 		klog.Error("load mAlb fail", err)
 		return nil, err
@@ -537,27 +561,22 @@ func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDrive
 	if !enablePortProbe {
 		return
 	}
-	var listenTCPPorts []int
 	listenTCPPorts, err := utils.GetListenTCPPorts()
 	if err != nil {
 		klog.Error(err)
+		return
 	}
 	klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
 
 	for _, ft := range alb.Frontends {
 		conflict := false
-		if ft.IsTcpBaseProtocol() {
-			for _, port := range listenTCPPorts {
-				if int(ft.Port) == port {
-					conflict = true
-					ft.Conflict = true
-					klog.Errorf("skip port: %d has conflict", ft.Port)
-					break
-				}
-			}
-			if err := driver.UpdateFrontendStatus(ft.FtName, conflict); err != nil {
-				klog.Error(err)
-			}
+		if ft.IsTcpBaseProtocol() && listenTCPPorts[int(ft.Port)] {
+			conflict = true
+			ft.Conflict = true
+			klog.Errorf("skip port: %d has conflict", ft.Port)
+		}
+		if err := driver.UpdateFrontendStatus(ft.FtName, conflict); err != nil {
+			klog.Error(err)
 		}
 	}
 }
@@ -585,15 +604,33 @@ func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.K
 				klog.Errorf("get port %d desired projects failed, %v", ft.Port, err)
 				return
 			}
-			if diff := funk.Subtract(portProjects, desiredPortProjects); diff != nil {
+			if !SameProject(portProjects, desiredPortProjects) {
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
+				klog.Info("update ft project %v", string(payload))
 				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ctx, ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
 					klog.Errorf("patch port %s project failed, %v", ft.FtName, err)
 				}
 			}
 		}
 	}
+}
+
+func SameProject(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	leftMap := make(map[string]bool)
+	for _, p := range left {
+		leftMap[p] = true
+	}
+	for _, p := range right {
+		ok, find := leftMap[p]
+		if !ok || !find {
+			return false
+		}
+	}
+	return true
 }
 
 func pickAllBackendGroup(alb *LoadBalancer) BackendGroups {
@@ -765,7 +802,18 @@ func (nc *NginxController) GC() error {
 	return GCRule(nc.Driver, gcOpt)
 }
 
+// alb or gateway could be nil
 func (nc *NginxController) MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, error) {
+	if alb == nil && gateway == nil {
+		return nil, fmt.Errorf("alb and gateway are both nil")
+	}
+	if alb == nil && gateway != nil {
+		return gateway, nil
+	}
+	if alb != nil && gateway == nil {
+		return alb, nil
+	}
+
 	ftInAlb := make(map[string]string)
 	for _, ft := range alb.Frontends {
 		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)

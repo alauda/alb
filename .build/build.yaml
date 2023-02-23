@@ -35,32 +35,35 @@ spec:
           value: $(params.git-url)
         - name: repo-ref
           value: $(params.git-revision)
-    - name: code-scan
+    - name: generate-chart-version
       runAfter:
         - generate-version
+      timeout: 30m
+      retries: 3
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-chart-version
       workspaces:
         - name: source
           workspace: source
-      timeout: 30m
-      retries: 1
-      taskRef:
-        kind: ClusterTask
-        name: sonarqube-analysis
       params:
-        - name: server
-          value: https://build-sonar.alauda.cn
-        - name: scan-flags
-          value:
-            - 'sonar.projectVersion=$(tasks.generate-version.results.version)'
+        - name: chart-path
+          value: ./deploy/chart/alb
+        - name: branch
+          value: $(tasks.generate-version.results.branch)
+        - name: namespace
+          value: acp
+        - name: comfigmap-name
+          value: alauda-gitlab-container-platform-alb2
     - name: alb-test
       runAfter:
-        - code-scan
-      retries: 3
+        - generate-version
+      retries: 1
       workspaces:
         - name: source
           workspace: source
       taskSpec:
-        description: >
+        descriptifn: >
           run alb test
         workspaces:
           - name: source
@@ -76,15 +79,39 @@ spec:
                 memory: "4G"
               limits:
                 cpu: "2"
-                memory: "4G"
+                memory: "4G"              
             script: |
               #!/bin/sh
               scripts/go-test.sh
-    - name: build-alb
+    - name: code-scan
       runAfter:
-        - code-scan
+        - generate-version
+        - alb-test
+      workspaces:
+        - name: source
+          workspace: source
       timeout: 30m
-      retries: 3
+      retries: 1
+      taskRef:
+        kind: ClusterTask
+        name: sonarqube-analysis
+      params:
+        - name: server
+          value: https://build-sonar.alauda.cn
+        - name: scan-flags
+          value:
+            - 'sonar.projectVersion=$(tasks.generate-version.results.version)'
+        - name: quality-gate-rules
+          value:
+            # 覆盖率允许下降值。 0 表示不允许降低
+            - coverage-delta=0
+            # 重复率允许上浮值。0 表示不允许上升
+            - duplication-delta=1
+    - name: alb-build
+      runAfter:
+        - generate-version
+      timeout: 30m
+      retries: 1
       taskRef:
         kind: ClusterTask
         name: alauda-build-image
@@ -110,9 +137,9 @@ spec:
           value:
           - commit=$(build.git.lastCommit.id)
           - branch=$(build.git.branch.name)
-    - name: build-nginx
+    - name: nginx-build
       runAfter:
-        - code-scan
+        - generate-version
       timeout: 30m
       retries: 3
       taskRef:
@@ -140,70 +167,85 @@ spec:
           value:
           - commit=$(build.git.lastCommit.id)
           - branch=$(build.git.branch.name)
-    - name: nginx-test
-      timeout: 30m
-      retries: 3
+    # - name: nginx-test
+    #   timeout: 30m
+    #   retries: 3
+    #   runAfter:
+    #     - nginx-build
+    #   params:
+    #   - name: nginx-tag
+    #     value: $(tasks.generate-version.results.version)
+    #   workspaces:
+    #     - name: source
+    #       workspace: source
+    #   taskSpec:
+    #     description: >
+    #       run nginx test
+    #     workspaces:
+    #       - name: source
+    #         workspace: source
+    #     params:
+    #     - name: nginx-tag
+    #       value: $(params.nginx-tag)
+    #     steps:
+    #       - image: build-harbor.alauda.cn/acp/alb-nginx:$(params.nginx-tag)
+    #         name: build
+    #         imagePullPolicy: IfNotPresent
+    #         workingDir: '$(workspaces.source.path)'
+    #         resources:
+    #           requests:
+    #             cpu: "4"
+    #             memory: "4G"
+    #           limits:
+    #             cpu: "4"
+    #             memory: "4G"              
+    #         script: |
+    #           #!/bin/sh
+    #           scripts/nginx-test.sh
+    - name: prepare-chart
       runAfter:
-        - build-nginx
-      params:
-      - name: nginx-tag
-        value: $(tasks.generate-version.results.version)
+        - generate-version
+        - generate-chart-version
+      timeout: 30m
+      retries: 1
       workspaces:
         - name: source
           workspace: source
+      params:
+      - name: version 
+        value: $(tasks.generate-chart-version.results.version)
+      - name: image_tag
+        value: $(tasks.generate-version.results.version)
       taskSpec:
         description: >
-          run nginx test
+          parepare operator bundle and chart
+        steps:
+          - image: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
+            name: operator
+            imagePullPolicy: IfNotPresent
+            workingDir: '$(workspaces.source.path)'
+            params:
+              - name: version 
+                value: "$(params.version)"
+              - name: image_tag
+                value: "$(params.image_tag)"
+            script: |
+              #!/bin/bash
+              apt update;apt install tree
+              export OPERATOR_IMAGE="build-harbor.alauda.cn/acp/alb2:$(params.image_tag)"
+              export OPERATOR_VERSION="$(params.version)"
+              env
+              source ./scripts/alb-deploy-actions.sh
+              alb-deploy-build-alb-and-operator
         workspaces:
           - name: source
             workspace: source
-        params:
-        - name: nginx-tag
-          value: $(params.nginx-tag)
-        steps:
-          - image: build-harbor.alauda.cn/acp/alb-nginx:$(params.nginx-tag)
-            name: build
-            imagePullPolicy: IfNotPresent
-            workingDir: '$(workspaces.source.path)'
-            resources:
-              requests:
-                cpu: "4"
-                memory: "4G"
-              limits:
-                cpu: "4"
-                memory: "4G"
-            script: |
-              #!/bin/sh
-              sudo scripts/nginx-test.sh
-    - name: alauda-generate-chart-version
+    - name: build-alb-chart
       runAfter:
-        - generate-version
-      timeout: 30m
-      retries: 3
-      taskRef:
-        kind: ClusterTask
-        name: alauda-generate-chart-version
-      workspaces:
-        - name: source
-          workspace: source
-      params:
-        - name: chart-path
-          value: ./chart
-        - name: branch
-          value: $(tasks.generate-version.results.branch)
-        - name: namespace
-          value: acp
-        - name: comfigmap-name
-          value: alauda-gitlab-container-platform-alb2
-    - name: build-chart
-      runAfter:
-        - alauda-generate-chart-version
-        - build-nginx
-        - build-alb
-        - alb-test
-        - nginx-test
-      timeout: 30m
-      retries: 3
+        - prepare-chart
+        # - nginx-test
+        # - alb-test
+      timeout: 5m
       taskRef:
         kind: ClusterTask
         name: alauda-build-oci-chart-update
@@ -212,11 +254,11 @@ spec:
           workspace: source
       params:
         - name: dir
-          value: ./chart
+          value: ./deploy/chart/alb
         - name: address
           value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
-          value: $(tasks.alauda-generate-chart-version.results.version)
+          value: $(tasks.generate-chart-version.results.version)
         - name: branch
           value: $(tasks.generate-version.results.branch)
         - name: git-revision
@@ -232,7 +274,7 @@ spec:
         name: alauda-git-commit-push
         kind: ClusterTask
       runAfter:
-        - build-chart
+        - build-alb-chart
       params:
       - name: branch
         value: $(tasks.generate-version.results.branch)
@@ -248,7 +290,7 @@ spec:
           - "$(tasks.generate-version.results.is-main-branch)"
     - name: alauda-release-tag
       runAfter:
-        - build-chart
+        - commit-push
       when:
        # only in release or custom release branches
         - input: "true"

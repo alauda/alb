@@ -117,7 +117,7 @@ func (c *FakeFrontends) UpdateStatus(ctx context.Context, frontend *alaudav1.Fro
 // Delete takes name of the frontend and deletes it. Returns an error if one occurs.
 func (c *FakeFrontends) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(frontendsResource, c.ns, name), &alaudav1.Frontend{})
+		Invokes(testing.NewDeleteActionWithOptions(frontendsResource, c.ns, name, opts), &alaudav1.Frontend{})
 
 	return err
 }

@@ -15,7 +15,9 @@ metadata:
 data:
   nginx-config: |
     worker_processes  4;
-
+    env POD_NAME;
+    env POD_IP;
+    env HOST_IP;
     events {
         worker_connections  1024;
     }
@@ -31,13 +33,18 @@ data:
                 ngx.log(ngx.INFO,"udp socket connect")
                 local sock,err = ngx.req.socket()
                 local data, err = sock:receive()
+                local podname  = os.getenv("POD_NAME")
+                local hostip  = os.getenv("HOST_IP")
+                local podip  = os.getenv("POD_IP")
+
                 if err ~= nil then
                     sock:send("err "..tostring(err))
                 end
-                sock:send(data)
+                sock:send("data: ".. data.." host: "..podname.." podip "..podip.." hostip: "..hostip)
               }
         }
     }
+
     http {
         log_format  http  '[$time_local] $remote_addr "$host" "$request" '
                           '$status $upstream_status $upstream_addr '
@@ -94,6 +101,19 @@ spec:
       containers:
         - name: echo-resty
           image: {{nginx-image}}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           resources:
             requests:
               memory: "500Mi"

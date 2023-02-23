@@ -3,9 +3,11 @@ package ctl
 import (
 	"context"
 
+	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	g "alauda.io/alb2/gateway"
 	albType "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2Type "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	. "alauda.io/alb2/utils/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sScheme "k8s.io/client-go/kubernetes/scheme"
@@ -21,6 +23,7 @@ func init() {
 	_ = k8sScheme.AddToScheme(scheme)
 	_ = gatewayType.AddToScheme(scheme)
 	_ = albType.AddToScheme(scheme)
+	_ = albv2Type.AddToScheme(scheme)
 }
 
 func Run(ctx context.Context) {
@@ -31,11 +34,14 @@ func Run(ctx context.Context) {
 }
 
 func StartGatewayController(ctx context.Context) error {
-	ctrl.SetLogger(L().WithName(g.ALB_GATEWAY_CONTROLLER))
+	l := L().WithName(g.ALB_GATEWAY_CONTROLLER)
+	ctrl.SetLogger(l)
 	restCfg, err := driver.GetKubeCfg()
 	if err != nil {
 		return err
 	}
+	gatewayCfg := config.GetConfig().GetGatewayCfg()
+	l.Info("gateway cfg", "cfg", gatewayCfg)
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:             scheme,
@@ -48,15 +54,17 @@ func StartGatewayController(ctx context.Context) error {
 		return err
 	}
 
-	g := NewGatewayReconciler(ctx, mgr.GetClient(), ctrl.Log.WithName("gateway"))
+	g := NewGatewayReconciler(ctx, mgr.GetClient(), l.WithName("gateway"), gatewayCfg)
 	err = g.SetupWithManager(mgr)
 	if err != nil {
 		return err
 	}
-	gc := NewGatewayClassReconciler(ctx, mgr.GetClient(), ctrl.Log.WithName("gatewayclass"))
-	err = gc.SetupWithManager(mgr)
-	if err != nil {
-		return err
+	if gatewayCfg.Mode == config.GatewayClass {
+		gc := NewGatewayClassReconciler(ctx, mgr.GetClient(), l.WithName("gatewayclass"))
+		err = gc.SetupWithManager(mgr)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = mgr.Start(ctx)

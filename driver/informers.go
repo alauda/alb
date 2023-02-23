@@ -7,6 +7,7 @@ import (
 	"alauda.io/alb2/config"
 	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	albv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	albGateway "alauda.io/alb2/pkg/client/informers/externalversions/gateway/v1alpha1"
 	kubeinformers "k8s.io/client-go/informers"
 	v1 "k8s.io/client-go/informers/core/v1"
@@ -43,7 +44,7 @@ type GatewayInformers struct {
 }
 
 type AlbInformers struct {
-	Alb           albv1.ALB2Informer
+	Alb           albv2.ALB2Informer
 	Ft            albv1.FrontendInformer
 	Rule          albv1.RuleInformer
 	TimeoutPolicy albGateway.TimeoutPolicyInformer
@@ -79,7 +80,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0,
 		albinformers.WithNamespace(config.Get("NAMESPACE")))
 
-	alb2Informer := albInformerFactory.Crd().V1().ALB2s()
+	alb2Informer := albInformerFactory.Crd().V2beta1().ALB2s()
 	alb2Synced := alb2Informer.Informer().HasSynced
 
 	frontendInformer := albInformerFactory.Crd().V1().Frontends()

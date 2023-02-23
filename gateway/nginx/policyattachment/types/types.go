@@ -44,7 +44,7 @@ type Listener struct {
 
 type PolicyAttachmentConfig map[string]interface{}
 
-//  a policy attachment is sth that you could get default/override from it
+// a policy attachment is sth that you could get default/override from it
 type CommonPolicyAttachment interface {
 	GetDefault() PolicyAttachmentConfig
 	GetOverride() PolicyAttachmentConfig

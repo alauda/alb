@@ -639,7 +639,7 @@ spec:
 		})
 	})
 
-	GIt("i should match most specific rule first(bigger complexity_priority)", func() {
+	GIt("i should match most specific rule first bigger complexity_priority", func() {
 		_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway

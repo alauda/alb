@@ -1,0 +1,67 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: features.infrastructure.alauda.io
+spec:
+  group: infrastructure.alauda.io
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+  version: v1alpha1
+  scope: Cluster
+  names:
+    plural: features
+    singular: feature
+    kind: Feature
+    shortNames:
+    - ft
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            # 描述插件的类型。比如是监控还是日志还是应用
+            type:
+              description: 'type defines the type of the addon. eg: metric, log, application etc...'
+              type: string
+            # 描述类型的具体实例。比如监控的prometheus，比如日志的fluentd
+            instanceType:
+              description: 'instanceType defines the tool to support the type. eg: prometheus, fluentd'
+            # 描述当前的版本
+            version:
+              description: 'version defines the version of the addon. it is used to compare with the version of the instance to descide upgrade or not'
+              type: string
+            # 如果当前addons对外提供服务，那么服务的地址信息。
+            accessInfo:
+              description: 'accessInfo defines the server info,if the addon support some interface to access. eg promtheus, grafana'
+              type: object
+            # 当前addons的所有资源信息
+            resourceInfo:
+              description: 'resourceInfo defines all the resource the addons contains'
+              type: array
+              items:
+                properties:
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+            # 部署时候需要用到的信息。
+            deployInfo:
+              type: object
+          required:
+          - version
+          - type
+        # 当前addons的状态。
+        status:
+          properties:
+            status:
+              type: object

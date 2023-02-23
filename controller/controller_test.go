@@ -9,6 +9,7 @@ import (
 
 	. "alauda.io/alb2/controller/types"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
@@ -242,13 +243,13 @@ func TestGCRule(t *testing.T) {
 		"NAMESPACE":       "ns-1",
 	}
 
-	defaultAlbs := []v1.ALB2{
+	defaultAlbs := []albv2.ALB2{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "alb-1",
 				Namespace: "ns-1",
 			},
-			Spec: v1.ALB2Spec{
+			Spec: albv2.ALB2Spec{
 				Address: "1.2.3.4",
 				Type:    "nginx",
 			},
