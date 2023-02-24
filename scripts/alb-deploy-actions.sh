@@ -2,8 +2,6 @@
 # 生成部署所需要的chart
 function alb-deploy-build-alb-and-operator() (
   set -e
-  alb-deploy-install-deps
-
   alb-deploy-build-alb-chart
   tree ./deploy/chart/alb
 )
@@ -17,20 +15,9 @@ function alb-deploy-build-alb-chart() (
   mkdir ./chart/alb/crds
   find ./resource/crds -type f -name "*.yaml" -exec cp {} ./chart/alb/crds \;
   cat ./chart/alb/templates/alb.yaml
-  cat ./chart/alb/templates/csv.yaml
+  cat ./chart/alb/templates/deploy-csv.yaml
+  cat ./chart/alb/templates/deploy-deployment.yaml
 )
-
-function alb-deploy-install-deps() {
-  # install operator-sdk bin
-  curl -LO https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-  mv ./yq_linux_amd64 /usr/bin/yq
-  rm $(which yq) || true
-  chmod +x /usr/bin/yq
-  echo "download yq ok"
-  yq --help
-  md5sum /usr/bin/yq
-  which yq
-}
 
 function alb-gen-crd-and-client() (
   # alb crd

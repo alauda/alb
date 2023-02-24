@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	f "alauda.io/alb2/test/e2e/framework"
@@ -83,10 +84,54 @@ var _ = Describe("chart", func() {
 		l.Info("cancel")
 	})
 
-	f.GIt("deploy alb and csv", func() {
-		// TODO 注意从sentry迁移的名字变了。感觉需要优化下
+	f.GIt("deploy alb csv mode", func() {
 		cfgs := []string{
 			`
+            displayName: "x"
+            address: "192.168.134.195"
+            projects: ["a","b"]
+            global:
+              labelBaseDomain: cpaas.io
+              namespace: cpaas-system
+              registry:
+                address: build-harbor.alauda.cn
+            loadbalancerName: ares-alb2
+            nodeSelector:
+                kubernetes.io/hostname: 192.168.134.195
+            gateway:
+                enable: true
+                mode: gatewayclass
+            replicas: 1
+            `,
+		}
+		name := "operator"
+		helm.AssertInstall(cfgs, name, chartBase, chartDefaultVal)
+
+		alb := &albv2.ALB2{}
+		err := kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
+		f.GinkgoNoErr(err)
+		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
+		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/a"])
+		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/b"])
+		l.Info("label", "label", alb.Labels)
+
+		csv, err := kt.Kubectl("get csv -A")
+		f.GinkgoNoErr(err)
+		l.Info("csv", "csv", csv)
+		assert.Equal(GinkgoT(), strings.Contains(csv, "alb-operator.v0.1.0"), true)
+
+		depl, err := kt.Kubectl("get deployment -A")
+		f.GinkgoNoErr(err)
+		l.Info("depl", "depl", depl)
+		assert.Equal(GinkgoT(), strings.Contains(depl, "No resources found"), true)
+
+		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
+	})
+
+	f.GIt("deploy alb raw mode", func() {
+		cfgs := []string{
+			`
+            operatorDeployMode: "deployment"
             displayName: "x"
             address: "192.168.134.195"
             global:
@@ -105,11 +150,22 @@ var _ = Describe("chart", func() {
 		}
 		name := "operator"
 		helm.AssertInstall(cfgs, name, chartBase, chartDefaultVal)
+
 		alb := &albv2.ALB2{}
 		err := kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
 		f.GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
+
+		csv, err := kt.Kubectl("get csv -A")
+		f.GinkgoNoErr(err)
+		l.Info("csv", "csv", csv)
+		assert.Equal(GinkgoT(), strings.Contains(csv, "No resources found"), true)
+
+		depl, err := kt.Kubectl("get deployment -A")
+		f.GinkgoNoErr(err)
+		l.Info("depl", "depl", depl)
+		assert.Equal(GinkgoT(), strings.Contains(depl, "alb-operator"), true)
+
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
-		// TODO add test here
 	})
 })

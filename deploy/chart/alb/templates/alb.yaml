@@ -1,6 +1,7 @@
 {{- $global := .Values.global }}
 {{- $value_without_global := unset .Values "global" }}
 {{- $cfg :=  $value_without_global }}
+{{ $fullProjects := .Values.projects  | uniq }}
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
@@ -10,6 +11,11 @@ metadata:
     alb.{{ $global.labelBaseDomain}}/managed-by: alb-operator
     alb.{{ $global.labelBaseDomain}}/migrate-from: sentry 
     alb.{{ $global.labelBaseDomain}}/deploy-by: sentry 
+    {{- range $fullProjects }}
+    {{ if . }}
+    project.{{ $global.labelBaseDomain }}/{{ . }}: "true"
+    {{ end}}
+    {{- end}}
   annotations:
     {{ $global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
     alb.{{ $global.labelBaseDomain }}/migrate-backup: | 

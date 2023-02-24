@@ -336,10 +336,10 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 		for _, ft := range alb.Frontends {
 			if ft.SamePort(IngressHTTPPort) {
 				hasHTTPPort = true
-				httpPortProjects = ctl.GetOwnProjects(ft.Name, ft.Labels)
+				httpPortProjects = ctl.GetOwnProjectsFromLabel(ft.Name, ft.Labels)
 			} else if ft.SamePort(IngressHTTPSPort) {
 				hasHTTPSPort = true
-				httpsPortProjects = ctl.GetOwnProjects(ft.Name, ft.Labels)
+				httpsPortProjects = ctl.GetOwnProjectsFromLabel(ft.Name, ft.Labels)
 			}
 			if hasHTTPSPort && hasHTTPPort {
 				break
@@ -358,7 +358,7 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 		return false, reason
 	}
 
-	projects := ctl.GetOwnProjects(alb.Name, alb.Labels)
+	projects := ctl.GetOwnProjectsFromAlb(alb.Name, alb.Labels, &alb.Spec)
 	if funk.Contains(projects, m.ProjectALL) {
 		return true, ""
 	}

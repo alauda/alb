@@ -1,0 +1,74 @@
+{{- if eq .Values.operatorDeployMode "deployment" }}
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: "alb-operator"
+  namespace: {{ .Values.global.namespace }}
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  replicas: 1
+  selector:
+    matchLabels:
+      name: alb-operator
+  template:
+    metadata:
+      labels:
+        name: alb-operator
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  name: alb-operator
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - env:
+            - name: ALB_IMAGE
+              value: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
+            - name: NGINX_IMAGE
+              value: "{{ .Values.global.registry.address }}/{{ .Values.global.images.nginx.repository }}:{{ .Values.global.images.nginx.tag }}"
+            - name: VERSION
+              value: "{{ .Chart.Version }}"
+            - name: LABEL_BASE_DOMAIN
+              value: "{{ .Values.global.labelBaseDomain }}"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          command:
+            - /alb/ctl/operator
+          image: "{{ .Values.global.registry.address }}/{{ .Values.global.images.alb2.repository }}:{{ .Values.global.images.alb2.tag }}"
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 5
+            tcpSocket:
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: alb-operator
+          resources:
+            requests:
+              cpu: 200m
+              ephemeral-storage: 500Mi
+              memory: 256Mi
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/cpaas-system
+          operator: Exists
+{{- end }}

@@ -1,5 +1,7 @@
 ## global
+operatorDeployMode: "csv" # csv|deployment
 address: 127.0.0.1 # address of the default alb
+projects: []
 global:
   platformscenario: base
   labelBaseDomain: cpaas.io

@@ -58,7 +58,7 @@ spec:
     - name: alb-test
       runAfter:
         - generate-version
-      retries: 1
+      retries: 3
       workspaces:
         - name: source
           workspace: source
@@ -75,10 +75,10 @@ spec:
             workingDir: '$(workspaces.source.path)'
             resources:
               requests:
-                cpu: "2"
+                cpu: "4"
                 memory: "4G"
               limits:
-                cpu: "2"
+                cpu: "4"
                 memory: "4G"              
             script: |
               #!/bin/sh
@@ -275,6 +275,7 @@ spec:
         kind: ClusterTask
       runAfter:
         - build-alb-chart
+        - alb-test
       params:
       - name: branch
         value: $(tasks.generate-version.results.branch)

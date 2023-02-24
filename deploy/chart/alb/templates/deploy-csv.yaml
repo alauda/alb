@@ -1,3 +1,4 @@
+{{- if eq .Values.operatorDeployMode "csv" }}
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
@@ -112,3 +113,5 @@ spec:
     name: alauda
     url: alauda.cn
   version: 0.1.0
+
+{{- end }}

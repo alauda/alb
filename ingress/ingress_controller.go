@@ -257,8 +257,8 @@ func (c *Controller) setUpEventHandler() {
 			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) {
 				return
 			}
-			newProjects := ctl.GetOwnProjects(newAlb2.Name, newAlb2.Labels)
-			oldProjects := ctl.GetOwnProjects(oldAlb2.Name, oldAlb2.Labels)
+			newProjects := ctl.GetOwnProjectsFromAlb(newAlb2.Name, newAlb2.Labels, &newAlb2.Spec)
+			oldProjects := ctl.GetOwnProjectsFromAlb(oldAlb2.Name, oldAlb2.Labels, &oldAlb2.Spec)
 			newAddProjects := funk.SubtractString(newProjects, oldProjects)
 			c.log.Info(fmt.Sprintf("own projects: %v, new add projects: %v", newProjects, newAddProjects))
 			ingresses := c.GetProjectIngresses(newAddProjects)

@@ -76,7 +76,7 @@ function alb-run-e2e-test-one() {
 function alb-run-all-e2e-test() (
   # TODO 现在并行跑测试使用xargs，然后看log中有没有错来判断测试是否通过，担心会有并发写文件的问题，还是应该用ginkgo原生的方法。
   # 在每个each中创建/销毁 k8s
-  local concurrent=${1:-4}
+  local concurrent=${1:-2}
   local filter=${2:-""}
   set -e
   alb-build-e2e-test
@@ -169,7 +169,7 @@ function alb-install-golang-test-dependency {
   echo "install helm"
   wget https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz && tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
   helm version
-  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl
+  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install
   git config --global --add safe.directory $PWD
@@ -191,6 +191,8 @@ function alb-test-all-in-ci-golang() {
   local start=$(date +"%Y %m %e %T.%6N")
   alb-install-golang-test-dependency
   local end_install=$(date +"%Y %m %e %T.%6N")
+  tree ./deploy
+  mkdir -p ./deploy/chart/alb/crds/
   cp -r ./deploy/resource/crds/* ./deploy/chart/alb/crds/
   alb-lint-all
   local end_lint=$(date +"%Y %m %e %T.%6N")

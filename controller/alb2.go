@@ -8,13 +8,14 @@ import (
 	"alauda.io/alb2/config"
 	"github.com/thoas/go-funk"
 
+	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"k8s.io/klog/v2"
 )
 
 var ErrAlbInUse = errors.New("alb2 is used by another controller")
 
-func GetOwnProjects(name string, labels map[string]string) (rv []string) {
-	klog.Infof("get %s own projects %+v", name, labels)
+func GetOwnProjectsFromLabel(name string, labels map[string]string) (rv []string) {
+	klog.Infof("get %s own projects from labels %+v", name, labels)
 	defer func() {
 		klog.Infof("%s, own projects: %+v", name, rv)
 	}()
@@ -31,6 +32,19 @@ func GetOwnProjects(name string, labels map[string]string) (rv []string) {
 		}
 	}
 	rv = funk.UniqString(projects)
+	return
+}
+
+func GetOwnProjectsFromAlb(name string, labels map[string]string, alb *v2beta1.ALB2Spec) (rv []string) {
+	projects := []string{}
+	if alb != nil && alb.Config != nil && alb.Config.Projects != nil {
+		projects = alb.Config.Projects
+	}
+	klog.Infof("get %s own projects %+v %v", name, projects)
+	defer func() {
+		klog.Infof("%s, own projects: %+v", name, rv)
+	}()
+	rv = funk.UniqString(append(GetOwnProjectsFromLabel(name, labels), projects...))
 	return
 }
 

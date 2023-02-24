@@ -423,6 +423,19 @@ func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *AlbDeploy) (reconcile bool, err error) {
 	// TODO 这个函数中需要特殊处理的和基本可以忽略的混在一起了 有点乱
 	l := d.Log
+
+	// deployment的更新会导致alb的status的更新导致alb的resourceversion的变化,导致这里的当前的alb不是最新的了，所以这里要先更新alb
+	// 如果alb需要更新 可能是label或者annotation的变化 我们不会去该spec的内容，那个应该是只由用户操作的
+	sameAlb, _ := d.SameAlb(cur.Alb, expect.Alb)
+	if !sameAlb {
+		l.Info("alb change", "diff", cmp.Diff(cur.Alb, expect.Alb))
+		err := d.Cli.Update(ctx, expect.Alb)
+		if err != nil {
+			return false, err
+		}
+		l.Info("alb update success", "ver", expect.Alb.ResourceVersion)
+		return true, nil
+	}
 	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Deploy, expect.Deploy, func(cur *appsv1.Deployment, expect *appsv1.Deployment) bool {
 		if cur.Namespace != expect.Namespace {
 			return true
@@ -516,18 +529,6 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	}
 
 	// alb 需要考虑status，自己做处理
-	sameAlb, albDiff := d.SameAlb(cur.Alb, expect.Alb)
-	_ = albDiff
-
-	if !sameAlb {
-		l.Info("alb change", "diff", cmp.Diff(cur.Alb, expect.Alb))
-		err := d.Cli.Update(ctx, expect.Alb)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	l.Info("alb not change", "alb", ShowMeta(cur.Alb))
 	expect.Alb.Status = GenExpectStatus(d.Cfg, d.Env, cur.Alb.Status, expect.Deploy)
 	if !reflect.DeepEqual(cur.Alb.Status, expect.Alb.Status) {
 		l.Info("alb status update", "origin", cur.Alb.Status, "new", expect.Alb.Status)
@@ -536,19 +537,33 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 			return false, err
 		}
 		return false, nil
+	} else {
+		l.Info("alb status not change", "alb", ShowMeta(cur.Alb))
 	}
-	l.Info("alb status not change", "alb", ShowMeta(cur.Alb))
 	return false, nil
 }
 
 func (d *AlbDeployCtl) SameAlb(origin *albv2.ALB2, new *albv2.ALB2) (bool, string) {
-	sameAnnotation := reflect.DeepEqual(origin.GetAnnotations(), new.GetAnnotations())
-	sameLabel := reflect.DeepEqual(origin.GetLabels(), new.GetLabels())
+	sameAnnotation := SameMap(origin.GetAnnotations(), new.GetAnnotations())
+	sameLabel := SameMap(origin.GetLabels(), new.GetLabels())
 	sameSpec := reflect.DeepEqual(origin.Spec, new.Spec)
 	if sameAnnotation && sameLabel && sameSpec {
 		return true, ""
 	}
 	return false, fmt.Sprintf("annotation %v label %v spec %v", sameAnnotation, sameLabel, sameSpec)
+}
+
+func SameMap(left, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for k, v := range left {
+		rv, find := right[k]
+		if !find || rv != v {
+			return false
+		}
+	}
+	return true
 }
 
 type MigrateKind string

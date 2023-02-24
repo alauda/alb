@@ -146,6 +146,7 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 	if isReconcile {
+		l.Info("update need reconcile")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil

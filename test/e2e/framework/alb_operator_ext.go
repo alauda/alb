@@ -2,8 +2,10 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"alauda.io/alb2/pkg/operator/config"
 	"alauda.io/alb2/pkg/operator/controllers/depl"
@@ -49,13 +51,28 @@ func (a *AlbOperatorExt) AssertDeploy(name types.NamespacedName, cfg string, ope
 	env := *operatorEnv
 	log := a.log
 	ctx := a.ctx
-	cur, err := depl.LoadAlbDeploy(ctx, cli, log, name)
-	GinkgoNoErr(err)
-	conf, err := config.NewALB2Config(cur.Alb, log)
-	GinkgoNoErr(err)
-	dctl := depl.NewAlbDeployCtl(cli, env, log, conf)
-	expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
-	GinkgoNoErr(err)
-	_, err = dctl.DoUpdate(ctx, cur, expect)
-	GinkgoNoErr(err)
+	count := 0
+	for {
+		count++
+		log.Info("mock operator reconcile", "count", count)
+		cur, err := depl.LoadAlbDeploy(ctx, cli, log, name)
+		GinkgoNoErr(err)
+		conf, err := config.NewALB2Config(cur.Alb, log)
+		GinkgoNoErr(err)
+		dctl := depl.NewAlbDeployCtl(cli, env, log, conf)
+		expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
+		GinkgoNoErr(err)
+		redo, err := dctl.DoUpdate(ctx, cur, expect)
+		if err != nil {
+			log.Error(err, "update err")
+		}
+		if count > 100 {
+			GinkgoNoErr(fmt.Errorf("too many times"))
+		}
+		if !redo && err == nil {
+			time.Sleep(time.Millisecond * 100)
+			break
+		}
+	}
+	log.Info("mock operator reconcile", "count", count)
 }
