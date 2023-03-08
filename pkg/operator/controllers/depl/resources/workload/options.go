@@ -26,7 +26,7 @@ func setSelector(baseDomain, name, version string) Option {
 	}
 }
 
-func setPodLabel(baseDomain, name string, version string) Option {
+func setPodLabel(baseDomain, name string, version string, antiaffinitykey string) Option {
 	labels := map[string]string{
 		baseDomain + "/product":            "Platform-Center",
 		"alb2." + baseDomain + "/pod_type": "alb",
@@ -35,6 +35,7 @@ func setPodLabel(baseDomain, name string, version string) Option {
 		"service_name":                    "alb2-" + name,
 		"service." + baseDomain + "/name": toolkit.FmtKeyBySep("-", "deployment", name),
 		"alb2." + baseDomain + "/version": version,
+		"alb2." + baseDomain + "/type":    antiaffinitykey,
 	}
 	labels = resources.MergeLabel(labels, commonlabel)
 	return func(deploy *appv1.Deployment) {

@@ -180,7 +180,7 @@ func (d *AlbDeployCtl) genExpectDeployment(cur *AlbDeploy, conf *cfg.ALB2Config)
 		generateOptions = append(generateOptions,
 			workload.SetResource(*conf.Deploy.ALbResource, "alb2"))
 	}
-	deploy := workload.NewTemplate(cur.Alb.Namespace, cur.Alb.Name, labelBaseDomain, cur.Deploy.DeepCopy(), d.Env).Generate(generateOptions...)
+	deploy := workload.NewTemplate(cur.Alb.Namespace, cur.Alb.Name, labelBaseDomain, cur.Deploy.DeepCopy(), conf, d.Env).Generate(generateOptions...)
 	return deploy, nil
 }
 

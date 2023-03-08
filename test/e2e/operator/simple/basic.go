@@ -212,6 +212,7 @@ spec:
 					spec.NodeSelector["kubernetes.io/hostname"] == "192.168.134.195" &&
 					spec.Containers[0].Resources.Limits.Cpu().String() == "2400m" &&
 					spec.Tolerations[0].Operator == "Exists" &&
+					dep.Spec.Template.Labels["alb2.cpaas.io/type"] == "local" && // 必须设置这个label 反亲和性才有用
 					true
 			},
 		})

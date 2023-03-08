@@ -21,16 +21,18 @@ type Template struct {
 	name       string
 	baseDomain string
 	env        config.OperatorCfg
+	albcfg     *config.ALB2Config
 	cur        *appv1.Deployment
 }
 
-func NewTemplate(namespace string, name string, baseDomain string, cur *appv1.Deployment, cfg config.OperatorCfg) *Template {
+func NewTemplate(namespace string, name string, baseDomain string, cur *appv1.Deployment, albcf *config.ALB2Config, cfg config.OperatorCfg) *Template {
 	return &Template{
 		namespace:  namespace,
 		name:       name,
 		baseDomain: baseDomain,
 		env:        cfg,
 		cur:        cur,
+		albcfg:     albcf,
 	}
 }
 
@@ -47,7 +49,7 @@ func (b *Template) Generate(options ...Option) *appv1.Deployment {
 	cmVolume := b.configmapVolume(b.name)
 	sVolume := b.shareVolume()
 	defaultOptions := []Option{
-		setPodLabel(b.baseDomain, b.name, b.env.Version),
+		setPodLabel(b.baseDomain, b.name, b.env.Version, b.albcfg.Deploy.AntiAffinityKey),
 		setSelector(b.baseDomain, b.name, b.env.Version),
 		AddVolumeMount(sVolume, "/etc/alb2/nginx/"),
 		AddVolumeMount(cmVolume, "/alb/tweak/"),
