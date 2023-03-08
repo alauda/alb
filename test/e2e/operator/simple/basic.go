@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 
 	f "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
@@ -216,6 +217,11 @@ spec:
 					true
 			},
 		})
+		// service上必须有servcie_name = alb2-${name}的label,监控才能采到这个alb
+		svc := &corev1.Service{}
+		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, svc)
+		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Labels["service_name"])
+		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Spec.Selector["service_name"])
 	})
 
 	f.GIt("deploy hr-host-gateway mode alb", func() {

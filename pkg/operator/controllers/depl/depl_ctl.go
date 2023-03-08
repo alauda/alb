@@ -345,11 +345,20 @@ func (d *AlbDeployCtl) genExpectSvc(cur *AlbDeploy, conf *cfg.ALB2Config) (*AlbD
 	// TODO refacotr
 	var svc *corev1.Service
 	if conf.Controller.NetworkMode == "host" {
+		labels := refLabel
+		// 监控需要svc上有这个label
+		labels["service_name"] = fmt.Sprintf("alb2-%s", alb2.Name)
 		svc = service.NewTemplate(alb2.Namespace, alb2.Name, "TCP").
 			Generate(
 				service.SetOwnerRefs(ownerRefs),
 				service.SetServiceType(corev1.ServiceTypeClusterIP),
-				service.AddLabel(refLabel),
+				service.AddLabel(labels),
+				func(new *corev1.Service) {
+					// 主机网络的时候 svc不应该被其他人更新
+					if cur.Svc != nil && cur.Svc.Svc != nil {
+						new.ResourceVersion = cur.Svc.Svc.ResourceVersion
+					}
+				},
 			)
 	}
 	var tcpService *corev1.Service
@@ -474,18 +483,30 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	if err != nil {
 		return false, err
 	}
-	// svc有可能会被alb自己更新，比如lb类型的svc会自己加端口，所以不能更新
-	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Svc.Svc, expect.Svc.Svc)
+
+	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Svc.Svc, expect.Svc.Svc, func(cur *corev1.Service, expect *corev1.Service) bool {
+		labelChange := !(reflect.DeepEqual(cur.Labels, expect.Labels))
+		selectorChange := !(SameMap(cur.Spec.Selector, expect.Spec.Selector))
+		change := labelChange || selectorChange
+		if change {
+			l.Info("svc change ", "diff", cmp.Diff(cur, expect))
+		}
+		return change
+	})
 	if err != nil {
 		return false, err
 	}
-	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Svc.TcpSvc, expect.Svc.TcpSvc)
-	if err != nil {
-		return false, err
-	}
-	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Svc.UdpSvc, expect.Svc.UdpSvc)
-	if err != nil {
-		return false, err
+
+	// 容器网络模式下 svc有可能会被alb自己更新，比如lb类型的svc会自己加端口，所以不能更新
+	{
+		err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Svc.TcpSvc, expect.Svc.TcpSvc)
+		if err != nil {
+			return false, err
+		}
+		err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Svc.UdpSvc, expect.Svc.UdpSvc)
+		if err != nil {
+			return false, err
+		}
 	}
 	// ingressclass中controller是immutable的,所以这里保持原样
 	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Ingress, expect.Ingress)

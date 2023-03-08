@@ -59,7 +59,7 @@ func defaultSelector(name string) Option {
 			return
 		}
 		labels := map[string]string{
-			"service_name": "alb2" + name,
+			"service_name": "alb2-" + name,
 		}
 		service.Spec.Selector = labels
 	}
