@@ -3,10 +3,15 @@ package chart
 // test for render alb chart
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"testing"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	f "alauda.io/alb2/test/e2e/framework"
 	"alauda.io/alb2/utils"
@@ -19,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -46,6 +52,7 @@ var _ = Describe("chart", func() {
 	var ctx context.Context
 	var cancel context.CancelFunc
 	var l logr.Logger
+	var opext *f.AlbOperatorExt
 	BeforeEach(func() {
 		albRoot = os.Getenv("ALB_ROOT")
 		testBase = os.TempDir() + "/" + utils.RandomStr("alb-chart-test", 3)
@@ -68,6 +75,8 @@ var _ = Describe("chart", func() {
 		helm = f.NewHelm(testBase, kubecfg)
 		kt = tu.NewKubectl(testBase, kubecfg, tu.GinkgoLog())
 		kc = tu.NewK8sClient(ctx, kubecfg)
+
+		opext = f.NewAlbOperatorExt(ctx, testBase, kubecfg)
 		// install feature crd
 		kt.AssertKubectl("apply", "-f", path.Join(albRoot, "scripts", "yaml", "crds", "extra", "v1"))
 		kc.CreateNsIfNotExist("cpaas-system")
@@ -113,19 +122,28 @@ var _ = Describe("chart", func() {
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
 		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/a"])
 		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/b"])
-		l.Info("label", "label", alb.Labels)
+		l.Info("alb", "alb", alb)
 
 		csv, err := kt.Kubectl("get csv -A")
 		f.GinkgoNoErr(err)
 		l.Info("csv", "csv", csv)
 		assert.Equal(GinkgoT(), strings.Contains(csv, "alb-operator.v0.1.0"), true)
 
-		depl, err := kt.Kubectl("get deployment -A")
+		deplstr, err := kt.Kubectl("get deployment -A")
 		f.GinkgoNoErr(err)
-		l.Info("depl", "depl", depl)
-		assert.Equal(GinkgoT(), strings.Contains(depl, "No resources found"), true)
-
+		l.Info("depl", "depl", deplstr)
+		assert.Equal(GinkgoT(), strings.Contains(deplstr, "No resources found"), true)
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
+		opext.AssertDeployAlb(client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, nil)
+		depl := &appsv1.Deployment{}
+		kc.GetClient().Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, depl)
+		nginxC := depl.Spec.Template.Spec.Containers[0]
+		albC := depl.Spec.Template.Spec.Containers[1]
+		l.Info("depl", "alb", PrettyCr(depl))
+		assert.Equal(GinkgoT(), albC.Resources.Limits.Cpu().String(), "200m")
+		assert.Equal(GinkgoT(), albC.Resources.Limits.Memory().String(), "2Gi")
+		assert.Equal(GinkgoT(), nginxC.Resources.Limits.Cpu().String(), "2")
+		assert.Equal(GinkgoT(), nginxC.Resources.Limits.Memory().String(), "2Gi")
 	})
 
 	f.GIt("deploy alb raw mode", func() {
@@ -169,3 +187,34 @@ var _ = Describe("chart", func() {
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
 	})
 })
+
+// TODO move it to /tools
+func PrettyCr(obj client.Object) string {
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
+		return "isnill"
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	raw := map[string]interface{}{}
+	err = json.Unmarshal(out, &raw)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	{
+		metadata, ok := raw["metadata"].(map[string]interface{})
+		if ok {
+			metadata["managedFields"] = ""
+			annotation, ok := metadata["annotations"].(map[string]interface{})
+			if ok {
+				annotation["kubectl.kubernetes.io/last-applied-configuration"] = ""
+			}
+		}
+	}
+	out, err = json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	return string(out)
+}

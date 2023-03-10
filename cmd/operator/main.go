@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"alauda.io/alb2/pkg/operator/config"
 	"alauda.io/alb2/pkg/operator/controllers"
@@ -28,6 +29,10 @@ func main() {
 	setupLog := l.WithName("setup")
 	ctrl.SetLogger(l)
 	podName := os.Getenv("MY_POD_NAME")
+
+	retryPeriod := time.Duration(12 * time.Second)
+	renewDeadline := time.Duration(40 * time.Second)
+	leaseDuration := time.Duration(60 * time.Second)
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
@@ -36,6 +41,9 @@ func main() {
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              podName,
 		LeaderElectionReleaseOnCancel: true,
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
 	})
 
 	if err != nil {

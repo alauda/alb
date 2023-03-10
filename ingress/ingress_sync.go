@@ -679,7 +679,7 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 			c.log.Error(err, "delete rule fail", "rule", r.Name)
 			return err
 		}
-		c.log.Info("delete rule ok", "rule", r.Name)
+		c.log.Info("delete rule ok", "rule", r.Name, "rule", r)
 	}
 	return nil
 }

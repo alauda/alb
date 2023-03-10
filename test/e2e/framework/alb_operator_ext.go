@@ -38,11 +38,7 @@ func NewAlbOperatorExt(ctx context.Context, base string, kubecfg *rest.Config) *
 	return &AlbOperatorExt{ctx: ctx, base: base, kubeCfg: kubecfg, kubectl: kubectl, client: &cli, log: GinkgoLog()}
 }
 
-// 当我们想部署一个alb时，需要提供1. alb的配置，即cr，2. operator的配置,即operator的env
-func (a *AlbOperatorExt) AssertDeploy(name types.NamespacedName, cfg string, operatorEnv *config.OperatorCfg) {
-	a.log.Info("apply alb", "alb", cfg)
-	a.kubectl.AssertKubectlApply(cfg)
-
+func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv *config.OperatorCfg) {
 	// use operator to create other resources.
 	if operatorEnv == nil {
 		operatorEnv = &config.DEFAULT_OPERATOR_CFG
@@ -75,4 +71,12 @@ func (a *AlbOperatorExt) AssertDeploy(name types.NamespacedName, cfg string, ope
 		}
 	}
 	log.Info("mock operator reconcile", "count", count)
+}
+
+// 当我们想部署一个alb时，需要提供1. alb的配置，即cr，2. operator的配置,即operator的env
+func (a *AlbOperatorExt) AssertDeploy(name types.NamespacedName, cfg string, operatorEnv *config.OperatorCfg) {
+	a.log.Info("apply alb", "alb", cfg)
+	a.kubectl.AssertKubectlApply(cfg)
+	// use operator to create other resources.
+	a.AssertDeployAlb(name, operatorEnv)
 }
