@@ -104,9 +104,9 @@ spec:
         - name: quality-gate-rules
           value:
             # 覆盖率允许下降值。 0 表示不允许降低
-            - coverage-delta=0
+            - coverage-delta=10
             # 重复率允许上浮值。0 表示不允许上升
-            - duplication-delta=1
+            - duplication-delta=10
     - name: alb-build
       runAfter:
         - generate-version

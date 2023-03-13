@@ -40,7 +40,7 @@ func GetOwnProjectsFromAlb(name string, labels map[string]string, alb *v2beta1.A
 	if alb != nil && alb.Config != nil && alb.Config.Projects != nil {
 		projects = alb.Config.Projects
 	}
-	klog.Infof("get %s own projects %+v %v", name, projects)
+	klog.Infof("get %s own projects %v", name, projects)
 	defer func() {
 		klog.Infof("%s, own projects: %+v", name, rv)
 	}()

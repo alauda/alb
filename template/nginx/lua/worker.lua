@@ -153,6 +153,7 @@ local function update_http_cache(policy, old_policy)
                 init_http_rule_dsl(rule)
             end
             ngx.log(ngx.INFO, string.format("set ngx.share[http_policy][%s]", key))
+            cache.rule_cache:delete(key)
             ngx_shared["http_policy"]:set(key, common.json_encode(http_policy[port]))
         end
     end

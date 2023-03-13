@@ -29,7 +29,6 @@ if [ -n "$TAIL_MODE" ]; then
   tail -f /dev/null
 fi
 
-
 _term() {
   echo "Caught SIGTERM signal! term $child"
   kill -TERM "$child" 2>/dev/null

@@ -714,25 +714,29 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	expectRuleHash := map[string]bool{}
 	// we need a layerdmap  ingress/ver/rule-indx/path-index/exist|expect/hash: v
 	for _, r := range expectRules {
-		hash := ruleHash(r)
+		hash := hashRule(ruleIdentify(r))
 		log.Info("expect rule ", "name", r.Name, "hash", hash)
 		expectRuleHash[hash] = true
 	}
 	for _, r := range existRules {
-		hash := ruleHash(r)
+		hash := hashRule(ruleIdentify(r))
 		log.Info("exist rule ", "name", r.Name, "hash", hash)
 		existRuleHash[hash] = true
 	}
 
 	for _, r := range existRules {
-		hash := ruleHash(r)
+		id := ruleIdentify(r)
+		hash := hashRule(id)
 		if !expectRuleHash[hash] {
+			log.Info("need deelte rule ", "name", r.Name, "hash", hash, "id", id)
 			needDelete = append(needDelete, r)
 		}
 	}
 	for _, r := range expectRules {
-		hash := ruleHash(r)
+		id := ruleIdentify(r)
+		hash := hashRule(id)
 		if !existRuleHash[hash] {
+			log.Info("need create rule ", "name", r.Name, "hash", hash, "id", id)
 			needCreate = append(needCreate, r)
 		}
 	}
@@ -790,7 +794,10 @@ func ruleIdentify(r *alb2v1.Rule) string {
 }
 
 func ruleHash(r *alb2v1.Rule) string {
-	id := ruleIdentify(r)
+	return hashRule(ruleIdentify(r))
+}
+
+func hashRule(id string) string {
 	h := sha256.New()
 	h.Write([]byte(id))
 	return hex.EncodeToString(h.Sum(nil))

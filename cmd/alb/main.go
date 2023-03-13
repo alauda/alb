@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"alauda.io/alb2/alb"
 	"alauda.io/alb2/config"
@@ -46,7 +47,7 @@ func run() error {
 
 	go StartSignalLoop(cancel, SignalCallBack{
 		OnSigInt: func() {
-			l.Info("receive SIGINT(ctrl-c), force shutting down")
+			l.Info("receive SIGINT(ctrl-c), shutting down")
 			cancel()
 			os.Exit(0)
 		},
