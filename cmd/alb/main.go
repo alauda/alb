@@ -1,18 +1,16 @@
 package main
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
 	"alauda.io/alb2/alb"
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/modules"
 	"alauda.io/alb2/utils/log"
+	"context"
 	"github.com/go-logr/logr"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
