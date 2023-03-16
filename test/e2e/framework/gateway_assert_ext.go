@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"alauda.io/alb2/utils/test_utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -10,16 +11,14 @@ import (
 type Gateway gatewayType.Gateway
 
 func (g Gateway) WaittingController() bool {
-	if len(g.Status.Conditions) != 1 {
-		return false
-	}
+	Logf("wait controller %+v", test_utils.PrettyJson(g.Status))
 	msg := g.Status.Conditions[0].Message
-	Logf("c %s", msg)
+	Logf("wait controller %s", msg)
 	return msg == "Waiting for controller"
 }
 
 func (g Gateway) Ready() bool {
-	Logf("c %+v %v", g.Status.Conditions, g.Generation)
+	Logf("ready %+v %v", g.Status.Conditions, g.Generation)
 	if len(g.Status.Conditions) != 1 {
 		Logf("len condition not 1 ")
 		return false

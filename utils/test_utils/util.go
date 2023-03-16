@@ -1,6 +1,7 @@
 package test_utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -84,4 +85,12 @@ func RandomFile(base string, file string) (string, error) {
 	p := path.Join(base, fmt.Sprintf("%v", rand.Int()))
 	err := os.WriteFile(p, []byte(file), os.ModePerm)
 	return p, err
+}
+
+func PrettyJson(data interface{}) string {
+	out, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
+	}
+	return string(out)
 }

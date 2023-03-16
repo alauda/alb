@@ -111,6 +111,7 @@ spec:
 		assert.NoError(ginkgo.GinkgoT(), err)
 
 		f.Wait(func() (bool, error) {
+			Logf("wait gateway status ok")
 			return f.CheckGatewayStatus(client.ObjectKey{Name: "g1", Namespace: ns}, []string{f.GetAlbAddress()})
 		})
 		f.Wait(func() (bool, error) {
@@ -121,9 +122,14 @@ spec:
 			return f.CheckGatewayStatus(client.ObjectKey{Name: "g4", Namespace: ns}, []string{f.GetAlbAddress()})
 		})
 		// g3 should be ignore
-		g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(ns).Get(ctx, "g3", metav1.GetOptions{})
-		assert.NoError(ginkgo.GinkgoT(), err)
-		assert.True(ginkgo.GinkgoT(), Gateway(*g).WaittingController())
+		f.Wait(func() (bool, error) {
+			return f.CheckGatewayStatus(client.ObjectKey{Name: "g4", Namespace: ns}, []string{f.GetAlbAddress()})
+		})
+		f.Wait(func() (bool, error) {
+			g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(ns).Get(ctx, "g3", metav1.GetOptions{})
+			assert.NoError(ginkgo.GinkgoT(), err)
+			return Gateway(*g).WaittingController(), nil
+		})
 	})
 
 	GIt("allowedRoutes should ok", func() {
