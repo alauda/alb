@@ -253,14 +253,16 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 			if httpFt != nil {
 				rule, err := c.generateRule(ingress, alb.GetAlbKey(), httpFt, host, p, rIndex, pIndex)
 				if err != nil {
-					return nil, err
+					c.log.Error(err, "generate http rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
+					continue
 				}
 				httpRule = append(httpRule, rule)
 			}
 			if httpsFt != nil {
 				rule, err := c.generateRule(ingress, alb.GetAlbKey(), httpsFt, host, p, rIndex, pIndex)
 				if err != nil {
-					return nil, err
+					c.log.Error(err, "generate https rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
+					continue
 				}
 				httpsRule = append(httpsRule, rule)
 			}

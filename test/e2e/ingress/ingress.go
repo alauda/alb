@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	. "alauda.io/alb2/test/e2e/framework"
@@ -289,6 +290,47 @@ spec:
 				Logf("shoule be empty %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
 				return ft.Spec.ServiceGroup == nil, nil
 			})
+		})
+
+		GIt("should work when one of ingress rule invalid", func() {
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-xx
+  namespace: alb-test
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /xx1
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: svc-default
+            port:
+              name: notexist
+        path: /xx2
+        pathType: ImplementationSpecific
+`)
+			f.Wait(func() (bool, error) {
+				rules, err := f.K8sClient.GetAlbClient().CrdV1().Rules("cpaas-system").List(f.GetCtx(), metav1.ListOptions{})
+				if err != nil {
+					return false, err
+				}
+				Logf("rules %v %v", len(rules.Items), rules.Items)
+				if len(rules.Items) != 1 {
+					return false, nil
+				}
+				eq := reflect.DeepEqual(rules.Items[0].Spec.DSLX[0].Values[0], []string{"STARTS_WITH", "/xx1"})
+				return eq, nil
+			})
+
 		})
 
 	})
