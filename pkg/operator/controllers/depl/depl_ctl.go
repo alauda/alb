@@ -348,7 +348,7 @@ func (d *AlbDeployCtl) genExpectSvc(cur *AlbDeploy, conf *cfg.ALB2Config) (*AlbD
 		labels := refLabel
 		// 监控需要svc上有这个label
 		labels["service_name"] = fmt.Sprintf("alb2-%s", alb2.Name)
-		svc = service.NewTemplate(alb2.Namespace, alb2.Name, "TCP").
+		svc = service.NewTemplate(alb2.Namespace, alb2.Name, "TCP", int32(conf.Controller.MetricsPort)).
 			Generate(
 				service.SetOwnerRefs(ownerRefs),
 				service.SetServiceType(corev1.ServiceTypeClusterIP),
@@ -366,7 +366,7 @@ func (d *AlbDeployCtl) genExpectSvc(cur *AlbDeploy, conf *cfg.ALB2Config) (*AlbD
 
 	if conf.Controller.NetworkMode == "container" {
 		tcpServiceName := FmtKeyBySep("-", alb2.Name, "tcp")
-		tcpService = service.NewTemplate(alb2.Namespace, tcpServiceName, "TCP").
+		tcpService = service.NewTemplate(alb2.Namespace, tcpServiceName, "TCP", int32(conf.Controller.MetricsPort)).
 			Generate(
 				service.SetOwnerRefs(ownerRefs),
 				service.SetServiceType(corev1.ServiceTypeLoadBalancer),
@@ -375,7 +375,7 @@ func (d *AlbDeployCtl) genExpectSvc(cur *AlbDeploy, conf *cfg.ALB2Config) (*AlbD
 			)
 
 		udpServiceName := FmtKeyBySep("-", alb2.Name, "udp")
-		udpService = service.NewTemplate(alb2.Namespace, udpServiceName, "UDP").
+		udpService = service.NewTemplate(alb2.Namespace, udpServiceName, "UDP", int32(conf.Controller.MetricsPort)).
 			Generate(
 				service.SetOwnerRefs(ownerRefs),
 				service.SetServiceType(corev1.ServiceTypeLoadBalancer),

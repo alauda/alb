@@ -10,13 +10,15 @@ type Template struct {
 	namespace string
 	name      string
 	protocol  v1.Protocol
+	metrics   int32
 }
 
-func NewTemplate(namespace, name string, protocol v1.Protocol) *Template {
+func NewTemplate(namespace, name string, protocol v1.Protocol, metircs int32) *Template {
 	return &Template{
 		namespace: namespace,
 		name:      name,
 		protocol:  protocol,
+		metrics:   metircs,
 	}
 }
 
@@ -35,10 +37,10 @@ func (t *Template) Generate(options ...Option) *v1.Service {
 				{
 					Name:     "metrics",
 					Protocol: t.protocol,
-					Port:     1936,
+					Port:     t.metrics,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.Int,
-						IntVal: int32(1936),
+						IntVal: t.metrics,
 					},
 				},
 			},
