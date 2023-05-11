@@ -1,6 +1,9 @@
 #!/bin/bash
 set -x
+
 # require env ALB_KIND_E2E_CHART. optional env ALB_KIND_E2E_BRANCH
+# export ALB_KIND_E2E_CHART=
+# export ALB_KIND_E2E_BRANCH=
 go build -o alb-kind-e2e alauda.io/alb2/test/kind/3.12
 export ALB_SUFFIX=$(date '+%s')
 echo $ALB_SUFFIX

@@ -192,9 +192,8 @@ func (a *AlbK8sCtx) Init() error {
 	l.Info("init", "cfg", a.Cfg)
 	a.Log = l
 	base := a.Cfg.base
-	name := a.Cfg.Name
 
-	kind, err := DeployOrAdopt(a.Cfg.kindcfg, base, name, l)
+	kind, err := DeployOrAdopt(a.Cfg.kindcfg, base, a.Cfg.kindcfg.Name, l)
 	if err != nil {
 		return err
 	}
@@ -285,7 +284,16 @@ func (a *AlbK8sCtx) DeployOperator() error {
 		return tracerr.Wrap(err)
 	}
 
-	kc.CreateNsIfNotExist(ns)
+	l.Info("create ns if not exist", "ns", ns)
+	err = kc.CreateNsIfNotExist(ns)
+	if err != nil {
+		return err
+	}
+	out, err := kubectl.Kubectl("get", "ns", "-A")
+	l.Info("ns", "ns", out)
+	if err != nil {
+		return err
+	}
 	for _, p := range a.Cfg.extraCrs {
 		_, err = kubectl.Kubectl("apply", "-R", "-f", p, "--force")
 		if err != nil {
@@ -296,7 +304,12 @@ func (a *AlbK8sCtx) DeployOperator() error {
 	if err != nil {
 		return err
 	}
-	out, err := helm.Install(cfgs, name, chartBase, chartBase+"/values.yaml")
+	out, err = kubectl.Kubectl("get", "ns", "-A")
+	l.Info("ns", "ns", out)
+	if err != nil {
+		return err
+	}
+	out, err = helm.Install(cfgs, name, chartBase, chartBase+"/values.yaml")
 	if err != nil {
 		return err
 	}
