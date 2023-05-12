@@ -2,20 +2,21 @@ package http
 
 import (
 	. "alauda.io/alb2/controller/types"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *Rule, filters []gatewayType.HTTPRouteFilter) error {
+func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *Rule, filters []gv1a2t.HTTPRouteFilter) error {
 	log := h.log.WithValues("ctx", ctx.ToString())
 
-	headerModifyFilter := []gatewayType.HTTPRequestHeaderFilter{}
-	redirectFilter := []gatewayType.HTTPRequestRedirectFilter{}
+	headerModifyFilter := []gv1b1t.HTTPHeaderFilter{}
+	redirectFilter := []gv1a2t.HTTPRequestRedirectFilter{}
 	// groupby
 	for _, f := range filters {
-		if f.Type == gatewayType.HTTPRouteFilterRequestHeaderModifier && f.RequestHeaderModifier != nil {
+		if f.Type == gv1b1t.HTTPRouteFilterRequestHeaderModifier && f.RequestHeaderModifier != nil {
 			headerModifyFilter = append(headerModifyFilter, *f.RequestHeaderModifier)
 		}
-		if f.Type == gatewayType.HTTPRouteFilterRequestRedirect && f.RequestRedirect != nil {
+		if f.Type == gv1b1t.HTTPRouteFilterRequestRedirect && f.RequestRedirect != nil {
 			redirectFilter = append(redirectFilter, *f.RequestRedirect)
 		}
 	}
@@ -37,7 +38,7 @@ func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *Rule, f
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gatewayType.HTTPRequestHeaderFilter) error {
+func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gv1a2t.HTTPHeaderFilter) error {
 	if len(filters) == 0 {
 		return nil
 	}
@@ -66,7 +67,7 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []ga
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyRedirectFilter(rule *Rule, redirect gatewayType.HTTPRequestRedirectFilter) error {
+func (h *HttpProtocolTranslate) applyRedirectFilter(rule *Rule, redirect gv1a2t.HTTPRequestRedirectFilter) error {
 	// TODO: webhook
 	if redirect.StatusCode != nil {
 		rule.RedirectCode = int(*redirect.StatusCode)

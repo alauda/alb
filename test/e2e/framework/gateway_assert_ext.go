@@ -1,17 +1,20 @@
 package framework
 
 import (
-	"alauda.io/alb2/utils/test_utils"
+	"context"
+	"fmt"
+
+	. "alauda.io/alb2/utils/test_utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-type Gateway gatewayType.Gateway
+type Gateway gv1b1t.Gateway
 
 func (g Gateway) WaittingController() bool {
-	Logf("wait controller %+v", test_utils.PrettyJson(g.Status))
+	Logf("wait controller %+v", PrettyJson(g.Status))
 	msg := g.Status.Conditions[0].Message
 	Logf("wait controller %s", msg)
 	return msg == "Waiting for controller"
@@ -35,7 +38,7 @@ func (g Gateway) SameAddress(ips []string) bool {
 	}
 	ipMap := map[string]bool{}
 	for _, a := range g.Status.Addresses {
-		if a.Type != nil && *a.Type != gatewayType.IPAddressType {
+		if a.Type != nil && *a.Type != gv1b1t.IPAddressType {
 			Logf("invalid address type %v", *a.Type)
 			return false
 		}
@@ -59,8 +62,20 @@ func (g Gateway) LsAttachedRoutes() map[string]int32 {
 	return ls_routes
 }
 
-func (f *Framework) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool, error) {
-	g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(key.Namespace).Get(f.fCtx, key.Name, metav1.GetOptions{})
+type GatewayAssert struct {
+	cli *K8sClient
+	ctx context.Context
+}
+
+func NewGatewayAssert(cli *K8sClient, ctx context.Context) *GatewayAssert {
+	return &GatewayAssert{
+		cli: cli,
+		ctx: ctx,
+	}
+
+}
+func (ga *GatewayAssert) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool, error) {
+	g, err := ga.cli.GetGatewayClient().GatewayV1beta1().Gateways(key.Namespace).Get(ga.ctx, key.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -76,48 +91,74 @@ func (f *Framework) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool,
 	return true, nil
 }
 
-func NewParentRef(ns, name, section string) gatewayType.ParentRef {
-	gName := gatewayType.ObjectName(name)
-	gNs := gatewayType.Namespace(ns)
-	gSection := gatewayType.SectionName(section)
-	return gatewayType.ParentRef{
+func NewParentRef(ns, name, section string) gv1b1t.ParentReference {
+	gName := gv1b1t.ObjectName(name)
+	gNs := gv1b1t.Namespace(ns)
+	gSection := gv1b1t.SectionName(section)
+	return gv1b1t.ParentReference{
 		Namespace:   &gNs,
 		Name:        gName,
 		SectionName: &gSection,
 	}
 }
 
-func (f *Framework) WaitHttpRouteStatus(ns, name string, ref gatewayType.ParentRef, check func(status gatewayType.RouteParentStatus) (bool, error)) {
+func (ga *GatewayAssert) WaitHttpRouteStatus(ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
+	ga.WaitRouteStatus("http", ns, name, ref, check)
+}
+
+func (ga *GatewayAssert) WaitTcpRouteStatus(ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
+	ga.WaitRouteStatus("tcp", ns, name, ref, check)
+}
+
+func (ga *GatewayAssert) WaitRouteStatus(kind string, ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
 	Wait(func() (bool, error) {
-		route, err := f.GetGatewayClient().GatewayV1alpha2().HTTPRoutes(ns).Get(f.ctx, name, metav1.GetOptions{})
+		status, err := ga.GetRouterStatus(ns, name, kind)
 		if err != nil {
 			Logf("err %v", err)
 			return false, nil
 		}
 		found := false
-		for _, s := range route.Status.Parents {
+		for _, s := range status.Parents {
 			pref := s.ParentRef
 			refEq := pref.Name == ref.Name && *pref.Namespace == *ref.Namespace && *pref.SectionName == *ref.SectionName
 			if refEq {
 				found = true
 				ret, err := check(s)
-				Logf("wait http route status fail ret %v err %v", ret, err)
+				Logf("wait %s route status fail ret %v err %v", kind, ret, err)
 				if ret && err == nil {
 					return true, nil
 				}
 			}
 		}
 		if !found {
-			Logf("wait http route status could not found route status %+v", route.Status)
+			Logf("wait %s route status could not found route status %+v", kind, status)
 		}
 		return false, nil
 	})
 }
 
-func (f *Framework) WaitGateway(ns, name string, check func(g Gateway) (bool, error)) {
+func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*gv1b1t.RouteStatus, error) {
+	if kind == "http" {
+		route, err := ga.cli.GetGatewayClient().GatewayV1beta1().HTTPRoutes(ns).Get(ga.ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return &route.Status.RouteStatus, nil
+	}
+	if kind == "tcp" {
+		route, err := ga.cli.GetGatewayClient().GatewayV1alpha2().TCPRoutes(ns).Get(ga.ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return &route.Status.RouteStatus, nil
+	}
+	return nil, fmt.Errorf("unsupported route %v", kind)
+}
+
+func (ga *GatewayAssert) WaitGateway(ns, name string, check func(g Gateway) (bool, error)) {
 	Wait(func() (bool, error) {
 		return TestEq(func() bool {
-			g, err := f.GetGatewayClient().GatewayV1alpha2().Gateways(ns).Get(f.ctx, name, metav1.GetOptions{})
+			g, err := ga.cli.GetGatewayClient().GatewayV1beta1().Gateways(ns).Get(ga.ctx, name, metav1.GetOptions{})
 			GinkgoAssert(err, "get gateway fail")
 			ret, err := check(Gateway(*g))
 			GinkgoAssert(err, "check fail")

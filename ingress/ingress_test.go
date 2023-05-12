@@ -11,6 +11,7 @@ import (
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"alauda.io/alb2/utils/test_utils"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -455,4 +456,121 @@ func TestFindUnSyncedIngress(t *testing.T) {
 	}
 	_ = fakeResource
 	_ = expect
+}
+
+func TestGenSyncAction(t *testing.T) {
+	type testCase struct {
+		ing    networkingv1.Ingress
+		kind   string
+		expect []*albv1.Rule
+		exist  []*albv1.Rule
+		cmd    SyncRule
+	}
+	backend := networkingv1.IngressBackend{
+		Service: &networkingv1.IngressServiceBackend{
+			Name: "svc-1",
+			Port: networkingv1.ServiceBackendPort{
+				Number: 80,
+			},
+		},
+	}
+	ing := networkingv1.Ingress{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			ResourceVersion: "2",
+			Name:            "ing-1",
+		},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
+				{
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:    "/test",
+									Backend: backend,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	labels := map[string]string{
+		"alb2.cpaas.io/frontend":    "alb-dev-00080",
+		"alb2.cpaas.io/name":        "alb-dev",
+		"alb2.cpaas.io/source-type": "ingress",
+	}
+
+	rulespec := albv1.RuleSpec{
+		Source: &albv1.Source{
+			Name: "ing-1",
+			Type: "ingress",
+		},
+	}
+	testCases := []testCase{
+		{
+			ing:  ing,
+			kind: "http",
+			exist: []*albv1.Rule{
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb2.cpaas.io/source-ingress-path-index": "0",
+							"alb2.cpaas.io/source-ingress-rule-index": "0",
+							"alb2.cpaas.io/source-ingress-version":    "1",
+						},
+						Name:   "rule-1",
+						Labels: labels,
+					},
+					Spec: rulespec,
+				},
+			},
+			expect: []*albv1.Rule{
+				{
+					ObjectMeta: k8smetav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb2.cpaas.io/source-ingress-path-index": "0",
+							"alb2.cpaas.io/source-ingress-rule-index": "0",
+							"alb2.cpaas.io/source-ingress-version":    "2",
+						},
+						Labels: labels,
+						Name:   "rule-1-x",
+					},
+					Spec: rulespec,
+				},
+			},
+			cmd: SyncRule{
+				Create: []*albv1.Rule{},
+				Delete: []*albv1.Rule{},
+				Update: []*albv1.Rule{
+					{
+						ObjectMeta: k8smetav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb2.cpaas.io/source-ingress-path-index": "0",
+								"alb2.cpaas.io/source-ingress-rule-index": "0",
+								"alb2.cpaas.io/source-ingress-version":    "2",
+							},
+							Labels: labels,
+							Name:   "rule-1",
+						},
+						Spec: rulespec,
+					},
+				},
+			},
+		},
+	}
+	for _, tcase := range testCases {
+		_ = tcase
+		c := Controller{
+			log:     log.L(),
+			IConfig: config.DefaultMock(),
+		}
+		act, err := c.genSyncRuleAction(tcase.kind, &tcase.ing, tcase.exist, tcase.expect, c.log)
+		assert.NoError(t, err)
+		t.Logf("cur %v", utils.PrettyJson(act))
+		t.Logf("expect %v", utils.PrettyJson(tcase.cmd))
+		t.Logf("diff %v", cmp.Diff(utils.PrettyJson(tcase.cmd), utils.PrettyJson(act)))
+		assert.Equal(t, utils.PrettyJson(tcase.cmd), utils.PrettyJson(act))
+	}
 }

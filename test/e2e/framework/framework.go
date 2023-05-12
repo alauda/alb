@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 
 	alblog "alauda.io/alb2/utils/log"
-	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 type AlbCtl struct {
@@ -70,8 +70,9 @@ type Framework struct {
 	*tu.K8sClient
 	*AlbWaitFileExt
 	*AlbHelper
-	*Helm
+	*tu.Helm
 	*AlbOperatorExt
+	*GatewayAssert
 }
 
 // TODO: 除了测试用的配置之外，其他的应该直接用alb的cr
@@ -209,8 +210,9 @@ func NewAlb(deployCfg Config) *Framework {
 		ctlChan:      make(chan AlbCtl, 10),
 	}
 	f.AlbWaitFileExt = NewAlbWaitFileExt(f, f.GetAlbInfo())
-	f.Helm = NewHelm(baseDir, deployCfg.RestCfg)
+	f.Helm = tu.NewHelm(baseDir, deployCfg.RestCfg, tu.GinkgoLog())
 	f.AlbOperatorExt = NewAlbOperatorExt(fctx, baseDir, deployCfg.RestCfg)
+	f.GatewayAssert = NewGatewayAssert(client, fctx)
 	f.AlbHelper = &AlbHelper{
 		K8sClient: client,
 		AlbInfo:   f.GetAlbInfo(),
@@ -276,7 +278,7 @@ func GetAlbRoot() string {
 
 func (f *Framework) toAlbCfg() string {
 	if f.deployCfg.Gateway && f.deployCfg.NetworkMode == "container" {
-		return Template(`
+		return tu.Template(`
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
@@ -308,7 +310,7 @@ spec:
 			"projects":    f.deployCfg.Project,
 		})
 	}
-	return Template(`
+	return tu.Template(`
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
@@ -436,6 +438,13 @@ func (f *Framework) Wait(fn func() (bool, error)) {
 	err := wait.Poll(Poll, DefaultTimeout, fn)
 	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
 }
+
+// func WaitT[T any](fn func() (T, error)) {
+// 	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
+
+// 	})
+// 	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
+// }
 
 func (f *Framework) InitProductNs(nsprefix string, project string) string {
 	ns := f.InitProductNsWithOpt(ProductNsOpt{
@@ -581,7 +590,7 @@ func (f *Framework) initSvcWithOpt(opt SvcOpt) error {
 			AppProtocol: p.AppProtocol,
 		}
 	})
-	_, err := f.GetK8sClient().CoreV1().Services(ns).Create(f.ctx, &corev1.Service{
+	_, err := f.GetK8sClient().CoreV1().Services(ns).Create(f.albCtx, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -596,7 +605,7 @@ func (f *Framework) initSvcWithOpt(opt SvcOpt) error {
 	for _, ip := range ep {
 		address = append(address, corev1.EndpointAddress{IP: ip})
 	}
-	_, err = f.GetK8sClient().CoreV1().Endpoints(ns).Create(f.ctx, &corev1.Endpoints{
+	_, err = f.GetK8sClient().CoreV1().Endpoints(ns).Create(f.fCtx, &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,

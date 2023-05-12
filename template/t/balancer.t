@@ -95,7 +95,6 @@ __DATA__
 --- config
     location /t {
       content_by_lua_block {
-          package.path = '/t/?.lua;/t/lib/?.lua;' .. package.path;
           local test = require("balancer_test");
           if test.test_balancer("roundrobin") then 
             ngx.print("success");

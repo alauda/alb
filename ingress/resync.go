@@ -25,6 +25,7 @@ func (c *Controller) StartResyncLoop(ctx context.Context) error {
 	log.Info("sleep first", "period", resyncPeriod)
 	time.Sleep(resyncPeriod)
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		log.Info("doing a periodicity sync")
 		err := c.OnResync(ctx, log)
 		if err != nil {
 			log.Error(err, "resync fail,just retry in next period")
@@ -34,7 +35,6 @@ func (c *Controller) StartResyncLoop(ctx context.Context) error {
 }
 
 func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
-	log.Info("doing a periodicity sync")
 	// findHandledIngress
 	alb, err := c.kd.LoadALB(config.GetAlbKey(c))
 	if err != nil {

@@ -94,7 +94,6 @@ server {
 --- http_config
 server {
     listen 9000;
-    access_log /t/servroot/logs/access.log http;
     location /t {
         content_by_lua_block {
             ngx.log(ngx.INFO,"on test")

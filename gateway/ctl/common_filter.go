@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type CommonFiliter struct {
@@ -60,7 +60,7 @@ func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, 
 	}
 }
 
-func (c *CommonFiliter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *Listener) bool {
+func (c *CommonFiliter) FilteRoute(ref gv1b1t.ParentReference, r *Route, ls *Listener) bool {
 	// allow routes
 	key := client.ObjectKeyFromObject(r.route.GetObject())
 	accept, msg := c.routeCouldAttach(key, ls.gateway, &ls.Listener)
@@ -79,18 +79,18 @@ func (c *CommonFiliter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *List
 	return true
 }
 
-func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gatewayType.Listener) (bool, string) {
-	from := gatewayType.NamespacesFromSame
+func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gv1b1t.Listener) (bool, string) {
+	from := gv1b1t.NamespacesFromSame
 	if ls.AllowedRoutes.Namespaces.From != nil {
 		from = *ls.AllowedRoutes.Namespaces.From
 	}
-	if from == gatewayType.NamespacesFromSame {
+	if from == gv1b1t.NamespacesFromSame {
 		if gateway.Namespace != route.Namespace {
 			return false, fmt.Sprintf("gateway %v only allow route from same ns", gateway)
 		}
 	}
 
-	if from == gatewayType.NamespacesFromSelector && validNsSelector(ls) {
+	if from == gv1b1t.NamespacesFromSelector && validNsSelector(ls) {
 		ns := corev1.Namespace{}
 		err := c.c.Get(c.ctx, client.ObjectKey{Name: route.Namespace}, &ns)
 		if err != nil {
@@ -109,7 +109,7 @@ func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.
 	return true, ""
 }
 
-func validNsSelector(ls *gatewayType.Listener) bool {
+func validNsSelector(ls *gv1b1t.Listener) bool {
 	if ls == nil {
 		return false
 	}

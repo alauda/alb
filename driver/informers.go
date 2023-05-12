@@ -14,8 +14,9 @@ import (
 	discoveryv1 "k8s.io/client-go/informers/discovery/v1"
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
-	gatewayExternal "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
-	gatewayV1alpha2 "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions/apis/v1alpha2"
+	gatewayExternal "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	gv1a2i "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1alpha2"
+	gv1b1i "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1beta1"
 )
 
 // Informers will be used by alb
@@ -35,12 +36,12 @@ type K8sInformers struct {
 }
 
 type GatewayInformers struct {
-	Gateway      gatewayV1alpha2.GatewayInformer
-	GatewayClass gatewayV1alpha2.GatewayClassInformer
-	HttpRoute    gatewayV1alpha2.HTTPRouteInformer
-	TcpRoute     gatewayV1alpha2.TCPRouteInformer
-	UdpRoute     gatewayV1alpha2.UDPRouteInformer
-	TlsRoute     gatewayV1alpha2.TLSRouteInformer
+	Gateway      gv1b1i.GatewayInformer
+	GatewayClass gv1b1i.GatewayClassInformer
+	HttpRoute    gv1b1i.HTTPRouteInformer
+	TcpRoute     gv1a2i.TCPRouteInformer
+	UdpRoute     gv1a2i.UDPRouteInformer
+	TlsRoute     gv1a2i.TLSRouteInformer
 }
 
 type AlbInformers struct {
@@ -93,13 +94,13 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
 
-	gatewayClassInformer := gatewayInformerFactory.Gateway().V1alpha2().GatewayClasses()
+	gatewayClassInformer := gatewayInformerFactory.Gateway().V1beta1().GatewayClasses()
 	gatewayClassSynced := gatewayClassInformer.Informer().HasSynced
 
-	gatewayInformer := gatewayInformerFactory.Gateway().V1alpha2().Gateways()
+	gatewayInformer := gatewayInformerFactory.Gateway().V1beta1().Gateways()
 	gatewaySynced := gatewayInformer.Informer().HasSynced
 
-	httpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().HTTPRoutes()
+	httpRouteInformer := gatewayInformerFactory.Gateway().V1beta1().HTTPRoutes()
 	httpRouteSynced := httpRouteInformer.Informer().HasSynced
 
 	tcpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TCPRoutes()

@@ -4,9 +4,9 @@ ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 ENV GOFLAGS=-buildvcs=false
-COPY . $GOPATH/src/alauda.io/alb2
 WORKDIR $GOPATH/src/alauda.io/alb2
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
+COPY . $GOPATH/src/alauda.io/alb2
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/alb alauda.io/alb2/cmd/alb
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/operator alauda.io/alb2/cmd/operator

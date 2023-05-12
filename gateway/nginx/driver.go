@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gt "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -22,7 +22,7 @@ var (
 )
 
 func init() {
-	_ = gt.AddToScheme(scheme)
+	_ = gv1b1t.AddToScheme(scheme)
 }
 
 type Driver struct {
@@ -40,7 +40,7 @@ func NewDriver(kd *driver.KubernetesDriver, log logr.Logger) *Driver {
 func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 	log := d.log.WithValues("sel", sel.String())
 	kd := d.kd
-	gatewayList := []*gt.Gateway{}
+	gatewayList := []*gv1b1t.Gateway{}
 	{
 		if sel.GatewayClass != nil {
 			gl, err := listGatewayByClassName(kd, *sel.GatewayClass)
@@ -57,11 +57,11 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 			// NOTE: gateway not exist is accept.
 			if k8serrors.IsNotFound(err) {
 				log.Info("gateway not found")
-				gatewayList = []*gt.Gateway{}
+				gatewayList = []*gv1b1t.Gateway{}
 			} else if err != nil {
 				return nil, err
 			} else {
-				gatewayList = []*gt.Gateway{gateway}
+				gatewayList = []*gv1b1t.Gateway{gateway}
 			}
 		}
 	}
@@ -97,7 +97,7 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 
 	// for each route check each parentRefs's condition, find out is this route ready.
 	for _, r := range routes {
-		statusMap := map[ListenerKey]gt.RouteParentStatus{}
+		statusMap := map[ListenerKey]gv1b1t.RouteParentStatus{}
 		routeKey := client.ObjectKeyFromObject(r.GetObject())
 		for _, status := range GetStatus(r) {
 			statusMap[RefToKey(status.ParentRef)] = status
@@ -156,8 +156,8 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 }
 
 // ListGatewayByClassName list gateway in all ns
-func listGatewayByClassName(kd *driver.KubernetesDriver, classname string) ([]*gt.Gateway, error) {
-	var ret []*gt.Gateway
+func listGatewayByClassName(kd *driver.KubernetesDriver, classname string) ([]*gv1b1t.Gateway, error) {
+	var ret []*gv1b1t.Gateway
 	gateways, err := kd.Informers.Gateway.Gateway.Lister().List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func listRoutes(kd *driver.KubernetesDriver) ([]CommonRoute, error) {
 	return ret, nil
 }
 
-func IsRouteReady(status []gt.RouteParentStatus, key client.ObjectKey, name string, generation int64) (bool, string) {
+func IsRouteReady(status []gv1b1t.RouteParentStatus, key client.ObjectKey, name string, generation int64) (bool, string) {
 	for _, s := range status {
 		if IsRefToListener(s.ParentRef, key, name) {
 			for _, c := range s.Conditions {
@@ -228,7 +228,7 @@ func IsRouteReady(status []gt.RouteParentStatus, key client.ObjectKey, name stri
 
 type ListenerKey string
 
-func RefToKey(ref gt.ParentRef) ListenerKey {
+func RefToKey(ref gv1b1t.ParentReference) ListenerKey {
 	key := fmt.Sprintf("%s/%s/%s", *ref.Namespace, ref.Name, *ref.SectionName)
 	return ListenerKey(key)
 }
@@ -238,7 +238,7 @@ func ListenerToKey(ls *Listener) ListenerKey {
 	return ListenerKey(key)
 }
 
-func IsListenerReady(status []gt.ListenerStatus, key client.ObjectKey, name string, generation int64) bool {
+func IsListenerReady(status []gv1b1t.ListenerStatus, key client.ObjectKey, name string, generation int64) bool {
 	for _, s := range status {
 		if string(s.Name) == string(name) {
 			for _, c := range s.Conditions {
@@ -251,7 +251,7 @@ func IsListenerReady(status []gt.ListenerStatus, key client.ObjectKey, name stri
 	return false
 }
 
-func GetStatus(r CommonRoute) []gt.RouteParentStatus {
+func GetStatus(r CommonRoute) []gv1b1t.RouteParentStatus {
 	switch route := r.(type) {
 	case *HTTPRoute:
 		return route.Status.Parents

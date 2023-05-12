@@ -13,7 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // init controller runtime client
@@ -24,7 +25,8 @@ func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = albv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = netv1.AddToScheme(scheme)
-	_ = gateway.AddToScheme(scheme)
+	_ = gv1b1t.AddToScheme(scheme)
+	_ = gv1a2t.AddToScheme(scheme)
 	return scheme
 }
 

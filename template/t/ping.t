@@ -54,16 +54,17 @@ no_shuffle();
 no_root_location();
 run_tests(); 
 
+
+
 __DATA__
 
 === TEST 1: http ping/pong should ok 
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
-	local F = require("F");local u = require("util");local h = require("test-helper");
-    local httpc = require("resty.http").new()
-
+	local F = require("F");local u = require("util");local h = require("test-helper");local httpc = require("resty.http").new();
     local res, err = httpc:request_uri("http://127.0.0.1:80/t1")
+	u.log(F"{err}")
 	u.log(F"test res  {res.body} err {err}")
 	h.assert_curl_success(res,err,"ok")
 --- response_body: ok

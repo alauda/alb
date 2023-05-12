@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/utils"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayType "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	. "alauda.io/alb2/controller/types"
 )

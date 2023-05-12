@@ -6,7 +6,11 @@ import (
 	"reflect"
 	"strings"
 
+	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/utils/test_utils"
+	. "alauda.io/alb2/utils/test_utils/assert"
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +21,9 @@ import (
 
 var _ = ginkgo.Describe("Ingress", func() {
 	var f *Framework
+	var l logr.Logger
+	var albname string
+	var albns string
 
 	ginkgo.BeforeEach(func() {
 		deployCfg := Config{InstanceMode: true, RestCfg: KUBE_REST_CONFIG, Project: []string{"project1"}}
@@ -24,6 +31,10 @@ var _ = ginkgo.Describe("Ingress", func() {
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-default", []string{"192.168.1.1", "192.168.2.2"})
 		f.Init()
+		l = GinkgoLog()
+		albname = f.AlbName
+		albns = f.AlbNs
+		_ = l
 	})
 
 	ginkgo.AfterEach(func() {
@@ -333,5 +344,171 @@ spec:
 
 		})
 
+		GIt("should write status in ingress", func() {
+			l.Info("hello")
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-xx
+  namespace: alb-test
+spec:
+  rules:
+  - host: svc.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /xx1
+        pathType: ImplementationSpecific
+`)
+			ctx := f.GetCtx()
+			ns := "alb-test"
+			ingname := "ing-xx"
+			Wait(func() (bool, error) {
+				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+				l.Info("check ingress status", "ing", PrettyCr(ing))
+				return NewIngressAssert(ing).HasLoadBalancerIP("127.0.0.1"), nil
+			})
+			// change alb address
+			alb, err := f.GetAlbClient().CrdV2beta1().ALB2s(albns).Get(ctx, albname, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			alb.Spec.Address = "alauda.com"
+			_, err = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Update(ctx, alb, metav1.UpdateOptions{})
+			l.Info("update alb address")
+			GinkgoNoErr(err)
+			Wait(func() (bool, error) {
+				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+				l.Info("check ingress status", "ing", PrettyCr(ing))
+				return NewIngressAssert(ing).HasLoadBalancerHostAndPort("alauda.com", []int32{80}), nil
+			})
+
+			Wait(func() (bool, error) {
+				rs, err := f.GetAlbClient().CrdV1().Rules("cpaas-system").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					return false, err
+				}
+				l.Info("rule len ", "len", len(rs.Items))
+				for _, r := range rs.Items {
+					l.Info("get-rule", "rule", *r.Spec.Source, "name", r.Name)
+				}
+				return len(rs.Items) == 1, nil
+			})
+
+			// 从没有端口到有端口 ngress status中的port应该发生对应变化
+			ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			ing.Annotations["alb.networking.cpaas.io/tls"] = "svc.test=cpaas-system/svc.test-xtgdc"
+			ing, err = f.GetK8sClient().NetworkingV1().Ingresses(ns).Update(ctx, ing, metav1.UpdateOptions{})
+
+			Wait(func() (bool, error) {
+				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+				l.Info("check ingress status 443", "ing", PrettyCr(ing))
+				return NewIngressAssert(ing).HasLoadBalancerHostAndPort("alauda.com", []int32{443}), nil
+			})
+
+			Wait(func() (bool, error) {
+				rs, err := f.GetAlbClient().CrdV1().Rules("cpaas-system").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					return false, err
+				}
+				l.Info("rule len ", "len", len(rs.Items))
+				for _, r := range rs.Items {
+					l.Info("get-rule", "rule", *r.Spec.Source, "name", r.Name)
+				}
+				return len(rs.Items) == 1, nil
+			})
+		})
+
+		GIt("should not recreate rule when ingress annotation/owner change", func() {
+			f.AssertKubectlApply(`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-xx
+  namespace: alb-test
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /xx1
+        pathType: ImplementationSpecific
+`)
+			ctx := f.GetCtx()
+			ns := "alb-test"
+			ingname := "ing-xx"
+			ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			ruleName := ""
+			// wait for rule created, and get rule name
+			f.Wait(func() (bool, error) {
+				rs, err := FindRuleViaSource(f.GetCtx(), *f.K8sClient, ing.Name)
+				if err != nil {
+					return false, err
+				}
+				if len(rs) != 1 {
+					return false, fmt.Errorf("find one more rule %v", PrettyJson(rs))
+				}
+				r := rs[0]
+				l.Info("rule", "rule", PrettyCr(r), "r-i-v", r.Annotations, "ing-v", ing.ResourceVersion)
+				ruleName = r.Name
+				return true, nil
+			})
+
+			// change ingress version
+			_, err = f.Kubectl.Kubectl("annotate", "ingresses.networking.k8s.io", "-n", "alb-test", "ing-xx", fmt.Sprintf("a=%d", 1), "--overwrite")
+			GinkgoNoErr(err)
+			ing, err = f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+			GinkgoNoErr(err)
+
+			// rule's name should not change
+			f.Wait(func() (bool, error) {
+				rs, err := FindRuleViaSource(f.GetCtx(), *f.K8sClient, ing.Name)
+				if err != nil {
+					return false, err
+				}
+				if len(rs) != 1 {
+					return false, fmt.Errorf("find one more rule %v", PrettyJson(rs))
+				}
+				r := rs[0]
+				l.Info("rule", "rule", PrettyCr(r), "r-i-v", r.Annotations, "ing-v", ing.ResourceVersion)
+				if r.Name != ruleName {
+					return false, fmt.Errorf("rule name should not change %v %v", ruleName, r.Name)
+				}
+				return true, nil
+			})
+
+		})
 	})
 })
+
+func FindRuleViaSource(ctx context.Context, cli K8sClient, ing string) ([]av1.Rule, error) {
+	rules, err := cli.GetAlbClient().CrdV1().Rules("cpaas-system").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := []av1.Rule{}
+	for _, r := range rules.Items {
+		if r.Spec.Source.Name == ing {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}

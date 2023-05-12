@@ -7,7 +7,7 @@ import (
 	pmType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayType "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/gateway"

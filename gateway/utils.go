@@ -6,55 +6,56 @@ import (
 
 	"alauda.io/alb2/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // TODO refactor with generic
-type HTTPRoute gatewayType.HTTPRoute
+type HTTPRoute gv1b1t.HTTPRoute
 
-func (r *HTTPRoute) GetSpec() gatewayType.CommonRouteSpec {
+func (r *HTTPRoute) GetSpec() gv1b1t.CommonRouteSpec {
 	return r.Spec.CommonRouteSpec
 }
 
 func (r *HTTPRoute) GetObject() client.Object {
-	return (*gatewayType.HTTPRoute)(r)
+	return (*gv1b1t.HTTPRoute)(r)
 }
 
-type TCPRoute gatewayType.TCPRoute
+type TCPRoute gv1a2t.TCPRoute
 
-func (r *TCPRoute) GetSpec() gatewayType.CommonRouteSpec {
+func (r *TCPRoute) GetSpec() gv1b1t.CommonRouteSpec {
 	return r.Spec.CommonRouteSpec
 }
 
 func (r *TCPRoute) GetObject() client.Object {
-	return (*gatewayType.TCPRoute)(r)
+	return (*gv1a2t.TCPRoute)(r)
 }
 
-type UDPRoute gatewayType.UDPRoute
+type UDPRoute gv1a2t.UDPRoute
 
-func (r *UDPRoute) GetSpec() gatewayType.CommonRouteSpec {
+func (r *UDPRoute) GetSpec() gv1b1t.CommonRouteSpec {
 	return r.Spec.CommonRouteSpec
 }
 
 func (r *UDPRoute) GetObject() client.Object {
-	return (*gatewayType.UDPRoute)(r)
+	return (*gv1a2t.UDPRoute)(r)
 }
 
-type TLSRoute gatewayType.TLSRoute
+type TLSRoute gv1a2t.TLSRoute
 
-func (r *TLSRoute) GetSpec() gatewayType.CommonRouteSpec {
+func (r *TLSRoute) GetSpec() gv1b1t.CommonRouteSpec {
 	return r.Spec.CommonRouteSpec
 }
 func (r *TLSRoute) GetObject() client.Object {
-	return (*gatewayType.TLSRoute)(r)
+	return (*gv1a2t.TLSRoute)(r)
 }
 
 type CommonRoute interface {
-	GetSpec() gatewayType.CommonRouteSpec
+	GetSpec() gv1b1t.CommonRouteSpec
 	GetObject() client.Object
 }
 
-func IsRefsToGateway(refs []gatewayType.ParentRef, gateway client.ObjectKey) bool {
+func IsRefsToGateway(refs []gv1b1t.ParentReference, gateway client.ObjectKey) bool {
 	for _, ref := range refs {
 		if IsRefToGateway(ref, gateway) {
 			return true
@@ -63,13 +64,13 @@ func IsRefsToGateway(refs []gatewayType.ParentRef, gateway client.ObjectKey) boo
 	return false
 }
 
-func IsRefToGateway(ref gatewayType.ParentRef, gateway client.ObjectKey) bool {
+func IsRefToGateway(ref gv1b1t.ParentReference, gateway client.ObjectKey) bool {
 	return ref.Namespace != nil &&
 		string(ref.Name) == gateway.Name &&
 		string(*ref.Namespace) == gateway.Namespace
 }
 
-func IsRefToListener(ref gatewayType.ParentRef, gateway client.ObjectKey, name string) bool {
+func IsRefToListener(ref gv1b1t.ParentReference, gateway client.ObjectKey, name string) bool {
 	return ref.Namespace != nil &&
 		ref.SectionName != nil &&
 		string(ref.Name) == gateway.Name &&
@@ -105,7 +106,7 @@ func IsSupported(protocol string, routekind string) bool {
 	return find
 }
 
-func SameProtocol(p1, p2 gatewayType.ProtocolType) bool {
+func SameProtocol(p1, p2 gv1b1t.ProtocolType) bool {
 	p1Str := string(p1)
 	p2Str := string(p2)
 	return strings.EqualFold(p1Str, p2Str)

@@ -1,26 +1,30 @@
-package framework
+package test_utils
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 
-	"alauda.io/alb2/utils/test_utils"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/strings/slices"
 )
 
 type Helm struct {
 	helmBase    string
 	kubeCfgPath string
+	Log         logr.Logger
 }
 
-func NewHelm(base string, kubeCfg *rest.Config) *Helm {
-	raw, _ := test_utils.KubeConfigFromREST(kubeCfg, "test")
+// @require helm # which must be helm-alauda NOT helm v3
+func NewHelm(base string, kubeCfg *rest.Config, l logr.Logger) *Helm {
+	raw, _ := KubeConfigFromREST(kubeCfg, "test")
 	helmBase := path.Join(base, "helm")
 	_ = os.Mkdir(helmBase, os.ModePerm)
 	kubeCfgPath := path.Join(helmBase, "kubecfg")
@@ -28,6 +32,7 @@ func NewHelm(base string, kubeCfg *rest.Config) *Helm {
 	return &Helm{
 		helmBase:    helmBase,
 		kubeCfgPath: kubeCfgPath,
+		Log:         l,
 	}
 	// helm ignore kubecfg permission
 }
@@ -45,17 +50,25 @@ func (h *Helm) Install(cfgs []string, name string, base, val string) (string, er
 	}
 	cmds = append(cmds, name, base)
 	cmds = append(cmds, "--kubeconfig", h.kubeCfgPath, "--create-namespace")
-	return helm(cmds...)
+	return h.helm(cmds...)
 }
 
 func (h *Helm) UnInstall(name string) (string, error) {
+	charts, err := h.List()
+	if err != nil {
+		return "", err
+	}
+	if !slices.Contains(charts, name) {
+		h.Log.Info("not found ignore", "name", name)
+		return "", nil
+	}
 	cmds := []string{"uninstall", name, "--kubeconfig", h.kubeCfgPath}
-	return helm(cmds...)
+	return h.helm(cmds...)
 }
 
 func (h *Helm) List() ([]string, error) {
 	cmds := []string{"list", "--kubeconfig", h.kubeCfgPath}
-	out, err := helm(cmds...)
+	out, err := h.helm(cmds...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +113,49 @@ func (h *Helm) AssertInstall(cfgs []string, name string, base, val string) strin
 	return out
 }
 
-func helm(cmds ...string) (string, error) {
-	Logf("helm %v", cmds)
+func (h *Helm) Pull(chart string) (string, error) {
+	dir, err := os.MkdirTemp(h.helmBase, "chart*")
+	if err != nil {
+		return "", err
+	}
+	out, err := h.helm("chart", "pull", chart, "--insecure")
+	if err != nil {
+		return "", err
+	}
+	h.Log.Info("helm", "msg", out)
+	out, err = h.helmWithBase([]string{"chart", "export", chart}, dir)
+	if err != nil {
+		return "", err
+	}
+	re := regexp.MustCompile(`Exported chart to ([^/]*)/`)
+	matches := re.FindStringSubmatch(out)
+	h.Log.Info("export", "msg", out)
+	h.Log.Info("export", "match", matches)
+	if len(matches) != 2 {
+		return "", fmt.Errorf("export fail %s", out)
+	}
+	return path.Join(dir, matches[1]), nil
+}
+
+func (h *Helm) helmWithBase(cmds []string, dir string) (string, error) {
+
+	h.Log.Info("helm call", "cmds", cmds, "dir", dir)
+
 	cmd := exec.Command("helm", cmds...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("%s err: %v", stdout, err)
 	}
 	return string(stdout), nil
+}
+
+func (h *Helm) helm(cmds ...string) (string, error) {
+	return h.helmWithBase(cmds, "")
+}
+
+func (h *Helm) Destory() error {
+	return os.RemoveAll(h.helmBase)
 }

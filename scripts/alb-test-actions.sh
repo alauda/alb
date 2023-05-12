@@ -2,7 +2,7 @@
 # shellcheck disable=SC2120,SC2155,SC2181
 
 function alb-build-e2e-test() {
-  local coverpkg_list=$(go list ./... | sort | uniq)
+  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq)
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
   local ginkgoCmds=""
   for suite_test in $(find ./test/e2e -name suite_test.go); do
@@ -76,7 +76,7 @@ function alb-run-e2e-test-one() {
 function alb-run-all-e2e-test() (
   # TODO 现在并行跑测试使用xargs，然后看log中有没有错来判断测试是否通过，担心会有并发写文件的问题，还是应该用ginkgo原生的方法。
   # 在每个each中创建/销毁 k8s
-  local concurrent=${1:-2}
+  local concurrent=${1:-6}
   local filter=${2:-""}
   set -e
   alb-build-e2e-test
@@ -124,7 +124,7 @@ function alb-go-unit-test {
   # translate from https://github.com/ory/go-acc
   rm -rf ./coverage*
   echo 'mode: atomic' >coverage.txt
-  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v migrate | sort | grep "$filter")
+  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
   local fail="0"

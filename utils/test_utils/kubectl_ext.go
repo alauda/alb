@@ -68,6 +68,7 @@ func (k *Kubectl) Kubectl(cmds ...string) (string, error) {
 		cmds = strings.Split(cmds[0], " ")
 	}
 	cmds = append(cmds, "--kubeconfig", k.kubeCfgPath)
+	k.log.Info("cmd", "cmds", cmds)
 	cmd := exec.Command("kubectl", cmds...)
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {

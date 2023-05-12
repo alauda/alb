@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type GatewayClassReconciler struct {
@@ -38,7 +38,7 @@ func NewGatewayClassReconciler(ctx context.Context, c client.Client, log logr.Lo
 
 func (g *GatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gatewayType.GatewayClass{}).
+		For(&gv1b1t.GatewayClass{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{})
 
 	return b.Complete(g)
@@ -50,7 +50,7 @@ func (g *GatewayClassReconciler) Reconcile(ctx context.Context, request reconcil
 	if request.Name != g.class {
 		return reconcile.Result{}, nil
 	}
-	class := &gatewayType.GatewayClass{}
+	class := &gv1b1t.GatewayClass{}
 	err := g.c.Get(g.ctx, request.NamespacedName, class)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -67,10 +67,10 @@ func (g *GatewayClassReconciler) Reconcile(ctx context.Context, request reconcil
 	return reconcile.Result{}, err
 }
 
-func (g *GatewayClassReconciler) UnknowController(class *gatewayType.GatewayClass) error {
+func (g *GatewayClassReconciler) UnknowController(class *gv1b1t.GatewayClass) error {
 	class.Status.Conditions = []metav1.Condition{
 		{
-			Type:               string(gatewayType.GatewayClassConditionStatusAccepted),
+			Type:               string(gv1b1t.GatewayClassConditionStatusAccepted),
 			Status:             metav1.ConditionFalse,
 			Reason:             "InvalidController",
 			ObservedGeneration: class.Generation,
@@ -81,12 +81,12 @@ func (g *GatewayClassReconciler) UnknowController(class *gatewayType.GatewayClas
 	return g.c.Status().Update(g.ctx, class)
 }
 
-func (g *GatewayClassReconciler) AcceptClass(class *gatewayType.GatewayClass) error {
+func (g *GatewayClassReconciler) AcceptClass(class *gv1b1t.GatewayClass) error {
 	class.Status.Conditions = []metav1.Condition{
 		{
-			Type:               string(gatewayType.GatewayClassConditionStatusAccepted),
+			Type:               string(gv1b1t.GatewayClassConditionStatusAccepted),
 			Status:             metav1.ConditionTrue,
-			Reason:             string(gatewayType.GatewayClassReasonAccepted),
+			Reason:             string(gv1b1t.GatewayClassReasonAccepted),
 			ObservedGeneration: class.Generation,
 			LastTransitionTime: metav1.Now(),
 		},

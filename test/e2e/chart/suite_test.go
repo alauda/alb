@@ -3,11 +3,8 @@ package chart
 // test for render alb chart
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -34,7 +31,7 @@ var testEnv *envtest.Environment
 var kubecfg *rest.Config
 var albRoot string
 var testBase string
-var helm *f.Helm
+var helm *tu.Helm
 var kt *tu.Kubectl
 var kc *tu.K8sClient
 
@@ -72,7 +69,7 @@ var _ = Describe("chart", func() {
 			kubecfg = cf
 		}
 
-		helm = f.NewHelm(testBase, kubecfg)
+		helm = tu.NewHelm(testBase, kubecfg, tu.GinkgoLog())
 		kt = tu.NewKubectl(testBase, kubecfg, tu.GinkgoLog())
 		kc = tu.NewK8sClient(ctx, kubecfg)
 
@@ -139,7 +136,7 @@ var _ = Describe("chart", func() {
 		kc.GetClient().Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, depl)
 		nginxC := depl.Spec.Template.Spec.Containers[0]
 		albC := depl.Spec.Template.Spec.Containers[1]
-		l.Info("depl", "alb", PrettyCr(depl))
+		l.Info("depl", "alb", tu.PrettyCr(depl))
 		assert.Equal(GinkgoT(), albC.Resources.Limits.Cpu().String(), "200m")
 		assert.Equal(GinkgoT(), albC.Resources.Limits.Memory().String(), "2Gi")
 		assert.Equal(GinkgoT(), nginxC.Resources.Limits.Cpu().String(), "2")
@@ -187,34 +184,3 @@ var _ = Describe("chart", func() {
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
 	})
 })
-
-// TODO move it to /tools
-func PrettyCr(obj client.Object) string {
-	if obj == nil || reflect.ValueOf(obj).IsNil() {
-		return "isnill"
-	}
-	out, err := json.Marshal(obj)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-	raw := map[string]interface{}{}
-	err = json.Unmarshal(out, &raw)
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-	{
-		metadata, ok := raw["metadata"].(map[string]interface{})
-		if ok {
-			metadata["managedFields"] = ""
-			annotation, ok := metadata["annotations"].(map[string]interface{})
-			if ok {
-				annotation["kubectl.kubernetes.io/last-applied-configuration"] = ""
-			}
-		}
-	}
-	out, err = json.MarshalIndent(raw, "", "  ")
-	if err != nil {
-		return fmt.Sprintf("%v", err)
-	}
-	return string(out)
-}

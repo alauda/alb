@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -117,4 +118,8 @@ func (c *MockConfig) GetNetworkMode() ControllerNetWorkMode {
 
 func (c *MockConfig) IsEnableAlb() bool {
 	return c.EnableAlb
+}
+
+func (c *MockConfig) GetAnnotationIngressAddress() string {
+	return fmt.Sprintf(INGRESS_ADDRESS_NAME, c.GetDomain(), c.GetAlbName())
 }

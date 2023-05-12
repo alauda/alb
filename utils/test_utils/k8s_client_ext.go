@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gt "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 // TODO 直接用controller-runtime的client
@@ -138,11 +138,11 @@ func (f *K8sClient) GetDeploymentEnv(ns, name, container string) (map[string]str
 }
 
 func (f *K8sClient) CreateGatewayClass(name string) error {
-	_, err := f.gatewayClient.GatewayV1alpha2().GatewayClasses().Create(f.ctx, &gt.GatewayClass{
+	_, err := f.gatewayClient.GatewayV1beta1().GatewayClasses().Create(f.ctx, &gv1b1t.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: gt.GatewayClassSpec{
+		Spec: gv1b1t.GatewayClassSpec{
 			ControllerName: "alb.gateway.operator/test",
 		},
 	}, metav1.CreateOptions{})

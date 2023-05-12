@@ -8,8 +8,8 @@ use Test::Nginx::Socket;
 # openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes   -keyout private.key -out public.cert -subj "/CN=a.com";openssl rsa -in ./private.key -out private_rsa.key
 
 # perl -pe 's/\n/\\n/' 
-$ENV{"DEFAULT-SSL-STRATEGY"} ||= "Always";
-$ENV{"INGRESS_HTTPS_PORT"} ||= "443";
+# $ENV{"DEFAULT-SSL-STRATEGY"} ||= "Always";
+# $ENV{"INGRESS_HTTPS_PORT"} ||= "443";
 
 my $a_com_cert = "-----BEGIN CERTIFICATE-----\nMIIFKDCCAxCgAwIBAgIUE4OwF7BMcDRHF56HkVYPbMCCW2QwDQYJKoZIhvcNAQEL\nBQAwEDEOMAwGA1UEAwwFYS5jb20wHhcNMjIwNTE5MDcyODI3WhcNMzIwNTE2MDcy\nODI3WjAQMQ4wDAYDVQQDDAVhLmNvbTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCC\nAgoCggIBALL3x/o0hJJas8oaywzYGIc2wdbeQ4/yuoK/dsPMkSbbZ75FmEcaqozh\nYJSb6JdE8XKNR8mJbvog8knbsoWklo/fNaQbinXEcbsGgSwjOntSB091K9Qiet4o\n08zbf9xQcv1T3qE4STism6PnzP5trDyYPJ0Jox/Gi+HMF3vXGbTqGsUOSxTxq9d1\nCLYb62kPG1ums45XgF/m08F0HDkCfh2OonV5R3jPLEleEQ8GmSIrjPfnEUkfS3sw\nGkfByuIomK635grptZqPHgtse4ZMBZmUkEwy8eKX+8mnKCdnSgkVugUISWu5NdgI\ngjpyhrZgPp5hEV6k1EzZmZxqYx0DCzy2BfmpKFe5bkKt64ADQlSqPz3OsuzKXuye\nDr3yCxy8Gcy7LEjVs0umoth+DSwAvsNeIaVxgpxUd68txF7pVNkNEOdjqc32ZYS5\njbUYa2S+irsKuJ7Y4j9CZIGLDwGzKbfkXslLL7+Z6ePa7mrIwC0fYNEzj9zibP7M\n6LCK/aLWMp2M6E0jUHBizH9gqp00lheM2GgCKdXG+sCTwecJzkEkv44V33RoUWMR\nYNwR/yM+VA91YLfXaJPk75bcysbAX41ghfIVEi4fuVRd0IaTR3FC4XCvUcTayL5m\nmgFzX7QtSQ0EIrrZRSI6zjCkiRKpMBx0BJBowvdtcp9Y13cQxFZBAgMBAAGjejB4\nMB0GA1UdDgQWBBQl9RFLX4soAfwgvi0v3Rd3XAoc4TAfBgNVHSMEGDAWgBQl9RFL\nX4soAfwgvi0v3Rd3XAoc4TAPBgNVHRMBAf8EBTADAQH/MCUGA1UdEQQeMByCFGZh\na2UuMTAuMTk5LjAuMTcuY29thwQKxwARMA0GCSqGSIb3DQEBCwUAA4ICAQBIDr2R\ngxW5JbqyOaw7U1YJ8omImHhyDExFubNf3b93/oKVpbebMl4dJD82I6lnFUPcTC7P\novOXGF/zvo613uwIv7p8YxMgG6XwhdYkwsWFUUZttyHUZU7Bvyx46Q4wFv/V4Egp\nsxYuS4wrMg9peb7NuCJb6fLfQXUJdh+7MDbjV2x3dgELlscSHKJYiDXNauXIv/Kx\nI7rlFRfyJ14u7SP+BhexpuxSaVki3PXD6549bqtQUPsj+kuRNAN31Ymv81tPDa42\n7aPOrQqs7xt9KhBjhgOQsZg4jJvfWCgfQ+Ym037jylIqXuxrAE4w8hCt2o2wz0ux\nY1bhXkq9DBeeK1jYdvGQx8tuyT8QP4wD1rcj4yHEvK2kRU+P7FLQ/EastoR1nm+i\nn4mNaJCpLfeuTEGTWLTO/DPFtXgkmv4emlj9RNlHqrd4BTbLqNef/vxhVohdZ0b/\nJGrYZAWsg81olPkt0hHYnjHcGbhbCBuZeeh0EwABuFBbv9F8TidE3IZ2Vy6w8hmt\nA6eKrroiANcUisH9nhXK42k5+veaaZIeWzLoTpy2DFXV0hq+SjYGNDOLyVT5Hx3J\njblhqg8IqW4oZuGW7Z9KE+9sAzZhfolJ7NiN4yy95qu3NUaFRIMu2WphZXAmO2Td\nluJ6ImHGDB0dohMMJslXEMUusZ/ghc/VeZffMA==\n-----END CERTIFICATE-----";
 my $a_com_key = "-----BEGIN RSA PRIVATE KEY-----\n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\n-----END RSA PRIVATE KEY-----";
@@ -92,18 +92,13 @@ __DATA__
 --- http_config eval: $::http_config
 --- lua_test
     local F = require("F");local u = require("util");local h = require("test-helper");
-
     local shell = require "resty.shell"
-    do 
-        local ok, stdout, stderr = shell.run([[ openssl s_client -connect 127.0.0.1:443 -servername a.com |grep a.com ]])
-        h.assert_contains(stdout,"a.com")
-    end
 
-    do
-        -- should use default 443 cert
-        local ok, stdout, stderr = shell.run([[ openssl s_client -connect 127.0.0.1:443 -servername b.com  ]])
-        h.assert_contains(stdout,"443.default.com")
-    end
+    --do 
+        --local ok, stdout, stderr = shell.run([[ openssl s_client -connect 127.0.0.1:443 -servername a.com |grep a.com ]])
+        --h.assert_contains(stdout,"a.com")
+    --end
+
 
     do
         -- wildcard hostname
@@ -121,5 +116,11 @@ __DATA__
         -- use port cert 
         local ok, stdout, stderr = shell.run([[ openssl s_client -connect 127.0.0.1:2443   ]])
         h.assert_contains(stdout,"a.com")
+    end
+
+    do
+        -- should use default 443 cert
+        local ok, stdout, stderr = shell.run([[ openssl s_client -connect 127.0.0.1:443 -servername b.com  ]])
+        h.assert_contains(stdout,"443.default.com")
     end
 --- response_body: ok

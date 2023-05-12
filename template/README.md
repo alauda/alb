@@ -4,6 +4,8 @@ alb-test-runner.dockerfile: based on alb-nginx, env of test:nginx used in ci.
 directory t: test files of alb/template/nginx/lua.  
 directory actions: scripts used in develop.  
 
+## what template mean?
+it should be renamed as openresty or resty-app ..
 ## QA
 ### what the different between this and [official-resty-image](https://github.com/openresty/docker-openresty/blob/59d43df176d2635f7fe429c58ffd0f307580614e/alpine/Dockerfile)
 1. use alpine image

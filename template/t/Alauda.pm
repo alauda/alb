@@ -4,15 +4,32 @@ use warnings;
 package t::Alauda;
 use Test::Nginx::Socket::Lua::Stream -Base;
 
+# struct of a nginx test
+# /
+# /nginx
+#     /lua
+#     /placeholder.cert
+#     /placeholder.key
+# /t
+# /nginx.conf
+# /tweak
+# /logs
+# /dhparam.pem
+# /policy.new
+
 # to knowing how/why those $block->set_value work, take a look at https://github.com/openresty/test-nginx/blob/be75f595236eef83e4274363e13affdf08b05737/lib/Test/Nginx/Util.pm#L968  
 add_block_preprocessor(sub {
     my $block = shift;
-    my $server_port= $block->server_port;
+    my $base = $ENV{'TEST_BASE'};
+    my $alb = $ENV{'TEST_BASE'}; 
+    warn "base is $base";
+    my $lua_path= "/usr/local/lib/lua/?.lua;$base/nginx/lua/?.lua;$base/t/?.lua;$base/t/lib/?.lua;$base/nginx/lua/vendor/?.lua;;";
+    my $server_port = $block->server_port;
     if (defined $server_port) {
         warn "set server_port to $server_port";
         server_port_for_client($server_port);
     }
-
+    system("mkdir -p $base/logs");
     my $no_response_code= $block->no_response_code;
     if (defined $no_response_code) {
         $block->set_value("error_code",'');
@@ -23,7 +40,7 @@ add_block_preprocessor(sub {
         my @certs = split /\s+/, $certificate;
         my $crt = $certs[0];
         my $key = $certs[1];
-        my $cmd="mkdir -p /cert && openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout $key -out $crt -subj \"/CN=test.com\"";
+        my $cmd="openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout $key -out $crt -subj \"/CN=test.com\"";
         warn "generate certificate crt $crt key $key";
         warn "cmd $cmd";
         system($cmd);
@@ -58,7 +75,6 @@ server {
     listen 1999;
     location /t {
         content_by_lua_block {
-            package.path = '/t/?.lua;'.."/t/lib/?.lua;" .. package.path;
 			local test=function()
 				$lua_test
 			end
@@ -77,7 +93,7 @@ __END
 		}
 	}
 
-    open(FH,'>','/etc/alb2/nginx/policy.new') or die $!;
+    open(FH,'>',"$base/policy.new") or die $!;
     print FH $policy;
     close(FH);
 
@@ -87,13 +103,16 @@ env CLEAN_METRICS_INTERVAL;
 env SYNC_BACKEND_INTERVAL;
 env NEW_POLICY_PATH;
 env DEFAULT-SSL-STRATEGY;
+env DEFAULT_SSL_STRATEGY;
 env INGRESS_HTTPS_PORT;
+env TEST_BASE;
 
 stream {
-    include       /alb/tweak/stream-common.conf;
+    include       $base/tweak/stream-common.conf;
+    lua_package_path "$lua_path";
 
-    access_log /t/servroot/logs/access.log stream;
-    error_log /t/servroot/logs/error.log info;
+    access_log $base/logs/access.log stream;
+    error_log $base/logs/error.log info;
 
 
     lua_add_variable \$upstream;
@@ -107,21 +126,21 @@ stream {
                 balancer = res
             end
     }
-    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
+    init_worker_by_lua_file $base/nginx/lua/worker.lua;
 
     $stream_config
 
     server {
-        include       /alb/tweak/stream-tcp.conf;
+        include       $base/tweak/stream-tcp.conf;
         listen     0.0.0.0:81;
-        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
+        preread_by_lua_file $base/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
     
     server {
-        include       /alb/tweak/stream-udp.conf;
+        include       $base/tweak/stream-udp.conf;
         listen     0.0.0.0:82 udp;
-        preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
+        preread_by_lua_file $base/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
 
@@ -148,7 +167,10 @@ _END_
     # warn "get http config $http_config";
 
     my $cfg = <<__END;
-    include       /alb/tweak/http.conf;
+    include       $base/tweak/http.conf;
+    lua_package_path "$lua_path";
+
+    error_log $base/logs/error.log info;
 
     gzip on;
     gzip_comp_level 5;
@@ -168,25 +190,26 @@ _END_
             end
             --require("metrics").init()
     }
-    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
+
+    init_worker_by_lua_file $base/nginx/lua/worker.lua;
 
     server {
+
         listen     0.0.0.0:80 backlog=2048 default_server;
         listen     [::]:80 backlog=2048 default_server;
 
         server_name _;
 
-        include       /alb/tweak/http_server.conf;
-        access_log /t/servroot/logs/access.log http;
+        include       $base/tweak/http_server.conf;
 
         location / {
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
 
             log_by_lua_block {
@@ -201,22 +224,22 @@ _END_
 
         server_name _;
 
-        include       /alb/tweak/http_server.conf;
+        include       $base/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-        ssl_certificate /alb/nginx/placeholder.crt;
-        ssl_certificate_key /alb/nginx/placeholder.key;
-        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
-        ssl_dhparam /etc/alb2/nginx/dhparam.pem;
+        ssl_certificate $base/nginx/placeholder.crt;
+        ssl_certificate_key $base/nginx/placeholder.key;
+        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
                 --require("metrics").log()
@@ -230,21 +253,22 @@ _END_
 
         server_name _;
 
-        include       /alb/tweak/http_server.conf;
+        include       $base/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-        ssl_certificate /alb/nginx/placeholder.crt;
-        ssl_certificate_key /alb/nginx/placeholder.key;
-        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
+        ssl_certificate $base/nginx/placeholder.crt;
+        ssl_certificate_key $base/nginx/placeholder.key;
+        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
-            header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
                 --require("metrics").log()
@@ -258,7 +282,7 @@ _END_
         balancer_by_lua_block {
             balancer.balance()
         }
-        include       /alb/tweak/upstream.conf;
+        include       $base/tweak/upstream.conf;
     }
 
     $http_config

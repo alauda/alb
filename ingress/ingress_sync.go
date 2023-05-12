@@ -14,6 +14,7 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,45 +29,53 @@ import (
 )
 
 // this is the reconcile
-func (c *Controller) Reconcile(key client.ObjectKey) (err error) {
+func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 	s := time.Now()
+	log := c.log.WithValues("key", key)
 	defer func() {
-		c.log.Info("sync ingress over", "key", key, "elapsed", time.Since(s), "err", err)
+		log.Info("sync ingress over", "elapsed", time.Since(s), "err", err)
 	}()
 
-	c.log.Info("sync ingress", "key", key)
+	log.Info("reconcile ingress")
 	alb, err := c.kd.LoadALB(config.GetAlbKey(c))
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	ingress, err := c.kd.FindIngress(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			c.log.Info("ingress been deleted, cleanup", "key", key)
-			return c.cleanUpThisIngress(alb, key)
+			log.Info("ingress been deleted, cleanup")
+			return false, c.cleanUpThisIngress(alb, key, nil)
 		}
-		c.log.Error(err, "Handle failed", "key", key)
-		return err
+		log.Error(err, "Handle failed")
+		return false, err
 	}
-	c.log.Info("process ingress", "name", ingress.Name, "ns", ingress.Namespace, "ver", ingress.ResourceVersion)
+	log = log.WithValues("ver", ingress.ResourceVersion)
 	should, reason := c.shouldHandleIngress(alb, ingress)
 	if !should {
-		c.log.Info("should not handle this ingress. clean up", "key", key, "reason", reason)
-		return c.cleanUpThisIngress(alb, key)
+		log.Info("should not handle this ingress. clean up", "reason", reason)
+		return false, c.cleanUpThisIngress(alb, key, ingress)
 	}
 
 	expect, err := c.generateExpect(alb, ingress)
 	if err != nil {
-		return err
+		return false, err
 	}
 	_, err = c.doUpdate(ingress, alb, expect, false)
 
 	if err != nil {
-		return err
+		return false, err
 	}
 	c.recorder.Event(ingress, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
-	return nil
+
+	if c.NeedUpdateIngressStatus(alb, ingress) {
+		log.Info("need update ingress status")
+		return false, c.UpdateIngressStatus(alb, ingress)
+	} else {
+		log.Info("not need update ingress status")
+	}
+	return false, nil
 }
 
 func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalancer, expect *ExpectFtAndRule, dryRun bool) (needdo bool, err error) {
@@ -91,7 +100,7 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 		return true, nil
 	}
 	needupdateHttp := httpfa.needDo()
-	log.Info("need update http", "updatehttpft", needupdateHttp, "http", httpfa)
+	log.Info("need update http ft?", "need", needupdateHttp, "http", utils.PrettyJson(httpfa))
 
 	if needupdateHttp {
 		if err := c.doUpdateFt(httpfa); err != nil {
@@ -101,7 +110,7 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	}
 
 	needupdateHttps := httpsfa.needDo()
-	log.Info("need update https", "updatehttpsft", needupdateHttps, "https", httpsfa)
+	log.Info("need update https ft?", "need", needupdateHttps, "https", httpsfa)
 	if needupdateHttps {
 		if err := c.doUpdateFt(httpsfa); err != nil {
 			return false, err
@@ -277,10 +286,14 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 	}, nil
 }
 
-func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey) error {
+func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey, ing *networkingv1.Ingress) error {
 	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
 	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
 	log := c.log.WithName("cleanup").WithValues("ingress", key)
+	err := c.CleanUpIngressStatus(alb, ing)
+	if err != nil {
+		return err
+	}
 	log.Info("clean up")
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {
@@ -379,6 +392,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 
 	alblabelKey := fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))
 	need := getIngressFtTypes(ingress, c)
+	c.log.Info("ing need http https", "http", need.NeedHttp(), "https", need.NeedHttps())
 
 	var albhttpFt *alb2v1.Frontend
 	var albhttpsFt *alb2v1.Frontend
@@ -394,7 +408,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 
 	if need.NeedHttp() && albhttpFt == nil {
 		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPPort)
-		c.log.Info("need http ft and ft not exist create one", "name", name)
+		c.log.Info("need http ft and ft not exist. create one", "name", name)
 
 		albhttpFt = &alb2v1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
@@ -582,8 +596,7 @@ func (c *Controller) generateRule(
 	if ingresPath.PathType != nil {
 		pathType = *ingresPath.PathType
 	}
-	sourceIngressVersion := c.GetLabelSourceIngressVer()
-	ruleAnnotation[sourceIngressVersion] = ingress.ResourceVersion
+	// ingress version could be change frequently, when OwnerReference change or status change. we should not record it.
 	ruleAnnotation[c.GetLabelSourceIngressPathIndex()] = fmt.Sprintf("%d", pathIndex)
 	ruleAnnotation[c.GetLabelSourceIngressRuleIndex()] = fmt.Sprintf("%d", ruleIndex)
 	name := strings.ToLower(utils.RandomStr(ft.Name, 4))
@@ -652,13 +665,14 @@ func (c *Controller) generateRule(
 type SyncRule struct {
 	Create []*alb2v1.Rule
 	Delete []*alb2v1.Rule
+	Update []*alb2v1.Rule
 }
 
 func (r *SyncRule) needDo() bool {
 	if r == nil {
 		return false
 	}
-	return len(r.Create) != 0 || len(r.Delete) != 0
+	return len(r.Create) != 0 || len(r.Delete) != 0 || len(r.Update) != 0
 }
 
 func (c *Controller) doUpdateRule(r *SyncRule) error {
@@ -667,7 +681,7 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 	}
 
 	// we want create rule first. since that if this pod crash, it will not lossing rule at least.
-	c.log.Info("update rule", "create", len(r.Create), "delte", len(r.Delete))
+	c.log.Info("update rule", "create", len(r.Create), "delete", len(r.Delete), "update", len(r.Update))
 	for _, r := range r.Create {
 		crule, err := c.kd.CreateRule(r)
 		if err != nil {
@@ -683,6 +697,14 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 		}
 		c.log.Info("delete rule ok", "rule", r.Name, "rule", r)
 	}
+
+	for _, r := range r.Update {
+		nr, err := c.kd.UpdateRule(r)
+		if err != nil {
+			return err
+		}
+		c.log.Info("rule update", "dff", cmp.Diff(r, nr))
+	}
 	return nil
 }
 
@@ -691,7 +713,7 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	log.Info("do update rule", "exist-rule-len", len(existRules), "expect-rule-len", len(expectRules))
 
 	showRule := func(r *alb2v1.Rule) []interface{} {
-		indexDesc := c.ShowRuleIndex(r)
+		indexDesc := c.GenRuleIndex(r)
 		pathDesc := ""
 		{
 			p, err := c.AccessIngressPathViaRule(ing, r)
@@ -701,7 +723,7 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 				pathDesc = p.Path
 			}
 		}
-		tags := []interface{}{"name", r.Name, "hash", ruleHash(r), "ingress", r.Spec.Source.Name, "ing-ver", c.ruleIngressVer(r), "index", indexDesc, "path", pathDesc}
+		tags := []interface{}{"name", r.Name, "ingress", r.Spec.Source.Name, "index", indexDesc, "path", pathDesc}
 		if c.DebugRuleSync() {
 			tags = append(tags, "id", ruleIdentify(r))
 		}
@@ -712,37 +734,63 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	// need delete
 	needDelete := []*alb2v1.Rule{}
 	needCreate := []*alb2v1.Rule{}
+	needUpdate := []*alb2v1.Rule{}
 	existRuleHash := map[string]bool{}
 	expectRuleHash := map[string]bool{}
+	existRuleIndex := map[string]*alb2v1.Rule{}
+	expectRuleIndex := map[string]*alb2v1.Rule{}
 	// we need a layerdmap  ingress/ver/rule-indx/path-index/exist|expect/hash: v
 	for _, r := range expectRules {
-		hash := hashRule(ruleIdentify(r))
-		log.Info("expect rule ", "name", r.Name, "hash", hash)
+		hash := ruleHash(r)
+		index := c.GenRuleIndex(r)
+		log.Info("expect rule ", "name", r.Name, "index", index)
 		expectRuleHash[hash] = true
-	}
-	for _, r := range existRules {
-		hash := hashRule(ruleIdentify(r))
-		log.Info("exist rule ", "name", r.Name, "hash", hash)
-		existRuleHash[hash] = true
+		expectRuleIndex[index] = r
 	}
 
 	for _, r := range existRules {
-		id := ruleIdentify(r)
-		hash := hashRule(id)
-		if !expectRuleHash[hash] {
-			log.Info("need deelte rule ", "name", r.Name, "hash", hash, "id", id)
+		hash := ruleHash(r)
+		index := c.GenRuleIndex(r)
+		log.Info("exist rule ", "name", r.Name, "index", index)
+		existRuleHash[hash] = true
+		if er, find := existRuleIndex[index]; !find {
+			existRuleIndex[index] = r
+		} else {
+			log.Info("find same index rule ", "index", index, "er", er.Name, "r", r.Name)
 			needDelete = append(needDelete, r)
 		}
 	}
+
+	for _, r := range existRules {
+		index := c.GenRuleIndex(r)
+		if _, ok := expectRuleIndex[index]; !ok {
+			log.Info("need delete rule ", "name", r.Name, "index", index, "cr", utils.PrettyJson(r))
+			needDelete = append(needDelete, r)
+		}
+	}
+
 	for _, r := range expectRules {
-		id := ruleIdentify(r)
-		hash := hashRule(id)
-		if !existRuleHash[hash] {
-			log.Info("need create rule ", "name", r.Name, "hash", hash, "id", id)
+		index := c.GenRuleIndex(r)
+		if _, ok := existRuleIndex[index]; !ok {
+			log.Info("need create rule ", "name", r.Name, "cr", utils.PrettyJson(r))
 			needCreate = append(needCreate, r)
 		}
 	}
-	if len(needCreate) == 0 && len(needDelete) == 0 {
+
+	for _, r := range expectRules {
+		index := c.GenRuleIndex(r)
+		if er, ok := existRuleIndex[index]; ok {
+			hash := ruleHash(r)
+			if hash != hashRule(ruleIdentify(er)) {
+				r.Name = er.Name
+				r.ResourceVersion = er.ResourceVersion
+				log.Info("need update rule ", "name", r.Name, "diff", cmp.Diff(er, r))
+				needUpdate = append(needUpdate, r)
+			}
+		}
+	}
+
+	if len(needCreate) == 0 && len(needDelete) == 0 && len(needUpdate) == 0 {
 		log.Info("nothing need todo ingress synced.")
 	}
 
@@ -752,16 +800,22 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	for _, r := range needDelete {
 		log.Info("should delete rule", showRule(r)...)
 	}
+	for _, r := range needDelete {
+		log.Info("should update rule", showRule(r)...)
+	}
 
-	// we want create rule first. since that if this popd crash, it will not lossing rule at least.
+	// only when ingress add or remove a path, otherwise we do not create/delete rule
 	return &SyncRule{
 		Create: needCreate,
 		Delete: needDelete,
+		Update: needUpdate,
 	}, nil
 }
 
 // rule which have same identity considered as same rule
 // we may add some label/annotation in rule,such as creator/update time, etc
+// we do not care about ingress resourceversion
+// if two rule has same identify,they are same.
 func ruleIdentify(r *alb2v1.Rule) string {
 	label := []string{}
 	annotation := []string{}
@@ -789,9 +843,6 @@ func ruleIdentify(r *alb2v1.Rule) string {
 		b.WriteString(v)
 	}
 	b.WriteString(spec.Identity())
-	for _, owner := range r.OwnerReferences {
-		b.WriteString(string(owner.UID))
-	}
 	return b.String()
 }
 
@@ -803,11 +854,6 @@ func hashRule(id string) string {
 	h := sha256.New()
 	h.Write([]byte(id))
 	return hex.EncodeToString(h.Sum(nil))
-}
-
-func (c *Controller) ruleIngressVer(r *alb2v1.Rule) string {
-	sourceIngressVersion := c.GetLabelSourceIngressVer()
-	return r.Annotations[sourceIngressVersion]
 }
 
 func (c *Controller) ruleIngressPathIndex(r *alb2v1.Rule) string {
@@ -905,6 +951,8 @@ func (c *Controller) AccessIngressPathViaRule(ing *networkingv1.Ingress, rule *a
 	return &p, nil
 }
 
-func (c *Controller) ShowRuleIndex(rule *alb2v1.Rule) string {
-	return fmt.Sprintf("%s:%s", rule.Annotations[c.GetLabelSourceIngressRuleIndex()], rule.Annotations[c.GetLabelSourceIngressPathIndex()])
+func (c *Controller) GenRuleIndex(rule *alb2v1.Rule) string {
+	rindex := c.GetLabelSourceIngressRuleIndex()
+	pindex := c.GetLabelSourceIngressPathIndex()
+	return fmt.Sprintf("%s:%s", rule.Annotations[rindex], rule.Annotations[pindex])
 }

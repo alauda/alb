@@ -116,7 +116,7 @@ func (b *Template) nginxContainer() corev1.Container {
 		Command: []string{
 			"/alb/nginx/run-nginx.sh",
 		},
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: "IfNotPresent",
 		SecurityContext: &corev1.SecurityContext{
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{
@@ -136,7 +136,7 @@ func (b *Template) albContainer() corev1.Container {
 		Command: []string{
 			"/alb/ctl/run-alb.sh",
 		},
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: "IfNotPresent",
 		SecurityContext: &corev1.SecurityContext{
 			Capabilities: &corev1.Capabilities{
 				Add: []corev1.Capability{

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/go-logr/logr"
 	perr "github.com/pkg/errors"
@@ -30,7 +30,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	tcpsvc := &corev1.Service{}
 	udpsvc := &corev1.Service{}
 	ic := &netv1.IngressClass{}
-	gc := &gateway.GatewayClass{}
+	gc := &gv1b1t.GatewayClass{}
 	var err error
 
 	// atleast we must have a alb

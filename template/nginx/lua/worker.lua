@@ -134,6 +134,7 @@ local function update_http_cache(policy, old_policy)
         end
         if reason == common.DIFF_KIND_ADD or reason == common.DIFF_KIND_CHANGE then
             ngx.log(ngx.INFO, "cert set domain " .. lower_domain)
+            cache.cert_cache:delete(lower_domain)
             ngx_shared["http_certs_cache"]:set(lower_domain, common.json_encode(certificate_map[domain]))
         end
     end

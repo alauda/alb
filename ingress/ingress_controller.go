@@ -24,13 +24,12 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
-	ctl "alauda.io/alb2/controller"
 	"alauda.io/alb2/driver"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	informerv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	"github.com/go-logr/logr"
-	"github.com/thoas/go-funk"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -247,6 +246,7 @@ func (c *Controller) setUpEventHandler() {
 		},
 	})
 	// 3. reconcile ingress when alb project change.
+	// 4. reconcile ingress when alb address change.
 	c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(old, new interface{}) {
 			newAlb2 := new.(*alb2v2.ALB2)
@@ -254,22 +254,13 @@ func (c *Controller) setUpEventHandler() {
 			if oldAlb2.ResourceVersion == newAlb2.ResourceVersion {
 				return
 			}
-			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) {
+			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) && reflect.DeepEqual(oldAlb2.Spec, newAlb2.Spec) {
 				return
 			}
-			newProjects := ctl.GetOwnProjectsFromAlb(newAlb2.Name, newAlb2.Labels, &newAlb2.Spec)
-			oldProjects := ctl.GetOwnProjectsFromAlb(oldAlb2.Name, oldAlb2.Labels, &oldAlb2.Spec)
-			newAddProjects := funk.SubtractString(newProjects, oldProjects)
-			c.log.Info(fmt.Sprintf("own projects: %v, new add projects: %v", newProjects, newAddProjects))
-			ingresses := c.GetProjectIngresses(newAddProjects)
-			for _, ingress := range ingresses {
-				ic, err := c.GetIngressClass(ingress, icConfig)
-				if err != nil {
-					c.log.Info("Ignoring ingress because of error while validating ingress class", "ingress", Key(ingress), "error", err)
-					return
-				}
-				c.log.Info("Found valid IngressClass", "ingress", Key(ingress), "ingressClass", ic)
-				c.enqueue(IngKey(ingress))
+			c.log.Info("find alb changed", "diff", cmp.Diff(oldAlb2, newAlb2))
+			err := c.syncAll()
+			if err != nil {
+				c.log.Error(err, "reprocess all ingress when alb changed failed")
 			}
 		},
 	})
@@ -314,7 +305,7 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 	}
 
 	// init sync
-	err = c.initSync()
+	err = c.syncAll()
 	if err != nil {
 		c.log.Error(err, "init sync fail")
 	}
@@ -325,7 +316,7 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 }
 
 // sync in startup
-func (c *Controller) initSync() error {
+func (c *Controller) syncAll() error {
 	ings, err := c.kd.ListAllIngress()
 	if err != nil {
 		return err
@@ -352,6 +343,7 @@ func (c *Controller) runWorker() {
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the Reconcile.
+// TODO use controller-runtime
 func (c *Controller) processNextWorkItem() bool {
 	obj, shutdown := c.workqueue.Get()
 
@@ -385,8 +377,9 @@ func (c *Controller) processNextWorkItem() bool {
 		}
 		// Run the Reconcile, passing it the namespace/name string of the
 		// Foo resource to be synced.
-		if err := c.Reconcile(key); err != nil {
+		if reque, err := c.Reconcile(key); err != nil || reque {
 			// Put the item back on the workqueue to handle any transient errors.
+			c.log.Info("requeue", "ing", key, "err", err, "requeue", reque)
 			c.workqueue.AddRateLimited(key)
 			return nil
 		}

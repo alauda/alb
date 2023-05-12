@@ -2,4 +2,4 @@
 pwd
 sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 apk add bash
-bash -c 'ALB=$PWD;source ./alb-nginx/actions/alb-nginx.sh;alb-test-all-in-ci-nginx'
+bash -c 'ALB=$PWD;source ./template/actions/alb-nginx.sh;alb-test-all-in-ci-nginx'

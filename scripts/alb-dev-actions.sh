@@ -1,10 +1,10 @@
 #!/bin/bash
 
-source $ALB/scripts/alb-env-actions.sh
 source $ALB/scripts/alb-test-actions.sh
 source $ALB/scripts/alb-lint-actions.sh
 source $ALB/scripts/alb-build-actions.sh
 source $ALB/scripts/alb-deploy-actions.sh
+source $ALB/template/actions/alb-nginx.sh
 
 function alb-test-qps {
   local defaultKindName=kind-alb-${RANDOM:0:5}

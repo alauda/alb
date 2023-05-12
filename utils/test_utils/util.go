@@ -1,13 +1,20 @@
 package test_utils
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
+	"reflect"
+	"syscall"
+	"text/template"
+	"time"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -38,6 +45,10 @@ func GenCert(domain string) (key, cert string, err error) {
 	}
 	os.RemoveAll(dir)
 	return string(keyByte), string(certByte), nil
+}
+
+func RESTFromKubeConfig(raw string) (*rest.Config, error) {
+	return clientcmd.RESTConfigFromKubeConfig([]byte(raw))
 }
 
 func KubeConfigFromREST(cfg *rest.Config, envtestName string) ([]byte, error) {
@@ -91,6 +102,63 @@ func PrettyJson(data interface{}) string {
 	out, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
+	}
+	return string(out)
+}
+
+func Template(templateStr string, data map[string]interface{}) string {
+	buf := new(bytes.Buffer)
+	t, err := template.New("s").Parse(templateStr)
+	if err != nil {
+		panic(err)
+	}
+	err = t.Execute(buf, data)
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
+}
+
+func CtxWithSignalAndTimeout(sec int) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(sec)*time.Second)
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		_ = <-sigs
+		fmt.Println("rece stop signal, exit")
+		cancel()
+		time.Sleep(time.Second * 5)
+		os.Exit(0)
+	}()
+	return ctx, cancel
+}
+
+func PrettyCr(obj interface{}) string {
+	if obj == nil || (reflect.ValueOf(obj).Kind() == reflect.Ptr && reflect.ValueOf(obj).IsNil()) {
+		return "isnill"
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	raw := map[string]interface{}{}
+	err = json.Unmarshal(out, &raw)
+	if err != nil {
+		return fmt.Sprintf("%v", err)
+	}
+	{
+		metadata, ok := raw["metadata"].(map[string]interface{})
+		if ok {
+			metadata["managedFields"] = ""
+			annotation, ok := metadata["annotations"].(map[string]interface{})
+			if ok {
+				annotation["kubectl.kubernetes.io/last-applied-configuration"] = ""
+			}
+		}
+	}
+	out, err = json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", err)
 	}
 	return string(out)
 }

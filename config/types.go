@@ -45,9 +45,9 @@ type IIngressConfig interface {
 	GetDefaultSSLSCert() string
 	GetIngressHttpPort() int
 	GetIngressHttpsPort() int
-	GetLabelSourceIngressVer() string
 	GetLabelSourceIngressRuleIndex() string
 	GetLabelSourceIngressPathIndex() string
+	GetAnnotationIngressAddress() string
 }
 
 type ILabelConfig interface {

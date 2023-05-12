@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	perr "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -200,7 +200,7 @@ func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Confi
 	return ic, nil
 }
 
-func (d *AlbDeployCtl) genExpectGatewayClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*gateway.GatewayClass, error) {
+func (d *AlbDeployCtl) genExpectGatewayClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*gv1b1t.GatewayClass, error) {
 	var (
 		alb2            = cur.Alb
 		refLabel        = resources.ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Env.Version)

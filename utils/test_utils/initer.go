@@ -33,6 +33,13 @@ func InitBase() string {
 	name := "alb-test-base"
 	var base string
 	var err error
+	if os.Getenv("ALB_TEST_BASE") != "" {
+		base, err = os.MkdirTemp(os.Getenv("ALB_TEST_BASE"), "alb-e2e-test")
+		if err != nil {
+			panic(err)
+		}
+		return base
+	}
 	if os.Getenv("DEV_MODE") == "true" {
 		base = path.Join(os.TempDir(), name)
 	} else {

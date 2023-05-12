@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	. "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/utils/test_utils"
 	. "github.com/onsi/ginkgo"
 	"github.com/openlyinc/pointy"
 	"github.com/stretchr/testify/assert"
-
-	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )

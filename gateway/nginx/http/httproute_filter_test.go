@@ -8,6 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	albType "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/gateway"
@@ -31,8 +32,8 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 	h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 		{
 
-			Type: gatewayType.HTTPRouteFilterRequestHeaderModifier,
-			RequestHeaderModifier: &gatewayType.HTTPRequestHeaderFilter{
+			Type: gv1b1t.HTTPRouteFilterRequestHeaderModifier,
+			RequestHeaderModifier: &gv1b1t.HTTPHeaderFilter{
 				Add: []gatewayType.HTTPHeader{
 					{
 						Name:  "a",
@@ -83,7 +84,7 @@ func TestHttpFilterRedirect(t *testing.T) {
 	h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 		{
 
-			Type: gatewayType.HTTPRouteFilterRequestRedirect,
+			Type: gv1b1t.HTTPRouteFilterRequestRedirect,
 			RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 				Scheme:     pointy.String("https"),
 				Hostname:   &host,

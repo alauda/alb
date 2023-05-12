@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type HostNameFilter struct {
@@ -21,7 +21,7 @@ func (c *HostNameFilter) Name() string {
 	return "HostNameFilter"
 }
 
-func (c *HostNameFilter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *Listener) bool {
+func (c *HostNameFilter) FilteRoute(ref gv1b1t.ParentReference, r *Route, ls *Listener) bool {
 	// allow routes
 	lsHost := ls.Hostname
 	if lsHost == nil {
@@ -34,7 +34,7 @@ func (c *HostNameFilter) FilteRoute(ref gatewayType.ParentRef, r *Route, ls *Lis
 		return true
 	}
 
-	routeHost := lo.Map(h.Spec.Hostnames, func(s gatewayType.Hostname, _ int) string { return string(s) })
+	routeHost := lo.Map(h.Spec.Hostnames, func(s gv1b1t.Hostname, _ int) string { return string(s) })
 
 	domains := FindIntersection(string(*lsHost), routeHost)
 	if len(domains) == 0 {

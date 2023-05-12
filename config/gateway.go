@@ -26,6 +26,7 @@ func getGatewayName() (ns string, name string, err error) {
 type GatewayCfg struct {
 	Enable          bool
 	Mode            GatewayMode
+	ReservedPort    int             // listener could use this port, but route should not attach to it.
 	GatewaySelector GatewaySelector // if im in gateway mode, which gateway should i watch?
 }
 
@@ -85,5 +86,6 @@ func (c *Config) GetGatewayCfg() GatewayCfg {
 		Enable:          enable,
 		Mode:            mode,
 		GatewaySelector: sel,
+		ReservedPort:    c.GetMetricsPort(),
 	}
 }

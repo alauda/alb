@@ -19,6 +19,7 @@ import (
 	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type HttpProtocolTranslate struct {
@@ -76,7 +77,7 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 
 	portMap := make(map[int][]HttpCtx)
 	{
-		plsMap := GroupListenerByProtocol(lss, gatewayType.HTTPProtocolType)
+		plsMap := GroupListenerByProtocol(lss, gv1b1t.HTTPProtocolType)
 		for port, lss := range plsMap {
 			ctxList := IterHttpListener(lss, func(ctx HttpCtx) *HttpCtx {
 				return &ctx
@@ -161,7 +162,7 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) err
 
 	portMap := make(map[int][]HttpsCtx)
 	{
-		plsMap := GroupListenerByProtocol(lss, gatewayType.HTTPSProtocolType)
+		plsMap := GroupListenerByProtocol(lss, gv1b1t.HTTPSProtocolType)
 		for port, lss := range plsMap {
 			ctxList := IterHttpListener(lss, func(ctx HttpCtx) *HttpsCtx {
 				cert, domain, err := getCert(ctx.listener)

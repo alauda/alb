@@ -1,9 +1,7 @@
 package framework
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"math/rand"
 	"net"
 	"os"
@@ -107,19 +105,6 @@ func ListenTcp(port string, stopCh chan struct{}) {
 
 func ListenUdp(port string, stopCh chan struct{}) {
 	listen("udp", ":"+port, stopCh)
-}
-
-func Template(templateStr string, data map[string]interface{}) string {
-	buf := new(bytes.Buffer)
-	t, err := template.New("s").Parse(templateStr)
-	if err != nil {
-		panic(err)
-	}
-	err = t.Execute(buf, data)
-	if err != nil {
-		panic(err)
-	}
-	return buf.String()
 }
 
 func Access(f func()) {

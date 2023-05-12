@@ -1,27 +1,23 @@
-# @snippet-file echo-resty yaml which include https/http
 apiVersion: v1
 data:
   tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUZEekNDQXZlZ0F3SUJBZ0lVVXg0YS9BY2R2ajJGanNhSXBnNTBra2VTNy9Vd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0Z6RVZNQk1HQTFVRUF3d01kR1Z6ZEM1aGJHSXVZMjl0TUI0WERUSXhNRGt4TkRBNE1EZ3hNMW9YRFRNeApNRGt4TWpBNE1EZ3hNMW93RnpFVk1CTUdBMVVFQXd3TWRHVnpkQzVoYkdJdVkyOXRNSUlDSWpBTkJna3Foa2lHCjl3MEJBUUVGQUFPQ0FnOEFNSUlDQ2dLQ0FnRUE5SjZPcThOVkM2STMxaWNmTFlQNGxYeW1kRi9RK3UydzNvQ2UKeEVXMVpWMnhhUUVTM0pwS054eVU4N1FXZzN0cjdQUjQ5V1IxMDhkN1F0dVpxQ250THpuRWt4TERzMXNyUkFrbgppVEJ4N1FNR3k5S0VpUzA5Z09jQTZ2R29JUDlsWXJubU55aHVaVWJYK3BXN2lzWjFvNlhsSFVRVE94RkR4dHdRCldueExpaGVxa1BVMEV3UU41VGVrZ0FVdEdORE0vTmJIbnVYNTdKVElpVEtrY0RrZ21vWWhzQmYwdnAya1U3TGgKL0czUG9PbExnZjZDUlArR0tEOUlGb1ZJRzZyaFYwZ0dpalg4b2U4b0FGTVh5Sm5RNjUyN3NxUjVFVExJenp1TwpOTWFjTktnZEJSajFlUExyV1duNmo0SGVidGEzRkNVRHQyVEwrWUxVWFJNdnRnYnFvOGhxc0xwR216UDNJL1VTCmRSTFZObUNsU0l1eTljOFNGQzN1M29aajB3OVhqN0NtRVI2RUFKN2RINnc5Uk5nSVNXZ0RKSWsreEc0eWt4M1QKWENpL1h1Z2xDcWxqc0VGa0c3ZVhPVjRtNURXQTNXejlJQ2hSQURVRkZqSHdubVdYa05yUWwwLzF3Q1VDMUdBaApsZ2RBZW4yY25qVEJ3SjZaMSszeUg4R0ZaZkVlRTM0QlJMUEVYNTJGSWM2Q2JjRXhGcXVncncxQ2ZFZjRvNWZSCmxtOGE5aWY1TjBaREZRSmxsS2VOdGdkREtyemNGWUl1RDFYVUFPeHFzK05aYWJYUklkTnNXaUY0djdiMjFxdXcKVnBPa2ViZ1ZyWHplUVlYY29lZkdWa2xkbytQNi9lUEZGZzErQitZOGVPOHhUQ0RGQjF5TzlidGNQQVlNcWUvSQpuakZQT1FNQ0F3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZGU25pRzE2WENzUi9qOXBzMG5rMVVTaXU0aVJNQjhHCkExVWRJd1FZTUJhQUZGU25pRzE2WENzUi9qOXBzMG5rMVVTaXU0aVJNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHcKRFFZSktvWklodmNOQVFFTEJRQURnZ0lCQUQvbW9VSHZ1TWJ5R0FGVm5McFhDUlMxTWZjd2dRdG51TjVWbE9CYwpaaGc0ZW8zalphaWpCRkJETW5CTk5FYS9SYUgyV3JOOGo3d3hTUnJRdit3Z2lTQ0J2UmZOeXhLYkQxRHdKazIyCitwa3kvL213Q3p5Q0ZNTWlTZEFsNnBFaldwV1dHVUdUcGZIeXZPdmc4NlM0aHBwL1lHZ2t5ZUJBNkQ1UG9lUEIKNWw2Nzl2cC9RZVpGd2F6UUwwV3Y5RUkvZkMvdzN5K3BpVzZRZGx1SDcrMXZnVUYyZUgxUFdDbUhhaU5TeGF0SQpyVGxvZUU0SVhhb0ZCbmF1QktqWnVSdkpEZzFBRUNFNFdRRndNUGJZSkZSRVl2WHpGcUljWk41MUhpaTREWWpoCk5xK2RWU0xJa1BBbkNDT05tZ2Z0bHQ0bnlWM05BcC9Oc1pOVXlGck93Zk1ZaUhGeXNCTFdLeFlNelhNUURkd3cKLzFJcmhOZHhWV1F1Y3h2eGQwVXBEbGhDSU10Wm5zdlJHMjE0a3ZabVdKYWdWc0czeVZUb2xVWWQ3SWl0OFk5YwowMEliOHdxVmNHL1Q2MUc2R1lMYnprdUZQTGk1ckFwTFNWcEtVdnBMZlEzSWpyOVFvRmdCa3FwZldtN2lYT2VLCis0ZEZYNVJmcFRUVE95ZzFkalYrc0tyZ3UzWFlHTFFDN25ZVzZLTVNTWHErV2w1WkpVMFZxanMyL1A2MncyRC8KSHBLTGVoSEY4d2pYSTQ3YmxWckI4T3ora01QbUhoZzRhMFJvaE1BYS8raytWMUp3OExHQUFqdGJhZTJ2ejd4MQpwLytlNlo5bWg4ZS9YYWowV0E0VEczUitiYXB5eStGVXRodHluNHgzcTViWDZtc2hCWFlSY1BBTmZPOXpSWVVOCkNtMGsKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
   tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUpRZ0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQ1N3d2dna29BZ0VBQW9JQ0FRRDBubzZydzFVTG9qZlcKSng4dGcvaVZmS1owWDlENjdiRGVnSjdFUmJWbFhiRnBBUkxjbWtvM0hKVHp0QmFEZTJ2czlIajFaSFhUeDN0QwoyNW1vS2Uwdk9jU1RFc096V3l0RUNTZUpNSEh0QXdiTDBvU0pMVDJBNXdEcThhZ2cvMlZpdWVZM0tHNWxSdGY2CmxidUt4bldqcGVVZFJCTTdFVVBHM0JCYWZFdUtGNnFROVRRVEJBM2xONlNBQlMwWTBNejgxc2VlNWZuc2xNaUoKTXFSd09TQ2FoaUd3Ri9TK25hUlRzdUg4YmMrZzZVdUIvb0pFLzRZb1AwZ1doVWdicXVGWFNBYUtOZnloN3lnQQpVeGZJbWREcm5idXlwSGtSTXNqUE80NDB4cHcwcUIwRkdQVjQ4dXRaYWZxUGdkNXUxcmNVSlFPM1pNdjVndFJkCkV5KzJCdXFqeUdxd3VrYWJNL2NqOVJKMUV0VTJZS1ZJaTdMMXp4SVVMZTdlaG1QVEQxZVBzS1lSSG9RQW50MGYKckQxRTJBaEphQU1raVQ3RWJqS1RIZE5jS0w5ZTZDVUtxV093UVdRYnQ1YzVYaWJrTllEZGJQMGdLRkVBTlFVVwpNZkNlWlplUTJ0Q1hUL1hBSlFMVVlDR1dCMEI2Zlp5ZU5NSEFucG5YN2ZJZndZVmw4UjRUZmdGRXM4UmZuWVVoCnpvSnR3VEVXcTZDdkRVSjhSL2lqbDlHV2J4cjJKL2szUmtNVkFtV1VwNDIyQjBNcXZOd1ZnaTRQVmRRQTdHcXoKNDFscHRkRWgwMnhhSVhpL3R2YldxN0JXazZSNXVCV3RmTjVCaGR5aDU4WldTVjJqNC9yOTQ4VVdEWDRINWp4NAo3ekZNSU1VSFhJNzF1MXc4Qmd5cDc4aWVNVTg1QXdJREFRQUJBb0lDQUNRK01jbEZJWjZkcEVRNGU2Z1V1NG42CmMvY2VFeXA2ZVJBZVltZVdKSEFtVjVqRkxmUTliKzJHY0pOREJXcnBxRzN0TXRhNDBiUlZBL0E5OVNBelJnOFAKTWc3UVl1cDZBWWtOQ2l5TFh2WE0wdjd6NitzZkp0T29aanhwSFkzMkNTRjloWng2Z3hEQ1ZGR3VTYUVnRW1IeQp2R1YvcHBIRDF4VHBtZ3F1Qzhza0FvT0RzUGw0U2s3QjFiK2FCTHAraFVDWTJlNnpDRHFET01zTEU4NEV5TTNjClBiV0hkeDJlNGEvOCt2cVprbisyMFJjcmpFV0l6bW04Sm9RZnJ6VmFOaFRtZVFHVlNoNzcvaU0rTEhIdVNFUUEKbE1TOUZhcjBxVWY2L1BEWTFHQUE0SHZXM05mVXRnWURhN3BEZFo5YWRMbXBXa21ieDVUcVMyaVc1U1RGRlpKdwpmNktUZ2FUM0xUc1MyUW0vekRHVEhQUjM3V3hMZGxEanJwcmFGelk3eVU5c0FWSXovY1YwdjZjMHovVlF6R1BuCmkrWGRIdUltZ0FVT2JUQkNCa3pqUURHSUlveGdvTjVCZUdCMzJYME9ydTJlTlpLL3FtMjRIRDNSVFhKaU5FM1YKL0FVV0o4eDgraWNkanVUTkZYTThqbXhNSmdGdFJ2Z1A1TktiVjk2WHZLS3F1dnJ2cTVVL3QrWVBObDkybXdEWApiMlFLN2tJSFVKVWxIaU5sR0pOekhQeG82aHpvZUVzY3NKRVBIVFgybTBNdXM1L2phSmsyL21tdFNzZnE1UHBHCnNGRXVXdDNYZkdMOWtNUlExeDhVNDhFM3dvUGR1TWtKZ1JGNzFCakFvWnUwTktuVVhxbzduamNJYmxXQU9sT3IKQlQ5c2haWXVsWHlPZTJjY0I2YVJBb0lCQVFEK0h0Q2NIdEsyTDMwTEdJci9mRHJIQlVzYkNzTFRuZEYzMWowYQptR2RxbnpId1B6L2pHV3pjQmdWcG5XMTFVRlNWNVhwQmVrME9FamJFdTBjblljRlFYRmZLMVM5R0N0U3lqaVlmClRBQTQzdXU4UVBUcVQzVVAreXZlYXBETmlLOHoweXE5aUQ1dlQ1WWJONDc0YTVDK2h5bVd5VWQ5dG1rQnVmNU4KcW9XUGRmOGNScW9Ud3NtT3lScUxvZzk5bzVvQ2hYY3BRTUpWRjQ4di9UV1BiNHB3Q05NczVMSXU4M1U4dWVtLwpLbEdXeGxkLzFVM3l6N1V6dHF0ZE5zTitkZTR2S1lJWjIzYzUwS3h1UVNrRyszd2prcmJvSm1tUUFNMElTTkxVCjFxc0xkcUdRSDhhcW1wMk1mcUpzQmV2TEFFNk0xUmZ6VnBPTGx4cis2NFpEMVM3MUFvSUJBUUQyYmNDQXdNcHIKc0VsUlVvbExxZkJJRjN3NiswdGZYQm56cFB0QTBaVE1iKy92VDV4cVpnNmJOaDhtMjYrQW42NnhVdFRwVDFKRgpPdVVyRzVqTDFMVHBPTlU5ZDQyYkZkQkR4RFpvN3gxYUJDdXBsYzgvK292NVlVb1lLNGFDMThkSHRsRWw4TWtJCkp0SzFtSnF6UEFyM01sUWU4Q2MwejBGbERSY3Fmd1lsV3RJZU1UTmRQTWJadGlEcE9ibnZIdnN5N3lhSXh3TjIKNVpvdjlLS1lLMjdJOVlTd05vY0pGNmFKUXJHcGJZNDV1SGhOVytkVEZHb2FydzhmZGFweGNLOHg0RDVwZW5vTApnd0lxeGtvamxmVVhKd0F3d0M5R0N1WU9HWjVTeXFrMG9CWmNMWjB2OEY3MEh1VW5iL3FOajNmZHg5UHRVK085CnpaWUI1Vzk1RlYwWEFvSUJBRDZyRnNNSmp1bEMrTkZkc2htaloxTmhhTTQ0YnllRXlmMkZwZmdERWEzbnFJY1kKOGdadFpMMDE5dXUrMlJtUFAremZkTERsR2srWUNrMmw2Ync2alZQbUVmaUJibkVWaHJLcC81akVRMkhEQjl1YgpJVXNQWVUwWm9nM3R0ZHdhRXlyeXJwMmpGZEtaaStrV1lIbSsvU2tmYUJBNWZ4bnZmQ0hpM21ZRTRYOHBtRW8rCjJ2NllrT0JYaytaUGh3Wnk3QzRtLytYNmhISTdweUlzamFMYjNRWVlCd3dSTWlnRi9pbUZwN0Z2SEVQVWtndUMKYlFDdVhIOXVVd0JmMndJNnp3eHViaGsyV0VhM3dXNUhQM2pyV0FmbHpKbWZyM1RGM2Nwbk95Y2w4WFNZUXV1cQpDbkpVUXZvODJJMVBRSUVGaUZtT3k2TkUvSW4yTDhBaUVUQjFTR2tDZ2dFQUhZd1hVdGpLN0pLY2wrV2ZsTFR4Cm5KTkVVQVlsaVcrUHBRa1pIektCOXVsTkNaS3dISW5VSW9RZ3hCWC9PeHJxWlZTYk5zWk9CUU1FeTJCcHQ3YnYKWWk5d1VnaHRzRFN6WGd5K3dXSTZVTHJEU1hndSsycmRNYSthcEw5RFI1ajd5ZnR3UzI1TmpHNnJRUjdsSGF5TApYQXhxemJMWjRKa2hMQzZmb25iTWs5b0o2NWpXb2MxUnduVDJDVURrckdrNGtXamZZL01JMVU2K2FCV2JFVWZUCjVzQ1pnazluYlkycWFEYlkrb21xVGYxeVgwUXZ2bVJxUEh6VkFWNm9heVdwdS84NVBJaDA3Y0J0bUJkaWVGWFkKcDBnRDI5U1BWb1NrQlBqSlpQL3J2ZVdjQ0wxblpZSWF3SWFiejFpNzRCRmR1L2ZqejBjSnZZNVMrRE04WkhaTgpUUUtDQVFFQXBCOTFkVXFrcTdjdytMZ1V3MEt3WVVCcm03QTZCV3l2ZU0xSWdjY0hrUnEzUW5QMUMzV3dsbXBSCjRpS3hGVHFLV2VLb0lMS0tNWDRCL2hKd3hYdVVkZzZnRFgwTWpXdE9jb2JveFc5SUw3S3hUamZkbzZRcTlLVUsKUU5pdGhvQU5WZDk2REVxK0JaZmtDZU1oMTJwTXhzUEE5Y2tJRDJTU0pYZVQxQytpaWJrb2k0T0RqcGJkWkZjVAowdDZkZnJBZWZlR3NXcVZjTW5iZndLc1E1dTNGS0ZCQzZmSFZvdk9DUnNHTzdYRDAvTDNpZXlrTGY5WmhhM2srCnpoT1FIb2EvaHAwMTlrSTVEbmVoemJIVGtPN0tvWVVMcVEzZVgzK00va0VsZVJkbDNtbGVUb1JCMm4yMHBqWUcKWE9UNmVnNkVzWE5nM3hOeDI5dHplTTZrWDBIRU1BPT0KLS0tLS1FTkQgUFJJVkFURSBLRVktLS0tLQo=
 kind: Secret
 metadata:
-  name: echo-resty-tls
+  name: {{.Values.name}}-tls
 type: kubernetes.io/tls
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: echo-resty-config
+  name: {{.Values.name}}-config
 data:
   nginx-config: |
     worker_processes  4;
-    env POD_NAME;
-    env POD_IP;
-    env HOST_IP;
+
     events {
         worker_connections  1024;
     }
-
 
     stream {
         log_format stream '[$time_local] $remote_addr $protocol $server_port $status $bytes_received $bytes_sent $session_time';
@@ -29,36 +25,45 @@ data:
         error_log   stderr       info;
         server {
               listen 53 udp;
+              listen [::]:53 udp;
               content_by_lua_block {
                 ngx.log(ngx.INFO,"udp socket connect")
                 local sock,err = ngx.req.socket()
                 local data, err = sock:receive()
-                local podname  = os.getenv("POD_NAME")
-                local hostip  = os.getenv("HOST_IP")
-                local podip  = os.getenv("POD_IP")
-
                 if err ~= nil then
                     sock:send("err "..tostring(err))
                 end
-                sock:send("data: ".. data.." host: "..podname.." podip "..podip.." hostip: "..hostip)
+                sock:send(data)
               }
         }
     }
 
     http {
-        log_format  http  '[$time_local] $remote_addr "$host" "$request" '
-                          '$status $upstream_status $upstream_addr '
-                          '"$http_user_agent" "$http_x_forwarded_for" '
-                          '$request_time $upstream_response_time';
-        access_log  /dev/stdout  http buffer=16k flush=1s;
-        error_log   stderr       info;
+        server {
+            listen 80;
+            listen [::]:80;
+            location / {
+              content_by_lua_block {
+                      local h, err = ngx.req.get_headers()
+                      if err ~=nil then
+                          ngx.say("err: "..tostring(err))
+                      end
+                      for k, v in pairs(h) do
+                          ngx.say(tostring(k).." : "..tostring(v))
+                      end
+                      ngx.say("http client-ip "..ngx.var.remote_addr.." client-port "..ngx.var.remote_port.." server-ip "..ngx.var.server_addr.." server-port "..ngx.var.server_port)
+              }
+            }
+        }
+
         server {
             listen       443 ssl;
+            listen  [::]:443 ssl;
             server_name  _;
-
+    
             ssl_certificate     /cert/tls.crt;
             ssl_certificate_key /cert/tls.key;
-
+    
             ssl_session_timeout  5m;
             ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
             ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
@@ -66,16 +71,14 @@ data:
 
             location / {
               content_by_lua_block {
-                      ngx.say("im https")
-              }
-            }
-        }
-
-        server {
-            listen 80;
-            location / {
-              content_by_lua_block {
-                      ngx.say("im http")
+                      local h, err = ngx.req.get_headers()
+                      if err ~=nil then
+                          ngx.say("err: "..tostring(err))
+                      end
+                      for k, v in pairs(h) do
+                          ngx.say(tostring(k).." : "+tostring(v))
+                      end
+                      ngx.say("https client-ip "..ngx.var.remote_addr.." client-port "..ngx.var.remote_port.." server-ip "..ngx.var.server_addr.." server-port "..ngx.var.server_port)
               }
             }
         }
@@ -84,83 +87,124 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: echo-resty
+  name: {{.Values.name}}
   labels:
-    k8s-app: echo-resty
+    k8s-app: {{.Values.name}}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      k8s-app: echo-resty
+      k8s-app: {{.Values.name}}
   template:
     metadata:
       labels:
-        k8s-app: echo-resty
+        k8s-app: {{.Values.name}}
     spec:
+      hostNetwork: false 
       terminationGracePeriodSeconds: 60
       containers:
-        - name: echo-resty
-          image: {{nginx-image}}
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-          resources:
+      - name: {{.Values.name}}
+        image: {{ .Values.image }}
+        resources:
             requests:
               memory: "500Mi"
               cpu: "250m"
             limits:
               memory: "500Mi"
               cpu: "1"
-          volumeMounts:
-            - name: config-volume
-              mountPath: /etc/nginx
-            - name: https-cert
-              mountPath: /cert
-          command:
-            - sh
-            - -c
-            - 'nginx -g "daemon off;" -c /etc/nginx/nginx.conf'
-          ports:
-            - containerPort: 80
+        volumeMounts:
+          - name: config-volume
+            mountPath: /etc/nginx
+          - name: https-cert 
+            mountPath: /cert
+        command:
+         - sh
+         - -c
+         - 'mkdir -p /alb/logs && nginx -g "daemon off;" -p /alb -c /etc/nginx/nginx.conf && tail -f /dev/null'
+        ports:
+        - containerPort: 80
       volumes:
         - name: config-volume
           configMap:
-            name: echo-resty-config
+            name: {{.Values.name}}-config
             items:
-              - key: nginx-config
-                path: nginx.conf
-        - name: https-cert
+            - key: nginx-config
+              path: nginx.conf
+        - name: https-cert 
           secret:
-            secretName: echo-resty-tls
-
+            secretName: {{.Values.name}}-tls 
+---
+{{- if .Values.enableLb }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Values.name}}-lb-1
+  labels:
+    k8s-app: {{.Values.name}}
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 443
+  - name: udp
+    protocol: UDP
+    port: 53
+    targetPort: 53
+  selector:
+    k8s-app: {{.Values.name}}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: echo-resty
+  name: {{.Values.name}}
   labels:
-    k8s-app: echo-resty
+    k8s-app: {{.Values.name}}
 spec:
+  ipFamilies:
+  {{- if eq .Values.ip "v4"}}
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  {{- end }}
+  {{- if eq .Values.ip "v6"}}
+  - IPv6
+  ipFamilyPolicy: SingleStack
+  {{- end }}
+  {{- if eq .Values.ip "dual"}}
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
   ports:
-    - name: http
-      port: 80
-      targetPort: 80
-    - name: https
-      port: 443
-      targetPort: 443
-    - name: udp
-      port: 53
-      protocol: UDP
-      targetPort: 53
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 443
+  - name: udp
+    protocol: UDP
+    port: 53
+    targetPort: 53
   selector:
-    k8s-app: echo-resty
+    k8s-app: {{.Values.name}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{.Values.name}}
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{.Values.name}}
+            port:
+              number: 80

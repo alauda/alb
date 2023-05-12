@@ -1,5 +1,7 @@
 package config
 
+// 这里的config的目的是将环境变量或者默认配置文件转换为内存中的结构体，方便后续使用
+// TODO pkg/operator/config负责的是将alb cr上的配置 转换为deployment的环境变量,两者应该合并起来
 import (
 	"fmt"
 	"math"
@@ -250,6 +252,10 @@ func (c *Config) GetNs() string {
 	return Get("NAMESPACE")
 }
 
+func (c *Config) GetMetricsPort() int {
+	return GetInt("METRICS_PORT")
+}
+
 func (c *Config) GetAlbName() string {
 	return Get("NAME")
 }
@@ -293,6 +299,12 @@ func (c *Config) GetLabelSourceIngressPathIndex() string {
 
 func (c *Config) GetLabelSourceIngressRuleIndex() string {
 	return fmt.Sprintf(Get("labels.source_ingress_rule_index"), c.GetDomain())
+}
+
+const INGRESS_ADDRESS_NAME = "alb2.%s/%s_address"
+
+func (c *Config) GetAnnotationIngressAddress() string {
+	return fmt.Sprintf(INGRESS_ADDRESS_NAME, c.GetDomain(), c.GetAlbName())
 }
 
 func GetConfig() *Config {

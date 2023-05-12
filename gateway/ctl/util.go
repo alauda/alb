@@ -4,22 +4,22 @@ import (
 	"fmt"
 
 	. "alauda.io/alb2/gateway"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-func generateSupportKind(protocol gatewayType.ProtocolType, supportKindMap map[string][]string) []gatewayType.RouteGroupKind {
-	ret := []gatewayType.RouteGroupKind{}
-	group := gatewayType.Group(GATEWAY_GROUP)
+func generateSupportKind(protocol gv1b1t.ProtocolType, supportKindMap map[string][]string) []gv1b1t.RouteGroupKind {
+	ret := []gv1b1t.RouteGroupKind{}
+	group := gv1b1t.Group(GATEWAY_GROUP)
 	for _, k := range supportKindMap[string(protocol)] {
-		ret = append(ret, gatewayType.RouteGroupKind{
+		ret = append(ret, gv1b1t.RouteGroupKind{
 			Group: &group,
-			Kind:  gatewayType.Kind(k),
+			Kind:  gv1b1t.Kind(k),
 		})
 	}
 	return ret
 }
 
-func UpdateRouteStatus(r CommonRoute, f func([]gatewayType.RouteParentStatus) []gatewayType.RouteParentStatus) ([]gatewayType.RouteParentStatus, error) {
+func UpdateRouteStatus(r CommonRoute, f func([]gv1b1t.RouteParentStatus) []gv1b1t.RouteParentStatus) ([]gv1b1t.RouteParentStatus, error) {
 	switch route := r.(type) {
 	case *HTTPRoute:
 		route.Status.Parents = f(route.Status.Parents)

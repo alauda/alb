@@ -7,29 +7,29 @@ import (
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/stretchr/testify/assert"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestHttpMatchesToDSLX(t *testing.T) {
-	matchPathPrefix := gatewayType.PathMatchPathPrefix
-	matchHeaderExact := gatewayType.HeaderMatchExact
-	matchHeaderRegex := gatewayType.HeaderMatchRegularExpression
-	matchQueryExact := gatewayType.QueryParamMatchExact
-	matchQueryRegex := gatewayType.QueryParamMatchRegularExpression
-	putMethod := gatewayType.HTTPMethod("PUT")
+	matchPathPrefix := gv1b1t.PathMatchPathPrefix
+	matchHeaderExact := gv1b1t.HeaderMatchExact
+	matchHeaderRegex := gv1b1t.HeaderMatchRegularExpression
+	matchQueryExact := gv1b1t.QueryParamMatchExact
+	matchQueryRegex := gv1b1t.QueryParamMatchRegularExpression
+	putMethod := gv1b1t.HTTPMethod("PUT")
 	type TestCase struct {
 		hostnames []string
-		rule      gatewayType.HTTPRouteRule
+		rule      gv1b1t.HTTPRouteRule
 		expect    string
 	}
 	cases := []TestCase{
 		{
 			expect:    `["AND",["ENDS_WITH","HOST","*.com"],["STARTS_WITH","URL","/v1"]]`,
 			hostnames: []string{"*.com"},
-			rule: gatewayType.HTTPRouteRule{
-				Matches: []gatewayType.HTTPRouteMatch{
+			rule: gv1b1t.HTTPRouteRule{
+				Matches: []gv1b1t.HTTPRouteMatch{
 					{
-						Path: &gatewayType.HTTPPathMatch{
+						Path: &gv1b1t.HTTPPathMatch{
 							Type:  &matchPathPrefix,
 							Value: utils.StringRefs("/v1"),
 						},
@@ -40,14 +40,14 @@ func TestHttpMatchesToDSLX(t *testing.T) {
 		{
 			expect:    `["AND",["IN","HOST","a.com","a.b.com"],["EQ","PARAM","page","1"],["REGEX","PARAM","location","c*"],["STARTS_WITH","URL","/v1"],["EQ","HEADER","version","1.1"],["REGEX","HEADER","name","w*"],["EQ","METHOD","PUT"]]`,
 			hostnames: []string{"a.com", "a.b.com"},
-			rule: gatewayType.HTTPRouteRule{
-				Matches: []gatewayType.HTTPRouteMatch{
+			rule: gv1b1t.HTTPRouteRule{
+				Matches: []gv1b1t.HTTPRouteMatch{
 					{
-						Path: &gatewayType.HTTPPathMatch{
+						Path: &gv1b1t.HTTPPathMatch{
 							Type:  &matchPathPrefix,
 							Value: utils.StringRefs("/v1"),
 						},
-						Headers: []gatewayType.HTTPHeaderMatch{
+						Headers: []gv1b1t.HTTPHeaderMatch{
 							{
 								Type:  &matchHeaderExact,
 								Value: "1.1",
@@ -59,7 +59,7 @@ func TestHttpMatchesToDSLX(t *testing.T) {
 								Name:  "name",
 							},
 						},
-						QueryParams: []gatewayType.HTTPQueryParamMatch{
+						QueryParams: []gv1b1t.HTTPQueryParamMatch{
 							{
 								Type:  &matchQueryExact,
 								Value: "1",

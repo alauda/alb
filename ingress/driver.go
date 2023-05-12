@@ -12,7 +12,7 @@ import (
 
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
-	networkingv1 "k8s.io/api/networking/v1"
+	n1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -53,7 +53,11 @@ func (kd *IngressDriver) CreateRule(r *alb2v1.Rule) (*alb2v1.Rule, error) {
 	return kd.ALBClient.CrdV1().Rules(r.Namespace).Create(kd.Ctx, r, metav1.CreateOptions{})
 }
 
-func (kd *IngressDriver) FindIngress(key client.ObjectKey) (*networkingv1.Ingress, error) {
+func (kd *IngressDriver) UpdateRule(r *alb2v1.Rule) (*alb2v1.Rule, error) {
+	return kd.ALBClient.CrdV1().Rules(r.Namespace).Update(kd.Ctx, r, metav1.UpdateOptions{})
+}
+
+func (kd *IngressDriver) FindIngress(key client.ObjectKey) (*n1.Ingress, error) {
 	return kd.Informers.K8s.Ingress.Lister().Ingresses(key.Namespace).Get(key.Name)
 }
 
@@ -69,12 +73,20 @@ func (kd *IngressDriver) FindIngressRule() ([]*alb2v1.Rule, error) {
 	return rules, nil
 }
 
-func (kd *IngressDriver) ListAllIngress() ([]*networkingv1.Ingress, error) {
+func (kd *IngressDriver) ListAllIngress() ([]*n1.Ingress, error) {
 	ings, err := kd.Informers.K8s.Ingress.Lister().Ingresses("").List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	return ings, nil
+}
+
+func (kd *IngressDriver) UpdateIngressAndStatus(ing *n1.Ingress) (*n1.Ingress, error) {
+	ing, err := kd.Client.NetworkingV1().Ingresses(ing.Namespace).UpdateStatus(kd.Ctx, ing, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return kd.Client.NetworkingV1().Ingresses(ing.Namespace).Update(kd.Ctx, ing, metav1.UpdateOptions{})
 }
 
 func hashSource(source *alb2v1.Source) string {

@@ -122,10 +122,10 @@ func (l *LeaderElection) StartLeaderElectionLoop() error {
 				if identity == id {
 					l.becomeLeader()
 					// I just got the lock
-					log.Info("new leader is me", "id", identity)
+					log.Info("new leader is me", "my-id", identity)
 					return
 				}
-				log.Info("new leader elected", "id", identity)
+				log.Info("new leader elected", "leader-id", identity, "my-id", id)
 			},
 		},
 	})

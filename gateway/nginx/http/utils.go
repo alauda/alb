@@ -8,7 +8,7 @@ import (
 
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/gateway/nginx/types"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func getCert(l *Listener) (secret *client.ObjectKey, certDomain *string, err error) {
@@ -48,10 +48,10 @@ func (c *HttpCtx) ToAttachRef() gatewayPolicyType.Ref {
 }
 
 func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
-	prefix := gatewayType.PathMatchPathPrefix
+	prefix := gv1b1t.PathMatchPathPrefix
 	value := "/"
-	defaultHttpMatch := gatewayType.HTTPRouteMatch{
-		Path: &gatewayType.HTTPPathMatch{Type: &prefix, Value: &value},
+	defaultHttpMatch := gv1b1t.HTTPRouteMatch{
+		Path: &gv1b1t.HTTPPathMatch{Type: &prefix, Value: &value},
 	}
 	for _, listener := range listenerList {
 		for routeIndex, route := range listener.Routes {
@@ -61,7 +61,7 @@ func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
 			}
 			for ruleIndex, rule := range httpRoute.Spec.Rules {
 				if len(rule.Matches) == 0 {
-					httpRoute.Spec.Rules[ruleIndex].Matches = []gatewayType.HTTPRouteMatch{
+					httpRoute.Spec.Rules[ruleIndex].Matches = []gv1b1t.HTTPRouteMatch{
 						defaultHttpMatch,
 					}
 					listener.Routes[routeIndex] = httpRoute
@@ -101,8 +101,8 @@ func IterHttpListener[T any, F func(HttpCtx) *T](listenerList []*Listener, f F) 
 	return retList
 }
 
-func pickHttpBackendRefs(refs []gatewayType.HTTPBackendRef) []gatewayType.BackendRef {
-	ret := []gatewayType.BackendRef{}
+func pickHttpBackendRefs(refs []gv1b1t.HTTPBackendRef) []gv1b1t.BackendRef {
+	ret := []gv1b1t.BackendRef{}
 	for _, r := range refs {
 		ret = append(ret, r.BackendRef)
 	}
@@ -124,7 +124,7 @@ func GroupListener[K comparable, F func(ls *Listener) (k *K)](lss []*Listener, f
 	return portListenerMap
 }
 
-func GroupListenerByProtocol(lss []*Listener, protocol gatewayType.ProtocolType) map[int][]*Listener {
+func GroupListenerByProtocol(lss []*Listener, protocol gv1b1t.ProtocolType) map[int][]*Listener {
 	plsMap := GroupListener(lss, func(ls *Listener) *int {
 		if !SameProtocol(ls.Protocol, protocol) {
 			return nil

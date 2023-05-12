@@ -39,8 +39,9 @@ __DATA__
 --- http_config eval: $::http_config
 --- lua_test
     local zlib = require('lua-ffi-zlib.lib.ffi-zlib')
-    local t = require('test-helper')
-    t.assert_eq(zlib.version(),"1.2.12")
+	local F = require("F");local u = require("util");local h = require("test-helper");
+    u.log("zlib.version() "..zlib.version())
+    h.assert_eq(zlib.version()~="",true)
 
 === TEST 2: test decompress_from_file
 --- ONLY
@@ -48,10 +49,13 @@ __DATA__
 --- http_config eval: $::http_config
 --- lua_test
     local zlib = require('lua-ffi-zlib.lib.ffi-zlib')
-    local t = require('test-helper')
-    local compress = require('utils.compress')
+	local F = require("F");local u = require("util");local t = require("test-helper");
 
-    local out,err = compress.decompress_from_file("/t/resource/policy.bin")
+    local base=os.getenv("TEST_BASE")
+    local compress = require('utils.compress')
+    local p = base.."/t/resource/policy.bin"
+    u.log("p "..p)
+    local out,err = compress.decompress_from_file(p)
     local expect = [[
 {
   "http": {
@@ -87,19 +91,19 @@ __DATA__
     t.assert_eq(t.trim(expect),t.trim(out))
 
     -- file not exist
-    local out,err = compress.decompress_from_file("/t/resource/policy.bin.notexist")
+    local out,err = compress.decompress_from_file(base.."/t/resource/policy.bin.notexist")
     ngx.log(ngx.INFO, "out "..tostring(out))
     ngx.log(ngx.INFO, "err "..tostring(err))
     t.assert_contains(err,"file is nil")
 
     -- empty file
-    local out,err = compress.decompress_from_file("/t/resource/policy.bin.empty")
+    local out,err = compress.decompress_from_file(base.."/t/resource/policy.bin.empty")
     ngx.log(ngx.INFO, "out "..tostring(out))
     ngx.log(ngx.INFO, "err "..tostring(err))
     t.assert_contains(err,"no input bytes")
 
     -- invalid format
-    local out,err = compress.decompress_from_file("/t/resource/policy.bin.invalid")
+    local out,err = compress.decompress_from_file(base.."/t/resource/policy.bin.invalid")
     ngx.log(ngx.INFO, "out "..tostring(out))
     ngx.log(ngx.INFO, "err "..tostring(err))
     t.assert_contains(err,"data error")

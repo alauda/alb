@@ -12,12 +12,12 @@ function alb-lint-all() {
 function alb-lint-bash() {
   # add "shellformat.flag": "-i 2", into vscode settings.json
   shfmt -i 2 -d ./scripts
-  shfmt -i 2 -d ./alb-nginx/actions
+  shfmt -i 2 -d ./template/actions
 }
 
 function alb-lint-bash-fix() {
   shfmt -i 2 -w ./scripts
-  shfmt -i 2 -w ./alb-nginx/actions
+  shfmt -i 2 -w ./template/actions
 }
 
 function alb-lint-go() {

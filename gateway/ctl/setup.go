@@ -12,7 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sScheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var (
@@ -21,7 +22,8 @@ var (
 
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
-	_ = gatewayType.AddToScheme(scheme)
+	_ = gv1a2t.AddToScheme(scheme)
+	_ = gv1b1t.AddToScheme(scheme)
 	_ = albType.AddToScheme(scheme)
 	_ = albv2Type.AddToScheme(scheme)
 }

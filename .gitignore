@@ -50,3 +50,10 @@ deploy/operator/crds
 deploy/chart/alb-operator/templates/alb-operator.clusterserviceversion.yaml
 deploy/operator/bundle.Dockerfile
 .test/
+template/servroot
+template/dhparam.pem
+template/policy.new
+template/nginx/logs
+template/logs
+template/cert
+alb-kind-e2e

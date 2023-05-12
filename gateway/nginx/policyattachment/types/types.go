@@ -7,7 +7,7 @@ import (
 	. "alauda.io/alb2/controller/types"
 	gateway "alauda.io/alb2/gateway"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayType "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 )

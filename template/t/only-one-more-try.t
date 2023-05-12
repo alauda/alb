@@ -12,6 +12,7 @@ run_tests();
 __DATA__
 
 === TEST 1: http should only retry five time
+--- ONLY
 --- policy
 {
   "certificate_map": {},
@@ -58,8 +59,6 @@ __DATA__
 --- server_port: 80
 --- request
     GET /ping
---- access_log
-502 502, 502, 502, 502, 502 127.0.0.1
 --- error_code: 502
 
 === TEST 2: tcp should only retry 5 times

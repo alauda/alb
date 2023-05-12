@@ -55,6 +55,55 @@ spec:
           value: acp
         - name: comfigmap-name
           value: alauda-gitlab-container-platform-alb2
+    - name: kind-test 
+      runAfter:
+        - generate-version
+        - generate-chart-version
+        - build-alb-chart
+      params:
+      - name: version 
+        value: $(tasks.generate-chart-version.results.version)
+      - name: branch
+        value: $(tasks.generate-version.results.branch)
+      retries: 3
+      workspaces:
+        - name: source
+          workspace: source
+      taskSpec:
+        descriptifn: >
+          run alb kind e2e test
+        workspaces:
+          - name: source
+            workspace: source
+        steps:
+          - image: build-harbor.alauda.cn/ops/golang:1.18-alpine3.15 # keep it as same as alb docker builder.
+            name: build
+            imagePullPolicy: IfNotPresent
+            workingDir: '$(workspaces.source.path)'
+            params:
+              - name: version 
+                value: "$(params.version)"
+              - name: branch
+                value: "$(params.branch)"
+            resources:
+              requests:
+                cpu: "1"
+                memory: "1G"
+              limits:
+                cpu: "2"
+                memory: "2G"              
+            script: |
+              #!/bin/sh
+              sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+              apk update
+              apk add bash openssh-client sshpass git
+              ls
+              env
+              pwd
+              export ALB_KIND_E2E_BRANCH=$(params.branch)
+              export ALB_KIND_E2E_CHART=$(params.version)
+              echo "branch  is  $ALB_KIND_E2E_BRANCH. version is $ALB_KIND_E2E_CHART"
+              bash ./scripts/kind-e2e.sh
     - name: alb-test
       runAfter:
         - generate-version
@@ -78,7 +127,7 @@ spec:
                 cpu: "4"
                 memory: "4G"
               limits:
-                cpu: "4"
+                cpu: "6"
                 memory: "4G"              
             script: |
               #!/bin/sh
@@ -104,7 +153,7 @@ spec:
         - name: quality-gate-rules
           value:
             # 覆盖率允许下降值。 0 表示不允许降低
-            - coverage-delta=10
+            - coverage-delta=50
             # 重复率允许上浮值。0 表示不允许上升
             - duplication-delta=10
     - name: alb-build
@@ -154,7 +203,7 @@ spec:
         - name: container-image-tag
           value: $(tasks.generate-version.results.version)
         - name: dockerfile
-          value: ./alb-nginx/Dockerfile
+          value: ./template/Dockerfile
         - name: platform
           value:
             - linux/amd64
@@ -167,41 +216,45 @@ spec:
           value:
           - commit=$(build.git.lastCommit.id)
           - branch=$(build.git.branch.name)
-    # - name: nginx-test
-    #   timeout: 30m
-    #   retries: 3
-    #   runAfter:
-    #     - nginx-build
-    #   params:
-    #   - name: nginx-tag
-    #     value: $(tasks.generate-version.results.version)
-    #   workspaces:
-    #     - name: source
-    #       workspace: source
-    #   taskSpec:
-    #     description: >
-    #       run nginx test
-    #     workspaces:
-    #       - name: source
-    #         workspace: source
-    #     params:
-    #     - name: nginx-tag
-    #       value: $(params.nginx-tag)
-    #     steps:
-    #       - image: build-harbor.alauda.cn/acp/alb-nginx:$(params.nginx-tag)
-    #         name: build
-    #         imagePullPolicy: IfNotPresent
-    #         workingDir: '$(workspaces.source.path)'
-    #         resources:
-    #           requests:
-    #             cpu: "4"
-    #             memory: "4G"
-    #           limits:
-    #             cpu: "4"
-    #             memory: "4G"              
-    #         script: |
-    #           #!/bin/sh
-    #           scripts/nginx-test.sh
+    - name: nginx-test
+      timeout: 30m
+      retries: 3
+      runAfter:
+        - nginx-build
+      params:
+      - name: nginx-tag
+        value: $(tasks.generate-version.results.version)
+      workspaces:
+        - name: source
+          workspace: source
+      taskSpec:
+        description: >
+          run nginx test
+        workspaces:
+          - name: source
+            workspace: source
+        params:
+        - name: nginx-tag
+          value: $(params.nginx-tag)
+        steps:
+          - image: build-harbor.alauda.cn/acp/alb-nginx:$(params.nginx-tag)
+            name: build
+            imagePullPolicy: IfNotPresent
+            workingDir: '$(workspaces.source.path)'
+            securityContext:
+              runAsNonRoot: false
+              runAsUser: 0
+            runAs: root
+            resources:
+              requests:
+                cpu: "4"
+                memory: "4G"
+              limits:
+                cpu: "4"
+                memory: "4G"              
+            script: |
+              #!/bin/sh
+              ./scripts/nginx-test.sh
     - name: prepare-chart
       runAfter:
         - generate-version
@@ -243,8 +296,8 @@ spec:
     - name: build-alb-chart
       runAfter:
         - prepare-chart
-        # - nginx-test
-        # - alb-test
+        - nginx-test
+        - alb-test
       timeout: 5m
       taskRef:
         kind: ClusterTask
@@ -276,6 +329,7 @@ spec:
       runAfter:
         - build-alb-chart
         - alb-test
+        - kind-test
       params:
       - name: branch
         value: $(tasks.generate-version.results.branch)

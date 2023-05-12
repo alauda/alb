@@ -1,13 +1,13 @@
 package gateway
 
 import (
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-type Option func(service *v1alpha2.GatewayClass)
+type Option func(service *gv1b1t.GatewayClass)
 
 func AddLabel(labels map[string]string) Option {
-	return func(ic *v1alpha2.GatewayClass) {
+	return func(ic *gv1b1t.GatewayClass) {
 		if ic == nil {
 			return
 		}
@@ -24,7 +24,7 @@ func defaultLabel(baseDomain, name string) Option {
 	labels := map[string]string{
 		"alb2." + baseDomain + "/gatewayclass": name,
 	}
-	return func(gc *v1alpha2.GatewayClass) {
+	return func(gc *gv1b1t.GatewayClass) {
 		if gc == nil {
 			return
 		}

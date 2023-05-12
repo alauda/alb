@@ -8,9 +8,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"net"
 	"os"
-	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
-	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
-	gatewayLister "sigs.k8s.io/gateway-api/pkg/client/listers/gateway/apis/v1alpha2"
+	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+	gatewayLister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
 	"strings"
 
 	"alauda.io/alb2/config"
@@ -65,6 +65,7 @@ type NodePort struct {
 	Namespace string
 }
 
+// TODO 这个和测试中使用的k8sclient很类似，本质上都是封装了各种client
 type KubernetesDriver struct {
 	DynamicClient  dynamic.Interface
 	Client         kubernetes.Interface

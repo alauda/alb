@@ -9,7 +9,7 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	. "alauda.io/alb2/pkg/operator/toolkit"
 )
@@ -21,7 +21,7 @@ type AlbDeploy struct {
 	Common   *corev1.ConfigMap
 	PortInfo *corev1.ConfigMap
 	Ingress  *netv1.IngressClass
-	Gateway  *gateway.GatewayClass
+	Gateway  *gv1b1t.GatewayClass
 	Svc      *AlbDeploySvc
 	Feature  *unstructured.Unstructured
 }

@@ -23,7 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gt "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type GatewayReconciler struct {
@@ -45,7 +46,7 @@ type ListenerFilter interface {
 type RouteFilter interface {
 	// 1. you must call route.unAllowRoute(ref,msg) by youself if route couldnot not match
 	// 2. you must return false if route is not match
-	FilteRoute(ref gt.ParentRef, route *Route, ls *Listener) bool
+	FilteRoute(ref gv1b1t.ParentReference, route *Route, ls *Listener) bool
 	Name() string
 }
 
@@ -53,6 +54,7 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 
 	commonFilter := CommonFiliter{log: log, c: c, ctx: ctx}
 	hostNameFilter := HostNameFilter{log: log}
+	reservedPortFilter := NewReservedPortFilter(log, []int{cfg.ReservedPort, 1936, 11782})
 
 	listenerFilter := []ListenerFilter{
 		&commonFilter,
@@ -60,6 +62,7 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 	routeFilter := []RouteFilter{
 		&commonFilter,
 		&hostNameFilter,
+		&reservedPortFilter,
 	}
 
 	return GatewayReconciler{
@@ -75,7 +78,7 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 
 func (g *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gt.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway))).
+		For(&gv1b1t.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway))).
 		WithEventFilter(predicate.GenerationChangedPredicate{})
 
 	b = g.watchRoutes(b)
@@ -93,7 +96,7 @@ func (g *GatewayReconciler) filterSelectedGateway(o client.Object) (ret bool) {
 	if sel.GatewayClass != nil {
 		class := *sel.GatewayClass
 		switch g := o.(type) {
-		case *gt.Gateway:
+		case *gv1b1t.Gateway:
 			return string(g.Spec.GatewayClassName) == class
 		}
 		return false
@@ -153,13 +156,13 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 	})
 
 	// TODO upgrade to controller-runtime 0.11.1 for better log https://github.com/kubernetes-sigs/controller-runtime/pull/1687
-	httpRoute := gt.HTTPRoute{}
+	httpRoute := gv1b1t.HTTPRoute{}
 	utils.AddTypeInformationToObject(scheme, &httpRoute)
-	tcpRoute := gt.TCPRoute{}
+	tcpRoute := gv1a2t.TCPRoute{}
 	utils.AddTypeInformationToObject(scheme, &tcpRoute)
-	tlspRoute := gt.TLSRoute{}
+	tlspRoute := gv1a2t.TLSRoute{}
 	utils.AddTypeInformationToObject(scheme, &tlspRoute)
-	udpRoute := gt.UDPRoute{}
+	udpRoute := gv1a2t.UDPRoute{}
 	utils.AddTypeInformationToObject(scheme, &udpRoute)
 
 	b = b.Watches(&source.Kind{Type: &httpRoute}, eventhandler, options)
@@ -175,7 +178,7 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 
 	key := request.NamespacedName
 
-	gateway := &gt.Gateway{}
+	gateway := &gv1b1t.Gateway{}
 	err := g.c.Get(g.ctx, key, gateway)
 	if errors.IsNotFound(err) {
 		log.Info("not found,ignore", "gateway", request.String())
@@ -296,15 +299,15 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	}
 }
 
-func (g *GatewayReconciler) updateGatewayStatus(gateway *gt.Gateway, ls []*Listener, ip string) error {
-	address := []gt.GatewayAddress{}
+func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, ip string) error {
+	address := []gv1b1t.GatewayAddress{}
 	if ip != "" {
-		ipType := gt.IPAddressType
-		address = []gt.GatewayAddress{{Type: &ipType, Value: ip}}
+		ipType := gv1b1t.IPAddressType
+		address = []gv1b1t.GatewayAddress{{Type: &ipType, Value: ip}}
 	}
 
 	gateway.Status.Addresses = address
-	lsstatusList := []gt.ListenerStatus{}
+	lsstatusList := []gv1b1t.ListenerStatus{}
 	valid := true
 	for _, l := range ls {
 		if !l.status.valid {
@@ -313,7 +316,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gt.Gateway, ls []*Liste
 		log := g.log.WithValues("gateway", l.gateway, "listener", l.Name)
 		conditions := l.status.toConditions(gateway)
 		log.V(2).Info("conditions of listener", "conditions", conditions)
-		lsstatus := gt.ListenerStatus{
+		lsstatus := gv1b1t.ListenerStatus{
 			Name:           l.Name,
 			SupportedKinds: generateSupportKind(l.Protocol, g.supportKind),
 			AttachedRoutes: l.status.attachedRoutes,
@@ -326,9 +329,9 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gt.Gateway, ls []*Liste
 		gateway.Status.Conditions = []metav1.Condition{
 			{
 
-				Type:               string(gt.GatewayConditionReady),
+				Type:               string(gv1b1t.GatewayConditionReady),
 				Status:             metav1.ConditionTrue,
-				Reason:             string(gt.GatewayReasonReady),
+				Reason:             string(gv1b1t.GatewayReasonReady),
 				LastTransitionTime: metav1.Now(),
 				ObservedGeneration: gateway.Generation,
 			},
@@ -337,9 +340,9 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gt.Gateway, ls []*Liste
 		gateway.Status.Conditions = []metav1.Condition{
 			{
 
-				Type:               string(gt.GatewayConditionReady),
+				Type:               string(gv1b1t.GatewayConditionReady),
 				Status:             metav1.ConditionFalse,
-				Reason:             string(gt.GatewayReasonListenersNotReady),
+				Reason:             string(gv1b1t.GatewayReasonListenersNotReady),
 				Message:            "one or more listener not ready",
 				LastTransitionTime: metav1.Now(),
 				ObservedGeneration: gateway.Generation,
@@ -356,7 +359,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gt.Gateway, ls []*Liste
 	return nil
 }
 
-func (g *GatewayReconciler) GetGatewayIp(gw *gt.Gateway) (string, error) {
+func (g *GatewayReconciler) GetGatewayIp(gw *gv1b1t.Gateway) (string, error) {
 	// get ip from alb.
 	g.log.Info("get gateway ip", "mode", g.cfg.Mode)
 	if g.cfg.Mode == config.GatewayClass {
@@ -374,8 +377,8 @@ func (g *GatewayReconciler) GetGatewayIp(gw *gt.Gateway) (string, error) {
 
 func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 	// we must keep condition which ref to other gateway.
-	updateRoute := func(origin []gt.RouteParentStatus, r *Route) []gt.RouteParentStatus {
-		psMap := map[string]gt.RouteParentStatus{}
+	updateRoute := func(origin []gv1b1t.RouteParentStatus, r *Route) []gv1b1t.RouteParentStatus {
+		psMap := map[string]gv1b1t.RouteParentStatus{}
 		for _, ss := range origin {
 			psMap[RefsToString(ss.ParentRef)] = ss
 		}
@@ -386,14 +389,18 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 			if !p.accept {
 				status = metav1.ConditionFalse
 			}
-			psMap[key] = gt.RouteParentStatus{
+			reason := string(gv1b1t.ListenerReasonReady)
+			if p.reason != "" {
+				reason = p.reason
+			}
+			psMap[key] = gv1b1t.RouteParentStatus{
 				ParentRef:      p.ref,
-				ControllerName: gt.GatewayController(g.controllerName),
+				ControllerName: gv1b1t.GatewayController(g.controllerName),
 				Conditions: []metav1.Condition{
 					{
 						Type:               "Ready",
 						Status:             status,
-						Reason:             string(gt.ListenerReasonReady),
+						Reason:             reason,
 						LastTransitionTime: metav1.Now(),
 						ObservedGeneration: r.route.GetObject().GetGeneration(),
 						Message:            p.msg,
@@ -402,7 +409,7 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 			}
 		}
 
-		ret := []gt.RouteParentStatus{}
+		ret := []gv1b1t.RouteParentStatus{}
 		for _, s := range psMap {
 			ret = append(ret, s)
 		}
@@ -411,7 +418,7 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 
 	for _, r := range rs {
 		log := g.log.WithValues("route", "route", GetObjectKey(r.route))
-		status, err := UpdateRouteStatus(r.route, func(ss []gt.RouteParentStatus) []gt.RouteParentStatus {
+		status, err := UpdateRouteStatus(r.route, func(ss []gv1b1t.RouteParentStatus) []gv1b1t.RouteParentStatus {
 			return updateRoute(ss, r)
 		})
 		if err != nil {

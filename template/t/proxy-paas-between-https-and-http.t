@@ -3,23 +3,19 @@ use warnings;
 use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
 
-no_shuffle();
-no_root_location();
-run_tests();
-# http://jira.alauda.cn/browse/ACP-7720
-# we have test http to http in ping.t
-__DATA__
 
-=== TEST 1: http to https 
---- certificate 
-/cert/tls.crt /cert/tls.key
---- http_config
+my $base = $ENV{'TEST_BASE'};
+our $cert = <<_EOC_;
+$base/cert/tls.crt $base/cert/tls.key
+_EOC_
+our $https = <<_EOC_;
 server {
     listen       8443 ssl;
     server_name  _;
 
-    ssl_certificate     /cert/tls.crt;
-    ssl_certificate_key /cert/tls.key;
+    ssl_certificate     $base/cert/tls.crt;
+    ssl_certificate_key $base/cert/tls.key;
+    ssl_dhparam $base/dhparam.pem;
 
     ssl_session_timeout  5m;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
@@ -32,6 +28,18 @@ server {
       }
     }
 }
+_EOC_
+
+no_shuffle();
+no_root_location();
+run_tests();
+# http://jira.alauda.cn/browse/ACP-7720
+# we have test http to http in ping.t
+__DATA__
+
+=== TEST 1: http to https 
+--- certificate eval: $::cert
+--- http_config eval: $::https
 --- policy
 {
   "certificate_map": {},
@@ -124,27 +132,8 @@ GET /ping
 im http
 
 === TEST 3: https to https 
---- certificate 
-/cert/tls.crt /cert/tls.key
---- http_config
-server {
-    listen       8443 ssl;
-    server_name  _;
-
-    ssl_certificate     /cert/tls.crt;
-    ssl_certificate_key /cert/tls.key;
-
-    ssl_session_timeout  5m;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-    ssl_prefer_server_ciphers on;
-
-    location /ping {
-      content_by_lua_block {
-          ngx.say("im https")
-      }
-    }
-}
+--- certificate eval: $::cert
+--- http_config eval: $::https
 --- policy
 {
   "certificate_map": {

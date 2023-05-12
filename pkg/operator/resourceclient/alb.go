@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type ALB2ResourceClient struct {
@@ -78,7 +78,7 @@ func (c *ALB2ResourceClient) CreateOrUpdateIngressClass(ic *netv1.IngressClass) 
 	return c.Update(context.Background(), ic)
 }
 
-func (c *ALB2ResourceClient) CreateOrUpdateGatewayClass(gc *v1alpha2.GatewayClass) error {
+func (c *ALB2ResourceClient) CreateOrUpdateGatewayClass(gc *gv1b1t.GatewayClass) error {
 	currentGatewayClass := &netv1.IngressClass{}
 	err := c.Get(context.Background(), types.NamespacedName{
 		Namespace: gc.GetNamespace(),

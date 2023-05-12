@@ -15,7 +15,7 @@ end
 _M.inspect = inspect
 
 function _M.log(msg)
-	ngx.log(ngx.NOTICE, "alb_debug:"..msg.."alb_debug_end")
+	ngx.log(ngx.NOTICE, "alb_debug: "..msg.." alb_debug_end")
 end
 
 function _M.now_ms()
