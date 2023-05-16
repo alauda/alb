@@ -290,10 +290,6 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
 	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
 	log := c.log.WithName("cleanup").WithValues("ingress", key)
-	err := c.CleanUpIngressStatus(alb, ing)
-	if err != nil {
-		return err
-	}
 	log.Info("clean up")
 	var ft *m.Frontend
 	for _, f := range alb.Frontends {

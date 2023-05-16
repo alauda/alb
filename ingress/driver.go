@@ -81,12 +81,9 @@ func (kd *IngressDriver) ListAllIngress() ([]*n1.Ingress, error) {
 	return ings, nil
 }
 
-func (kd *IngressDriver) UpdateIngressAndStatus(ing *n1.Ingress) (*n1.Ingress, error) {
+func (kd *IngressDriver) UpdateIngressStatus(ing *n1.Ingress) (*n1.Ingress, error) {
 	ing, err := kd.Client.NetworkingV1().Ingresses(ing.Namespace).UpdateStatus(kd.Ctx, ing, metav1.UpdateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return kd.Client.NetworkingV1().Ingresses(ing.Namespace).Update(kd.Ctx, ing, metav1.UpdateOptions{})
+	return ing, err
 }
 
 func hashSource(source *alb2v1.Source) string {

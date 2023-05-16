@@ -3,9 +3,11 @@ package ingress
 // 在ingress上设置status
 // 这里要注意的是
 // 1. alb在配置address时,用户可以写多个地址。可能写ipv4,v6和域名，每个地址都是一个status
-// 2. 会有多个alb同时处理一个ingress的情况，所以更新ingress的status时,我们要在annotation上写下这个alb的address.
-// 3. 如果有多个alb设置了相同的地址。在其中一个alb不在处理这个ingress的时候。可能会导致误删。导致其他alb的status被清理掉,
-//       所以在我们维护状态的时候是以annotation为标准。如果annotation没有我们，即使status有我们，也不要清理。
+// 2. 会有多个alb同时处理一个ingress的情况
+// 3. 会有多个alb设置了相同的访问地址的情况
+
+// 所以这里暂时当且仅当 status中没有自己的地址，并且自己处理这个ingress时，将自己的地址和端口加入status中
+// 不从status中删除地址
 
 import (
 	"net/url"
@@ -20,101 +22,94 @@ import (
 )
 
 func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) bool {
-	key := c.GetAnnotationIngressAddress()
-	val := ing.Annotations[key]
-	if val != alb.Spec.Address {
-		return true
-	}
-	if !c.ingressStatusHasPort(ing) {
-		return true
-	}
-	return false
-}
-
-func (c *Controller) ingressStatusHasPort(ing *n1.Ingress) bool {
+	ports := []int32{}
 	need := getIngressFtTypes(ing, c)
-	needPort := mapset.NewSet[int32]()
 	if need.NeedHttp() {
-		needPort.Add(int32(c.GetIngressHttpPort()))
+		ports = append(ports, int32(c.GetIngressHttpPort()))
 	}
 	if need.NeedHttps() {
-		needPort.Add(int32(c.GetIngressHttpsPort()))
+		ports = append(ports, int32(c.GetIngressHttpsPort()))
 	}
-
-	address := ing.Annotations[c.GetAnnotationIngressAddress()]
-	ips, hosts := parseAddress(address)
-	ipset := mapset.NewSet(ips...)
-	hostset := mapset.NewSet(hosts...)
-
-	for _, status := range ing.Status.LoadBalancer.Ingress {
-		portset := mapset.NewSet(lo.Map(status.Ports, func(p n1.IngressPortStatus, _ int) int32 {
-			return p.Port
-		})...)
-		if ipset.Contains(status.IP) && !portset.Equal(needPort) {
-			return false
-		}
-		if hostset.Contains(status.Hostname) && !portset.Equal(needPort) {
-			return false
-		}
-	}
-	return true
+	return FillupIngressStatus(alb.Spec.Address, ports, ing.DeepCopy())
 }
 
 func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) error {
-	old := ing.DeepCopy()
-	c.removeOurIngressStatus(alb.Name, ing)
-	key := c.GetAnnotationIngressAddress()
-	val := alb.Spec.Address
-	ing.Annotations[key] = val
+
+	ports := []int32{}
 	need := getIngressFtTypes(ing, c)
-	status := genStatusFromAddress(val, need, int32(c.GetIngressHttpPort()), int32(c.GetIngressHttpsPort()))
-	ing.Status.LoadBalancer.Ingress = append(ing.Status.LoadBalancer.Ingress, status...)
-	ing, err := c.kd.UpdateIngressAndStatus(ing)
+	if need.NeedHttp() {
+		ports = append(ports, int32(c.GetIngressHttpPort()))
+	}
+	if need.NeedHttps() {
+		ports = append(ports, int32(c.GetIngressHttpsPort()))
+	}
+	update := FillupIngressStatus(alb.Spec.Address, ports, ing)
+	if !update {
+		return nil
+	}
+	newing, err := c.kd.UpdateIngressStatus(ing)
 	if err != nil {
 		return err
 	}
-	c.log.Info("update ingress status success", "diff", cmp.Diff(old, ing))
+	c.log.Info("update ingress status", "diff", cmp.Diff(ing, newing))
 	return nil
 }
 
-// clean up ingress status if exist. input ing will NOT change.
-func (c *Controller) CleanUpIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) error {
-	// ingress could not found.
-	if ing == nil {
-		return nil
-	}
-	if c.hasOurStatus(alb.Name, ing) {
-		c.removeOurIngressStatus(alb.Name, ing)
-		old := ing.DeepCopy()
-		ing, err := c.kd.UpdateIngressAndStatus(ing)
-		c.log.Info("cleanup ingress status success", "diff", cmp.Diff(old, ing))
-		if err != nil {
-			return err
+func FillupIngressStatus(address string, ports []int32, ing *n1.Ingress) bool {
+	ips, hosts := parseAddress(address)
+	update := false
+	for _, ip := range ips {
+		if FillupIngressStatusAddressAndPort(ing, ip, "", ports) {
+			update = true
 		}
 	}
-	return nil
-}
-
-func (c *Controller) hasOurStatus(name string, ing *n1.Ingress) bool {
-	key := c.GetAnnotationIngressAddress()
-	return ing.Annotations[key] != ""
-}
-
-// update the input ingress, remove annotation and status which set by us
-func (c *Controller) removeOurIngressStatus(name string, ing *n1.Ingress) {
-	key := c.GetAnnotationIngressAddress()
-	val := ing.Annotations[key]
-	delete(ing.Annotations, key)
-	address := mapset.NewSet(splitAddress(val)...)
-	status := ing.Status.LoadBalancer.Ingress
-	newStatus := []n1.IngressLoadBalancerIngress{}
-	for _, s := range status {
-		key := ingressStatuskey(s)
-		if !address.Contains(key) {
-			newStatus = append(newStatus, s)
+	for _, host := range hosts {
+		if FillupIngressStatusAddressAndPort(ing, "", host, ports) {
+			update = true
 		}
 	}
-	ing.Status.LoadBalancer.Ingress = newStatus
+	return update
+}
+
+// set ip or host and ports to ingress status. return true if ingress status changed
+func FillupIngressStatusAddressAndPort(ing *n1.Ingress, ip string, host string, ports []int32) bool {
+	portSet := mapset.NewSet(ports...)
+	var status *n1.IngressLoadBalancerIngress = nil
+	for i, s := range ing.Status.LoadBalancer.Ingress {
+		if (s.IP == ip && ip != "") || (s.Hostname == host && host != "") {
+			status = &ing.Status.LoadBalancer.Ingress[i]
+		}
+	}
+
+	// 补全已有的status的port
+	if status != nil {
+		curPortSet := mapset.NewSet(lo.Map(status.Ports, func(p n1.IngressPortStatus, _ int) int32 {
+			return p.Port
+		})...)
+		missPort := portSet.Difference(curPortSet).ToSlice()
+		for _, p := range missPort {
+			status.Ports = append(status.Ports, n1.IngressPortStatus{
+				Port:     p,
+				Protocol: "TCP",
+			})
+		}
+		return len(missPort) > 0
+	}
+
+	// 添加新的status
+	ingPorts := []n1.IngressPortStatus{}
+	for _, p := range ports {
+		ingPorts = append(ingPorts, n1.IngressPortStatus{
+			Port:     int32(p),
+			Protocol: "TCP",
+		})
+	}
+	ing.Status.LoadBalancer.Ingress = append(ing.Status.LoadBalancer.Ingress, n1.IngressLoadBalancerIngress{
+		IP:       ip,
+		Hostname: host,
+		Ports:    ingPorts,
+	})
+	return true
 }
 
 func addressIs(address string) (ipv4 bool, ipv6 bool, domain bool, err error) {
@@ -157,45 +152,4 @@ func parseAddress(address string) (ip []string, host []string) {
 		}
 	}
 	return ip, host
-}
-
-func genStatusFromAddress(address string, need Need, http int32, https int32) []n1.IngressLoadBalancerIngress {
-	ips, hosts := parseAddress(address)
-	out := []n1.IngressLoadBalancerIngress{}
-	ports := []n1.IngressPortStatus{}
-	if need.NeedHttp() {
-		ports = append(ports, n1.IngressPortStatus{
-			Protocol: "TCP", // only could be TCP/UDP/SCTP
-			Port:     http,
-		})
-	}
-	if need.NeedHttps() {
-		ports = append(ports, n1.IngressPortStatus{
-			Protocol: "TCP",
-			Port:     https,
-		})
-	}
-	for _, ip := range ips {
-		out = append(out, n1.IngressLoadBalancerIngress{
-			IP:    ip,
-			Ports: ports,
-		})
-	}
-	for _, hosts := range hosts {
-		out = append(out, n1.IngressLoadBalancerIngress{
-			Hostname: hosts,
-			Ports:    ports,
-		})
-	}
-	return out
-}
-
-func ingressStatuskey(ing n1.IngressLoadBalancerIngress) string {
-	if ing.IP != "" {
-		return ing.IP
-	}
-	if ing.Hostname != "" {
-		return ing.Hostname
-	}
-	return ""
 }
