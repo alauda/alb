@@ -18,53 +18,14 @@ spec:
         common resources
       name: source
   tasks:
-    # generate-version
-    - name: generate-version
-      timeout: 5m
-      retries: 1
-      workspaces:
-        - name: source
-          workspace: source
-      taskRef:
-        kind: ClusterTask
-        name: alauda-generate-version
-      params:
-        - name: repo-type
-          value: gitlab
-        - name: repo-url
-          value: $(params.git-url)
-        - name: repo-ref
-          value: $(params.git-revision)
-    - name: generate-chart-version
-      runAfter:
-        - generate-version
-      timeout: 30m
-      retries: 3
-      taskRef:
-        kind: ClusterTask
-        name: alauda-generate-chart-version
-      workspaces:
-        - name: source
-          workspace: source
-      params:
-        - name: chart-path
-          value: ./deploy/chart/alb
-        - name: branch
-          value: $(tasks.generate-version.results.branch)
-        - name: namespace
-          value: acp
-        - name: comfigmap-name
-          value: alauda-gitlab-container-platform-alb2
     - name: kind-test 
       runAfter:
-        - generate-version
-        - generate-chart-version
         - build-alb-chart
       params:
       - name: version 
-        value: $(tasks.generate-chart-version.results.version)
+        value: $(build.git.version.short)
       - name: branch
-        value: $(tasks.generate-version.results.branch)
+        value: $(build.git.branch.name)
       retries: 3
       workspaces:
         - name: source
@@ -90,8 +51,8 @@ spec:
                 cpu: "1"
                 memory: "1G"
               limits:
-                cpu: "2"
-                memory: "2G"              
+                cpu: "4"
+                memory: "4G"              
             script: |
               #!/bin/sh
               sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
@@ -105,8 +66,6 @@ spec:
               echo "branch  is  $ALB_KIND_E2E_BRANCH. version is $ALB_KIND_E2E_CHART"
               bash ./scripts/kind-e2e.sh
     - name: alb-test
-      runAfter:
-        - generate-version
       retries: 3
       workspaces:
         - name: source
@@ -134,7 +93,6 @@ spec:
               scripts/go-test.sh
     - name: code-scan
       runAfter:
-        - generate-version
         - alb-test
       workspaces:
         - name: source
@@ -149,7 +107,7 @@ spec:
           value: https://build-sonar.alauda.cn
         - name: scan-flags
           value:
-            - 'sonar.projectVersion=$(tasks.generate-version.results.version)'
+            - 'sonar.projectVersion=$(build.git.version.docker)'
         - name: quality-gate-rules
           value:
             # 覆盖率允许下降值。 0 表示不允许降低
@@ -157,8 +115,6 @@ spec:
             # 重复率允许上浮值。0 表示不允许上升
             - duplication-delta=10
     - name: alb-build
-      runAfter:
-        - generate-version
       timeout: 30m
       retries: 1
       taskRef:
@@ -171,7 +127,7 @@ spec:
         - name: container-image
           value: build-harbor.alauda.cn/acp/alb2
         - name: container-image-tag
-          value: $(tasks.generate-version.results.version)
+          value: $(build.git.version.docker)
         - name: dockerfile
           value: ./Dockerfile
         - name: platform
@@ -187,8 +143,6 @@ spec:
           - commit=$(build.git.lastCommit.id)
           - branch=$(build.git.branch.name)
     - name: nginx-build
-      runAfter:
-        - generate-version
       timeout: 30m
       retries: 3
       taskRef:
@@ -201,7 +155,7 @@ spec:
         - name: container-image
           value: build-harbor.alauda.cn/acp/alb-nginx
         - name: container-image-tag
-          value: $(tasks.generate-version.results.version)
+          value: $(build.git.version.docker)
         - name: dockerfile
           value: ./template/Dockerfile
         - name: platform
@@ -223,7 +177,7 @@ spec:
         - nginx-build
       params:
       - name: nginx-tag
-        value: $(tasks.generate-version.results.version)
+        value: $(build.git.version.docker)
       workspaces:
         - name: source
           workspace: source
@@ -256,9 +210,6 @@ spec:
               #!/bin/sh
               ./scripts/nginx-test.sh
     - name: prepare-chart
-      runAfter:
-        - generate-version
-        - generate-chart-version
       timeout: 30m
       retries: 1
       workspaces:
@@ -266,9 +217,9 @@ spec:
           workspace: source
       params:
       - name: version 
-        value: $(tasks.generate-chart-version.results.version)
+        value: $(build.git.version.short)
       - name: image_tag
-        value: $(tasks.generate-version.results.version)
+        value: $(build.git.version.docker)
       taskSpec:
         description: >
           parepare operator bundle and chart
@@ -311,17 +262,17 @@ spec:
         - name: address
           value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
-          value: $(tasks.generate-chart-version.results.version)
+          value: $(build.git.version.short)
         - name: branch
-          value: $(tasks.generate-version.results.branch)
+          value: $(build.git.branch.name)
         - name: git-revision
           value: $(params.git-revision)
         - name: image-tag
-          value: $(tasks.generate-version.results.version),$(tasks.generate-version.results.version)
+          value: $(build.git.version.docker),$(build.git.version.docker)
         - name: values-path
           value: global.images.alb2.tag,global.images.nginx.tag
         - name: commit
-          value:  $(tasks.generate-version.results.commit-id)
+          value:  $(build.git.lastCommit.id)
     - name: commit-push
       taskRef:
         name: alauda-git-commit-push
@@ -332,43 +283,36 @@ spec:
         - kind-test
       params:
       - name: branch
-        value: $(tasks.generate-version.results.branch)
+        value: $(build.git.branch.name)
       workspaces:
         - name: source
           workspace: source
       when:
-      - input: "true"
+      - input: "$(build.git.versionPhase)"
         operator: in
-        values:
-          - "$(tasks.generate-version.results.is-custom-release-branch)"
-          - "$(tasks.generate-version.results.is-release-branch)"
-          - "$(tasks.generate-version.results.is-main-branch)"
-    - name: alauda-release-tag
-      runAfter:
-        - commit-push
-      when:
-       # only in release or custom release branches
-        - input: "true"
-          operator: in
-          values:
-          - "$(tasks.generate-version.results.is-custom-release-branch)"
-          - "$(tasks.generate-version.results.is-release-branch)"
-      timeout: 30m
-      retries: 3
-      taskRef:
-        kind: ClusterTask
-        name: alauda-release-tag
-      workspaces:
-        - name: source
-          workspace: source
-      params:
-        - name: verbose
-          value: "true"
-        - name: base-image
-          value: build-harbor.alauda.cn/devops/builder-tools:ubuntu-v3.6-14-g56f12fa
-        - name: version
-          value: $(tasks.generate-version.results.version)
-        - name: git-user-name
-          value: Alauda Bot
-        - name: git-user-email
-          value: alaudabot@alauda.io
+        values: ["custom", "ga", "beta"]
+  finally:
+  # Release tag
+  - name: release-tag
+    when:
+      # only during releases
+      - input: "$(build.git.versionPhase)"
+        operator: in
+        values: ["custom", "ga"]
+      # all tasks must succeed
+      - input: $(tasks.status)
+        operator: in
+        values: ["Succeeded", "Completed"]
+    timeout: 30m
+    retries: 1
+    taskRef:
+      kind: ClusterTask
+      name: alauda-release-tag
+    workspaces:
+      - name: source
+        workspace: source
+    params:
+      - name: verbose
+        value: "false"
+      - name: version
+        value: $(build.git.version.docker)
