@@ -1,3 +1,4 @@
+{{- if .Values.defaultAlb }}
 {{- $global := .Values.global }}
 {{- $value_without_global := unset .Values "global" }}
 {{- $cfg :=  $value_without_global }}
@@ -26,3 +27,4 @@ spec:
   type: "nginx" 
   config: 
 {{ $cfg | toYaml | indent 4 }}
+{{- end }}

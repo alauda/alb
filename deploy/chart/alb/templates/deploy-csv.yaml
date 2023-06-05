@@ -28,7 +28,7 @@ spec:
               rollingUpdate:
                 maxUnavailable: 1
                 maxSurge: 1
-            replicas: 1
+            replicas: {{ .Values.operatorReplicas }}
             selector:
               matchLabels:
                 name: alb-operator
@@ -41,11 +41,13 @@ spec:
                   kubernetes.io/os: linux
                 affinity:
                   podAntiAffinity:
-                    requiredDuringSchedulingIgnoredDuringExecution:
-                      - labelSelector:
-                          matchLabels:
-                            name: alb-operator
-                        topologyKey: kubernetes.io/hostname
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        podAffinityTerm:
+                          labelSelector:
+                            matchLabels:
+                              name: alb-operator
+                          topologyKey: kubernetes.io/hostname
                 containers:
                   - env:
                       - name: ALB_IMAGE

@@ -9,10 +9,11 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	f "alauda.io/alb2/test/e2e/framework"
 	"alauda.io/alb2/utils"
-	tu "alauda.io/alb2/utils/test_utils"
+	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	_ "github.com/kr/pretty"
 	. "github.com/onsi/ginkgo"
@@ -31,9 +32,9 @@ var testEnv *envtest.Environment
 var kubecfg *rest.Config
 var albRoot string
 var testBase string
-var helm *tu.Helm
-var kt *tu.Kubectl
-var kc *tu.K8sClient
+var helm *Helm
+var kt *Kubectl
+var kc *K8sClient
 
 func TestChart(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -56,7 +57,7 @@ var _ = Describe("chart", func() {
 		os.MkdirAll(testBase, os.ModePerm)
 		localCfg := os.Getenv("USE_LOCAL_KUBECFG")
 		ctx, cancel = context.WithCancel(context.Background())
-		l = tu.GinkgoLog()
+		l = GinkgoLog()
 		if localCfg == "" {
 			testEnv = &envtest.Environment{}
 			cfg, err := testEnv.Start()
@@ -69,9 +70,9 @@ var _ = Describe("chart", func() {
 			kubecfg = cf
 		}
 
-		helm = tu.NewHelm(testBase, kubecfg, tu.GinkgoLog())
-		kt = tu.NewKubectl(testBase, kubecfg, tu.GinkgoLog())
-		kc = tu.NewK8sClient(ctx, kubecfg)
+		helm = NewHelm(testBase, kubecfg, GinkgoLog())
+		kt = NewKubectl(testBase, kubecfg, GinkgoLog())
+		kc = NewK8sClient(ctx, kubecfg)
 
 		opext = f.NewAlbOperatorExt(ctx, testBase, kubecfg)
 		// install feature crd
@@ -115,19 +116,19 @@ var _ = Describe("chart", func() {
 
 		alb := &albv2.ALB2{}
 		err := kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
 		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/a"])
 		assert.Equal(GinkgoT(), "true", alb.Labels["project.cpaas.io/b"])
 		l.Info("alb", "alb", alb)
 
 		csv, err := kt.Kubectl("get csv -A")
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		l.Info("csv", "csv", csv)
 		assert.Equal(GinkgoT(), strings.Contains(csv, "alb-operator.v0.1.0"), true)
 
 		deplstr, err := kt.Kubectl("get deployment -A")
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		l.Info("depl", "depl", deplstr)
 		assert.Equal(GinkgoT(), strings.Contains(deplstr, "No resources found"), true)
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
@@ -136,7 +137,7 @@ var _ = Describe("chart", func() {
 		kc.GetClient().Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, depl)
 		nginxC := depl.Spec.Template.Spec.Containers[0]
 		albC := depl.Spec.Template.Spec.Containers[1]
-		l.Info("depl", "alb", tu.PrettyCr(depl))
+		l.Info("depl", "alb", PrettyCr(depl))
 		assert.Equal(GinkgoT(), albC.Resources.Limits.Cpu().String(), "200m")
 		assert.Equal(GinkgoT(), albC.Resources.Limits.Memory().String(), "2Gi")
 		assert.Equal(GinkgoT(), nginxC.Resources.Limits.Cpu().String(), "2")
@@ -168,19 +169,52 @@ var _ = Describe("chart", func() {
 
 		alb := &albv2.ALB2{}
 		err := kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
 
 		csv, err := kt.Kubectl("get csv -A")
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		l.Info("csv", "csv", csv)
 		assert.Equal(GinkgoT(), strings.Contains(csv, "No resources found"), true)
 
 		depl, err := kt.Kubectl("get deployment -A")
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		l.Info("depl", "depl", depl)
 		assert.Equal(GinkgoT(), strings.Contains(depl, "alb-operator"), true)
 
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
+	})
+
+	f.GIt("deploy operator only", func() {
+		cfgs := []string{
+			`
+            operatorDeployMode: "deployment"
+            defaultAlb: false
+            displayName: "x"
+            address: "192.168.134.195"
+            global:
+              labelBaseDomain: cpaas.io
+              namespace: cpaas-system
+              registry:
+                address: build-harbor.alauda.cn
+            loadbalancerName: ares-alb2
+            nodeSelector:
+                kubernetes.io/hostname: 192.168.134.195
+            gateway:
+                enable: true
+                mode: gatewayclass
+            replicas: 1
+            `,
+		}
+		name := "operator"
+		helm.AssertInstall(cfgs, name, chartBase, chartDefaultVal)
+
+		depl, err := kt.Kubectl("get deployment -A")
+		GinkgoNoErr(err)
+		l.Info("depl", "depl", depl)
+		assert.Equal(GinkgoT(), strings.Contains(depl, "alb-operator"), true)
+		alb := &albv2.ALB2{}
+		err = kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
+		assert.True(GinkgoT(), k8serrors.IsNotFound(err))
 	})
 })

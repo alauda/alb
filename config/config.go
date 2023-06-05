@@ -85,6 +85,8 @@ var optionalFields = []string{
 	"LEADER_LEASE_DURATION",
 	"LEADER_RENEW_DEADLINE",
 	"LEADER_RETRY_PERIOD",
+
+	"ENABLE_VIP",
 }
 
 var nginxRequiredFields = []string{
@@ -372,4 +374,8 @@ func (c *Config) GetMode() Mode {
 // TODO a better name
 func (c *Config) IsEnableAlb() bool {
 	return GetBool("ALB_ENABLE")
+}
+
+func (c *Config) IsEnableVIP() bool {
+	return GetBool("ENABLE_VIP")
 }

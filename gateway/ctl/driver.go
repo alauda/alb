@@ -3,6 +3,7 @@ package ctl
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
@@ -13,8 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	coreV1 "k8s.io/api/core/v1"
 )
 
 func ListListener(ctx context.Context, c client.Client, sel config.GatewaySelector) ([]*Listener, error) {
@@ -191,27 +190,14 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 	return len(keyList) != 0, keyList, nil
 }
 
-func getAlbAddress(ctx context.Context, c client.Client, ns string, name string) (string, error) {
+func getAlbAddress(ctx context.Context, c client.Client, ns string, name string) ([]string, error) {
 	alb := alb2v2.ALB2{}
 	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &alb)
 	if err != nil {
-		return "", err
+		return []string{}, err
 	}
-	return alb.Spec.Address, nil
-}
-
-func getLbSvcLbIp(ctx context.Context, c client.Client, ns string, name string) (string, error) {
-	svc := coreV1.Service{}
-	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &svc)
-	if err != nil {
-		return "", err
-	}
-	if svc.Spec.Type != coreV1.ServiceTypeLoadBalancer {
-		return "", fmt.Errorf("invalid svc %s/%s type must be lb", ns, name)
-	}
-	ingress := svc.Status.LoadBalancer.Ingress
-	if len(ingress) != 1 {
-		return "", fmt.Errorf("invalid svc ingress %v", ingress)
-	}
-	return ingress[0].IP, nil
+	addres := strings.Split(alb.Spec.Address, ",")
+	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv4...)
+	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv6...)
+	return addres, nil
 }

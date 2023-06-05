@@ -1,12 +1,13 @@
 package alb
 
 import (
+	"testing"
+
 	"alauda.io/alb2/test/e2e/framework"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"testing"
 )
 
 var testEnv *envtest.Environment

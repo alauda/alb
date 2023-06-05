@@ -63,14 +63,7 @@ function alb-debug-e2e-test() {
 
 function alb-run-e2e-test-one() {
   export DEV_MODE=true
-  local cmd=$(alb-list-e2e-testcase | fzf)
-  echo $cmd
-  if [[ "$FAKE_HISTORY" == "true" ]]; then
-    local suite=$(echo $cmd | awk '{print $(NF)}')
-    local name=$(echo $cmd | awk '{print $(NF-1)}')
-    add-history "ginkgo -v -focus "$name" $suite"
-  fi
-  eval $cmd
+  alb-run-all-e2e-test 1 "$@"
 }
 
 function alb-run-all-e2e-test() (
@@ -104,7 +97,7 @@ function alb-run-all-e2e-test() (
   echo $start $end
   if cat ./test.log | grep '1 Failed'; then
     echo "e2e test wrong"
-    cat ./test.log | grep '1 Failed' -C 10
+    cat ./test.log | grep "\[Fail\]"
     return 1
   fi
   for f in ./.test/cover.*; do
@@ -163,10 +156,15 @@ function alb-envtest-install() {
 }
 
 function alb-install-golang-test-dependency {
+  ls
+  which helm || true
+  if [ -f "$(which helm)" ]; then echo "dependency already installed" return; else echo "dependency not installed. install it"; fi
+  rm kubernetes-client-linux-amd64.tar.gz || true
   wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
   #   kubectl version
   which kubectl
   echo "install helm"
+  rm helm-v3.9.3-linux-amd64.tar.gz || true
   wget https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz && tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
   helm version
   apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
@@ -205,4 +203,8 @@ function alb-test-all-in-ci-golang() {
   echo "$end_lint"
   echo "$end_unit"
   echo "$end_e2e"
+}
+
+function alb-list-kind-e2e() {
+  ginkgo -debug -v -dryRun ./test/kind/e2e
 }

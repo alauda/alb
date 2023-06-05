@@ -1,11 +1,12 @@
 #!/bin/bash
+
 function kind-e2e-local() (
-  go build -o alb-kind-e2e alauda.io/alb2/test/kind/3.12
+  go test -c alauda.io/alb2/test/kind/e2e
+  mv ./test.test ./alb-kind-e2e
   export ALB_SUFFIX=ka
   echo $ALB_SUFFIX
   md5sum ./alb-kind-e2e
-  # TODO 在本地跑的时候，正常情况下，我们应该重新自己build 镜像和chart，但现在还没做到
-  export ALB_KIND_E2E_CHART=$1
+  export ALB_KIND_E2E_CHART=v3.13.0-alpha.11
   export ALB_CI_ROOT=/tmp/alb-kind
   mkdir -p $ALB_CI_ROOT
   local base="$ALB_CI_ROOT/$ALB_SUFFIX"

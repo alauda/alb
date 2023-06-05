@@ -3,6 +3,7 @@ package simple
 import (
 	"context"
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 
 	f "alauda.io/alb2/test/e2e/framework"
@@ -21,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO 真正的operator的测试应该将controller启动起来,是否要想办法将这个移到pkg中呢,不要放在e2e里
 var _ = Describe("Operator Simple", func() {
 	var base string
 	var opext *f.AlbOperatorExt
@@ -71,21 +71,21 @@ spec:
 		albc := kc.GetAlbClient()
 		v1alb, err := albc.CrdV1().ALB2s("cpaas-system").Get(ctx, "alb-v2", metav1.GetOptions{})
 		fmt.Printf("v1 origin alb %v %v\n", v1alb.ResourceVersion, v1alb.Spec)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		{
 			v1alb.Annotations["a"] = "b"
 			v1alb, err = albc.CrdV1().ALB2s("cpaas-system").Update(ctx, v1alb, metav1.UpdateOptions{})
 			fmt.Printf("v1 update1 alb %v %+v\n", v1alb.ResourceVersion, v1alb)
 			fmt.Printf("v1 update1 alb spec %+v\n", v1alb.Spec)
-			f.GinkgoNoErr(err)
+			GinkgoNoErr(err)
 			v1alb.Annotations["a"] = "c"
 			v1alb, err = albc.CrdV1().ALB2s("cpaas-system").Update(ctx, v1alb, metav1.UpdateOptions{})
 			fmt.Printf("v1 update2 alb %v %+v\n", v1alb.ResourceVersion, v1alb)
-			f.GinkgoNoErr(err)
+			GinkgoNoErr(err)
 		}
 		// v1alb
 		v2alb, err := albc.CrdV2beta1().ALB2s("cpaas-system").Get(ctx, "alb-v2", metav1.GetOptions{})
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		fmt.Printf("v2 alb %v %v \n", v2alb.ResourceVersion, v2alb)
 	})
 
@@ -207,6 +207,16 @@ spec:
 			}},
 			Test: func(dep *v1.Deployment) bool {
 				spec := dep.Spec.Template.Spec
+				log.Info("dep", "dep", fmt.Sprint(
+					// spec.HostNetwork,
+					// spec.DNSPolicy,
+					// spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+					spec.NodeSelector["kubernetes.io/hostname"],
+					// spec.Containers[0].Resources.Limits.Cpu().String(),
+					// spec.Tolerations[0].Operator == "Exists",
+					// dep.Spec.Template.Labels["alb2.cpaas.io/type"],
+				),
+				)
 				return spec.HostNetwork &&
 					spec.DNSPolicy == "ClusterFirstWithHostNet" &&
 					spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
@@ -410,11 +420,10 @@ spec:
 					Kind:  "alb2",
 					Names: []string{"gateway-g1"},
 				},
-				// TODO service 应该是由operator创建出来的。
 				{
 					Ns:    "cpaas-system",
 					Kind:  "service",
-					Names: []string{"gateway-g1-tcp", "gateway-g1-udp"},
+					Names: []string{"gateway-g1"},
 				},
 			},
 			ExpectNotExist: []Resource{

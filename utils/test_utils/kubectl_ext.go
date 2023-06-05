@@ -52,7 +52,10 @@ func (k *Kubectl) KubectlApply(yaml string, options ...string) (string, error) {
 
 func (k *Kubectl) AssertKubectlApply(yaml string, options ...string) string {
 	ret, err := k.KubectlApply(yaml, options...)
-	assert.Nil(ginkgo.GinkgoT(), err, "")
+	if err != nil {
+		k.log.Error(err, "apply yaml fail")
+	}
+	assert.Nil(ginkgo.GinkgoT(), err, "apply yaml fail")
 	return ret
 }
 

@@ -1,6 +1,7 @@
 package workload
 
 import (
+	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources"
 	"alauda.io/alb2/pkg/operator/toolkit"
 	appv1 "k8s.io/api/apps/v1"
@@ -10,13 +11,7 @@ import (
 
 type Option func(deploy *appv1.Deployment)
 
-func setSelector(baseDomain, name, version string) Option {
-
-	// TODO 在我们实现某种形式的deployment更新之前，不能动这里的label,否则会因为label不一致导致更新失败
-	labels := map[string]string{
-		"service_name":                    "alb2-" + name,
-		"service." + baseDomain + "/name": toolkit.FmtKeyBySep("-", "deployment", name),
-	}
+func setSelector(labels map[string]string) Option {
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	return func(deploy *appv1.Deployment) {
 		if deploy == nil {
@@ -26,7 +21,27 @@ func setSelector(baseDomain, name, version string) Option {
 	}
 }
 
-func setPodLabel(baseDomain, name string, version string, antiaffinitykey string) Option {
+func (d *DeplTemplate) getAntiaffinitykey() string {
+	return d.albcfg.Deploy.AntiAffinityKey
+}
+
+func (d *DeplTemplate) podSelector() map[string]string {
+	// TODO 在我们实现某种形式的deployment更新之前，不能动这里的label,否则会因为label不一致导致更新失败
+	baseDomain := d.baseDomain
+	name := d.name
+	labels := map[string]string{
+		"service_name":                    "alb2-" + name,
+		"service." + baseDomain + "/name": toolkit.FmtKeyBySep("-", "deployment", name),
+	}
+	return labels
+}
+
+func (d *DeplTemplate) expectPodLabel() map[string]string {
+	baseDomain := d.baseDomain
+	name := d.name
+	antiaffinitykey := d.getAntiaffinitykey()
+	version := d.env.Version
+
 	labels := map[string]string{
 		baseDomain + "/product":            "Platform-Center",
 		"alb2." + baseDomain + "/pod_type": "alb",
@@ -35,15 +50,12 @@ func setPodLabel(baseDomain, name string, version string, antiaffinitykey string
 		"service_name":                    "alb2-" + name,
 		"service." + baseDomain + "/name": toolkit.FmtKeyBySep("-", "deployment", name),
 		"alb2." + baseDomain + "/version": version,
-		"alb2." + baseDomain + "/type":    antiaffinitykey,
 	}
-	labels = resources.MergeLabel(labels, commonlabel)
-	return func(deploy *appv1.Deployment) {
-		if deploy == nil {
-			return
-		}
-		deploy.Spec.Template.Labels = labels
+	if d.albcfg.Controller.NetworkMode == a2t.HOST_MODE {
+		commonlabel["alb2."+baseDomain+"/type"] = antiaffinitykey
 	}
+	labels = resources.MergeMap(labels, commonlabel)
+	return labels
 }
 
 func SetImage(name, image string) Option {
@@ -73,21 +85,6 @@ func SetALB2Image(alb, nginx string) Option {
 			if containers[index].Name == "nginx" {
 				containers[index].Image = nginx
 			}
-		}
-	}
-}
-
-func WithHostNetwork(hostNetwork bool) Option {
-	return func(deploy *appv1.Deployment) {
-		if deploy == nil {
-			return
-		}
-		if hostNetwork {
-			deploy.Spec.Template.Spec.HostNetwork = true
-			deploy.Spec.Template.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
-		} else {
-			deploy.Spec.Template.Spec.HostNetwork = false
-			deploy.Spec.Template.Spec.DNSPolicy = corev1.DNSClusterFirst
 		}
 	}
 }
@@ -125,20 +122,6 @@ func AddVolumeMount(volume corev1.Volume, dstDir string) Option {
 					MountPath: dstDir,
 				},
 			)
-		}
-	}
-}
-
-func SetLabel(labels map[string]string) Option {
-	return func(deploy *appv1.Deployment) {
-		if deploy == nil {
-			return
-		}
-		if deploy.Labels == nil {
-			deploy.Labels = map[string]string{}
-		}
-		for k, v := range labels {
-			deploy.Labels[k] = v
 		}
 	}
 }
@@ -215,49 +198,42 @@ func SetReplicas(replicas int32) Option {
 	}
 }
 
-func SetAffinity(affinityKey, networkMode, labelBaseDomain string) Option {
-	return func(deploy *appv1.Deployment) {
-		if deploy == nil {
-			return
-		}
-		var affinity *corev1.Affinity
-		matchLabel := map[string]string{
-			"alb2." + labelBaseDomain + "/type": affinityKey,
-		}
-		topologKey := "kubernetes.io/hostname"
+func (d *DeplTemplate) GenExpectAffinity() *corev1.Affinity {
+	labelBaseDomain := d.env.BaseDomain
+	networkMode := d.albcfg.Controller.NetworkMode
+	affinityKey := d.albcfg.Deploy.AntiAffinityKey
+	matchLabel := map[string]string{
+		"alb2." + labelBaseDomain + "/type": affinityKey,
+	}
+	topologKey := "kubernetes.io/hostname"
 
-		if networkMode == "host" {
-			affinity = &corev1.Affinity{
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: matchLabel,
-							},
-							TopologyKey: topologKey,
+	if networkMode == a2t.HOST_MODE {
+		return &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: matchLabel,
 						},
+						TopologyKey: topologKey,
 					},
 				},
-			}
-		} else {
-			affinity = &corev1.Affinity{
-				PodAntiAffinity: &corev1.PodAntiAffinity{
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						{
-							Weight: 100,
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: matchLabel,
-								},
-								TopologyKey: topologKey,
-							},
-						},
+			},
+		}
+	}
+	// 容器网络模式的alb可以调度在任意节点上
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					Weight: 100,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: nil,
+						TopologyKey:   topologKey,
 					},
 				},
-			}
-		}
-
-		deploy.Spec.Template.Spec.Affinity = affinity
+			},
+		},
 	}
 }
 

@@ -1,4 +1,6 @@
 ## global
+defaultAlb: true # 部署默认的alb
+operatorReplicas: 1
 operatorDeployMode: "csv" # csv|deployment
 displayName: ""
 address: 127.0.0.1 # address of the default alb
@@ -8,7 +10,7 @@ global:
   labelBaseDomain: cpaas.io
   namespace: cpaas-system
   registry:
-    address: harbor.alauda.cn
+    address: registry.alauda.cn:60080
   images:
     alb2:
       code: gitlab-ce.alauda.cn/container-platform/alb2

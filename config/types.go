@@ -32,6 +32,7 @@ type IConfig interface {
 	GetPodName() string
 	GetNetworkMode() ControllerNetWorkMode
 	IsEnableAlb() bool
+	IsEnableVIP() bool
 
 	ILabelConfig
 	IIngressConfig

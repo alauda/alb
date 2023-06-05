@@ -46,14 +46,14 @@ func AddTypeInformationToObject(scheme *runtime.Scheme, obj runtime.Object) erro
 	return nil
 }
 
-func RandomStr(pixff string, length int) string {
+func RandomStr(prefix string, length int) string {
 	const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	result := make([]byte, length)
 	for i := 0; i < length; i++ {
 		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
 	}
-	if pixff != "" {
-		return pixff + "-" + string(result)
+	if prefix != "" {
+		return prefix + "-" + string(result)
 	}
 	return string(result)
 }

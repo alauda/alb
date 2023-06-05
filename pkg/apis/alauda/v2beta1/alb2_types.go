@@ -45,13 +45,16 @@ type ALB2 struct {
 
 // ALB2Spec defines the desired state of ALB2
 type ALB2Spec struct {
-	// address is only used to display at front-end.
-	Address string `json:"address"` // just for display in website
+	// custom address of this alb
+	Address string `json:"address,omitempty"`
 	// +kubebuilder:validation:Enum=nginx
 	Type string `json:"type"`
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Config *ExternalAlbConfig `json:"config"`
 }
+
+const HOST_MODE = "host"
+const CONTAINER_MODE = "container"
 
 // 这里将所有的fied都设置为指针，这样只是为了方便merge
 // crd中所有的字段默认都是optional是通过注解完成的。
@@ -59,7 +62,7 @@ type ALB2Spec struct {
 
 type ExternalAlbConfig struct {
 	LoadbalancerName     *string            `yaml:"loadbalancerName" json:"loadbalancerName,omitempty"` // # keep compatibility. use meta.name instead
-	Address              *string            `yaml:"address" json:"address,omitempty"`                   // alb显示的地址 # keep compatibility. use spec.address instead
+	Vip                  *VipConfig         `yaml:"vip" json:"vip,omitempty"`
 	NetworkMode          *string            `yaml:"networkMode" json:"networkMode,omitempty"`
 	NodeSelector         map[string]string  `yaml:"nodeSelector" json:"nodeSelector,omitempty"`
 	LoadbalancerType     *string            `yaml:"loadbalancerType" json:"loadbalancerType,omitempty"`
@@ -95,10 +98,14 @@ type ExternalAlbConfig struct {
 	Projects             []string           `yaml:"projects" json:"projects,omitempty"`
 	EnablePortProject    *bool              `yaml:"enablePortProject" json:"enablePortProject,omitempty"` // 是否是端口模式的alb
 	PortProjects         *string            `yaml:"portProjects" json:"portProjects,omitempty"`           //   '[{"port":"113-333","projects":["cong"]}]'
-	DisplayName          *string            `yaml:"displayName" json:"displayName,omitempty"`
 	AntiAffinityKey      *string            `yaml:"antiAffinityKey" json:"antiAffinityKey,omitempty"`
 	BindNIC              *string            `yaml:"bindNIC" json:"bindNIC,omitempty"` // json string alb绑定网卡的配置 '{"nic":["eth0"]}'
 	Overwrite            *ExternalOverwrite `yaml:"overwrite" json:"overwrite,omitempty"`
+}
+
+type VipConfig struct {
+	EnableLbSvc      bool              `yaml:"enableLbSvc" json:"enableLbSvc,omitempty"`
+	LbSvcAnnotations map[string]string `yaml:"lbSvcAnnotations" json:"lbSvcAnnotations,omitempty"`
 }
 
 type ExternalGateway struct {
@@ -112,8 +119,8 @@ type ExternalGatewayModeCfg struct {
 }
 
 type ContainerResource struct {
-	CPU    string `yaml:"cpu" json:"cpu"`
-	Memory string `yaml:"memory" json:"memory"`
+	CPU    string `yaml:"cpu" json:"cpu,omitempty"`
+	Memory string `yaml:"memory" json:"memory,omitempty"`
 }
 
 type ExternalResource struct {
@@ -174,6 +181,9 @@ type ALB2StatusDetail struct {
 	Alb AlbStatus `json:"alb"`
 	// status set by operator
 	// +optional
+	AddressStatus AssignedAddress `json:"address"`
+	// status set by operator
+	// +optional
 	Versions VersionStatus `json:"version"`
 }
 
@@ -192,6 +202,13 @@ type AlbStatus struct {
 	// port status of this alb. key format protocol-port
 	// +optional
 	PortStatus map[string]PortStatus `json:"portstatus"`
+}
+
+type AssignedAddress struct {
+	Ok   bool     `json:"ok"`
+	Msg  string   `json:"msg"`
+	Ipv4 []string `json:"ipv4"`
+	Ipv6 []string `json:"ipv6"`
 }
 
 type PortStatus struct {

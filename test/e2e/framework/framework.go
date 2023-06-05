@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	albCtl "alauda.io/alb2/alb"
 	"alauda.io/alb2/config"
+	albCtl "alauda.io/alb2/controller/alb"
 	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
@@ -219,7 +219,7 @@ func NewAlb(deployCfg Config) *Framework {
 	}
 
 	Logf("init ns %v", f.namespace)
-	GinkgoAssert(f.CreateNsIfNotExist(f.namespace), "")
+	tu.GinkgoAssert(f.CreateNsIfNotExist(f.namespace), "")
 	env := map[string]string{
 		"KUBERNETES_SERVER":            cfg.Host,
 		"KUBERNETES_BEARERTOKEN":       cfg.BearerToken,
@@ -391,7 +391,7 @@ func (f *Framework) initDefaultFt() {
 		},
 	}, metav1.CreateOptions{})
 
-	GinkgoAssert(err, "init defualt ft fail")
+	tu.GinkgoAssert(err, "init defualt ft fail")
 }
 
 func (f *Framework) StartTestAlbLoop() {

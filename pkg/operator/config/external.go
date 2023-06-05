@@ -8,9 +8,8 @@ import (
 	"github.com/xorcare/pointer"
 )
 
-func defaultConfig() ExternalAlbConfig {
+func DefaultConfig() ExternalAlbConfig {
 	return ExternalAlbConfig{
-		Address:              pointer.Of(""),
 		LoadbalancerType:     pointer.Of("nginx"),
 		NetworkMode:          pointer.Of("host"),
 		Replicas:             pointer.Of(3),
@@ -67,7 +66,6 @@ func defaultConfig() ExternalAlbConfig {
 		},
 		Projects:        []string{},
 		PortProjects:    pointer.Of("[]"),
-		DisplayName:     pointer.Of(""),
 		AntiAffinityKey: pointer.Of("local"),
 		BindNIC:         pointer.Of("{}"),
 	}
@@ -76,7 +74,7 @@ func defaultConfig() ExternalAlbConfig {
 // 在给crd上cfg设置了默认值之后，我们可以直接访问任意的字段而不用判断是否为nil
 func NewExternalAlbConfigWithDefault(alb *ALB2) (ExternalAlbConfig, error) {
 	var err error
-	defaultCfg := defaultConfig()
+	defaultCfg := DefaultConfig()
 	// raw := alb.Spec.Config.Raw
 	// https://stackoverflow.com/a/47396406
 	// anyway,give two config,we need merge it into one.
@@ -95,9 +93,6 @@ func NewExternalAlbConfigWithDefault(alb *ALB2) (ExternalAlbConfig, error) {
 	}
 	// operator 应该保证spec和config没有冲突的地方
 	fixedAlb.LoadbalancerName = &alb.Name
-	if alb.Spec.Address != "" {
-		fixedAlb.Address = &alb.Spec.Address
-	}
 	// TODO 对于resource 如果没有设置的话，我们是期望他是unlimited?
 	return fixedAlb, nil
 }

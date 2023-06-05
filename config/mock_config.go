@@ -123,3 +123,7 @@ func (c *MockConfig) IsEnableAlb() bool {
 func (c *MockConfig) GetAnnotationIngressAddress() string {
 	return fmt.Sprintf(INGRESS_ADDRESS_NAME, c.GetDomain(), c.GetAlbName())
 }
+
+func (c *MockConfig) IsEnableVIP() bool {
+	return false
+}

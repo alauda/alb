@@ -28,7 +28,6 @@ func main() {
 	l := log.L()
 	setupLog := l.WithName("setup")
 	ctrl.SetLogger(l)
-	podName := os.Getenv("MY_POD_NAME")
 
 	retryPeriod := time.Duration(12 * time.Second)
 	renewDeadline := time.Duration(40 * time.Second)
@@ -39,7 +38,7 @@ func main() {
 		Port:                          9443,
 		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
-		LeaderElectionID:              podName,
+		LeaderElectionID:              "alb-operator",
 		LeaderElectionReleaseOnCancel: true,
 		LeaseDuration:                 &leaseDuration,
 		RenewDeadline:                 &renewDeadline,
@@ -57,9 +56,9 @@ func main() {
 	}
 	setupLog.Info("operator cfg", "cfg", operator)
 	if err = (&controllers.ALB2Reconciler{
-		Client: mgr.GetClient(),
-		Env:    operator,
-		Log:    l,
+		Client:     mgr.GetClient(),
+		OperatorCf: operator,
+		Log:        l,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ALB2")
 		os.Exit(1)

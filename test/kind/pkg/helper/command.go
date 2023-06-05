@@ -6,9 +6,25 @@ import (
 	"strings"
 )
 
-func Command(name string, cmds ...string) (string, error) {
+type Cmd struct {
+	logcmd bool
+	logout bool
+}
+
+func NewCmd() *Cmd {
+	return &Cmd{logcmd: true, logout: true}
+}
+
+func (c *Cmd) Logout(logout bool) *Cmd {
+	c.logout = logout
+	return c
+}
+
+func (c *Cmd) Call(name string, cmds ...string) (string, error) {
 	cmdStr := name + " " + strings.Join(cmds, " ")
-	fmt.Printf("call: %s\n", cmdStr)
+	if c.logcmd {
+		fmt.Printf("call: %s\n", cmdStr)
+	}
 	cmd := exec.Command(name, cmds...)
 	stdout, err := cmd.StdoutPipe()
 	cmd.Stderr = cmd.Stdout
@@ -22,7 +38,9 @@ func Command(name string, cmds ...string) (string, error) {
 	for {
 		tmp := make([]byte, 1024)
 		n, err := stdout.Read(tmp)
-		fmt.Print(string(tmp))
+		if c.logout {
+			fmt.Print(string(tmp))
+		}
 		out = out + string(tmp[0:n])
 		if err != nil {
 			break
@@ -30,4 +48,8 @@ func Command(name string, cmds ...string) (string, error) {
 	}
 	err = cmd.Wait()
 	return string(out), err
+}
+
+func Command(name string, cmds ...string) (string, error) {
+	return NewCmd().Call(name, cmds...)
 }

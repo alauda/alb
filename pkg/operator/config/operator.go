@@ -12,6 +12,11 @@ type OperatorCfg struct {
 	Version    string
 }
 
+type Config struct {
+	Operator OperatorCfg
+	ALB      ALB2Config
+}
+
 var DEFAULT_OPERATOR_CFG = OperatorCfg{
 	AlbImage:   "alb.img",
 	NginxImage: "nginx.img",

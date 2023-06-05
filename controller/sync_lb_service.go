@@ -6,108 +6,25 @@ import (
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
-	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	opsvc "alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/google/go-cmp/cmp"
+	"github.com/samber/lo"
 	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
+	crcli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TODO move to ft reconcile
 // in container mode, we want to create/update loadbalancer tcp/udp service,use it as high avaiable solution.
 func (nc *NginxController) SyncLbSvcPort(frontends []*Frontend) error {
-	log := nc.log.WithName("svc_sync")
-	log.Info("sync service")
-	drv := nc.Driver
-	ns := config.GetNs()
-	albName := config.GetAlbName()
-
-	albServices, err := nc.getCurrentServices(drv, ns, albName)
-	if err != nil {
-		return err
-	}
-
-	for albService, serviceProtocol := range albServices {
-		serviceProtocolFrontends := nc.filterProtocolFrontends(serviceProtocol, frontends)
-		need, err := nc.checkNeedUpdateALBService(albService, serviceProtocol, serviceProtocolFrontends)
-		if err != nil {
-			return err
-		}
-
-		log.V(5).Info("need sync", "need", need)
-		if !need {
-			continue
-		}
-		log.Info("sync ft port for alb2 service.", "ports", albService.Spec.Ports, "need", need, "ns", ns, "name", albService.Name)
-		_, err = drv.Client.CoreV1().Services(ns).Update(context.TODO(), albService, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("error happens when sync ft port for alb2 service %v/%v, reason: %v", ns, albService.Name, err.Error())
-		}
-	}
-	return nil
-}
-
-func (nc *NginxController) getCurrentServices(drv *driver.KubernetesDriver, ns string, albName string) (map[*corev1.Service]corev1.Protocol, error) {
-	albServices := make(map[*corev1.Service]corev1.Protocol)
-	albServiceNames := make(map[string]corev1.Protocol)
-
-	if nc.albcfg.GetNetworkMode() == config.Container {
-		albServiceNames[fmt.Sprintf("%v-%v", albName, "tcp")] = corev1.ProtocolTCP
-		albServiceNames[fmt.Sprintf("%v-%v", albName, "udp")] = corev1.ProtocolUDP
-	} else {
-		albServiceNames[albName] = ""
-	}
-
-	for serviceName, serviceProtocol := range albServiceNames {
-		albService, err := drv.Client.CoreV1().Services(ns).Get(context.TODO(), serviceName, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("error happens when get alb2 service %v/%v, reason: %v", ns, serviceName, err.Error())
-		} else {
-			albServices[albService] = serviceProtocol
-		}
-	}
-	return albServices, nil
-}
-
-// if will change spec.port in albService if need.
-func (nc *NginxController) checkNeedUpdateALBService(albService *corev1.Service, serviceProtocol corev1.Protocol, frontends []*Frontend) (bool, error) {
-	var needUpdate bool
-	var metricsPortFlag bool
-	portsList := make(map[int32]struct{})
-	metricsPorts, err := nc.getMetricsPort(serviceProtocol)
-	if err != nil {
-		return false, err
-	}
-
-	for _, port := range albService.Spec.Ports {
-		if port.Name != "metrics" {
-			portsList[port.Port] = struct{}{}
-		} else {
-			metricsPortFlag = true
-		}
-	}
-	if len(portsList) != len(frontends) {
-		needUpdate = true
-	}
-	if !metricsPortFlag && metricsPorts != nil {
-		needUpdate = true
-	}
-
-	albService.Spec.Ports = metricsPorts
-
-	for _, ft := range frontends {
-		_, ok := Ft2SvcProtocolMap[ft.Protocol]
-		if !ok {
-			return false, fmt.Errorf("frontend port %v, spec.protocol is invalid as value %v", ft.Port, ft.Protocol)
-		}
-		albService.Spec.Ports = append(albService.Spec.Ports, corev1.ServicePort{Name: fmt.Sprintf("%v-%v", ft.Protocol, ft.Port), Protocol: serviceProtocol, Port: int32(ft.Port), NodePort: 0})
-		if !needUpdate {
-			if _, portExist := portsList[int32(ft.Port)]; !portExist {
-				needUpdate = true
-			}
-		}
-	}
-	return needUpdate, nil
+	return MixProtocolLbSvc{nc: nc}.sync(nc.Ctx, frontends)
 }
 
 func (nc *NginxController) getMetricsPort(serviceProtocol corev1.Protocol) ([]corev1.ServicePort, error) {
@@ -130,12 +47,83 @@ var Ft2SvcProtocolMap = map[albv1.FtProtocol]apiv1.Protocol{
 	albv1.FtProtocolUDP:   apiv1.ProtocolUDP,
 }
 
-func (nc *NginxController) filterProtocolFrontends(serviceProtocol corev1.Protocol, frontends []*Frontend) []*Frontend {
-	var filteredFrontends []*Frontend
-	for _, frontend := range frontends {
-		if Ft2SvcProtocolMap[frontend.Protocol] == serviceProtocol {
-			filteredFrontends = append(filteredFrontends, frontend)
-		}
+type MixProtocolLbSvc struct {
+	nc *NginxController
+}
+
+// TODO 现在 operator和alb内使用的client还没有统一
+func GetLbSvc(ctx context.Context, cli kubernetes.Interface, key crcli.ObjectKey, domain string) (*corev1.Service, error) {
+	sel := labels.SelectorFromSet(opsvc.LbSvcLabel(key, domain)).String()
+	ls, err := cli.CoreV1().Services(key.Namespace).List(ctx, metav1.ListOptions{LabelSelector: sel})
+	if err != nil {
+		return nil, err
 	}
-	return filteredFrontends
+
+	if len(ls.Items) == 0 {
+		return nil, k8serrors.NewNotFound(schema.GroupResource{Resource: "service"}, key.Name)
+	}
+	return &ls.Items[0], nil
+}
+
+func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*Frontend) error {
+	nc := s.nc
+	cli := nc.Driver
+	log := s.nc.log
+	log.Info("sync lb svc ports")
+	cfg := config.GetConfig()
+	ns := cfg.GetNs()
+	name := cfg.GetAlbName()
+	svc, err := GetLbSvc(ctx, cli.Client, crcli.ObjectKey{Namespace: ns, Name: name}, cfg.GetDomain())
+	// 当lb svc不存在时，做任何事
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	metricsPort := int32(cfg.GetMetricsPort())
+	origin := svc.DeepCopy()
+	svc.Spec.Ports = []corev1.ServicePort{
+		{
+			Name:     "metrics",
+			Protocol: "TCP",
+			Port:     metricsPort,
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: metricsPort,
+			},
+		},
+	}
+	for _, f := range frontends {
+		p, ok := Ft2SvcProtocolMap[f.Protocol]
+		if !ok {
+			nc.log.Info("frontend port %v, spec.protocol is invalid as value %v", f.Port, f.Protocol)
+			continue
+		}
+		svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
+			Name:     fmt.Sprintf("%s-%d", f.Protocol, f.Port),
+			Protocol: p,
+			Port:     int32(f.Port),
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(f.Port),
+			},
+		})
+	}
+
+	eq, reason := arrayEq(svc.Spec.Ports, origin.Spec.Ports, func(p corev1.ServicePort) string {
+		return fmt.Sprintf("%v-%v-%v-%v", p.Name, p.Protocol, p.Port, p.TargetPort.String())
+	})
+	if eq {
+		return nil
+	}
+	nsvc, err := cli.Client.CoreV1().Services(ns).Update(ctx, svc, metav1.UpdateOptions{})
+	log.Info("update lb svc", "diff", cmp.Diff(svc, nsvc), "reason", reason)
+	return err
+}
+
+func arrayEq[T any](left []T, right []T, id func(T) string) (bool, string) {
+	lm := mapset.NewSet(lo.Map(left, func(x T, _ int) string { return id(x) })...)
+	rm := mapset.NewSet(lo.Map(right, func(x T, _ int) string { return id(x) })...)
+	if len(left) != len(right) {
+		return false, fmt.Sprintf("left len %v right len %v", len(left), len(right))
+	}
+	return lm.Equal(rm), lm.Difference(rm).String()
 }

@@ -14,6 +14,7 @@ type AlaudaLoadBalancer struct {
 	UID       types.UID
 	Labels    map[string]string
 	Spec      albv2.ALB2Spec
+	Status    albv2.ALB2Status
 	Name      string
 	Namespace string
 	Frontends []*Frontend

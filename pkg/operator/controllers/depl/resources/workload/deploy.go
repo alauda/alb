@@ -1,13 +1,21 @@
 package workload
 
 import (
+	"reflect"
+
+	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/config"
-	"alauda.io/alb2/pkg/operator/toolkit"
+	"alauda.io/alb2/pkg/operator/controllers/depl/patch"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/resources"
+	. "alauda.io/alb2/pkg/operator/toolkit"
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 var (
@@ -16,148 +24,331 @@ var (
 	defaultReplicas       = int32(1)
 )
 
-type Template struct {
-	namespace  string
+type DeplTemplate struct {
+	alb        *a2t.ALB2
 	name       string
+	ns         string
 	baseDomain string
 	env        config.OperatorCfg
 	albcfg     *config.ALB2Config
 	cur        *appv1.Deployment
+	log        logr.Logger
 }
 
-func NewTemplate(namespace string, name string, baseDomain string, cur *appv1.Deployment, albcf *config.ALB2Config, cfg config.OperatorCfg) *Template {
-	return &Template{
-		namespace:  namespace,
-		name:       name,
-		baseDomain: baseDomain,
+// what we cared in deployment
+type DeployCfg struct {
+	Alb   DeployContainerCfg
+	Nginx DeployContainerCfg
+	Spec  DeploySpec
+	Vol   VolumeCfg
+}
+
+type DeploySpec struct {
+	Name           string
+	Ns             string
+	DeployLabel    map[string]string
+	DeplAnnotation map[string]string
+	PodLabel       map[string]string
+	Replica        *int32
+	Owner          []v1.OwnerReference
+	Hostnetwork    bool
+	Dnspolicy      corev1.DNSPolicy
+	Nodeselector   map[string]string
+	PodSelector    map[string]string
+	Affinity       *corev1.Affinity
+	Strategy       appv1.DeploymentStrategy
+	Tolerations    []corev1.Toleration
+	Shareprocess   *bool
+}
+
+type DeployContainerCfg struct {
+	Env         []corev1.EnvVar
+	Image       string
+	Resource    corev1.ResourceRequirements
+	Probe       *corev1.Probe
+	Name        string
+	Command     []string
+	Pullpolicy  corev1.PullPolicy
+	Securityctx *corev1.SecurityContext
+}
+
+func NewTemplate(alb *a2t.ALB2, cur *appv1.Deployment, albcf *config.ALB2Config, cfg config.OperatorCfg, log logr.Logger) *DeplTemplate {
+	return &DeplTemplate{
+		alb:        alb,
+		name:       alb.Name,
+		ns:         alb.Namespace,
+		baseDomain: cfg.BaseDomain,
 		env:        cfg,
 		cur:        cur,
 		albcfg:     albcf,
+		log:        log,
 	}
 }
 
 type VolumeCfg struct {
 	Volumes map[string]corev1.Volume
-	Mounts  map[string]struct {
-		name string
-		path string
+	Mounts  map[string]string
+}
+
+func findContainer(name string, depl *appv1.Deployment) *corev1.Container {
+	for _, c := range depl.Spec.Template.Spec.Containers {
+		if c.Name == name {
+			return &c
+		}
+	}
+	return nil
+}
+
+func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
+	if dep == nil {
+		return nil
+	}
+	fromContainer := func(c *corev1.Container) DeployContainerCfg {
+		if c == nil {
+			return DeployContainerCfg{}
+		}
+
+		return DeployContainerCfg{
+			Name:        c.Name,
+			Image:       c.Image,
+			Command:     c.Command,
+			Pullpolicy:  c.ImagePullPolicy,
+			Securityctx: c.SecurityContext,
+			Env:         c.Env,
+			Probe:       c.LivenessProbe,
+			Resource:    c.Resources,
+		}
+	}
+	fromDepl := func(d *appv1.Deployment) VolumeCfg {
+		vcfg := VolumeCfg{
+			Volumes: map[string]corev1.Volume{},
+			Mounts:  map[string]string{},
+		}
+		for _, v := range d.Spec.Template.Spec.Volumes {
+			vcfg.Volumes[v.Name] = v
+		}
+		for _, m := range d.Spec.Template.Spec.Containers {
+			for _, v := range m.VolumeMounts {
+				vcfg.Mounts[v.Name] = v.MountPath
+			}
+		}
+		return vcfg
+	}
+
+	albcfg := fromContainer(findContainer("alb2", dep))
+	nginxcfg := fromContainer(findContainer("nginx", dep))
+	return &DeployCfg{
+		Spec: DeploySpec{
+			Name:         dep.Name,
+			Ns:           dep.Namespace,
+			Owner:        dep.OwnerReferences,
+			Replica:      dep.Spec.Replicas,
+			Hostnetwork:  dep.Spec.Template.Spec.HostNetwork,
+			PodLabel:     dep.Spec.Template.Labels,
+			DeployLabel:  dep.Labels,
+			Nodeselector: dep.Spec.Template.Spec.NodeSelector,
+			PodSelector:  dep.Spec.Template.Labels,
+			Strategy:     dep.Spec.Strategy,
+			Tolerations:  dep.Spec.Template.Spec.Tolerations,
+			Shareprocess: dep.Spec.Template.Spec.ShareProcessNamespace,
+			Affinity:     dep.Spec.Template.Spec.Affinity,
+		},
+		Alb:   albcfg,
+		Nginx: nginxcfg,
+		Vol:   fromDepl(dep),
 	}
 }
 
-func (b *Template) Generate(options ...Option) *appv1.Deployment {
-	deploy := b.generate()
-	cmVolume := b.configmapVolume(b.name)
-	sVolume := b.shareVolume()
-	defaultOptions := []Option{
-		setPodLabel(b.baseDomain, b.name, b.env.Version, b.albcfg.Deploy.AntiAffinityKey),
-		setSelector(b.baseDomain, b.name, b.env.Version),
-		AddVolumeMount(sVolume, "/etc/alb2/nginx/"),
-		AddVolumeMount(cmVolume, "/alb/tweak/"),
+func (d *DeplTemplate) expectConfig() DeployCfg {
+	conf := d.albcfg
+	_, alb, nginx := patch.GenImagePatch(conf, d.env)
+	pullpolicy := "IfNotPresent"
+	replicas := int32(d.albcfg.Deploy.Replicas)
+	hostnetwork := conf.Controller.NetworkMode == a2t.HOST_MODE
+	dns := corev1.DNSClusterFirst
+	if hostnetwork {
+		dns = corev1.DNSClusterFirstWithHostNet
 	}
-	for _, op := range defaultOptions {
-		op(deploy)
+	return DeployCfg{
+		Spec: DeploySpec{
+			Name:         d.name,
+			Ns:           d.ns,
+			Owner:        MakeOwnerRefs(d.alb),
+			Replica:      &replicas,
+			Hostnetwork:  hostnetwork,
+			Dnspolicy:    dns,
+			PodLabel:     d.expectPodLabel(),
+			DeployLabel:  ALB2ResourceLabel(d.alb.Namespace, d.alb.Name, d.env.Version),
+			Nodeselector: conf.Deploy.NodeSelector,
+			PodSelector:  d.podSelector(),
+			Strategy: appv1.DeploymentStrategy{
+				Type: appv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appv1.RollingUpdateDeployment{
+					MaxSurge:       &defaultMaxSurge,
+					MaxUnavailable: &defaultMaxUnavailable,
+				},
+			},
+			Tolerations: []corev1.Toleration{
+				{
+					Operator: corev1.TolerationOperator("Exists"),
+				},
+			},
+			Shareprocess: pointer.BoolPtr(true),
+			Affinity:     d.GenExpectAffinity(),
+		},
+		Alb: DeployContainerCfg{
+			Name:  "alb2",
+			Image: alb,
+			Command: []string{
+				"/alb/ctl/run-alb.sh",
+			},
+			Pullpolicy: corev1.PullPolicy(pullpolicy),
+			Securityctx: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{
+						"SYS_PTRACE",
+					},
+				},
+			},
+			Env:      conf.GetALBContainerEnvs(d.env),
+			Resource: conf.Deploy.ALbResource,
+		},
+		Nginx: DeployContainerCfg{
+			Name:  "nginx",
+			Image: nginx,
+			Command: []string{
+				"/alb/nginx/run-nginx.sh",
+			},
+			Pullpolicy: corev1.PullPolicy(pullpolicy),
+			Securityctx: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{
+						"SYS_PTRACE",
+						"NET_BIND_SERVICE",
+					},
+				},
+			},
+			Env: conf.GetNginxContainerEnvs(),
+			Probe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/status",
+						Port:   intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 60,
+				TimeoutSeconds:      5,
+				PeriodSeconds:       60,
+				SuccessThreshold:    1,
+				FailureThreshold:    5,
+			},
+			Resource: conf.Deploy.NginxResource,
+		},
+		Vol: VolumeCfg{
+			Volumes: map[string]corev1.Volume{
+				"tweak-conf": d.configmapVolume(d.name),
+				"share-conf": d.shareVolume(),
+			},
+			Mounts: map[string]string{
+				"share-conf": "/etc/alb2/nginx/",
+				"tweak-conf": "/alb/tweak/",
+			},
+		},
 	}
-	for _, op := range options {
-		op(deploy)
-	}
-	return deploy
 }
 
-func (b *Template) generate() *appv1.Deployment {
-	nginxConatiner := b.nginxContainer()
-	albConatiner := b.albContainer()
-	gTrue := true
-
-	deployment := &appv1.Deployment{}
-	if !toolkit.IsNil(b.cur) {
-		deployment = b.cur
+func (d *DeplTemplate) Generate() *appv1.Deployment {
+	cfg := d.expectConfig()
+	depl := &appv1.Deployment{}
+	if !IsNil(d.cur) {
+		depl = d.cur
 	}
-	deployment.TypeMeta = v1.TypeMeta{
+	depl.TypeMeta = v1.TypeMeta{
 		Kind:       "Deployment",
 		APIVersion: "apps/v1",
 	}
-	deployment.ObjectMeta = v1.ObjectMeta{
-		Name:      b.name,
-		Namespace: b.namespace,
+	depl.ObjectMeta = v1.ObjectMeta{
+		Name:      cfg.Spec.Name,
+		Namespace: cfg.Spec.Ns,
 	}
-	deployment.Spec = appv1.DeploymentSpec{
-		Replicas: &defaultReplicas,
-		Strategy: appv1.DeploymentStrategy{
-			Type: appv1.RollingUpdateDeploymentStrategyType,
-			RollingUpdate: &appv1.RollingUpdateDeployment{
-				MaxSurge:       &defaultMaxSurge,
-				MaxUnavailable: &defaultMaxUnavailable,
-			},
-		},
 
-		Template: corev1.PodTemplateSpec{
-			Spec: corev1.PodSpec{
-				Tolerations: []corev1.Toleration{
-					{
-						Operator: corev1.TolerationOperator("Exists"),
-					},
-				},
-				ShareProcessNamespace: &gTrue,
-				Containers: []corev1.Container{
-					nginxConatiner,
-					albConatiner,
-				},
-			},
+	vols := []corev1.Volume{}
+	for _, v := range cfg.Vol.Volumes {
+		vols = append(vols, v)
+	}
+	depl.Spec.Template.Spec.Volumes = vols
+
+	depl.Labels = cfg.Spec.DeployLabel
+
+	spec := &depl.Spec.Template.Spec
+
+	depl.Labels = cfg.Spec.DeployLabel
+	depl.Annotations = cfg.Spec.DeplAnnotation
+
+	depl.Spec.Replicas = cfg.Spec.Replica
+
+	depl.OwnerReferences = cfg.Spec.Owner
+
+	spec.HostNetwork = cfg.Spec.Hostnetwork
+	spec.DNSPolicy = cfg.Spec.Dnspolicy
+	if len(cfg.Spec.Nodeselector) == 0 {
+		spec.NodeSelector = nil
+	} else {
+		spec.NodeSelector = cfg.Spec.Nodeselector
+	}
+	depl.Spec.Selector = &metav1.LabelSelector{MatchLabels: cfg.Spec.PodSelector}
+	depl.Spec.Template.Labels = cfg.Spec.PodLabel
+
+	spec.Affinity = cfg.Spec.Affinity
+
+	depl.Spec.Strategy = cfg.Spec.Strategy
+
+	spec.Tolerations = cfg.Spec.Tolerations
+	spec.ShareProcessNamespace = cfg.Spec.Shareprocess
+
+	alb := cfg.Alb
+	nginx := cfg.Nginx
+	mounts := []corev1.VolumeMount{}
+	for name, path := range cfg.Vol.Mounts {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      name,
+			MountPath: path,
+		})
+
+	}
+	spec.Containers = []corev1.Container{
+		{
+			Name:                     nginx.Name,
+			Image:                    nginx.Image,
+			Command:                  nginx.Command,
+			ImagePullPolicy:          nginx.Pullpolicy,
+			SecurityContext:          nginx.Securityctx,
+			Resources:                nginx.Resource,
+			LivenessProbe:            nginx.Probe,
+			TerminationMessagePath:   "/dev/termination-log",
+			TerminationMessagePolicy: "File",
+			VolumeMounts:             mounts,
+			Env:                      cfg.Nginx.Env,
+		},
+		{
+			Env:                      cfg.Alb.Env,
+			Name:                     alb.Name,
+			Image:                    alb.Image,
+			Command:                  alb.Command,
+			ImagePullPolicy:          alb.Pullpolicy,
+			SecurityContext:          alb.Securityctx,
+			Resources:                alb.Resource,
+			LivenessProbe:            alb.Probe,
+			VolumeMounts:             mounts,
+			TerminationMessagePath:   "/dev/termination-log",
+			TerminationMessagePolicy: "File",
 		},
 	}
-	return deployment
+	return depl
 }
 
-func (b *Template) nginxContainer() corev1.Container {
-	img := b.env.NginxImage
-	return corev1.Container{
-		Name:  "nginx",
-		Image: img,
-		Command: []string{
-			"/alb/nginx/run-nginx.sh",
-		},
-		ImagePullPolicy: "IfNotPresent",
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{
-					"SYS_PTRACE",
-					"NET_BIND_SERVICE",
-				},
-			},
-		},
-	}
-}
-
-func (b *Template) albContainer() corev1.Container {
-	img := b.env.AlbImage
-	return corev1.Container{
-		Name:  "alb2",
-		Image: img,
-		Command: []string{
-			"/alb/ctl/run-alb.sh",
-		},
-		ImagePullPolicy: "IfNotPresent",
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{
-					"SYS_PTRACE",
-				},
-			},
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("200m"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("50m"),
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
-			},
-		},
-	}
-}
-
-func (b *Template) configmapVolume(cmName string) corev1.Volume {
+func (b *DeplTemplate) configmapVolume(cmName string) corev1.Volume {
 	return corev1.Volume{
 		Name: "tweak-conf",
 		VolumeSource: corev1.VolumeSource{
@@ -165,6 +356,7 @@ func (b *Template) configmapVolume(cmName string) corev1.Volume {
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cmName,
 				},
+				DefaultMode: pointer.Int32(420), // 0644
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "http",
@@ -204,11 +396,24 @@ func (b *Template) configmapVolume(cmName string) corev1.Volume {
 	}
 }
 
-func (b *Template) shareVolume() corev1.Volume {
+func (b *DeplTemplate) shareVolume() corev1.Volume {
 	return corev1.Volume{
 		Name: "share-conf",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
+}
+
+func NeedUpdate(cur, new *appv1.Deployment, log logr.Logger) (bool, string) {
+	if cur == nil || new == nil {
+		return false, "is nill"
+	}
+	curCfg := pickConfigFromDeploy(cur)
+	newCfg := pickConfigFromDeploy(new)
+	log.V(3).Info("check deployment change", "diff", cmp.Diff(curCfg, newCfg), "deep-eq", reflect.DeepEqual(curCfg, newCfg))
+	if reflect.DeepEqual(curCfg, newCfg) {
+		return false, ""
+	}
+	return true, cmp.Diff(curCfg, newCfg)
 }

@@ -8,13 +8,17 @@ import (
 	"time"
 
 	"alauda.io/alb2/pkg/operator/config"
+
+	"alauda.io/alb2/pkg/operator/controllers"
 	"alauda.io/alb2/pkg/operator/controllers/depl"
 	cliu "alauda.io/alb2/utils/client"
+
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,6 +42,34 @@ func NewAlbOperatorExt(ctx context.Context, base string, kubecfg *rest.Config) *
 	return &AlbOperatorExt{ctx: ctx, base: base, kubeCfg: kubecfg, kubectl: kubectl, client: &cli, log: GinkgoLog()}
 }
 
+func (a *AlbOperatorExt) Start(ctx context.Context) {
+	scheme := runtime.NewScheme()
+	controllers.InitScheme(scheme)
+	mgr, err := ctrl.NewManager(a.kubeCfg, ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: "0",
+		LeaderElection:     false,
+	})
+	if err != nil {
+		os.Exit(1)
+	}
+	cf := config.DEFAULT_OPERATOR_CFG
+	if err = (&controllers.ALB2Reconciler{
+		Client:     mgr.GetClient(),
+		OperatorCf: cf,
+		Log:        a.log,
+	}).SetupWithManager(mgr); err != nil {
+		a.log.Error(err, "unable to create controller", "controller", "ALB2")
+		os.Exit(1)
+	}
+
+	if err := mgr.Start(ctx); err != nil {
+		a.log.Error(err, "problem running manager")
+		os.Exit(1)
+	}
+
+}
+
 func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv *config.OperatorCfg) {
 	// use operator to create other resources.
 	if operatorEnv == nil {
@@ -51,13 +83,23 @@ func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv 
 	for {
 		count++
 		log.Info("mock operator reconcile", "count", count)
-		cur, err := depl.LoadAlbDeploy(ctx, cli, log, name)
-		GinkgoNoErr(err)
+		cur, err := depl.LoadAlbDeploy(ctx, cli, log, name, env)
+		if err != nil {
+			log.Error(err, "load err")
+			continue
+		}
 		conf, err := config.NewALB2Config(cur.Alb, log)
-		GinkgoNoErr(err)
-		dctl := depl.NewAlbDeployCtl(cli, env, log, conf)
+		if err != nil {
+			log.Error(err, "new err")
+			continue
+		}
+		cfg := config.Config{Operator: env, ALB: *conf}
+		dctl := depl.NewAlbDeployCtl(ctx, cli, cfg, log)
 		expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
-		GinkgoNoErr(err)
+		if err != nil {
+			log.Error(err, "gen err")
+			continue
+		}
 		redo, err := dctl.DoUpdate(ctx, cur, expect)
 		if err != nil {
 			log.Error(err, "update err")

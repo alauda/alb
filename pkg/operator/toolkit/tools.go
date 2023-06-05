@@ -15,14 +15,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func PrettyJson(data interface{}) string {
-	out, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
-	}
-	return string(out)
-}
-
 func PrettyCr(obj client.Object) string {
 	// TODO a better way
 	if IsNil(obj) {

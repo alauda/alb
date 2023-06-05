@@ -17,11 +17,11 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"testing"
 
-	f "alauda.io/alb2/test/e2e/framework"
 	tu "alauda.io/alb2/utils/test_utils"
 
 	. "github.com/onsi/ginkgo"
@@ -59,7 +59,7 @@ func InitEnvTest() (cfg *rest.Config, base string, cancel func()) {
 	}
 	// cfg is defined in this file globally.
 	cfg, err := testEnv.Start()
-	f.Logf("etcd %v", testEnv.ControlPlane.Etcd.URL)
+	fmt.Printf("etcd %v\n", testEnv.ControlPlane.Etcd.URL)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 	base = tu.InitBase()

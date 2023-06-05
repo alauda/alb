@@ -97,12 +97,10 @@ spec:
             description: ALB2Spec defines the desired state of ALB2
             properties:
               address:
-                description: address is only used to display at front-end.
+                description: custom address of this alb
                 type: string
               config:
                 properties:
-                  address:
-                    type: string
                   antiAffinityKey:
                     type: string
                   backlog:
@@ -114,8 +112,6 @@ spec:
                   defaultSSLCert:
                     type: string
                   defaultSSLStrategy:
-                    type: string
-                  displayName:
                     type: string
                   enableALb:
                     type: boolean
@@ -248,6 +244,15 @@ spec:
                     type: integer
                   syncPolicyInterval:
                     type: integer
+                  vip:
+                    properties:
+                      enableLbSvc:
+                        type: boolean
+                      lbSvcAnnotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
                   workerLimit:
                     type: integer
                 type: object
@@ -263,6 +268,22 @@ spec:
             properties:
               detail:
                 properties:
+                  address:
+                    description: status set by operator
+                    properties:
+                      ipv4:
+                        items:
+                          type: string
+                        type: array
+                      ipv6:
+                        items:
+                          type: string
+                        type: array
+                      msg:
+                        type: string
+                      ok:
+                        type: boolean
+                    type: object
                   alb:
                     description: status set by alb itself
                     properties:

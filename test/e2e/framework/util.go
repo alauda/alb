@@ -11,7 +11,6 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/thedevsaddam/gojsonq/v2"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -74,20 +73,10 @@ func GFIt(text string, body interface{}, timeout ...float64) bool {
 	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
 }
 
-func GinkgoAssert(e error, msg string) {
-	assert.NoError(ginkgo.GinkgoT(), e, msg)
-}
-func GinkgoNoErr(e error) {
-	assert.NoError(ginkgo.GinkgoT(), e)
-}
-
-func GinkgoAssertTrue(v bool, msg string) {
-	assert.True(ginkgo.GinkgoT(), v, msg)
-}
-
 func random() string {
 	return fmt.Sprintf("%v", rand.Int())
 }
+
 func listen(network, addr string, stopCh chan struct{}) {
 	go func() {
 		listener, err := net.Listen("tcp", addr)
@@ -141,18 +130,6 @@ func CfgFromFile(p string) *rest.Config {
 func CfgFromEnv() *rest.Config {
 	kubecfg := os.Getenv("KUBECONFIG")
 	return CfgFromFile(kubecfg)
-}
-
-func Wait(fn func() (bool, error)) {
-	const (
-		// Poll how often to poll for conditions
-		Poll = 1 * time.Second
-
-		// DefaultTimeout time to wait for operations to complete
-		DefaultTimeout = 50 * time.Minute
-	)
-	err := wait.Poll(Poll, DefaultTimeout, fn)
-	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
 }
 
 func GAssert[T any](f func() (T, error), msg string) T {

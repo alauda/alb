@@ -32,12 +32,12 @@ type Alb struct {
 	ctx    context.Context
 	cfg    *rest.Config
 	albcfg config.IConfig
-	lc     *LeaderElection
+	lc     *ctl.LeaderElection
 	log    logr.Logger
 }
 
 func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg config.IConfig, log logr.Logger) *Alb {
-	lc := NewLeaderElection(ctx, albCfg, restcfg, log.WithName("lc"))
+	lc := ctl.NewLeaderElection(ctx, albCfg, restcfg, log.WithName("lc"))
 	return &Alb{
 		ctx:    ctx,
 		cfg:    restcfg,
@@ -143,7 +143,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()
 
-		ctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"))
+		ctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"), a.lc)
 		// do leader stuff
 		if a.lc.AmILeader() {
 			err := LeaderUpdateAlbStatus(drv, a.albcfg, log.WithName("status"))

@@ -121,7 +121,7 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	ohttpRules := c.getIngresHttpFt(alb).FindIngressRuleRaw(IngKey(ing))
 	ohttpsRules := c.getIngresHttpsFt(alb).FindIngressRuleRaw(IngKey(ing))
 
-	c.log.Info("do update", "oft-len", len(alb.Frontends), "ohttp-rule-len", len(ohttpsRules), "ehttp-rule-len", len(expect.httpRule), "ohttps-rule", len(ohttpsRules), "ehttps-rule", len(expect.httpsRule))
+	c.log.Info("check update", "oft-len", len(alb.Frontends), "ohttp-rule-len", len(ohttpsRules), "ehttp-rule-len", len(expect.httpRule), "ohttps-rule", len(ohttpsRules), "ehttps-rule", len(expect.httpsRule))
 
 	httprule, err := c.genSyncRuleAction("http", ing, ohttpRules, expect.httpRule, c.log)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *Controller) genSyncFtAction(oft *alb2v1.Frontend, eft *alb2v1.Frontend,
 }
 
 func (c *Controller) doUpdateFt(fa *SyncFt) error {
-	c.log.Info("do update ft", "crate", len(fa.Create), "update", len(fa.Update), "delete", len(fa.Delete))
+	c.log.Info("check update ft", "crate", len(fa.Create), "update", len(fa.Update), "delete", len(fa.Delete))
 	if !fa.needDo() {
 		return nil
 	}
@@ -706,7 +706,7 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 
 func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, existRules []*alb2v1.Rule, expectRules []*alb2v1.Rule, log logr.Logger) (*SyncRule, error) {
 	log = log.WithValues("kind", kind, "ing", ing.Name, "ing-ver", ing.ResourceVersion)
-	log.Info("do update rule", "exist-rule-len", len(existRules), "expect-rule-len", len(expectRules))
+	log.Info("check update rule", "exist-rule-len", len(existRules), "expect-rule-len", len(expectRules))
 
 	showRule := func(r *alb2v1.Rule) []interface{} {
 		indexDesc := c.GenRuleIndex(r)

@@ -212,11 +212,11 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 
 	g.filteRoutes(key, routes, listenerInGateway)
 
-	ip, getIpErr := g.GetGatewayIp(gateway)
+	ips, getIpErr := g.GetGatewayIp(gateway)
 	if getIpErr != nil {
-		ip = ""
+		log.Error(err, "get gateway ip fail")
 	}
-	err = g.updateGatewayStatus(gateway, listenerInGateway, ip)
+	err = g.updateGatewayStatus(gateway, listenerInGateway, ips)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("update gateway status fail %v", err)
 	}
@@ -299,9 +299,9 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	}
 }
 
-func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, ip string) error {
+func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, ips []string) error {
 	address := []gv1b1t.GatewayAddress{}
-	if ip != "" {
+	for _, ip := range ips {
 		ipType := gv1b1t.IPAddressType
 		address = []gv1b1t.GatewayAddress{{Type: &ipType, Value: ip}}
 	}
@@ -359,20 +359,10 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	return nil
 }
 
-func (g *GatewayReconciler) GetGatewayIp(gw *gv1b1t.Gateway) (string, error) {
+func (g *GatewayReconciler) GetGatewayIp(gw *gv1b1t.Gateway) ([]string, error) {
 	// get ip from alb.
 	g.log.Info("get gateway ip", "mode", g.cfg.Mode)
-	if g.cfg.Mode == config.GatewayClass {
-		ret, err := getAlbAddress(g.ctx, g.c, config.GetNs(), config.GetAlbName())
-		g.log.Info("get gateway ip", "ret", ret, "err", err)
-		return ret, err
-	}
-	// get ip from lb svc.
-	if g.cfg.Mode == config.Gateway {
-		return getLbSvcLbIp(g.ctx, g.c, config.GetNs(), config.GetAlbName()+"-tcp")
-	}
-
-	return "", fmt.Errorf("invalid gaterway cfg %v", g.cfg)
+	return getAlbAddress(g.ctx, g.c, config.GetNs(), config.GetAlbName())
 }
 
 func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {

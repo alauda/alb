@@ -72,7 +72,7 @@ func DeployOrAdopt(cfg KindConfig, base string, prefix string, log logr.Logger) 
 		}
 	}
 	if name == "" {
-		log.Info("create kind cluster", "name", cfg.Name)
+		log.Info("create kind cluster", "name", cfg.Name, "cfg", cfg.ClusterYaml)
 		return DeployKind(cfg, base, log)
 	}
 	log.Info("adopt kind", "name", name)

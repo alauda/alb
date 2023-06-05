@@ -9,6 +9,7 @@ import (
 
 	. "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/toolkit"
+	"alauda.io/alb2/utils"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -20,6 +21,7 @@ type ALB2Config struct {
 	Name       string
 	Ns         string
 	Deploy     DeployConfig
+	Vip        VipConfig
 	Controller ControllerConfig
 	Project    ProjectConfig
 	Gateway    GatewayConfig
@@ -45,15 +47,14 @@ type ProjectConfig struct {
 type DeployConfig struct {
 	Replicas        int
 	AntiAffinityKey string
-	ALbResource     *coreV1.ResourceRequirements
-	NginxResource   *coreV1.ResourceRequirements
+	ALbResource     coreV1.ResourceRequirements
+	NginxResource   coreV1.ResourceRequirements
 	NodeSelector    map[string]string
 }
 
 type ControllerConfig struct {
 	NetworkMode        string
 	MetricsPort        int
-	Address            string
 	BindNic            string
 	HttpPort           int
 	HttpsPort          int
@@ -102,21 +103,26 @@ func NewALB2Config(albCr *ALB2, log logr.Logger) (*ALB2Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info("config", "merged", toolkit.PrettyJson(external))
-	log.Info("config", "internal", toolkit.PrettyJson(cfg))
+	log.V(3).Info("config", "merged", utils.PrettyJson(external))
+	log.Info("config", "internal", utils.PrettyJson(cfg))
 	return cfg, nil
 }
 
 func (a *ALB2Config) Merge(ec ExternalAlbConfig) error {
-	// 这里用cr的name作为loadbalancer的name，主要是因为sentry的alb迁移的时候必须要一个不同的名字，否则deployment可能会被不断的删除
-	// https://jira.alauda.cn/browse/AIT-26504
 	a.Name = *ec.LoadbalancerName
 
 	a.Deploy = DeployConfig{}
 	a.Project = ProjectConfig{}
 	a.Gateway = GatewayConfig{}
+	a.Vip = VipConfig{}
+	if ec.Vip != nil {
+		a.Vip = *ec.Vip
+	}
 	a.Controller.Merge(ec)
-	a.Deploy.Merge(ec)
+	err := a.Deploy.Merge(ec)
+	if err != nil {
+		return err
+	}
 	a.Project.Merge(ec)
 	a.Gateway.Merge(ec, a.Ns)
 	if ec.Overwrite != nil {
@@ -129,7 +135,6 @@ func (c *ControllerConfig) Merge(ec ExternalAlbConfig) {
 	c.BackLog = *ec.Backlog
 	c.NetworkMode = *ec.NetworkMode
 	c.MetricsPort = *ec.MetricsPort
-	c.Address = *ec.Address
 	c.BindNic = *ec.BindNIC
 	c.HttpPort = *ec.IngressHTTPPort
 	c.HttpsPort = *ec.IngressHTTPSPort
@@ -144,35 +149,66 @@ func (c *ControllerConfig) Merge(ec ExternalAlbConfig) {
 	c.Flags.Merge(ec)
 }
 
-func (d *DeployConfig) Merge(ec ExternalAlbConfig) {
-	if ec.Resources.ExternalResource != nil {
-		d.NginxResource = &coreV1.ResourceRequirements{
-			Limits: coreV1.ResourceList{
-				coreV1.ResourceCPU:    resource.MustParse(ec.Resources.Limits.CPU),
-				coreV1.ResourceMemory: resource.MustParse(ec.Resources.Limits.Memory),
-			},
-			Requests: coreV1.ResourceList{
-				coreV1.ResourceCPU:    resource.MustParse(ec.Resources.Requests.CPU),
-				coreV1.ResourceMemory: resource.MustParse(ec.Resources.Requests.Memory),
-			},
-		}
+func (d *DeployConfig) Merge(ec ExternalAlbConfig) error {
+	ngxLimitCpu, err := resource.ParseQuantity(ec.Resources.Limits.CPU)
+	if err != nil {
+		return err
 	}
-	if ec.Resources.Alb != nil {
-		d.ALbResource = &coreV1.ResourceRequirements{
-			Limits: coreV1.ResourceList{
-				coreV1.ResourceCPU:    resource.MustParse(ec.Resources.Alb.Limits.CPU),
-				coreV1.ResourceMemory: resource.MustParse(ec.Resources.Alb.Limits.Memory),
-			},
-			Requests: coreV1.ResourceList{
-				coreV1.ResourceCPU:    resource.MustParse(ec.Resources.Alb.Requests.CPU),
-				coreV1.ResourceMemory: resource.MustParse(ec.Resources.Alb.Requests.Memory),
-			},
-		}
+	ngxLimMem, err := resource.ParseQuantity(ec.Resources.Limits.Memory)
+	if err != nil {
+		return err
+	}
+	ngxReqCpu, err := resource.ParseQuantity(ec.Resources.Requests.CPU)
+	if err != nil {
+		return err
+	}
+	ngxReqMem, err := resource.ParseQuantity(ec.Resources.Requests.Memory)
+	if err != nil {
+		return err
+	}
+
+	albLimitCpu, err := resource.ParseQuantity(ec.Resources.Alb.Limits.CPU)
+	if err != nil {
+		return err
+	}
+	albLimitMem, err := resource.ParseQuantity(ec.Resources.Alb.Limits.Memory)
+	if err != nil {
+		return err
+	}
+	albReqCpu, err := resource.ParseQuantity(ec.Resources.Alb.Requests.CPU)
+	if err != nil {
+		return err
+	}
+	albReqMem, err := resource.ParseQuantity(ec.Resources.Alb.Requests.Memory)
+	if err != nil {
+		return err
+	}
+	d.NginxResource = coreV1.ResourceRequirements{
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    ngxLimitCpu,
+			coreV1.ResourceMemory: ngxLimMem,
+		},
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    ngxReqCpu,
+			coreV1.ResourceMemory: ngxReqMem,
+		},
+	}
+	d.ALbResource = coreV1.ResourceRequirements{
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    albLimitCpu,
+			coreV1.ResourceMemory: albLimitMem,
+		},
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    albReqCpu,
+			coreV1.ResourceMemory: albReqMem,
+		},
 	}
 	d.Replicas = *ec.Replicas
 	d.AntiAffinityKey = *ec.AntiAffinityKey
 	d.NodeSelector = ec.NodeSelector
+	return nil
 }
+
 func (f *ControllerFlags) Merge(ec ExternalAlbConfig) {
 	f.EnableAlb = toBool(*ec.EnableAlb)
 	f.EnableGC = toBool(*ec.EnableGC)
@@ -285,6 +321,7 @@ func (a *ALB2Config) aLBContainerCommonEnvs(env OperatorCfg) []coreV1.EnvVar {
 }
 
 // TODO move to workload?
+// TODO move to config?
 func (a *ALB2Config) GetALBContainerEnvs(env OperatorCfg) []coreV1.EnvVar {
 	var envs []coreV1.EnvVar
 
@@ -299,7 +336,7 @@ func (a *ALB2Config) GetALBContainerEnvs(env OperatorCfg) []coreV1.EnvVar {
 		coreV1.EnvVar{Name: "MODE", Value: "controller"},
 		coreV1.EnvVar{Name: "NAMESPACE", Value: a.Ns}, // 在测试中要读ns的环境变量 这里就直接设置string而不是valuesfrom
 		coreV1.EnvVar{Name: "NAME", Value: a.Name},
-		coreV1.EnvVar{Name: "MY_POD_NAME", ValueFrom: &coreV1.EnvVarSource{FieldRef: &coreV1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
+		coreV1.EnvVar{Name: "MY_POD_NAME", ValueFrom: &coreV1.EnvVarSource{FieldRef: &coreV1.ObjectFieldSelector{FieldPath: "metadata.name", APIVersion: "v1"}}},
 		coreV1.EnvVar{Name: "WORKER_LIMIT", Value: toEnv(a.Controller.WorkerLimit)}, // nginx 真正使用的worker process 是min(cpupreset,worklimit)
 		coreV1.EnvVar{Name: "CPU_PRESET", Value: toEnv(a.Controller.CpuPreset)},
 		coreV1.EnvVar{Name: "NETWORK_MODE", Value: a.Controller.NetworkMode},
@@ -315,6 +352,7 @@ func (a *ALB2Config) GetALBContainerEnvs(env OperatorCfg) []coreV1.EnvVar {
 			coreV1.EnvVar{Name: "GATEWAY_NAME", Value: a.Gateway.GatewayModeCg.Name},
 		)
 	}
+	envs = append(envs, coreV1.EnvVar{Name: "ENABLE_VIP", Value: toEnv(a.Vip.EnableLbSvc)})
 	return envs
 }
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"alauda.io/alb2/alb"
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/alb"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/modules"
 	"alauda.io/alb2/utils/log"
@@ -58,7 +58,7 @@ func run() error {
 		},
 	}, log.L().WithName("signal"))
 
-	a := alb.NewAlb(ctx, restcfg, albCfg, log.L())
+	a := NewAlb(ctx, restcfg, albCfg, log.L())
 	err = a.Start()
 	if err != nil {
 		l.Error(err, "alb run fail")

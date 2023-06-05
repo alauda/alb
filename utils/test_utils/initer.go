@@ -1,6 +1,8 @@
 package test_utils
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
 	"path"
 
@@ -27,6 +29,16 @@ func InitCrd(albBase string, cfg *rest.Config) error {
 		}
 	}
 	return nil
+}
+
+func BaseWithDir(base, subdir string) string {
+	p := path.Join(base, subdir)
+	os.MkdirAll(p, os.ModePerm)
+	return p
+}
+
+func BaseWithRandomDir(base, subdirprefix string) string {
+	return BaseWithDir(base, fmt.Sprintf("%s-%v", subdirprefix, rand.Int()))
 }
 
 func InitBase() string {

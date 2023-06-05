@@ -60,20 +60,20 @@ spec:
 		v2alb := &albv2.ALB2{}
 		key := types.NamespacedName{Namespace: "cpaas-system", Name: "alb-v2"}
 		err := cli.Get(ctx, key, v2alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		log.Info("xx", "v2alb", utils.PrettyJson(v2alb))
 
 		ctl := controllers.ALB2Reconciler{
-			Client: cli,
-			Env:    config.DEFAULT_OPERATOR_CFG,
-			Log:    log,
+			Client:     cli,
+			OperatorCf: config.DEFAULT_OPERATOR_CFG,
+			Log:        log,
 		}
 		reque, err := ctl.HandleBackupAnnotation(ctx, v2alb)
 		log.Info("xx", "req", reque)
 		assert.Equal(GinkgoT(), reque, true)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		err = kc.GetDirectClient().Get(ctx, key, v2alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		log.Info("xx", "v2alb", utils.PrettyJson(v2alb))
 		assert.Equal(GinkgoT(), *v2alb.Spec.Config.Replicas, 10)
 
@@ -95,15 +95,15 @@ spec:
 		v2alb = &albv2.ALB2{}
 		key = types.NamespacedName{Namespace: "cpaas-system", Name: "alb-v2-1"}
 		err = cli.Get(ctx, key, v2alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		log.Info("xx", "v2alb", utils.PrettyJson(v2alb))
 
 		reque, err = ctl.HandleBackupAnnotation(ctx, v2alb)
 		assert.Equal(GinkgoT(), reque, false)
 		log.Info("xx", "req", reque)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		err = kc.GetDirectClient().Get(ctx, key, v2alb)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), *v2alb.Spec.Config.Replicas, 1)
 
 	})

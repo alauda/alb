@@ -14,12 +14,10 @@ func FmtKeyBySep(sep string, key ...string) string {
 }
 
 func MakeOwnerRefs(alb2 *albv2.ALB2) []metav1.OwnerReference {
-	return []metav1.OwnerReference{
-		{
-			APIVersion: albv2.SchemeGroupVersion.String(),
-			Kind:       albv2.ALB2Kind,
-			Name:       alb2.GetName(),
-			UID:        alb2.GetUID(),
-		},
-	}
+	return []metav1.OwnerReference{{
+		APIVersion: albv2.SchemeGroupVersion.String(),
+		Kind:       albv2.ALB2Kind,
+		Name:       alb2.GetName(),
+		UID:        alb2.GetUID(),
+	}}
 }

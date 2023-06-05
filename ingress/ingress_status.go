@@ -21,6 +21,11 @@ import (
 	n1 "k8s.io/api/networking/v1"
 )
 
+type AlbAddress struct {
+	ips   []string
+	hosts []string
+}
+
 func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) bool {
 	ports := []int32{}
 	need := getIngressFtTypes(ing, c)
@@ -30,7 +35,19 @@ func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.
 	if need.NeedHttps() {
 		ports = append(ports, int32(c.GetIngressHttpsPort()))
 	}
-	return FillupIngressStatus(alb.Spec.Address, ports, ing.DeepCopy())
+	return FillupIngressStatus(listAddress(alb), ports, ing.DeepCopy())
+}
+
+func listAddress(alb *m.AlaudaLoadBalancer) AlbAddress {
+	ipsfromSpec, hostFromSpec := parseAddress(alb.Spec.Address)
+	ips := ipsfromSpec
+	ips = append(ips, alb.Status.Detail.AddressStatus.Ipv4...)
+	ips = append(ips, alb.Status.Detail.AddressStatus.Ipv6...)
+	hosts := hostFromSpec
+	return AlbAddress{
+		ips:   ips,
+		hosts: hosts,
+	}
 }
 
 func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) error {
@@ -43,7 +60,7 @@ func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingr
 	if need.NeedHttps() {
 		ports = append(ports, int32(c.GetIngressHttpsPort()))
 	}
-	update := FillupIngressStatus(alb.Spec.Address, ports, ing)
+	update := FillupIngressStatus(listAddress(alb), ports, ing)
 	if !update {
 		return nil
 	}
@@ -55,8 +72,9 @@ func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingr
 	return nil
 }
 
-func FillupIngressStatus(address string, ports []int32, ing *n1.Ingress) bool {
-	ips, hosts := parseAddress(address)
+func FillupIngressStatus(address AlbAddress, ports []int32, ing *n1.Ingress) bool {
+	ips := address.ips
+	hosts := address.hosts
 	update := false
 	for _, ip := range ips {
 		if FillupIngressStatusAddressAndPort(ing, ip, "", ports) {

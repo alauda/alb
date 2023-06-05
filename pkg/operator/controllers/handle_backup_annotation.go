@@ -13,7 +13,7 @@ func backupkey(domain string) string {
 }
 
 func (r *ALB2Reconciler) IsV2Alb(alb *albv2.ALB2) bool {
-	key := backupkey(r.Env.BaseDomain)
+	key := backupkey(r.OperatorCf.BaseDomain)
 	backup := alb.Annotations[key]
 	if alb.Spec.Config != nil || backup != "" {
 		return true
@@ -22,7 +22,7 @@ func (r *ALB2Reconciler) IsV2Alb(alb *albv2.ALB2) bool {
 }
 
 func (r *ALB2Reconciler) IsNormalV2Alb(alb *albv2.ALB2) bool {
-	key := backupkey(r.Env.BaseDomain)
+	key := backupkey(r.OperatorCf.BaseDomain)
 	backup := alb.Annotations[key]
 	if alb.Spec.Config != nil || backup != "" {
 		return true
@@ -34,7 +34,7 @@ func (r *ALB2Reconciler) HandleBackupAnnotation(ctx context.Context, alb *albv2.
 	if alb.Spec.Config != nil {
 		return false, nil
 	}
-	key := backupkey(r.Env.BaseDomain)
+	key := backupkey(r.OperatorCf.BaseDomain)
 	backup := alb.Annotations[key]
 	if backup == "" {
 		return false, fmt.Errorf("backup is empty")

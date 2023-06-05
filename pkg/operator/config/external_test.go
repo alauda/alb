@@ -14,7 +14,6 @@ import (
 )
 
 func TestExternalConfigDefaultAndMerge(t *testing.T) {
-	t.Logf("ok")
 	{
 		rawStr := `
         loadbalancerName: global-alb2
@@ -55,7 +54,6 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 		fmt.Printf("actual addr %v \n%# v", alb.Spec.Address, pretty.Formatter(cfg))
 		assert.Equal(t, ExternalAlbConfig{
 			LoadbalancerName: pointer.Of("global-alb2"), // overwrite
-			Address:          pointer.Of(""),
 			NodeSelector: map[string]string{
 				"cpaas-system-alb": "",
 			},
@@ -102,10 +100,103 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			},
 			Projects:        []string{"cpaas-system"},
 			PortProjects:    pointer.Of("[]"),
-			DisplayName:     pointer.Of(""),
 			AntiAffinityKey: pointer.Of("system"),
 			BindNIC:         pointer.Of("{}"),
 		}, cfg)
 	}
 
+}
+
+func TestDefaultAndMergeResource(t *testing.T) {
+	cases := []struct {
+		rawStr         string
+		expectResource ExternalResources
+	}{
+		{
+			rawStr: `
+resources:
+    limits:
+       cpu: 210m
+       memory: 256Mi
+`,
+			expectResource: ExternalResources{
+				Alb: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+				ExternalResource: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "210m", Memory: "256Mi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+			},
+		},
+		{
+			rawStr: `
+resources:
+    limits:
+       memory: 257Mi
+`,
+			expectResource: ExternalResources{
+				Alb: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+				ExternalResource: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "200m", Memory: "257Mi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+			},
+		},
+		{
+			rawStr: `
+resources:
+    limits:
+       memory: ""
+`,
+			expectResource: ExternalResources{
+				Alb: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+				ExternalResource: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+			},
+		},
+		{
+			rawStr: `
+resources:
+    limits: {}
+`,
+			expectResource: ExternalResources{
+				Alb: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+				ExternalResource: &ExternalResource{
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
+				},
+			},
+		},
+	}
+	for _, c := range cases {
+		albcfg := &ExternalAlbConfig{}
+		yaml.Unmarshal([]byte(c.rawStr), albcfg)
+		alb := &ALB2{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "global-alb2",
+				Namespace: "cpaas-system",
+			},
+			Spec: ALB2Spec{
+				Address: "",
+				Type:    "",
+				Config:  albcfg,
+			},
+		}
+		cfg, err := NewExternalAlbConfigWithDefault(alb)
+		assert.NoError(t, err)
+		assert.Equal(t, c.expectResource, *cfg.Resources)
+	}
 }

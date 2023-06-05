@@ -87,13 +87,13 @@ spec:
 		depl := &appv1.Deployment{}
 		deplkey := types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}
 		err := cli.Get(ctx, deplkey, depl)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "nginx:v1.2.1", depl.Spec.Template.Spec.Containers[0].Image)
 		assert.Equal(GinkgoT(), "alb:v1.2.1", depl.Spec.Template.Spec.Containers[1].Image)
 		cfgmap := &corev1.ConfigMap{}
 		cfgmapkey := types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}
 		err = cli.Get(ctx, cfgmapkey, cfgmap)
-		f.GinkgoNoErr(err)
+		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), cfgmap.Data["http"], "test:1\n")
 		assert.Equal(GinkgoT(), cfgmap.Data["bind_nic"], "{\"nic\":[\"eth0\"]}")
 	})

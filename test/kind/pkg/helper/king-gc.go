@@ -47,6 +47,11 @@ func findNeedDeletedDir(log logr.Logger) ([]string, error) {
 }
 
 func KindGC(log logr.Logger) error {
+	if os.Getenv("ALB_CI_ROOT") == "" {
+		log.Info("not in ci ignore")
+		return nil
+	}
+
 	rmKinds, err := findNeedDeletedKind(log)
 	if err != nil {
 		return err

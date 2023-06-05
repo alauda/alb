@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/strings/slices"
+
+	"github.com/ztrue/tracerr"
 )
 
 type Helm struct {
@@ -24,11 +26,14 @@ type Helm struct {
 
 // @require helm # which must be helm-alauda NOT helm v3
 func NewHelm(base string, kubeCfg *rest.Config, l logr.Logger) *Helm {
-	raw, _ := KubeConfigFromREST(kubeCfg, "test")
-	helmBase := path.Join(base, "helm")
-	_ = os.Mkdir(helmBase, os.ModePerm)
-	kubeCfgPath := path.Join(helmBase, "kubecfg")
-	os.WriteFile(kubeCfgPath, raw, 0600)
+	helmBase := BaseWithDir(base, "helm")
+	kubeCfgPath := ""
+	if kubeCfg != nil {
+		raw, _ := KubeConfigFromREST(kubeCfg, "test")
+		kubeCfgPath = path.Join(helmBase, "kubecfg")
+		os.WriteFile(kubeCfgPath, raw, 0600)
+	}
+
 	return &Helm{
 		helmBase:    helmBase,
 		kubeCfgPath: kubeCfgPath,
@@ -113,33 +118,38 @@ func (h *Helm) AssertInstall(cfgs []string, name string, base, val string) strin
 	return out
 }
 
-func (h *Helm) Pull(chart string) (string, error) {
-	dir, err := os.MkdirTemp(h.helmBase, "chart*")
+func HelmPull(chart string, dir string, log logr.Logger) (string, error) {
+	log.Info("helm pull", "chart", chart, "dir", dir)
+	out, err := helmWithBase([]string{"chart", "pull", chart, "--insecure"}, "", log)
 	if err != nil {
 		return "", err
 	}
-	out, err := h.helm("chart", "pull", chart, "--insecure")
-	if err != nil {
-		return "", err
-	}
-	h.Log.Info("helm", "msg", out)
-	out, err = h.helmWithBase([]string{"chart", "export", chart}, dir)
+	log.Info("helm", "msg", out)
+	out, err = helmWithBase([]string{"chart", "export", chart}, dir, log)
 	if err != nil {
 		return "", err
 	}
 	re := regexp.MustCompile(`Exported chart to ([^/]*)/`)
 	matches := re.FindStringSubmatch(out)
-	h.Log.Info("export", "msg", out)
-	h.Log.Info("export", "match", matches)
+	log.Info("export", "msg", out)
+	log.Info("export", "match", matches)
 	if len(matches) != 2 {
 		return "", fmt.Errorf("export fail %s", out)
 	}
 	return path.Join(dir, matches[1]), nil
 }
 
-func (h *Helm) helmWithBase(cmds []string, dir string) (string, error) {
+func (h *Helm) Pull(chart string) (string, error) {
+	dir, err := os.MkdirTemp(h.helmBase, "chart*")
+	if err != nil {
+		return "", tracerr.Wrap(err)
+	}
+	return HelmPull(chart, dir, h.Log)
+}
 
-	h.Log.Info("helm call", "cmds", cmds, "dir", dir)
+func helmWithBase(cmds []string, dir string, log logr.Logger) (string, error) {
+
+	log.Info("helm call", "cmds", cmds, "dir", dir)
 
 	cmd := exec.Command("helm", cmds...)
 	if dir != "" {
@@ -153,7 +163,7 @@ func (h *Helm) helmWithBase(cmds []string, dir string) (string, error) {
 }
 
 func (h *Helm) helm(cmds ...string) (string, error) {
-	return h.helmWithBase(cmds, "")
+	return helmWithBase(cmds, "", h.Log)
 }
 
 func (h *Helm) Destory() error {

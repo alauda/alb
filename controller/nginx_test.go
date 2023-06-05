@@ -90,7 +90,7 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	cfg.Name = "alb-1"
 	cfg.NS = "ns-1"
 	cfg.EnableAlb = true
-	ctl := NewNginxController(drv, ctx, cfg, log.L())
+	ctl := NewNginxController(drv, ctx, cfg, log.L(), nil)
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
 	// marshal and unmarshal to make sure we generate a valid policy json file

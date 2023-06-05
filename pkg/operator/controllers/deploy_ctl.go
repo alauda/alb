@@ -19,19 +19,20 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"reflect"
 	"strings"
+
+	"github.com/google/go-cmp/cmp"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/config"
 	"alauda.io/alb2/pkg/operator/controllers/depl"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources"
 	"alauda.io/alb2/pkg/operator/toolkit"
-
 	"github.com/go-logr/logr"
 	perr "github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -51,8 +52,8 @@ var alb2OperatorFinalizer = "alb2.finalizer"
 // ALB2Reconciler reconciles a ALB2 object
 type ALB2Reconciler struct {
 	client.Client
-	Env config.OperatorCfg
-	Log logr.Logger
+	OperatorCf config.OperatorCfg
+	Log        logr.Logger
 }
 
 // +kubebuilder:rbac:groups=crd.alauda.io,resources=alaudaloadbalancer2,verbs=get;list;watch;create;update;patch;delete
@@ -60,6 +61,9 @@ type ALB2Reconciler struct {
 // +kubebuilder:rbac:groups=crd.alauda.io,resources=alaudaloadbalancer2/finalizers,verbs=update
 func (r *ALB2Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	res, err := r.reconcile(ctx, req)
+	if err != nil {
+		r.Log.Error(err, "reconcile fail")
+	}
 	return res, err
 }
 
@@ -85,8 +89,14 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{Requeue: true}, nil
 		}
 
+		l := l.WithValues("alb", req, "ver", alb.ResourceVersion)
+		if alb.Annotations["alb.cpaas.io/ignoreme"] == "true" {
+			l.Info("respect ignore me annotation")
+			return ctrl.Result{}, nil
+		}
+
 		if !r.IsV2Alb(alb) {
-			l.Info("api version may be not v2beta1,ignore", "object", alb)
+			l.Info("api version may be not v2beta1,ignore")
 			return ctrl.Result{}, nil
 		}
 
@@ -97,18 +107,19 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 		// set finalizer if not exist
 		if !controllerutil.ContainsFinalizer(alb, alb2OperatorFinalizer) {
-			l.Info("finalizer not found", "resourceversion", alb.ResourceVersion)
+			l.Info("finalizer not found update it first")
 			controllerutil.AddFinalizer(alb, alb2OperatorFinalizer)
 			if err := r.Update(ctx, alb); err != nil {
 				l.Error(err, "unable to add finalizer on alb2", "alb2", alb)
 				return ctrl.Result{}, err
 			}
+			l.Info("finalizer update success", "new-ver", alb.ResourceVersion)
 			return ctrl.Result{Requeue: true}, nil
 		}
 
 		if !alb.GetDeletionTimestamp().IsZero() {
-			l.Info("delete alb", "deletionTimestamp", alb.GetDeletionTimestamp())
-			cur, err := depl.LoadAlbDeploy(ctx, r.Client, r.Log, req.NamespacedName)
+			l.Info("find a deleting alb", "deletionTimestamp", alb.GetDeletionTimestamp())
+			cur, err := depl.LoadAlbDeploy(ctx, r.Client, r.Log, req.NamespacedName, r.OperatorCf)
 			if err != nil {
 				return ctrl.Result{}, perr.Wrapf(err, "load alb deploy in delete status fail")
 			}
@@ -128,15 +139,16 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 
-	cur, err := depl.LoadAlbDeploy(ctx, r.Client, r.Log, req.NamespacedName)
+	cur, err := depl.LoadAlbDeploy(ctx, r.Client, r.Log, req.NamespacedName, r.OperatorCf)
 	if err != nil {
 		return ctrl.Result{}, perr.Wrapf(err, "load alb deploy fail")
 	}
-	conf, err := config.NewALB2Config(cur.Alb, l)
+	albconf, err := config.NewALB2Config(cur.Alb, l)
 	if err != nil {
 		return ctrl.Result{}, perr.Wrapf(err, "load config fail")
 	}
-	dctl := depl.NewAlbDeployCtl(r.Client, r.Env, r.Log, conf)
+	cfg := config.Config{Operator: r.OperatorCf, ALB: *albconf}
+	dctl := depl.NewAlbDeployCtl(ctx, r.Client, cfg, r.Log)
 	expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
 	if err != nil {
 		return ctrl.Result{}, perr.Wrapf(err, "gen expect alb deploy fail")
@@ -150,28 +162,6 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
-}
-
-// TODO FIXME 应该merge到reconcile中
-func (r *ALB2Reconciler) OnDeploymentUpdate(ctx context.Context, key types.NamespacedName, curdepl *appsv1.Deployment) error {
-	alb := &albv2.ALB2{}
-	err := r.Get(ctx, key, alb)
-	if err != nil {
-		return err
-	}
-	if alb.Spec.Config == nil {
-		r.Log.Info("alb not init yet", "alb", toolkit.ShowMeta(alb))
-		return nil
-	}
-	origin := alb.DeepCopy()
-	alb.Status.Detail.Deploy = depl.GenExpectDeployStatus(curdepl)
-	depl.MergeAlbStatus(&alb.Status)
-	if !reflect.DeepEqual(origin.Status, alb.Status) {
-		r.Log.Info("deployment change cause alb status change", "diff", cmp.Diff(origin.Status, alb.Status))
-		err := r.Client.Status().Update(ctx, alb)
-		return err
-	}
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -212,22 +202,35 @@ func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			},
 		)).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(r.DeploymentToALbKey),
+		// 当alb的svc变化时(分配了ip)，应该去更新alb的状态
+		Watches(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
 			builder.WithPredicates(
-				predicate.And(predicate.NewPredicateFuncs(func(object client.Object) bool {
-					edepl, ok := object.(*appsv1.Deployment)
-					if !ok {
-						return false
-					}
-					_, _, version, err := getAlbKeyFromDeployment(edepl)
-					if err != nil {
-						return false
-					}
-					if version != r.Env.Version {
-						return false
-					}
-					return true
-				}),
+				predicate.And(
+					r.ignoreNonAlbObj(),
+					predicate.Funcs{
+						CreateFunc: func(event event.CreateEvent) bool {
+							return false
+						},
+						DeleteFunc: func(e event.DeleteEvent) bool {
+							r.Log.Info("find svc delete", "svc", toolkit.PrettyCr(e.Object))
+							return true
+						},
+						UpdateFunc: func(e event.UpdateEvent) bool {
+							r.Log.Info("find svc update", "name", e.ObjectNew.GetName(), "diff", cmp.Diff(e.ObjectOld, e.ObjectNew))
+							return true
+						},
+						GenericFunc: func(genericEvent event.GenericEvent) bool {
+							return false
+						},
+					},
+				),
+			),
+		).
+		// 当alb的deployment变化时(replicas变化)，应该去更新alb的状态
+		Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
+			builder.WithPredicates(
+				predicate.And(
+					r.ignoreNonAlbObj(),
 					predicate.Funcs{
 						CreateFunc: func(event event.CreateEvent) bool {
 							// deployment可能就是这里创建的，不关心
@@ -238,21 +241,21 @@ func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 							return true
 						},
 						UpdateFunc: func(e event.UpdateEvent) bool {
+							odepl, ok := e.ObjectOld.(*appsv1.Deployment)
+							if !ok {
+								return false
+							}
 							edepl, ok := e.ObjectNew.(*appsv1.Deployment)
 							if !ok {
 								return false
 							}
-							ns, name, version, err := getAlbKeyFromDeployment(edepl)
+							ns, name, version, err := getAlbKeyFromObject(edepl)
 							if err != nil {
 								return false
 							}
 							key := types.NamespacedName{Namespace: ns, Name: name}
-							r.Log.Info("find deployment update", "key", key, "version", version, "depl", toolkit.ShowMeta(e.ObjectNew))
-							err = r.OnDeploymentUpdate(context.Background(), key, edepl)
-							if err != nil {
-								r.Log.Error(err, "handle deployment change fail")
-							}
-							return false
+							r.Log.Info("find deployment update", "key", key, "version", version, "depl", toolkit.ShowMeta(e.ObjectNew), "old-ver", odepl.ResourceVersion)
+							return true
 						},
 						GenericFunc: func(genericEvent event.GenericEvent) bool {
 							return false
@@ -263,7 +266,20 @@ func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func getAlbKeyFromDeployment(obj client.Object) (ns string, name string, version string, err error) {
+func (r *ALB2Reconciler) ignoreNonAlbObj() predicate.Funcs {
+	return predicate.NewPredicateFuncs(func(object client.Object) bool {
+		_, _, version, err := getAlbKeyFromObject(object)
+		if err != nil {
+			return false
+		}
+		if version != r.OperatorCf.Version {
+			return false
+		}
+		return true
+	})
+}
+
+func getAlbKeyFromObject(obj client.Object) (ns string, name string, version string, err error) {
 	labels := obj.GetLabels()
 	key, keyOk := labels[resources.ALB2OperatorResourceLabel]
 	version, versionOk := labels[resources.ALB2OperatorVersionLabel]
@@ -277,17 +293,15 @@ func getAlbKeyFromDeployment(obj client.Object) (ns string, name string, version
 	return ns, name, version, nil
 }
 
-func (r *ALB2Reconciler) DeploymentToALbKey(obj client.Object) []reconcile.Request {
+func (r *ALB2Reconciler) ObjToALbKey(obj client.Object) []reconcile.Request {
 	empty := []reconcile.Request{}
 	// not alb-operator managed deployment, ignore.
-	ns, name, version, err := getAlbKeyFromDeployment(obj)
+	ns, name, version, err := getAlbKeyFromObject(obj)
 	if err != nil {
-		// 理论上来讲 这里不应该报错，应该被前面的过滤条件filter掉
-		r.Log.Error(err, "deployment to alb fail")
 		return []ctrl.Request{}
 	}
-	if version != r.Env.Version {
-		r.Log.Info("version not same,ignore", "depl", toolkit.ShowMeta(obj), "alb2", name, "depl-ver", version, "version", r.Env.Version)
+	if version != r.OperatorCf.Version {
+		r.Log.Info("version not same,ignore", "depl", toolkit.ShowMeta(obj), "alb2", name, "ver", version, "version", r.OperatorCf.Version)
 		return empty
 	}
 	return []reconcile.Request{

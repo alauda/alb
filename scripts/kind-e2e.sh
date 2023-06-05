@@ -1,10 +1,14 @@
 #!/bin/bash
 set -x
 
-# require env ALB_KIND_E2E_CHART. optional env ALB_KIND_E2E_BRANCH
+# require env ALB_KIND_E2E_CHART
 # export ALB_KIND_E2E_CHART=
-# export ALB_KIND_E2E_BRANCH=
-go build -o alb-kind-e2e alauda.io/alb2/test/kind/3.12
+
+export GO111MODULE=on
+export GOPROXY=https://goproxy.cn,direct
+export CGO_ENABLED=0
+go test -c alauda.io/alb2/test/kind/e2e
+mv ./e2e.test ./alb-kind-e2e
 export ALB_SUFFIX=$(date '+%s')
 echo $ALB_SUFFIX
 md5sum ./alb-kind-e2e

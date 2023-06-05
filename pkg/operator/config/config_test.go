@@ -7,6 +7,7 @@ import (
 	"alauda.io/alb2/utils/test_utils"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -177,7 +178,8 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Name: "MY_POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
 				},
 			},
 		},
@@ -225,11 +227,16 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Name:  "METRICS_PORT",
 			Value: "1936",
 		},
+		{
+			Name:  "ENABLE_VIP",
+			Value: "false",
+		},
 	}
 	actual := cfg.GetALBContainerEnvs(DEFAULT_OPERATOR_CFG)
 	for _, e := range actual {
 		fmt.Printf("env %v\n", e)
 	}
+	t.Logf("diff %v", cmp.Diff(expect, actual))
 	assert.ElementsMatch(t, expect, actual)
 }
 

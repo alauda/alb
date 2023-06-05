@@ -37,6 +37,7 @@ type NginxController struct {
 	Ctx           context.Context
 	albcfg        config.IConfig
 	log           logr.Logger
+	lc            *LeaderElection
 }
 
 type Policy struct {
@@ -100,7 +101,7 @@ func (p Policies) Less(i, j int) bool {
 
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg config.IConfig, log logr.Logger) *NginxController {
+func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg config.IConfig, log logr.Logger, leader *LeaderElection) *NginxController {
 	return &NginxController{
 		BackendType:   kd.GetType(),
 		TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
@@ -111,6 +112,7 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg co
 		Ctx:           ctx,
 		albcfg:        cfg,
 		log:           log,
+		lc:            leader,
 	}
 }
 
@@ -197,11 +199,11 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if phase != m.PhaseTerminating {
 		phase = m.PhaseRunning
 	}
-
-	if nc.albcfg.GetNetworkMode() == config.Container {
+	if nc.albcfg.IsEnableVIP() && nc.lc.AmILeader() {
+		nc.log.Info("enable vip and imleader")
 		err := nc.SyncLbSvcPort(alb.Frontends)
 		if err != nil {
-			nc.log.Error(err, "init lb svc fail")
+			nc.log.Error(err, "sync lb svc fail")
 		}
 	}
 

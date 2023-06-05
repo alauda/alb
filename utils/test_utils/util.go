@@ -16,6 +16,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/onsi/ginkgo"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	kcapi "k8s.io/client-go/tools/clientcmd/api"
@@ -161,4 +164,40 @@ func PrettyCr(obj interface{}) string {
 		return fmt.Sprintf("%v", err)
 	}
 	return string(out)
+}
+
+func WaitUtillSuccess(fn func() (bool, error)) {
+	Wait(func() (bool, error) {
+		defer func() {
+			err := recover()
+			if err != nil {
+				fmt.Printf("err %v", err)
+				// ret = false
+			}
+		}()
+		return fn()
+	})
+}
+func Wait(fn func() (bool, error)) {
+	const (
+		// Poll how often to poll for conditions
+		Poll = 1 * time.Second
+
+		// DefaultTimeout time to wait for operations to complete
+		DefaultTimeout = 50 * time.Minute
+	)
+	err := wait.Poll(Poll, DefaultTimeout, fn)
+	assert.Nil(ginkgo.GinkgoT(), err, "wait fail")
+}
+
+func GinkgoAssert(e error, msg string) {
+	assert.NoError(ginkgo.GinkgoT(), e, msg)
+}
+
+func GinkgoNoErr(e error) {
+	assert.NoError(ginkgo.GinkgoT(), e)
+}
+
+func GinkgoAssertTrue(v bool, msg string) {
+	assert.True(ginkgo.GinkgoT(), v, msg)
 }

@@ -105,7 +105,7 @@ func (f *K8sClient) AssertService(ns string, name string, sassert *ServiceAssert
 		}
 		for name, p := range sassert.Ports {
 			svcp, find := svcPortMap[name]
-			assert.True(ginkgo.GinkgoT(), find, "could not find %v", name)
+			assert.True(ginkgo.GinkgoT(), find, "could not find port %v", name)
 			assert.Equal(ginkgo.GinkgoT(), svcp.Port, int32(p.Port), "")
 			assert.Equal(ginkgo.GinkgoT(), string(svcp.Protocol), p.Protocol, "")
 			if p.NodePort != nil {

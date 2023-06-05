@@ -36,7 +36,7 @@ func TestParseAddress(t *testing.T) {
 
 func TestFillupIngressStatus(t *testing.T) {
 	type testcase struct {
-		address      string
+		address      AlbAddress
 		port         []int32
 		ing          n1.Ingress
 		status       n1.IngressStatus
@@ -45,7 +45,7 @@ func TestFillupIngressStatus(t *testing.T) {
 	cases := []testcase{
 		{
 			// 增加127.0.0.1
-			address: "127.0.0.1,alauda.com",
+			address: AlbAddress{ips: []string{"127.0.0.1"}, hosts: []string{"alauda.com"}},
 			port:    []int32{80},
 			ing: n1.Ingress{
 				Status: n1.IngressStatus{
@@ -92,7 +92,7 @@ func TestFillupIngressStatus(t *testing.T) {
 		},
 		{
 			// 增加127.0.0.1的443端口
-			address: "127.0.0.1,,",
+			address: AlbAddress{ips: []string{"127.0.0.1"}},
 			port:    []int32{80, 443},
 			ing: n1.Ingress{
 				Status: n1.IngressStatus{

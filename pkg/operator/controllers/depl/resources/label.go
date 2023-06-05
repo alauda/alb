@@ -20,7 +20,7 @@ func ALB2ResourceLabel(ns, name string, version string) map[string]string {
 	}
 }
 
-func MergeLabel(a map[string]string, b map[string]string) map[string]string {
+func MergeMap(a map[string]string, b map[string]string) map[string]string {
 	ret := map[string]string{}
 	for k, v := range a {
 		ret[k] = v

@@ -1,11 +1,12 @@
 package depl
 
 import (
-	"alauda.io/alb2/pkg/operator/toolkit"
 	"context"
 	"fmt"
 	"path"
 	"testing"
+
+	"alauda.io/alb2/pkg/operator/toolkit"
 
 	gruntime "runtime"
 
@@ -119,11 +120,15 @@ spec:
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "alb-v2"}, alb)
 		assert.Equal(t, alb.APIVersion, "crd.alauda.io/v2beta1")
 		assert.Equal(t, alb.Kind, "ALB2")
-		cur, err := LoadAlbDeploy(ctx, cli, log, types.NamespacedName{Namespace: "cpaas-system", Name: "alb-v2"})
+		cur, err := LoadAlbDeploy(ctx, cli, log, types.NamespacedName{Namespace: "cpaas-system", Name: "alb-v2"}, config.DEFAULT_OPERATOR_CFG)
 		assert.NoError(t, err)
 		conf, err := config.NewALB2Config(cur.Alb, log)
 		assert.NoError(t, err)
-		dep := NewAlbDeployCtl(cli, config.DEFAULT_OPERATOR_CFG, log, conf)
+		cfg := config.Config{
+			ALB:      *conf,
+			Operator: config.DEFAULT_OPERATOR_CFG,
+		}
+		dep := NewAlbDeployCtl(ctx, cli, cfg, log)
 		assert.NoError(t, err)
 		exp, err := dep.GenExpectAlbDeploy(ctx, cur)
 		assert.NoError(t, err)
