@@ -182,6 +182,18 @@ func GetKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*Kubernet
 	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient, Ctx: ctx}, nil
 }
 
+func InitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
+	drv, err := GetKubernetesDriverFromCfg(ctx, cf)
+	if err != nil {
+		return nil, err
+	}
+	err = InitDriver(drv, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return drv, nil
+}
+
 func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
 	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
 	if err != nil {

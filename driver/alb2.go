@@ -2,21 +2,16 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"time"
 
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils/dirhash"
-	jsonpatch "github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -127,56 +122,6 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		alb2.Frontends = append(alb2.Frontends, ft)
 	}
 	return &alb2, nil
-}
-
-func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bool) error {
-	ft, err := kd.FrontendLister.Frontends(config.GetConfig().GetNs()).Get(ftName)
-	if err != nil {
-		return err
-	}
-	origin := ft.DeepCopy()
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	if ft.Status.Instances == nil {
-		ft.Status.Instances = make(map[string]alb2v1.Instance)
-	}
-
-	preConflictState := false
-	if instance, ok := ft.Status.Instances[hostname]; ok {
-		preConflictState = instance.Conflict
-	}
-
-	if preConflictState == conflictState {
-		return nil
-	}
-
-	ft.Status.Instances[hostname] = alb2v1.Instance{
-		Conflict:  conflictState,
-		ProbeTime: time.Now().Unix(),
-	}
-
-	bytesOrigin, err := json.Marshal(origin)
-	if err != nil {
-		return err
-	}
-	bytesModified, err := json.Marshal(ft)
-	if err != nil {
-		return err
-	}
-	patch, err := jsonpatch.CreateMergePatch(bytesOrigin, bytesModified)
-	if err != nil {
-		return err
-	}
-	if string(patch) == "{}" {
-		return nil
-	}
-	klog.Info("update ft status %v", string(patch))
-	if _, err := kd.ALBClient.CrdV1().Frontends(config.GetConfig().GetNs()).Patch(context.TODO(), ft.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (kd *KubernetesDriver) LoadConfigmap(namespace, lbname string) (*corev1.ConfigMap, error) {

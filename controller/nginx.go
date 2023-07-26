@@ -39,6 +39,7 @@ type NginxController struct {
 	albcfg        *config.Config
 	log           logr.Logger
 	lc            *LeaderElection
+	portProbe     *PortProbe
 }
 
 // keep it as same as rule
@@ -108,8 +109,8 @@ func (p Policies) Less(i, j int) bool {
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *config.Config, log logr.Logger, leader *LeaderElection) *NginxController {
-	ngx := config.GetConfig().GetNginxCfg()
-	return &NginxController{
+	ngx := cfg.GetNginxCfg()
+	n := &NginxController{
 		BackendType:   kd.GetType(),
 		TemplatePath:  ngx.NginxTemplatePath,
 		NewConfigPath: ngx.NewConfigPath,
@@ -121,6 +122,14 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *c
 		log:           log,
 		lc:            leader,
 	}
+	if cfg.ALBRunConfig.Controller.Flags.EnablePortProbe {
+		port, err := NewPortProbe(ctx, kd, log.WithName("portprobe"), cfg)
+		if err != nil {
+			log.Error(err, "init portprobe fail")
+		}
+		n.portProbe = port
+	}
+	return n
 }
 
 func (nc *NginxController) GenerateConf() error {
@@ -157,7 +166,9 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		if err != nil {
 			return nil, err
 		}
-		detectAndMaskConflictPort(lb, nc.Driver)
+		if nc.portProbe != nil {
+			nc.portProbe.WorkerDetectAndMaskConflictPort(lb)
+		}
 		migratePortProject(nc.Ctx, lb, nc.Driver)
 		lbFromAlb = lb
 	}
@@ -220,11 +231,9 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	return *cfg, nginxPolicy, nil
 }
 
-// GetLBConfigFromAlb get lb config from alb/ft/rule.
-func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBalancer, error) {
+func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*LoadBalancer, error) {
 	// mAlb LoadBalancer struct from modules package.
 	// cAlb LoadBalancer struct from controller package.
-	kd := nc.Driver
 	mAlb, err := kd.LoadALBbyName(ns, name)
 	if err != nil {
 		klog.Error("load mAlb fail", err)
@@ -324,6 +333,11 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 		cAlb.Frontends = append(cAlb.Frontends, ft)
 	}
 	return cAlb, nil
+}
+
+// GetLBConfigFromAlb get lb config from alb/ft/rule.
+func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBalancer, error) {
+	return GetLBConfigFromAlb(*nc.Driver, ns, name)
 }
 
 func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
@@ -565,31 +579,6 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	}
 
 	return ngxPolicy
-}
-
-func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDriver) {
-	enablePortProbe := config.GetConfig().GetFlags().EnablePortProbe
-	if !enablePortProbe {
-		return
-	}
-	listenTCPPorts, err := utils.GetListenTCPPorts()
-	if err != nil {
-		klog.Error(err)
-		return
-	}
-	klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
-
-	for _, ft := range alb.Frontends {
-		conflict := false
-		if ft.IsTcpBaseProtocol() && listenTCPPorts[int(ft.Port)] {
-			conflict = true
-			ft.Conflict = true
-			klog.Errorf("skip port: %d has conflict", ft.Port)
-		}
-		if err := driver.UpdateFrontendStatus(ft.FtName, conflict); err != nil {
-			klog.Error(err)
-		}
-	}
 }
 
 func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.KubernetesDriver) {

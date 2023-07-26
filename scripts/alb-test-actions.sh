@@ -11,12 +11,25 @@ function alb-build-e2e-test() {
 }
 
 function alb-run-all-e2e-test() (
+  set -e
   # TODO 覆盖率
   local concurrent=${1:-6}
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
   if [[ "$filter" != "" ]]; then
     ginkgo -failFast -focus "$filter" ./test/e2e
+    return
+  fi
+  if [[ "$concurrent" == "1" ]]; then
+    local all=$(ginkgo -dryRun -v ./test/e2e | grep alb-test-case | wc -l)
+    local i=0
+    while read tcase; do
+      tcase=$(echo $tcase | xargs)
+      echo "run case $tcase"
+      echo "$tcase $i/$all" >./.current-test
+      ginkgo -failFast -focus "$tcase" ./test/e2e
+      i=$((i + 1))
+    done < <(ginkgo -dryRun -noColor -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort)
     return
   fi
   ginkgo -failFast -p -nodes $concurrent ./test/e2e
@@ -127,7 +140,14 @@ function alb-list-kind-e2e() {
 }
 
 function alb-list-e2e() {
-  ginkgo -debug -v -dryRun ./test/e2e
+  ginkgo -dryRun -noColor -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort
+}
+
+function alb-debug-e2e() {
+  alb-run-all-e2e-test | tee ./test.log
+  cat ./test.log | grep 'test-case' | rg -o '.*alb-test-case([^:]*):' -r '$1' | xargs -I{} echo {} | uniq | sort >./run.test
+  alb-list-e2e | xargs -I {} echo {} >all.test
+  diff ./run.test ./all.test
 }
 
 function alb-test-kind() {

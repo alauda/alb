@@ -48,6 +48,7 @@ type ControllerConfig struct {
 	CpuPreset          int
 	WorkerLimit        int
 	GoMonitorPort      int
+	PodName            string
 	ResyncPeriod       int
 	Flags              ControllerFlags
 	BackLog            int
@@ -248,6 +249,7 @@ func controllerFromEnv(env map[string]string, c *ALBRunConfig) {
 	c.Controller.WorkerLimit = ToInt(env[WORKER_LIMIT])
 	c.Controller.ResyncPeriod = ToInt(env[RESYNC_PERIOD])
 	c.Controller.GoMonitorPort = ToInt(env[GO_MONITOR_PORT])
+	c.Controller.PodName = env[MY_POD_NAME]
 	flagsFromEnv(env, c)
 }
 
