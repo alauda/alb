@@ -1,0 +1,2 @@
+现在csv是直接在chart中部署的
+因为发现这种方式无法创建出serviceaccount,所以rbac相关的资源是chart直接创建的

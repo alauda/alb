@@ -3,8 +3,10 @@ package framework
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -13,12 +15,26 @@ import (
 type AlbWaitFileExt struct {
 	reader ReadAlbFile
 	alb    AlbInfo
+	log    logr.Logger
 }
 
-func NewAlbWaitFileExt(reader ReadAlbFile, albInfo AlbInfo) *AlbWaitFileExt {
+type DefaultReadFile struct {
+}
+
+func (d *DefaultReadFile) ReadFile(p string) (string, error) {
+	ret, err := os.ReadFile(p)
+	return string(ret), err
+}
+
+type ReadAlbFile interface {
+	ReadFile(p string) (string, error)
+}
+
+func NewAlbWaitFileExt(reader ReadAlbFile, albInfo AlbInfo, log logr.Logger) *AlbWaitFileExt {
 	return &AlbWaitFileExt{
 		reader: reader,
 		alb:    albInfo,
+		log:    log,
 	}
 }
 
@@ -51,7 +67,7 @@ func (f *AlbWaitFileExt) WaitNginxConfigStr(regexStr string) {
 	p := f.alb.NginxCfgPath
 	f.WaitNginxConfig(func(raw string) (bool, error) {
 		match := regexMatch(raw, regexStr)
-		Logf("match regex %s in %s %v", regexStr, p, match)
+		f.log.Info("match nginx confg regex", "str", regexStr, "path", p, "match", match)
 		return match, nil
 	})
 }
@@ -60,7 +76,7 @@ func (f *AlbWaitFileExt) WaitPolicyRegex(regexStr string) {
 	p := f.alb.PolicyPath
 	f.waitFile(p, func(raw string) (bool, error) {
 		match := regexMatch(raw, regexStr)
-		Logf("match regex %s in %s %v", regexStr, p, match)
+		f.log.Info("match policy regex", "str", regexStr, "path", p, "match", match)
 		return match, nil
 	})
 }

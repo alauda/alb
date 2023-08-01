@@ -83,17 +83,17 @@ type Controller struct {
 	kd *IngressDriver
 
 	// configuration for ingressClass
-	icConfig *config.IngressClassConfiguration
+	icConfig *IngressClassConfiguration
 
 	albInformer          informerv2.ALB2Informer
 	ingressInformer      networkinginformers.IngressInformer
 	ingressClassInformer networkinginformers.IngressClassInformer
 	log                  logr.Logger
-	config.IConfig
+	*config.Config
 }
 
 // NewController returns a new sample controller
-func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCfg config.IConfig, log logr.Logger) *Controller {
+func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCfg *config.Config, log logr.Logger) *Controller {
 
 	alb2Informer := informers.Alb.Alb
 	ruleInformer := informers.Alb.Rule
@@ -116,7 +116,7 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	hostname, _ := os.Hostname()
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.Get("NAME")), Host: hostname},
+		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.GetConfig().GetAlbName()), Host: hostname},
 	)
 
 	domain := albCfg.GetDomain()
@@ -131,12 +131,12 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Ingresses"),
 		recorder:              recorder,
 		kd:                    NewDriver(d, albCfg, log.WithName("driver")),
-		icConfig:              &config.IngressClassConfiguration{Controller: ControllerName, AnnotationValue: config.DefaultControllerName, WatchWithoutClass: true, IgnoreIngressClass: false, IngressClassByName: true},
+		icConfig:              &IngressClassConfiguration{Controller: ControllerName, AnnotationValue: config.DefaultControllerName, WatchWithoutClass: true, IgnoreIngressClass: false, IngressClassByName: true},
 		albInformer:           alb2Informer,
 		ingressInformer:       ingressInformer,
 		ingressClassInformer:  ingressClassInformer,
 		log:                   log,
-		IConfig:               albCfg,
+		Config:                albCfg,
 	}
 	return controller
 }

@@ -323,9 +323,14 @@ func TestNeedEnqueueObject(t *testing.T) {
 		t.Logf("case %d: %s\n", index, testCase.description)
 		a := assert.New(t)
 		defer cancel()
-		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
+		cfg := config.DefaultMock()
+		cfg.Ns = "ns-1"
+		cfg.Name = "alb-1"
+		cfg.Domain = "alauda.io"
+		config.UseMock(cfg)
+		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource)
 		informers := drv.Informers
-		ingressController := NewController(drv, informers, config.DefaultMock(), log.L())
+		ingressController := NewController(drv, informers, cfg, log.L())
 		// start to make sure ingress class cache synced.
 		go func(ctx context.Context) {
 			err := ingressController.StartIngressLoop(ctx)
@@ -563,8 +568,8 @@ func TestGenSyncAction(t *testing.T) {
 	for _, tcase := range testCases {
 		_ = tcase
 		c := Controller{
-			log:     log.L(),
-			IConfig: config.DefaultMock(),
+			log:    log.L(),
+			Config: config.DefaultMock(),
 		}
 		act, err := c.genSyncRuleAction(tcase.kind, &tcase.ing, tcase.exist, tcase.expect, c.log)
 		assert.NoError(t, err)

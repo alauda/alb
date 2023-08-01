@@ -55,6 +55,12 @@ func (h *Helm) Install(cfgs []string, name string, base, val string) (string, er
 	}
 	cmds = append(cmds, name, base)
 	cmds = append(cmds, "--kubeconfig", h.kubeCfgPath, "--create-namespace")
+	dryrunCmds := append(cmds, "--dry-run")
+	out, err := h.helm(dryrunCmds...)
+	if err != nil {
+		return "", err
+	}
+	h.Log.Info("hr yamls dryrun", "out", out)
 	return h.helm(cmds...)
 }
 

@@ -60,7 +60,7 @@ const HTTP = `
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 10m;
     ssl_prefer_server_ciphers on;
-    ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_protocols  TLSv1.2 TLSv1.3;
     ssl_early_data off;
     ssl_ciphers TLS13-AES-256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES-128-GCM-SHA256:TLS13-AES-128-CCM-8-SHA256:TLS13-AES-128-CCM-SHA256:EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:DH+AESGCM:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
     ssl_dhparam /etc/alb2/nginx/dhparam.pem;

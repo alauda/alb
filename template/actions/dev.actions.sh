@@ -1,8 +1,13 @@
 #!/bin/bash
 
-function ang-build-image() {
-  docker build -t build-harbor.alauda.cn/acp/alb-nginx:local -f ./alb-nginx/Dockerfile .
-  docker build -t build-harbor.alauda.cn/acp/alb-nginx-tester:local -f ./alb-nginx/nginx-test-runner.dockerfile .
+function ang-build-nginx-image() {
+  local tag="local"
+  if [[ -n "$1" ]]; then
+    tag=$1
+  fi
+  echo "build alb-nginx local"
+  docker build -t build-harbor.alauda.cn/acp/alb-nginx:$tag -f ./template/Dockerfile .
+  docker tag build-harbor.alauda.cn/acp/alb-nginx:$tag registry.alauda.cn:60080/acp/alb-nginx:$tag
 }
 
 function ang-local-test() {

@@ -12,6 +12,7 @@ import (
 	"github.com/openlyinc/pointy"
 	"github.com/stretchr/testify/assert"
 
+	. "alauda.io/alb2/test/e2e/gateway"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -27,7 +28,7 @@ func TimeoutEq(timeout gatewayPolicy.TimeoutPolicyConfig, connect *uint, read *u
 	return string(timeoutJson) == string(timeoutNewJson)
 }
 
-func initDefaultGateway(f *Framework) {
+func initDefaultGateway(f *GatewayF) {
 	_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -167,19 +168,19 @@ spec:
 	assert.NoError(GinkgoT(), err)
 }
 
-var _ = Describe("Gateway", func() {
-	var f *Framework
+var _ = Describe("GatewayPolicyAttachment", func() {
+	var f *GatewayF
+	var env *Env
 	var ctx context.Context
 	var ns string
 	var secretA *corev1.Secret
 
 	BeforeEach(func() {
-		f = NewAlb(Config{InstanceMode: true, RestCfg: CfgFromEnv(), Project: []string{"project1"}, Gateway: true, RandomBaseDir: false, RandomNs: false})
+		f, env = DefaultGatewayF()
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.1.2"})
 		f.InitDefaultSvc("svc-2", []string{"192.168.2.1"})
-		f.Init()
-		ctx = context.Background()
+		ctx = env.Ctx
 		ns = f.GetProductNs()
 
 		secretA, _ = f.CreateTlsSecret("a.com", "secreta", f.GetProductNs())
@@ -187,8 +188,7 @@ var _ = Describe("Gateway", func() {
 	})
 
 	AfterEach(func() {
-		f.Destroy()
-		f = nil
+		env.Stop()
 		_ = ctx
 		_ = ns
 		_ = secretA

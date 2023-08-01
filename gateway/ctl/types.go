@@ -21,6 +21,7 @@ type Listener struct {
 
 type ListenerStatus struct {
 	valid          bool
+	allKindInvalid bool
 	attachedRoutes int32
 	allowedRoutes  int
 	conflicted     *struct {
@@ -94,12 +95,24 @@ func (r *Route) invalidKind(ref gv1b1t.ParentReference, msg string) {
 }
 
 func (l *ListenerStatus) conflictProtocol(msg string) {
+	l.valid = false
 	l.conflicted = &struct {
 		reason string
 		msg    string
 	}{
 		string(gv1b1t.ListenerReasonProtocolConflict),
 		msg,
+	}
+}
+func (l *ListenerStatus) invalidKind(allinvalid bool, invalidkinds []string) {
+	l.valid = false
+	l.allKindInvalid = allinvalid
+	l.resolvedRefs = &struct {
+		reason string
+		msg    string
+	}{
+		reason: string(gv1b1t.ListenerReasonInvalidRouteKinds),
+		msg:    fmt.Sprintf("invalid kinds %v", invalidkinds),
 	}
 }
 
@@ -146,15 +159,14 @@ func (l ListenerStatus) toConditions(gateway *gv1b1t.Gateway) []metav1.Condition
 	}
 	if l.resolvedRefs != nil {
 		conditions = append(conditions, metav1.Condition{
-			Type:               string(gv1b1t.ListenerConditionDetached),
+			Type:               string(gv1b1t.ListenerConditionResolvedRefs),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 			Status:             metav1.ConditionFalse,
-			Reason:             l.conflicted.reason,
-			Message:            l.conflicted.msg,
+			Reason:             l.resolvedRefs.reason,
+			Message:            l.resolvedRefs.msg,
 		})
 	}
-
 	return conditions
 }
 

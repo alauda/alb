@@ -27,14 +27,11 @@ alb-nginx/t/.nvimlog
 tweak
 scripts/loop.sh
 alb-nginx/actions/loop.sh
-test/e2e/viper-config.toml
 bin
 .alb.local
 test/e2e/alb-config.toml
 *.log
 .vscode/settings.json
-test/e2e/*/viper-config.toml
-test/e2e/*/*/viper-config.toml
 test/e2e/*.test
 test/e2e/*/*.test
 test/e2e/*/*/*.test
@@ -44,10 +41,6 @@ loop.sh
 alauda-alb2/
 coverage.*
 deploy/operator/bundle
-deploy/chart/alb-operator/crds
-deploy/chart/alb/crds
-deploy/operator/crds
-deploy/chart/alb-operator/templates/alb-operator.clusterserviceversion.yaml
 deploy/operator/bundle.Dockerfile
 .test/
 template/servroot
@@ -57,5 +50,4 @@ template/nginx/logs
 template/logs
 template/cert
 alb-kind-e2e
-deploy/chart/alb/templates/rbac
 test.test

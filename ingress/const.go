@@ -23,7 +23,8 @@ const (
 	// ALBCORSAllowOriginAnnotation is the ingress annotation to configure cors allow origin
 	ALBCORSAllowOriginAnnotation = "nginx.ingress.kubernetes.io/cors-allow-origin"
 	// ALBBackendProtocolAnnotation is the ingress annotation to define backend protocol
-	ALBBackendProtocolAnnotation = "nginx.ingress.kubernetes.io/backend-protocol"
+	ALBBackendProtocolAnnotation  = "nginx.ingress.kubernetes.io/backend-protocol"
+	FMT_ALBRulePriorityAnnotation = "alb.%s/ingress-rule-priority-%d-%d"
 
 	// ALBTemporalRedirectAnnotation allows you to return a temporal redirect (Return Code 302) instead of sending data to the upstream.
 	ALBTemporalRedirectAnnotation = "nginx.ingress.kubernetes.io/temporal-redirect"

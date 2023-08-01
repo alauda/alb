@@ -3,10 +3,10 @@ package ctl
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
+	"alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/log"
 
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -190,14 +190,18 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 	return len(keyList) != 0, keyList, nil
 }
 
-func getAlbAddress(ctx context.Context, c client.Client, ns string, name string) ([]string, error) {
-	alb := alb2v2.ALB2{}
-	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &alb)
+func getAlb(ctx context.Context, c client.Client, ns string, name string) (*alb2v2.ALB2, error) {
+	alb := &alb2v2.ALB2{}
+	err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, alb)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
-	addres := strings.Split(alb.Spec.Address, ",")
+	return alb, nil
+}
+
+func pickAlbAddress(alb *alb2v2.ALB2) []string {
+	addres := utils.SplitAndRemoveEmpty(alb.Spec.Address, ",")
 	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv4...)
 	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv6...)
-	return addres, nil
+	return addres
 }

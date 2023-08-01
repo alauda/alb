@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/pkg/operator/config"
-	f "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
@@ -20,32 +20,25 @@ import (
 )
 
 var _ = Describe("Operator", func() {
-	var base string
-	var opext *f.AlbOperatorExt
-	var kt *Kubectl
-	var kc *K8sClient
+	var env *OperatorEnv
+	var opext *AlbOperatorExt
 	var cli client.Client
 	var ctx context.Context
-	var cancel func()
-
 	var log logr.Logger
+
 	BeforeEach(func() {
-		log = GinkgoLog()
-		ctx, cancel = context.WithCancel(context.Background())
-		base = InitBase()
-		kt = NewKubectl(base, KUBE_REST_CONFIG, log)
-		kc = NewK8sClient(ctx, KUBE_REST_CONFIG)
-		msg := kt.AssertKubectl("create ns cpaas-system")
-		log.Info("init ns", "ret", msg)
-		opext = f.NewAlbOperatorExt(ctx, base, KUBE_REST_CONFIG)
-		cli = kc.GetDirectClient()
+		env = StartOperatorEnvOrDie()
+		opext = env.Opext
+		cli = env.Kc.GetDirectClient()
+		ctx = env.Ctx
+		log = env.Log
 	})
 
 	AfterEach(func() {
-		cancel()
+		env.Stop()
 	})
 
-	f.GIt("port project alb", func() {
+	GIt("port project alb", func() {
 		alb1 := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
@@ -95,7 +88,7 @@ spec:
 		opext.AssertDeploy(types.NamespacedName{Namespace: "cpaas-system", Name: "alb-3"}, alb3, nil)
 	})
 
-	f.GIt("should work normaly when update", func() {
+	GIt("should work normaly when update", func() {
 		type TestExpect struct {
 			bindNic        string
 			portInfo       string

@@ -1,18 +1,15 @@
 package config
 
 // 这里的config的目的是将环境变量或者默认配置文件转换为内存中的结构体，方便后续使用
-// TODO pkg/operator/config负责的是将alb cr上的配置 转换为deployment的环境变量,两者应该合并起来
 import (
+	. "alauda.io/alb2/pkg/config"
+	"alauda.io/alb2/utils"
+	"alauda.io/alb2/utils/log"
 	"fmt"
-	"math"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/spf13/viper"
-	"github.com/thoas/go-funk"
 )
 
 const (
@@ -29,353 +26,289 @@ const (
 	DefaultControllerName = "alb2"
 )
 
-var requiredFields = []string{
-	"NAME",
-	"NAMESPACE",
-	"DOMAIN",
-	"MY_POD_NAME",
-	"MODE",
-	"NETWORK_MODE",
+type K8sConfig struct {
+	Mode      string // test | kubecfg | kube_xx | incluster
+	KubeCfg   string
+	K8sServer string
+	K8sToken  string
 }
 
-// ALL ENV
-// TODO use enum
-var optionalFields = []string{
-	"ALB_ENABLE",
-	"NEW_NAMESPACE",
-	"KUBERNETES_SERVER",
-	"KUBERNETES_BEARERTOKEN",
-	"SCHEDULER",
-	"LB_TYPE",
-	"KUBERNETES_TIMEOUT",
-	"INTERVAL",
-	//for xiaoying
-	"RECORD_POST_BODY",
-	// set to "true" if want to use nodes which pods run on them
-	"USE_POD_HOST_IP",
-	"ENABLE_GC",
-	"ENABLE_GC_APP_RULE",
-	"ENABLE_IPV6",
-	"ENABLE_PROMETHEUS",
-	"ENABLE_PROFILE",
-	"ENABLE_PORTPROBE",
-	"DEFAULT-SSL-CERTIFICATE",
-	"DEFAULT-SSL-STRATEGY",
-	"SERVE_INGRESS",
-	"SERVE_CROSSCLUSTERS",
-	"INGRESS_HTTP_PORT",
-	"INGRESS_HTTPS_PORT",
-	"ENABLE_HTTP2",
-	"SCENARIO",
-	"WORKER_LIMIT",
-	"CPU_PRESET",
-	"RESYNC_PERIOD",
-	"ENABLE_GO_MONITOR",
-	"GO_MONITOR_PORT",
-	"METRICS_PORT",
-	"BACKLOG",
-	"ENABLE_GZIP",
-	"POLICY_ZIP",
-	// gateway related config
-	"GATEWAY_ENABLE",
-	"GATEWAY_MODE",
-	"GATEWAY_NAME",
+type ExtraConfig struct {
+	Pod                         string
+	ReloadNginx                 bool
+	FullSync                    bool
+	DisablePeroidGenNginxConfig bool
+	E2eTestControllerOnly       bool
 
-	// leader related config
-	"LEADER_LEASE_DURATION",
-	"LEADER_RENEW_DEADLINE",
-	"LEADER_RETRY_PERIOD",
-
-	"ENABLE_VIP",
+	Interval             int
+	ReloadTimeout        int
+	DebugRuleSync        bool
+	NginxTemplatePath    string
+	NewConfigPath        string
+	OldConfigPath        string
+	NewPolicyPath        string
+	TweakDir             string
+	K8s                  K8sConfig
+	StatusFileParentPath string
+	Leader               LeaderConfig
 }
 
-var nginxRequiredFields = []string{
-	"NEW_CONFIG_PATH",
-	"OLD_CONFIG_PATH",
-	"NGINX_TEMPLATE_PATH",
-	"NEW_POLICY_PATH",
+type LeaderConfig struct {
+	LeaseDuration time.Duration
+	RenewDeadline time.Duration
+	RetryPeriod   time.Duration
 }
 
-func initViper() {
-	viper.SetConfigName("viper-config")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("../")
-	viper.AddConfigPath("/alb/ctl")
-	viper_base := os.Getenv("VIPER_BASE")
-	if viper_base != "" {
-		viper.AddConfigPath(viper_base)
+func K8sFromEnv() K8sConfig {
+	return k8sFromEnv(getAllEnv())
+}
+
+func k8sFromEnv(env map[string]string) K8sConfig {
+	origin := K8sConfig{
+		Mode: "incluster",
 	}
-	viper.SetEnvPrefix("alb")
+	if env[USE_KUBE_CONFIG] != "" {
+		origin.Mode = "kubecfg"
+		origin.KubeCfg = env[USE_KUBE_CONFIG]
+	}
+	if env[KUBE_SERVER] != "" {
+		origin.Mode = "kube_xx"
+		origin.K8sServer = env[KUBE_SERVER]
+		origin.K8sToken = env[KUBE_TOKEN]
+	}
+	return origin
 }
 
-func setDefault() {
-	defaultConfig := viper.GetStringMapString("default")
-	for key, val := range defaultConfig {
-		viper.SetDefault(key, val)
+func ExtraFlagsFromEnv(env map[string]string) ExtraConfig {
+	return ExtraConfig{
+		ReloadNginx:                 ToBoolOr(env[RELOAD_NGINX], true),
+		DisablePeroidGenNginxConfig: ToBoolOr(env[DISABLE_PERIOD_GEN_NGINX_CONFIG], false),
+		E2eTestControllerOnly:       ToBoolOr(env[E2E_TEST_CONTROLLER_ONLY], false),
+		FullSync:                    ToBoolOr(env[FULL_SYNC], true),
+		NginxTemplatePath:           ToStrOr(env[NGINX_TEMPLATE_PATH], NGINX_TEMPLATE_PATH_VAL),
+		NewConfigPath:               ToStrOr(env[NEW_CONFIG_PATH], NEW_CONFIG_PATH_VAL),
+		OldConfigPath:               ToStrOr(env[OLD_CONFIG_PATH], OLD_CONFIG_PATH_VAL),
+		NewPolicyPath:               ToStrOr(env[NEW_POLICY_PATH], NEW_POLICY_PATH_VAL),
+		TweakDir:                    TWEAK_DIR_VAL,
+		Interval:                    INTERVAL_VAL,
+		ReloadTimeout:               RELOAD_TIMEOUT_VAL,
+		Pod:                         env[MY_POD_NAME],
+		DebugRuleSync:               ToBoolOr(env[DEBUG_RULESYNC], false),
+		K8s:                         k8sFromEnv(env),
+		StatusFileParentPath:        STATUS_FILE_PARENT_PATH_VAL,
+		Leader: LeaderConfig{
+			LeaseDuration: time.Second * time.Duration(120),
+			RenewDeadline: time.Second * time.Duration(40),
+			RetryPeriod:   time.Second * time.Duration(12),
+		},
 	}
 }
 
-// Initialize initializes the configuration
-func Initialize() {
-	viper.ReadInConfig()
-	setDefault()
-	getEnvs(requiredFields)
-	getEnvs(optionalFields)
-	getEnvs(nginxRequiredFields)
-	viper.AutomaticEnv()
-}
-
-func getEnvs(fs []string) {
-	for _, f := range fs {
-		viper.BindEnv(f, f)
-	}
-}
-
-func checkEmpty(requiredFields []string) []string {
-	emptyRequiredEnv := []string{}
-	for _, f := range requiredFields {
-		if viper.GetString(f) == "" {
-			emptyRequiredEnv = append(emptyRequiredEnv, f)
-		}
-	}
-	return emptyRequiredEnv
-}
-
-func Init() error {
-	initViper()
-	Initialize()
-	emptyRequiredEnv := checkEmpty(requiredFields)
-	if len(emptyRequiredEnv) > 0 {
-		return fmt.Errorf("%s env vars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-	}
-
-	switch strings.ToLower(Get("LB_TYPE")) {
-	case Nginx:
-		emptyRequiredEnv = checkEmpty(nginxRequiredFields)
-		if len(emptyRequiredEnv) > 0 {
-			return fmt.Errorf("%s envvars are requied but empty", strings.Join(emptyRequiredEnv, ","))
-		}
-		if funk.ContainsString([]string{"Always", "Request", "Both"}, Get("DEFAULT-SSL-STRATEGY")) {
-			if Get("DEFAULT-SSL-CERTIFICATE") == "" {
-				return fmt.Errorf("no default ssl cert defined for nginx")
-			}
-		}
-	default:
-		return fmt.Errorf("Unsuported lb type %s", Get("LB_TYPE"))
-	}
-
-	return nil
-}
-
-// IsStandalone return true if alb is running in stand alone mode
-func IsStandalone() bool {
-	return true
-}
-
-// Set key to val
-func Set(key, val string) {
-	viper.Set(key, val)
-}
-
-// Get return string value of keyGet
-func Get(key string) string {
-	v := viper.GetString(key)
-	return v
-}
-
-// GetBool return bool value of the key
-func GetBool(key string) bool {
-	v := viper.GetBool(key)
-	return v
-}
-
-func SetBool(key string, val bool) {
-	viper.Set(key, val)
-}
-
-// TODO dont handle cpu limit here. operator should do it.
-// GetInt return int value of the key
-func GetInt(key string) int {
-	v := viper.GetString(key)
-	// cpu limit could have value like 200m, need some calculation
-	re := regexp.MustCompile(`([0-9]+)m`)
-	var val int
-	if string_decimal := strings.TrimRight(re.FindString(fmt.Sprintf("%v", v)), "m"); string_decimal == "" {
-		val, _ = strconv.Atoi(v)
-	} else {
-		val_decimal, _ := strconv.Atoi(string_decimal)
-		val = int(math.Ceil(float64(val_decimal) / 1000))
-	}
-	return val
-}
-
-func GetLabelSourceType() string {
-	return fmt.Sprintf(Get("labels.source_type"), Get("DOMAIN"))
-}
-
-func GetLabelAlbName() string {
-	return fmt.Sprintf(Get("labels.name"), Get("DOMAIN"))
-}
-
-func GetLabelSourceIngressHash() string {
-	return fmt.Sprintf(Get("labels.source_name_hash"), Get("DOMAIN"))
-}
-
-func GetLabelSourceIngressVersion() string {
-	return fmt.Sprintf(Get("labels.source_ingress_version"), Get("DOMAIN"))
-}
-
-// IngressClassConfiguration defines the various aspects of IngressClass parsing
-// and how the controller should behave in each case
-type IngressClassConfiguration struct {
-	// Controller defines the controller value this daemon watch to.
-	// Defaults to "alauda.io/alb2"
-	Controller string
-	// AnnotationValue defines the annotation value this Controller watch to, in case of the
-	// ingressClass is not found but the annotation is.
-	// The Annotation is deprecated and should not be used in future releases
-	AnnotationValue string
-	// WatchWithoutClass defines if Controller should watch to Ingress Objects that does
-	// not contain an IngressClass configuration
-	WatchWithoutClass bool
-	// IgnoreIngressClass defines if Controller should ignore the IngressClass Object if no permissions are
-	// granted on IngressClass
-	IgnoreIngressClass bool
-	//IngressClassByName defines if the Controller should watch for Ingress Classes by
-	// .metadata.name together with .spec.Controller
-	IngressClassByName bool
-}
-
-// a wrapper of common used config.getXX
 type Config struct {
+	ALBRunConfig
+	ExtraConfig
+}
+
+var cfg *Config
+var once sync.Once
+
+func getAllEnv() map[string]string {
+	e := map[string]string{}
+	for _, kv := range os.Environ() {
+		kvs := strings.Split(kv, "=")
+		e[kvs[0]] = kvs[1]
+	}
+	return e
+}
+
+func InitFromEnv(env map[string]string) *Config {
+	for k, v := range env {
+		log.L().Info("all env", "key", k, "val", v)
+	}
+	acfg, err := AlbRunCfgFromEnv(env)
+	if err != nil {
+		panic(err)
+	}
+	cfg := &Config{
+		ALBRunConfig: acfg,
+		ExtraConfig:  ExtraFlagsFromEnv(env),
+	}
+	log.L().Info("alb cfg from env", "cfg", utils.PrettyJson(cfg))
+	return cfg
+}
+
+func InTestSetCofnig(c Config) {
+	cfg = &c
+	log.L().Info("init test mode cfg", "cfg", utils.PrettyJson(GetConfig()))
+}
+
+func GetConfig() *Config {
+	once.Do(func() {
+		if cfg != nil {
+			return
+		}
+		env := getAllEnv()
+		cfg = InitFromEnv(env)
+	})
+	return cfg
 }
 
 func (c *Config) GetNs() string {
-	return Get("NAMESPACE")
+	return c.Ns
 }
 
 func (c *Config) GetMetricsPort() int {
-	return GetInt("METRICS_PORT")
+	return c.Controller.MetricsPort
+}
+func (c *Config) GetInterval() int {
+	return c.ExtraConfig.Interval
+}
+
+func (c *Config) GetReloadTimeout() int {
+	return c.ExtraConfig.ReloadTimeout
+}
+
+func (c *Config) GetResyncPeriod() int {
+	return c.Controller.ResyncPeriod
 }
 
 func (c *Config) GetAlbName() string {
-	return Get("NAME")
+	return c.Name
+}
+
+func (c *Config) GetAlbNsAndName() (string, string) {
+	return c.GetNs(), c.GetAlbName()
 }
 
 func (c *Config) GetDomain() string {
-	return Get("DOMAIN")
+	return c.Domain
 }
 
 func (c *Config) GetPodName() string {
-	return Get("MY_POD_NAME")
+	return c.ExtraConfig.Pod
 }
 
+const (
+	FMT_BINDKEY                   = "loadbalancer.%s/bind"
+	FMT_NAME                      = "alb2.%s/name"
+	FMT_FT                        = "alb2.%s/frontend"
+	FMT_LEADER                    = "alb2.%s/leader"
+	FMT_SOURCE_TYPE               = "alb2.%s/source-type"
+	FMT_SOURCE_INGRESS_VERSION    = "alb2.%s/source-ingress-version"
+	FMT_SOURCE_INGRESS_RULE_INDEX = "alb2.%s/source-ingress-rule-index"
+	FMT_SOURCE_INGRESS_PATH_INDEX = "alb2.%s/source-ingress-path-index"
+	FMT_INGRESS_ADDRESS_NAME      = "alb2.%s/%s_address"
+)
+
 func (c *Config) GetLabelLeader() string {
-	return fmt.Sprintf(Get("labels.leader"), c.GetDomain())
+	return fmt.Sprintf(FMT_LEADER, c.GetDomain())
+}
+
+type Flags struct {
+	ControllerFlags
+	ExtraConfig
+}
+
+func (c *Config) GetFlags() Flags {
+	return Flags{
+		ControllerFlags: c.Controller.Flags,
+		ExtraConfig:     c.ExtraConfig,
+	}
+}
+
+func (c *Config) GetStatusFile() string {
+	return c.StatusFileParentPath
 }
 
 func (c *Config) GetDefaultSSLSCert() string {
-	return Get("DEFAULT-SSL-CERTIFICATE")
+	return c.Controller.SSLCert
 }
 
 func (c *Config) GetDefaultSSLStrategy() string {
-	return Get("DEFAULT-SSL-STRATEGY")
+	return c.Controller.DefaultSSLStrategy
 }
 
 func (c *Config) GetIngressHttpPort() int {
-	return GetInt("INGRESS_HTTP_PORT")
+	return c.Controller.HttpPort
 }
 
 func (c *Config) GetIngressHttpsPort() int {
-	return GetInt("INGRESS_HTTPS_PORT")
+	return c.Controller.HttpsPort
 }
 
 func (c *Config) GetLabelSourceIngressVer() string {
-	sourceIngressVersion := fmt.Sprintf(Get("labels.source_ingress_version"), c.GetDomain())
+	sourceIngressVersion := fmt.Sprintf(FMT_SOURCE_INGRESS_VERSION, c.GetDomain())
 	return sourceIngressVersion
 }
 
 func (c *Config) GetLabelSourceIngressPathIndex() string {
-	return fmt.Sprintf(Get("labels.source_ingress_path_index"), c.GetDomain())
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_PATH_INDEX, c.GetDomain())
+}
+func (c *Config) GetLabelBindKey() string {
+	return fmt.Sprintf(FMT_BINDKEY, c.GetDomain())
 }
 
 func (c *Config) GetLabelSourceIngressRuleIndex() string {
-	return fmt.Sprintf(Get("labels.source_ingress_rule_index"), c.GetDomain())
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_RULE_INDEX, c.GetDomain())
 }
 
-const INGRESS_ADDRESS_NAME = "alb2.%s/%s_address"
-
-func (c *Config) GetAnnotationIngressAddress() string {
-	return fmt.Sprintf(INGRESS_ADDRESS_NAME, c.GetDomain(), c.GetAlbName())
+func (c *Config) GetCpuPreset() int {
+	return c.Controller.CpuPreset
 }
-
-func GetConfig() *Config {
-	return &Config{}
-}
-
-// Deprecated: use GetConfig()
-func GetAlbName() string {
-	return Get("NAME")
-}
-
-// Deprecated: use GetConfig()
-func GetNs() string {
-	return Get("NAMESPACE")
-}
-
-// Deprecated: use GetConfig()
-func GetDomain() string {
-	return Get("DOMAIN")
+func (c *Config) GetWorkerLimit() int {
+	return c.Controller.WorkerLimit
 }
 
 func (c *Config) GetLeaderConfig() LeaderConfig {
-	return LeaderConfig{
-		LeaseDuration: time.Second * time.Duration(GetInt("LEADER_LEASE_DURATION")),
-		RenewDeadline: time.Second * time.Duration(GetInt("LEADER_RENEW_DEADLINE")),
-		RetryPeriod:   time.Second * time.Duration(GetInt("LEADER_RETRY_PERIOD")),
-	}
+	return c.ExtraConfig.Leader
 }
 
 func (c *Config) DebugRuleSync() bool {
-	return os.Getenv("DEBUG_RULESYNC") == "true"
+	return c.ExtraConfig.DebugRuleSync
 }
 
 func (c *Config) GetLabelAlbName() string {
-	return fmt.Sprintf(Get("labels.name"), c.GetDomain())
+	return fmt.Sprintf(FMT_NAME, c.GetDomain())
+}
+func (c *Config) GetLabelFt() string {
+	return fmt.Sprintf(FMT_FT, c.GetDomain())
 }
 
 func (c *Config) GetLabelSourceType() string {
-	return fmt.Sprintf(Get("labels.source_type"), c.GetDomain())
+	return fmt.Sprintf(FMT_SOURCE_TYPE, c.GetDomain())
+}
+func (c *Config) EnableIngress() bool {
+	return c.Controller.Flags.EnableIngress
 }
 
 func (c *Config) GetNetworkMode() ControllerNetWorkMode {
-	// TODO use map?
-	mode := Get(NetworkModeKey)
-	switch mode {
-	case string(Host):
-		return Host
-	case string(Container):
-		return Container
-	}
-	panic(fmt.Sprintf("invalid mode %v", mode))
-}
-
-func (c *Config) GetMode() Mode {
-	// TODO use map?
-	switch Get(ModeKey) {
-	case string(Controller):
-		return Controller
-	case string(Operator):
-		return Operator
-	}
-	panic("invalid mode")
+	return ControllerNetWorkMode(c.Controller.NetworkMode)
 }
 
 // TODO a better name
 func (c *Config) IsEnableAlb() bool {
-	return GetBool("ALB_ENABLE")
+	return c.Controller.Flags.EnableAlb
 }
 
 func (c *Config) IsEnableVIP() bool {
-	return GetBool("ENABLE_VIP")
+	return c.Controller.Flags.EnableLbSvc
+}
+
+func (c *Config) GetGoMonitorPort() int {
+	return c.Controller.GoMonitorPort
+}
+
+func (c *Config) GetNginxCfg() NginxCfg {
+	return NginxCfg{
+		NginxTemplatePath: c.ExtraConfig.NginxTemplatePath,
+		NewConfigPath:     c.ExtraConfig.NewConfigPath,
+		OldConfigPath:     c.ExtraConfig.OldConfigPath,
+		NewPolicyPath:     c.ExtraConfig.NewPolicyPath,
+		EnablePrometheus:  c.Controller.Flags.EnablePrometheus,
+		EnableHttp2:       c.Controller.Flags.EnableHTTP2,
+		EnableGzip:        c.Controller.Flags.EnableGzip,
+		BackLog:           c.Controller.BackLog,
+		EnableIpv6:        c.Controller.Flags.EnableIPV6,
+		TweakDir:          c.ExtraConfig.TweakDir,
+	}
 }

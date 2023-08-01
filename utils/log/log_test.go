@@ -2,12 +2,9 @@ package log
 
 import (
 	"testing"
-
-	klogv2 "k8s.io/klog/v2"
 )
 
 func TestLog(t *testing.T) {
-	klogv2.Info("klog v2 info")
 	l := L()
 	l.V(-100).Info("test v-100")
 	l.V(-3).Info("test v-3")
@@ -23,4 +20,10 @@ func TestLog(t *testing.T) {
 	l.Info("test taged", "a", "b")
 	l.WithName("name1").Info("test with name", "a", "b")
 	l.WithName("name1").WithName("name2").Info("test with name", "a", "b")
+
+	{
+		l := InitKlogV2(LogCfg{ToFile: "./test.log"})
+		l.Info("test other log")
+		Flush()
+	}
 }

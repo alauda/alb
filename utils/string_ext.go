@@ -1,5 +1,11 @@
 package utils
 
+import (
+	"strings"
+
+	"github.com/samber/lo"
+)
+
 func StrIsNillOrEq(left *string, right string) bool {
 	return left == nil || (left != nil && *left == right)
 }
@@ -14,4 +20,9 @@ func StrListRemoveDuplicates(list []string) []string {
 		ClearedArr = append(ClearedArr, x)
 	}
 	return ClearedArr
+}
+
+func SplitAndRemoveEmpty(s string, sep string) []string {
+	items := strings.Split(s, sep)
+	return lo.Filter(items, func(s string, _ int) bool { return strings.TrimSpace(s) != "" })
 }

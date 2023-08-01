@@ -7,6 +7,7 @@ import (
 	"sort"
 	"testing"
 
+	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -156,6 +157,30 @@ func TestSortPolicy(t *testing.T) {
 			order: []string{"b", "a"},
 		},
 		{
+			name: "compare policy RawPriority first",
+			policies: []*Policy{
+				{
+					Rule:        "a",
+					RawPriority: 5,
+					Priority:    50000 + 1000,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+				},
+				{
+					Rule:        "b",
+					RawPriority: 1,
+					Priority:    10000 + 500,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+				},
+				{
+					Rule:        "c",
+					RawPriority: -1,
+					Priority:    10000 + 500,
+					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+				},
+			},
+			order: []string{"c", "b", "a"},
+		},
+		{
 			name: "same RawPriority compare priority",
 			policies: []*Policy{
 				{
@@ -231,16 +256,8 @@ func TestGCRule(t *testing.T) {
 	type TestCase struct {
 		description   string
 		options       GCOptions
-		cfg           map[string]string
 		fakeResource  test_utils.FakeResource
 		expectActions []GCAction
-	}
-
-	defaultConfig := map[string]string{
-		"DOMAIN":          "alauda.io",
-		"TWEAK_DIRECTORY": "../driver/texture", // set TWEAK_DIRECTORY to a exist path: make calculate hash happy
-		"NAME":            "alb-1",
-		"NAMESPACE":       "ns-1",
 	}
 
 	defaultAlbs := []albv2.ALB2{
@@ -268,7 +285,6 @@ func TestGCRule(t *testing.T) {
 				{Kind: UpdateFT, Name: "ft-1", Namespace: "ns-1", Reason: FTServiceNonExist},
 			},
 			options: defaultGCOptions,
-			cfg:     defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -309,7 +325,6 @@ func TestGCRule(t *testing.T) {
 				{Kind: UpdateFT, Name: "ft-1", Namespace: "ns-1", Reason: FTServiceBindkeyEmpty},
 			},
 			options: defaultGCOptions,
-			cfg:     defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -363,7 +378,6 @@ func TestGCRule(t *testing.T) {
 				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleOrphaned},
 			},
 			options: defaultGCOptions,
-			cfg:     defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -425,7 +439,6 @@ func TestGCRule(t *testing.T) {
 				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleAllServiceNonExist},
 			},
 			options: defaultGCOptions,
-			cfg:     defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -497,7 +510,6 @@ func TestGCRule(t *testing.T) {
 				{Kind: DeleteRule, Name: "rule-1", Namespace: "ns-1", Reason: RuleServiceBindkeyEmpty},
 			},
 			options: defaultGCOptions,
-			cfg:     defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -586,7 +598,6 @@ func TestGCRule(t *testing.T) {
 			description:   "do not do gc, if rules's type is ingress",
 			expectActions: []GCAction{},
 			options:       defaultGCOptions,
-			cfg:           defaultConfig,
 			fakeResource: test_utils.FakeResource{
 				Alb: test_utils.FakeALBResource{
 					Albs: defaultAlbs,
@@ -659,7 +670,12 @@ func TestGCRule(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		a := assert.New(t)
 		defer cancel()
-		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource, test_utils.DEFAULT_CONFIG_FOR_TEST)
+		cfg := config.DefaultMock()
+		cfg.Domain = "alauda.io"
+		cfg.Ns = "ns-1"
+		cfg.Name = "alb-1"
+		config.UseMock(cfg)
+		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource)
 
 		actions, err := calculateGCActions(drv, GCOptions{
 			GCAppRule:     true,

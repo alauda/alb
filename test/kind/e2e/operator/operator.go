@@ -1,4 +1,4 @@
-package xx
+package operator
 
 import (
 	"context"
@@ -33,10 +33,6 @@ var _ = Describe("operator", func() {
 				WithWorkerLabels([]string{"name=w1 x=a", "name=w2 x=a", "name=w3"}).
 				UseMockLBSvcCtl([]string{"192.168.0.1"}, []string{"2004::192:168:128:235"}).
 				WithDefaultAlbName("lb-1").
-				WithDefaultOverWrite(`
-nodeSelector:
-   name: w1
-`).
 				Build(),
 			)
 			err := actx.Init()

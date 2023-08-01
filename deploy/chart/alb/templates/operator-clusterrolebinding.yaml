@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alb-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alb-operator
+subjects:
+  - kind: ServiceAccount
+    name: alb-operator 
+    namespace: {{.Values.global.namespace}}

@@ -3,7 +3,7 @@ package ingress
 import (
 	"fmt"
 
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	"github.com/thoas/go-funk"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

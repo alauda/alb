@@ -19,6 +19,7 @@ spec:
       labels:
         name: alb-operator
     spec:
+      serviceAccountName: alb-operator
       nodeSelector:
         kubernetes.io/os: linux
       affinity:
@@ -38,6 +39,8 @@ spec:
               value: "{{ .Values.global.registry.address }}/{{ .Values.global.images.nginx.repository }}:{{ .Values.global.images.nginx.tag }}"
             - name: VERSION
               value: "{{ .Chart.Version }}"
+            - name: IMAGE_PULL_POLICY
+              value: "{{ .Values.operator.albImagePullPolicy }}"
             - name: LABEL_BASE_DOMAIN
               value: "{{ .Values.global.labelBaseDomain }}"
             - name: MY_POD_NAME
@@ -58,6 +61,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 5
           name: alb-operator
+          securityContext:
+            readOnlyRootFilesystem: true
           resources:
             requests:
               cpu: 200m

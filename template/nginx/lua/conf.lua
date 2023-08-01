@@ -8,7 +8,7 @@ local function _get_default_conf()
         return new
     end
 
-    return os_getenv("DEFAULT-SSL-STRATEGY")
+    return os_getenv("DEFAULT_SSL_STRATEGY")
 end
 _M.default_ssl_strategy = _get_default_conf() 
 _M.default_https_port = os_getenv("INGRESS_HTTPS_PORT")

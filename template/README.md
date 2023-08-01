@@ -12,10 +12,10 @@ it should be renamed as openresty or resty-app ..
 2. different build config
 	1. nginx --with-debug
 	2. install some lua module
-		* lua-var-nginx-module
-		* thibaultcha/lua-resty-mlcache
-		* xiangnanscu/lua-resty-cookie
-		* lua-resty-balancer
+		* lua-var-nginx-module            https://github.com/api7/lua-var-nginx-module/archive/v0.5.2
+		* thibaultcha/lua-resty-mlcache   opm install thibaultcha/lua-resty-mlcache 
+		* xiangnanscu/lua-resty-cookie    opm install xiangnanscu/lua-resty-cookie
+		* lua-resty-balancer              https://github.com/openresty/lua-resty-balancer/archive/v0.04
 	3. ignore luarocks
 ### 如何更新alb-nginx镜像
 1. 更新alb-nginx/Dockerfile, alb-nginx流水线构建3rdparty/alb-nginx镜像

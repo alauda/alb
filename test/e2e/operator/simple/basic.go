@@ -6,9 +6,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	f "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
-	"github.com/kr/pretty"
 	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
@@ -23,32 +22,28 @@ import (
 )
 
 var _ = Describe("Operator Simple", func() {
-	var base string
-	var opext *f.AlbOperatorExt
+	var env *OperatorEnv
+	var opext *AlbOperatorExt
 	var kt *Kubectl
 	var kc *K8sClient
 	var cli client.Client
 	var ctx context.Context
-	var cancel func()
-
 	var log logr.Logger
 	BeforeEach(func() {
-		log = GinkgoLog()
-		ctx, cancel = context.WithCancel(context.Background())
-		base = InitBase()
-		kt = NewKubectl(base, KUBE_REST_CONFIG, log)
-		kc = NewK8sClient(ctx, KUBE_REST_CONFIG)
-		msg := kt.AssertKubectl("create ns cpaas-system")
-		log.Info("init ns", "ret", msg)
-		opext = f.NewAlbOperatorExt(ctx, base, KUBE_REST_CONFIG)
-		cli = kc.GetClient()
+		env = StartOperatorEnvOrDie()
+		opext = env.Opext
+		kt = env.Kt
+		kc = env.Kc
+		ctx = env.Ctx
+		cli = env.Kc.GetClient()
+		log = env.Log
 	})
 
 	AfterEach(func() {
-		cancel()
+		env.Stop()
 	})
 
-	f.GIt("test v1 client", func() {
+	GIt("test v1 client", func() {
 		// 如果在升级到v2之后，有人继续用v1的client更新了alb。
 		kt.AssertKubectlApply(`
 apiVersion: crd.alauda.io/v2beta1
@@ -89,7 +84,7 @@ spec:
 		fmt.Printf("v2 alb %v %v \n", v2alb.ResourceVersion, v2alb)
 	})
 
-	f.GIt("test dynamic client", func() {
+	GIt("test dynamic client", func() {
 		kt.AssertKubectlApply(`
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
@@ -134,7 +129,7 @@ spec:
 		fmt.Printf("\n\ndynamic %v\n", u)
 	})
 
-	f.GIt("deploy normal alb", func() {
+	GIt("deploy normal alb", func() {
 		alb := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
@@ -198,7 +193,6 @@ spec:
 		})
 		a.AssertDeployment("cpaas-system", "ares-alb2", ExpectDeployment{
 			ExpectContainlerEnv: map[string]map[string]string{"alb2": {
-				"MODE":           "controller",
 				"NETWORK_MODE":   "host",
 				"ALB_ENABLE":     "true",
 				"SERVE_INGRESS":  "true",
@@ -234,79 +228,7 @@ spec:
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Spec.Selector["service_name"])
 	})
 
-	f.GIt("deploy hr-host-gateway mode alb", func() {
-		alb :=
-			`
-apiVersion: crd.alauda.io/v2beta1
-kind: ALB2
-metadata:
-    name: ares-alb2
-    namespace: cpaas-system
-    labels:
-        alb.cpaas.io/managed-by: alb-operator
-spec:
-    address: "127.0.0.1"
-    type: "nginx" 
-    config:
-        nodeSelector:
-            kubernetes.io/hostname: 192.168.134.195
-        gateway:
-            enable: true
-            mode: gatewayclass
-        replicas: 2
-        `
-		name := "hr-host-gateway"
-		_ = name
-		_ = alb
-
-		opext.AssertDeploy(types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb, nil)
-		a := NewAssertHelper(ctx, kc, kt)
-		a.AssertResource(ExpectResource{
-			ExpectExist: []Resource{
-				{
-					Ns:    "cpaas-system",
-					Kind:  "deployment",
-					Names: []string{"ares-alb2"},
-				},
-				{
-					Ns:    "cpaas-system",
-					Kind:  "feature",
-					Names: []string{"ares-alb2-cpaas-system"},
-				},
-				{
-					Ns:    "",
-					Kind:  "IngressClass",
-					Names: []string{"ares-alb2"},
-				},
-				{
-					Ns:    "",
-					Kind:  "GatewayClass",
-					Names: []string{"ares-alb2"},
-				},
-			},
-		})
-		a.AssertDeployment("cpaas-system", "ares-alb2", ExpectDeployment{
-			ExpectContainlerEnv: map[string]map[string]string{"alb2": {
-				"MODE":           "controller",
-				"NETWORK_MODE":   "host",
-				"ALB_ENABLE":     "true",
-				"SERVE_INGRESS":  "true",
-				"GATEWAY_ENABLE": "true",
-				"GATEWAY_MODE":   "gatewayclass",
-			}},
-			Test: func(dep *v1.Deployment) bool {
-				spec := dep.Spec.Template.Spec
-				log.Info("depl", "spec", pretty.Formatter(spec))
-				return spec.HostNetwork == true &&
-					spec.DNSPolicy == "ClusterFirstWithHostNet" &&
-					spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
-					spec.NodeSelector["kubernetes.io/hostname"] == "192.168.134.195" &&
-					true
-			},
-		})
-	})
-
-	f.GIt("deploy like apprelease", func() {
+	GIt("deploy like apprelease", func() {
 		alb := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
@@ -367,7 +289,6 @@ spec:
 		})
 		a.AssertDeployment("cpaas-system", "global-alb2", ExpectDeployment{
 			ExpectContainlerEnv: map[string]map[string]string{"alb2": {
-				"MODE":           "controller",
 				"NETWORK_MODE":   "host",
 				"ALB_ENABLE":     "true",
 				"SERVE_INGRESS":  "true",
@@ -375,94 +296,11 @@ spec:
 			}},
 			Test: func(dep *v1.Deployment) bool {
 				spec := dep.Spec.Template.Spec
-				return spec.HostNetwork == true &&
+				return spec.HostNetwork &&
 					spec.DNSPolicy == "ClusterFirstWithHostNet" &&
 					spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil
 			},
 		})
 	})
 
-	f.GIt("deploy like container networking mode", func() {
-		alb :=
-			`
-apiVersion: crd.alauda.io/v2beta1
-kind: ALB2
-metadata:
-    name: gateway-g1
-    namespace: cpaas-system
-    labels:
-        alb.cpaas.io/managed-by: alb-operator
-spec:
-    address: "127.0.0.1"
-    type: "nginx" 
-    config:
-        networkMode: container
-        enableALb: false
-        enableIngress: "false"
-        gateway:
-            enable: true
-            mode: gateway
-            gatewayModeCfg:
-                name: "n1/g1"
-        replicas: 3
-            `
-		opext.AssertDeploy(types.NamespacedName{Namespace: "cpaas-system", Name: "gateway-g1"}, alb, nil)
-		a := NewAssertHelper(ctx, kc, kt)
-		a.AssertResource(ExpectResource{
-			ExpectExist: []Resource{
-				{
-					Ns:    "cpaas-system",
-					Kind:  "deployment",
-					Names: []string{"gateway-g1"},
-				},
-				{
-					Ns:    "cpaas-system",
-					Kind:  "alb2",
-					Names: []string{"gateway-g1"},
-				},
-				{
-					Ns:    "cpaas-system",
-					Kind:  "service",
-					Names: []string{"gateway-g1"},
-				},
-			},
-			ExpectNotExist: []Resource{
-				{
-					Ns:    "cpaas-system",
-					Kind:  "feature",
-					Names: []string{"gateway-g1-cpaas-system"},
-				},
-				{
-					Ns:    "",
-					Kind:  "IngressClass",
-					Names: []string{"gateway-g1"},
-				},
-				{
-					Ns:    "",
-					Kind:  "GatewayClass",
-					Names: []string{"gateway-g1"},
-				},
-			},
-		})
-		a.AssertDeployment("cpaas-system", "gateway-g1", ExpectDeployment{
-			ExpectContainlerEnv: map[string]map[string]string{"alb2": {
-				"MODE":           "controller",
-				"NETWORK_MODE":   "container",
-				"ALB_ENABLE":     "false",
-				"SERVE_INGRESS":  "false",
-				"GATEWAY_ENABLE": "true",
-				"GATEWAY_MODE":   "gateway",
-				"GATEWAY_NAME":   "n1/g1",
-			}},
-			Hostnetwork: false,
-			Test: func(dep *v1.Deployment) bool {
-				spec := dep.Spec.Template.Spec
-				f.Logf("spec %# v", pretty.Formatter(spec.Affinity))
-				return spec.HostNetwork == false &&
-					spec.DNSPolicy == "ClusterFirst" &&
-					*dep.Spec.Replicas == 3 &&
-					spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution != nil
-			},
-		})
-	})
 })

@@ -25,33 +25,56 @@ func L() logr.Logger {
 	if _globalL != nil {
 		return _globalL.logr
 	}
-	initKlogV2()
-	logger := klogr.NewWithOptions(klogr.WithFormat("Klog"))
-	_globalL = &Log{logr: logger}
+
+	_globalL = &Log{logr: InitKlogV2(getLogCfgFromEnv())}
 	return _globalL.logr
+}
+
+func InTestSetLogger(logger logr.Logger) {
+	_globalMu.Lock()
+	defer _globalMu.Unlock()
+	_globalL = &Log{logr: logger}
 }
 
 func Flush() {
 	klogv2.Flush()
 }
 
-func initKlogV2() {
-	flags := flag.CommandLine
-	klogv2.InitFlags(flags)
-	err := flags.Set("add_dir_header", "true")
-	if err != nil {
-		panic(err)
+type LogCfg struct {
+	ToFile string
+	Level  string
+}
+
+func getLogCfgFromEnv() LogCfg {
+	cfg := LogCfg{
+		ToFile: "",
+		Level:  "",
 	}
+
 	if os.Getenv("ALB_LOG_EXT") == "true" {
 		logFile := os.Getenv("ALB_LOG_FILE")
-		flag.Set("log_file", logFile)
+		cfg.ToFile = logFile
 		logLevel := os.Getenv("ALB_LOG_LEVEL")
 		if logLevel != "" {
-			flag.Set("v", logLevel)
-		}
-		if os.Getenv("ALB_DISABLE_LOG_STDERR") == "true" {
-			flag.Set("logtostderr", "false")
-			flag.Set("alsologtostderr", "false")
+			cfg.Level = logLevel
 		}
 	}
+	return cfg
+}
+
+func InitKlogV2(cfg LogCfg) logr.Logger {
+	flags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klogv2.InitFlags(flags)
+
+	if cfg.ToFile != "" {
+		flags.Set("log_file", cfg.ToFile)
+		flags.Set("alsologtostderr", "true")
+		flags.Set("logtostderr", "false")
+	}
+	if cfg.Level != "" {
+		flags.Set("v", cfg.Level)
+	}
+
+	logger := klogr.NewWithOptions(klogr.WithFormat("Klog"))
+	return logger
 }

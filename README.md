@@ -4,43 +4,32 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 ```plantuml
 @startmindmap
 * alb
-** .build
+** .build             (ci配置)
 ** cmd
-*** operator
-*** controller
-*** migrate(迁移工具(legacy))
-*** tools
+*** operator          (operator的入口)
+*** controller        (alb controller的入口)
+*** utils             (一些工具binary)
+**** sync_rbac        (更新rbac相应的yaml)
+**** tweak_gen        (生成默认的configmap的yaml)
+** config             (alb controller使用的config [应该迁移到pkg下])
+** controller         (alb controller的代码 [应该迁移到pkg下])
 ** pkg
-*** operator
-*** config
 *** alb
-**** ctl
-***** ingress
-***** gateway
-**** nginx
-*** apis
-*** client
-*** util
-** nginx(openresty-app)
+*** apis              (自动生成的alb client的api)
+*** client            (自动生成的alb client的client)
+*** config            (operator和alb controller通用的配置解析相关的逻辑)
+*** operator
+** scripts            (alb开发/debug/测试相关的actions)
+** template           (openresty的lua代码)
 *** lua 
-*** test
-** deploy (部署所需要的bundle/chart)
-*** resource
-**** crds
-*** chart
-**** alb
-***** Chart.yaml
-**** alb-operator
-***** Chart.yaml
-*** operator(operator csv/bundle的配置)
-** scripts
-*** hack
-** test
+*** test              (lua的测试)
+** test               (e2e测试)
+** deploy             (部署所需要的chart)
+*** chart             (alb-operator的chart)
+*** resource          (生成chart,部署相关的一些资源)
 ** Dockerfile
-** entry
-*** run-alb.sh
-*** boot-nginx.sh
-*** run-nginx.sh
+** Dockerfile.local   (本地测试用,快速build一个alb的docker)
+** run-alb.sh         (alb docker内的启动脚本)
 @endmindmap
 ```
 ## image file struct
@@ -48,13 +37,14 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 @startmindmap
 * /alb/
 ** nginx/
+*** /run     (volumed empty dir)
 *** lua/
 ** ctl/
 *** alb
 ** tools/
 *** twwak_gen
 ** tweak/
-* /etc/alb2/nginx/ (alb容器和nginx容器共享)
+* /etc/alb2/nginx/ (volume alb容器和nginx容器共享)
 ** nginx.conf
 ** policy.new
 ** nginx.pid
@@ -71,3 +61,8 @@ http://confluence.alauda.cn/pages/viewpage.action?pageId=94878636
 http://confluence.alauda.cn/label/cp/alb-doc
 ### labels of alb in confluence
 alb-doc: all document that related to alb.
+## notes
+### how to update rbac
+1. 更新alb-clusterrole.json                             (这是放alb-controller的权限的地方)
+2. 更新deploy/resource/rbac/operator-clusterrole.yaml   (这是放alb-operator的权限的地方)
+3. 将上述权限merge,更新到deploy/chart/operator-clusterrole.yaml和deploy/chart/deploy-csv.yaml

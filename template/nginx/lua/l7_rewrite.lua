@@ -12,6 +12,8 @@ local redirect = require "l7_redirect"
 
 local rewrite_header = require "rewrite_header"
 local subsystem = ngx.config.subsystem
+local replace = require "replace_prefix_match"
+
 ngx.ctx.alb_ctx = var_proxy.new()
 
 local function set_cors(matched_policy)
@@ -54,14 +56,26 @@ local function set_backend_protocol(matched_policy)
 end
 
 local function set_rewrite_url(matched_policy)
+    local prefix_match = matched_policy["rewrite_prefix_match"] -- notemptystring | nil
+    local replace_prefix = matched_policy["rewrite_replace_prefix"] -- string | nil
+    if prefix_match ~= nil and prefix_match ~= "" then
+        ngx.req.set_uri(replace.replace(ngx.ctx.alb_ctx.uri, prefix_match, replace_prefix), false)
+        return
+    end
+
     local rewrite_target = matched_policy["rewrite_target"]
     local policy_url = matched_policy["rewrite_base"]
+    local rewrite_base = matched_policy["rewrite_base"]
     if policy_url == "" then
         policy_url = matched_policy["url"]
     end
     if rewrite_target ~= "" then
         if policy_url == "" then
             policy_url = "/"
+        end
+        if rewrite_base == ".*" then
+            ngx.req.set_uri(rewrite_target, false)
+            return
         end
         local new_uri = ngx_re.sub(ngx.ctx.alb_ctx.uri, policy_url, rewrite_target, "jo")
         ngx.req.set_uri(new_uri, false)

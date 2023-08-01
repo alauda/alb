@@ -47,15 +47,15 @@ func main() {
 }
 
 func ensureEnv() {
-	klog.Info("NAMESPACE: ", config.Get("NAMESPACE"))
-	klog.Info("DOMAIN: ", config.Get("DOMAIN"))
-	if strings.TrimSpace(config.Get("NAMESPACE")) == "" ||
-		strings.TrimSpace(config.Get("DOMAIN")) == "" {
+	klog.Info("NAMESPACE: ", config.GetConfig().GetNs())
+	klog.Info("DOMAIN: ", config.GetConfig().GetDomain())
+	if strings.TrimSpace(config.GetConfig().GetNs()) == "" ||
+		strings.TrimSpace(config.GetConfig().GetDomain()) == "" {
 		panic("you must set NAMESPACE and DOMAIN env")
 	}
 
-	Namespace = config.Get("NAMESPACE")
-	Domain = config.Get("DOMAIN")
+	Namespace = config.GetConfig().GetNs()
+	Domain = config.GetConfig().GetDomain()
 }
 
 func run() error {
@@ -63,6 +63,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	albs, err := drv.ALBClient.CrdV1().ALB2s(Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s/role=port", Domain),
 	})

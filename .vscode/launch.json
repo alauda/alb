@@ -2,14 +2,40 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "ginkgo",
+            "name": "operator",
             "type": "go",
             "request": "launch",
             "mode": "exec",
+            "env": {
+                "USE_KUBE_CONFIG": "/home/cong/.kube/gw",
+                "LEADER_NS": "cpaas-system",
+                "ALB_IMAGE": "registry.alauda.cn:60080/acp/alb2:v3.14.1",
+                "NGINX_IMAGE": "registry.alauda.cn:60080/acp/alb-nginx:v3.14.1",
+                "VERSION": "v3.14.1",
+                "LABEL_BASE_DOMAIN": "cpaas.io",
+            },
+            "program": "operator"
+        },
+        {
+            // use FIT to focus
+            "name": "ginkgo envtest",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
             "args": [
-                "-ginkgo.v", "-ginkgo.focus", "should detect tcp port conflict", "./test/e2e"
+                "-ginkgo.failFast",
             ],
-            "program": "./test/e2e/e2e.test"
+            "program": "${workspaceFolder}/test/e2e",
+        },
+        {
+            "name": "ginkgo conformance",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "args": [
+                "-ginkgo.failFast",
+            ],
+            "program": "${workspaceFolder}/test/conformance",
         }
     ]
 }

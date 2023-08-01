@@ -1,12 +1,14 @@
 package workload
 
 import (
+	"fmt"
 	"reflect"
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/config"
 	"alauda.io/alb2/pkg/operator/controllers/depl/patch"
-	. "alauda.io/alb2/pkg/operator/controllers/depl/resources"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/resources/types"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -23,6 +25,9 @@ var (
 	defaultMaxUnavailable = intstr.FromInt(1)
 	defaultReplicas       = int32(1)
 )
+
+const ALB_CONTAINER_NAME = "alb2"
+const NGINX_CONTAINER_NAME = "nginx"
 
 type DeplTemplate struct {
 	alb        *a2t.ALB2
@@ -59,6 +64,7 @@ type DeploySpec struct {
 	Strategy       appv1.DeploymentStrategy
 	Tolerations    []corev1.Toleration
 	Shareprocess   *bool
+	SerivceAccount string
 }
 
 type DeployContainerCfg struct {
@@ -87,7 +93,7 @@ func NewTemplate(alb *a2t.ALB2, cur *appv1.Deployment, albcf *config.ALB2Config,
 
 type VolumeCfg struct {
 	Volumes map[string]corev1.Volume
-	Mounts  map[string]string
+	Mounts  map[string]map[string]string
 }
 
 func findContainer(name string, depl *appv1.Deployment) *corev1.Container {
@@ -97,6 +103,25 @@ func findContainer(name string, depl *appv1.Deployment) *corev1.Container {
 		}
 	}
 	return nil
+}
+
+func VolumeCfgFromDepl(d *appv1.Deployment) VolumeCfg {
+	vcfg := VolumeCfg{
+		Volumes: map[string]corev1.Volume{},
+		Mounts:  map[string]map[string]string{},
+	}
+	for _, v := range d.Spec.Template.Spec.Volumes {
+		vcfg.Volumes[v.Name] = v
+	}
+	for _, m := range d.Spec.Template.Spec.Containers {
+		if vcfg.Mounts[m.Name] == nil {
+			vcfg.Mounts[m.Name] = map[string]string{}
+		}
+		for _, v := range m.VolumeMounts {
+			vcfg.Mounts[m.Name][v.Name] = v.MountPath
+		}
+	}
+	return vcfg
 }
 
 func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
@@ -119,50 +144,36 @@ func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
 			Resource:    c.Resources,
 		}
 	}
-	fromDepl := func(d *appv1.Deployment) VolumeCfg {
-		vcfg := VolumeCfg{
-			Volumes: map[string]corev1.Volume{},
-			Mounts:  map[string]string{},
-		}
-		for _, v := range d.Spec.Template.Spec.Volumes {
-			vcfg.Volumes[v.Name] = v
-		}
-		for _, m := range d.Spec.Template.Spec.Containers {
-			for _, v := range m.VolumeMounts {
-				vcfg.Mounts[v.Name] = v.MountPath
-			}
-		}
-		return vcfg
-	}
 
 	albcfg := fromContainer(findContainer("alb2", dep))
 	nginxcfg := fromContainer(findContainer("nginx", dep))
 	return &DeployCfg{
 		Spec: DeploySpec{
-			Name:         dep.Name,
-			Ns:           dep.Namespace,
-			Owner:        dep.OwnerReferences,
-			Replica:      dep.Spec.Replicas,
-			Hostnetwork:  dep.Spec.Template.Spec.HostNetwork,
-			PodLabel:     dep.Spec.Template.Labels,
-			DeployLabel:  dep.Labels,
-			Nodeselector: dep.Spec.Template.Spec.NodeSelector,
-			PodSelector:  dep.Spec.Template.Labels,
-			Strategy:     dep.Spec.Strategy,
-			Tolerations:  dep.Spec.Template.Spec.Tolerations,
-			Shareprocess: dep.Spec.Template.Spec.ShareProcessNamespace,
-			Affinity:     dep.Spec.Template.Spec.Affinity,
+			Name:           dep.Name,
+			Ns:             dep.Namespace,
+			Owner:          dep.OwnerReferences,
+			Replica:        dep.Spec.Replicas,
+			Hostnetwork:    dep.Spec.Template.Spec.HostNetwork,
+			PodLabel:       dep.Spec.Template.Labels,
+			DeployLabel:    dep.Labels,
+			Nodeselector:   dep.Spec.Template.Spec.NodeSelector,
+			PodSelector:    dep.Spec.Template.Labels,
+			Strategy:       dep.Spec.Strategy,
+			Tolerations:    dep.Spec.Template.Spec.Tolerations,
+			Shareprocess:   dep.Spec.Template.Spec.ShareProcessNamespace,
+			Affinity:       dep.Spec.Template.Spec.Affinity,
+			SerivceAccount: dep.Spec.Template.Spec.ServiceAccountName,
 		},
 		Alb:   albcfg,
 		Nginx: nginxcfg,
-		Vol:   fromDepl(dep),
+		Vol:   VolumeCfgFromDepl(dep),
 	}
 }
 
 func (d *DeplTemplate) expectConfig() DeployCfg {
 	conf := d.albcfg
 	_, alb, nginx := patch.GenImagePatch(conf, d.env)
-	pullpolicy := "IfNotPresent"
+	pullpolicy := d.env.ImagePullPolicy
 	replicas := int32(d.albcfg.Deploy.Replicas)
 	hostnetwork := conf.Controller.NetworkMode == a2t.HOST_MODE
 	dns := corev1.DNSClusterFirst
@@ -193,8 +204,9 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 					Operator: corev1.TolerationOperator("Exists"),
 				},
 			},
-			Shareprocess: pointer.BoolPtr(true),
-			Affinity:     d.GenExpectAffinity(),
+			Shareprocess:   pointer.Bool(true),
+			Affinity:       d.GenExpectAffinity(),
+			SerivceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
 		},
 		Alb: DeployContainerCfg{
 			Name:  "alb2",
@@ -204,13 +216,14 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
+				ReadOnlyRootFilesystem: pointer.Bool(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE",
 					},
 				},
 			},
-			Env:      conf.GetALBContainerEnvs(d.env),
+			Env:      conf.GetALBContainerEnvs(),
 			Resource: conf.Deploy.ALbResource,
 		},
 		Nginx: DeployContainerCfg{
@@ -221,6 +234,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
+				ReadOnlyRootFilesystem: pointer.Bool(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE",
@@ -249,10 +263,18 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Volumes: map[string]corev1.Volume{
 				"tweak-conf": d.configmapVolume(d.name),
 				"share-conf": d.shareVolume(),
+				"nginx-run":  d.nginxRunVolume(),
 			},
-			Mounts: map[string]string{
-				"share-conf": "/etc/alb2/nginx/",
-				"tweak-conf": "/alb/tweak/",
+			Mounts: map[string]map[string]string{
+				ALB_CONTAINER_NAME: {
+					"share-conf": "/etc/alb2/nginx/",
+					"tweak-conf": "/alb/tweak/",
+				},
+				NGINX_CONTAINER_NAME: {
+					"share-conf": "/etc/alb2/nginx/",
+					"tweak-conf": "/alb/tweak/",
+					"nginx-run":  "/alb/nginx/run/",
+				},
 			},
 		},
 	}
@@ -301,6 +323,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 	depl.Spec.Template.Labels = cfg.Spec.PodLabel
 
 	spec.Affinity = cfg.Spec.Affinity
+	spec.ServiceAccountName = cfg.Spec.SerivceAccount
 
 	depl.Spec.Strategy = cfg.Spec.Strategy
 
@@ -309,14 +332,21 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 
 	alb := cfg.Alb
 	nginx := cfg.Nginx
-	mounts := []corev1.VolumeMount{}
-	for name, path := range cfg.Vol.Mounts {
-		mounts = append(mounts, corev1.VolumeMount{
+	albMounts := []corev1.VolumeMount{}
+	nginxMounts := []corev1.VolumeMount{}
+	for name, path := range cfg.Vol.Mounts[ALB_CONTAINER_NAME] {
+		albMounts = append(albMounts, corev1.VolumeMount{
 			Name:      name,
 			MountPath: path,
 		})
-
 	}
+	for name, path := range cfg.Vol.Mounts[NGINX_CONTAINER_NAME] {
+		nginxMounts = append(nginxMounts, corev1.VolumeMount{
+			Name:      name,
+			MountPath: path,
+		})
+	}
+
 	spec.Containers = []corev1.Container{
 		{
 			Name:                     nginx.Name,
@@ -328,7 +358,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			LivenessProbe:            nginx.Probe,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
-			VolumeMounts:             mounts,
+			VolumeMounts:             nginxMounts,
 			Env:                      cfg.Nginx.Env,
 		},
 		{
@@ -340,7 +370,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			SecurityContext:          alb.Securityctx,
 			Resources:                alb.Resource,
 			LivenessProbe:            alb.Probe,
-			VolumeMounts:             mounts,
+			VolumeMounts:             albMounts,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
 		},
@@ -404,6 +434,14 @@ func (b *DeplTemplate) shareVolume() corev1.Volume {
 		},
 	}
 }
+func (b *DeplTemplate) nginxRunVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: "nginx-run",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+}
 
 func NeedUpdate(cur, new *appv1.Deployment, log logr.Logger) (bool, string) {
 	if cur == nil || new == nil {
@@ -411,7 +449,7 @@ func NeedUpdate(cur, new *appv1.Deployment, log logr.Logger) (bool, string) {
 	}
 	curCfg := pickConfigFromDeploy(cur)
 	newCfg := pickConfigFromDeploy(new)
-	log.V(3).Info("check deployment change", "diff", cmp.Diff(curCfg, newCfg), "deep-eq", reflect.DeepEqual(curCfg, newCfg))
+	log.Info("check deployment change", "diff", cmp.Diff(curCfg, newCfg), "deep-eq", reflect.DeepEqual(curCfg, newCfg))
 	if reflect.DeepEqual(curCfg, newCfg) {
 		return false, ""
 	}

@@ -69,7 +69,10 @@ func GetListenTCPPorts() (map[int]bool, error) {
 			fields := strings.Fields(line)
 			rawLocalAddr := fields[3]
 			t := strings.Split(rawLocalAddr, ":")
-			port, _ := strconv.Atoi(t[len(t)-1])
+			port, err := strconv.Atoi(t[len(t)-1])
+			if err != nil {
+				continue
+			}
 			processName := "-"
 			if len(fields) == 6 {
 				rawProcess := fields[5]

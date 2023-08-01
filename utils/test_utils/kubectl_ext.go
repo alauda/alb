@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 )
@@ -66,6 +67,15 @@ func (k *Kubectl) AssertKubectlApplyFile(p string, options ...string) string {
 	return k.AssertKubectl(cmds...)
 }
 
+func (k *Kubectl) VerboseKubectl(cmds ...string) {
+	out, err := k.Kubectl(cmds...)
+	if err != nil {
+		k.log.Error(err, "sth wrong")
+		return
+	}
+	k.log.Info(out)
+}
+
 func (k *Kubectl) Kubectl(cmds ...string) (string, error) {
 	if len(cmds) == 1 {
 		cmds = strings.Split(cmds[0], " ")
@@ -86,6 +96,15 @@ func (k *Kubectl) AssertKubectl(cmds ...string) string {
 	return ret
 }
 
+func (k *Kubectl) AssertKubectlOmgea(o gomega.Gomega, cmds ...string) string {
+	ret, err := k.Kubectl(cmds...)
+	o.Expect(err).ToNot(gomega.HaveOccurred())
+	return ret
+}
+
+func (k *Kubectl) GetKubecfg() string {
+	return k.kubeCfgPath
+}
 func (k *Kubectl) CleanUp() error {
 	return os.RemoveAll(k.base)
 }

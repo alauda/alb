@@ -1,7 +1,5 @@
 package config
 
-import "time"
-
 type Mode string
 
 var ModeKey = "MODE"
@@ -20,56 +18,15 @@ const (
 	Container ControllerNetWorkMode = "container"
 )
 
-type IModeConfig interface {
-	GetMode() Mode
-}
-
-// TODO use IControllerConfig
-type IConfig interface {
-	GetNs() string
-	GetAlbName() string
-	GetDomain() string
-	GetPodName() string
-	GetNetworkMode() ControllerNetWorkMode
-	IsEnableAlb() bool
-	IsEnableVIP() bool
-
-	ILabelConfig
-	IIngressConfig
-	ILeaderConfig
-	IDebugConfig
-	IGatewayConfig
-}
-
-type IIngressConfig interface {
-	GetDefaultSSLStrategy() string
-	GetDefaultSSLSCert() string
-	GetIngressHttpPort() int
-	GetIngressHttpsPort() int
-	GetLabelSourceIngressRuleIndex() string
-	GetLabelSourceIngressPathIndex() string
-	GetAnnotationIngressAddress() string
-}
-
-type ILabelConfig interface {
-	GetLabelLeader() string
-	GetLabelAlbName() string
-	GetLabelSourceType() string
-}
-
-type LeaderConfig struct {
-	LeaseDuration time.Duration
-	RenewDeadline time.Duration
-	RetryPeriod   time.Duration
-}
-type ILeaderConfig interface {
-	GetLeaderConfig() LeaderConfig
-}
-
-type IDebugConfig interface {
-	DebugRuleSync() bool
-}
-
-type IGatewayConfig interface {
-	GetGatewayCfg() GatewayCfg
+type NginxCfg struct {
+	NginxTemplatePath string
+	NewConfigPath     string
+	OldConfigPath     string
+	NewPolicyPath     string
+	EnablePrometheus  bool
+	EnableHttp2       bool
+	EnableGzip        bool
+	BackLog           int
+	EnableIpv6        bool
+	TweakDir          string
 }

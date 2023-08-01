@@ -3,8 +3,9 @@ package main
 import (
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/alb"
+	"alauda.io/alb2/controller/modules"
+	"alauda.io/alb2/controller/state"
 	"alauda.io/alb2/driver"
-	"alauda.io/alb2/modules"
 	"alauda.io/alb2/utils/log"
 	"context"
 	"github.com/go-logr/logr"
@@ -24,15 +25,11 @@ func main() {
 }
 
 func run() error {
-	err := config.Init()
-	if err != nil {
-		return err
-	}
 	l := log.L().WithName("lifecycle")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	restcfg, err := driver.GetKubeCfg()
+	restcfg, err := driver.GetKubeCfg(config.GetConfig().K8s)
 	if err != nil {
 		l.Error(err, "get rest cfg fail")
 		return err
@@ -51,7 +48,7 @@ func run() error {
 		},
 		OnSigTerm: func() {
 			l.Info("receive SIGTERM(graceful-shutdown), close nginx port")
-			config.Set("PHASE", modules.PhaseTerminating)
+			state.GetState().SetPhase(modules.PhaseTerminating)
 			//  could not cancel here. waitting f5 healthcheck to remove this port.
 			//  wait nginx close 1936 metrics port
 			//  then we could stop alb.
@@ -66,6 +63,10 @@ func run() error {
 	}
 	l.Info("graceful shutdown")
 	return nil
+}
+
+func GetState() {
+	panic("unimplemented")
 }
 
 type SignalCallBack struct {

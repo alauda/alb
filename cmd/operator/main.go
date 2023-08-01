@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"os"
 	"time"
 
+	rc "alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
 	"alauda.io/alb2/pkg/operator/config"
 	"alauda.io/alb2/pkg/operator/controllers"
 	"alauda.io/alb2/utils/log"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -32,7 +36,12 @@ func main() {
 	retryPeriod := time.Duration(12 * time.Second)
 	renewDeadline := time.Duration(40 * time.Second)
 	leaseDuration := time.Duration(60 * time.Second)
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	restcfg, err := driver.GetKubeCfg(rc.K8sFromEnv())
+	if err != nil {
+		l.Error(err, "init kube cfg fail")
+		panic(err)
+	}
+	opt := ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
 		Port:                          9443,
@@ -43,7 +52,11 @@ func main() {
 		LeaseDuration:                 &leaseDuration,
 		RenewDeadline:                 &renewDeadline,
 		RetryPeriod:                   &retryPeriod,
-	})
+	}
+	if os.Getenv("LEADER_NS") != "" {
+		opt.LeaderElectionNamespace = os.Getenv("LEADER_NS")
+	}
+	mgr, err := ctrl.NewManager(restcfg, opt)
 
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -55,12 +68,9 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("operator cfg", "cfg", operator)
-	if err = (&controllers.ALB2Reconciler{
-		Client:     mgr.GetClient(),
-		OperatorCf: operator,
-		Log:        l,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ALB2")
+	err = controllers.Setup(mgr, operator, l)
+	if err != nil {
+		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -73,9 +83,15 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-
+	ctx := ctrl.SetupSignalHandler()
+	if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		return controllers.StandAloneGatewayClassInit(ctx, operator, mgr.GetClient(), l)
+	})); err != nil {
+		l.Error(err, "add init runnable fail")
+		os.Exit(1)
+	}
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

@@ -19,6 +19,7 @@ import (
 	perr "github.com/pkg/errors"
 
 	"alauda.io/alb2/pkg/operator/config"
+	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
 )
 
@@ -96,14 +97,19 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	if err != nil {
 		return nil, err
 	}
+	rbac, err := rbac.Load(ctx, cli, l, key)
+	if err != nil {
+		return nil, err
+	}
 	return &AlbDeploy{
-		Alb:      alb,
-		Deploy:   depl,
-		Common:   commoncfg,
-		PortInfo: portinfo,
-		Ingress:  ic,
-		Gateway:  gc,
-		Feature:  feature,
-		Svc:      svc,
+		Alb:                alb,
+		Deploy:             depl,
+		Common:             commoncfg,
+		PortInfo:           portinfo,
+		Ingress:            ic,
+		SharedGatewayClass: gc,
+		Feature:            feature,
+		Svc:                svc,
+		Rbac:               rbac,
 	}, nil
 }

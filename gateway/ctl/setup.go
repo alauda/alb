@@ -38,11 +38,12 @@ func Run(ctx context.Context) {
 func StartGatewayController(ctx context.Context) error {
 	l := L().WithName(g.ALB_GATEWAY_CONTROLLER)
 	ctrl.SetLogger(l)
-	restCfg, err := driver.GetKubeCfg()
+	cfg := config.GetConfig()
+	restCfg, err := driver.GetKubeCfg(cfg.K8s)
 	if err != nil {
 		return err
 	}
-	gatewayCfg := config.GetConfig().GetGatewayCfg()
+	gatewayCfg := cfg.GetGatewayCfg()
 	l.Info("gateway cfg", "cfg", gatewayCfg)
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
@@ -56,12 +57,12 @@ func StartGatewayController(ctx context.Context) error {
 		return err
 	}
 
-	g := NewGatewayReconciler(ctx, mgr.GetClient(), l.WithName("gateway"), gatewayCfg)
+	g := NewGatewayReconciler(ctx, mgr.GetClient(), l.WithName("gateway"), cfg)
 	err = g.SetupWithManager(mgr)
 	if err != nil {
 		return err
 	}
-	if gatewayCfg.Mode == config.GatewayClass {
+	if gatewayCfg.Mode == albv2Type.GatewayModeShared {
 		gc := NewGatewayClassReconciler(ctx, mgr.GetClient(), l.WithName("gatewayclass"))
 		err = gc.SetupWithManager(mgr)
 		if err != nil {

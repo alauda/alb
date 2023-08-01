@@ -179,7 +179,7 @@ func mergeFullchainCert(cert *Certificate, caCert *CaCertificate) *Certificate {
 }
 
 func workerLimit() int {
-	n := config.GetInt("WORKER_LIMIT")
+	n := config.GetConfig().GetWorkerLimit()
 	if n > 0 {
 		return n
 	}
@@ -187,13 +187,13 @@ func workerLimit() int {
 }
 
 func cpu_preset() int {
-	return config.GetInt("CPU_PRESET")
+	return config.GetConfig().GetCpuPreset()
 }
 
 func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
-	cm, err := driver.Client.CoreV1().ConfigMaps(config.Get("NAMESPACE")).Get(
+	cm, err := driver.Client.CoreV1().ConfigMaps(config.GetConfig().GetNs()).Get(
 		context.TODO(),
-		fmt.Sprintf("%s-port-info", config.Get("NAME")), metav1.GetOptions{})
+		fmt.Sprintf("%s-port-info", config.GetConfig().GetAlbName()), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -256,12 +256,12 @@ func generatePatchPortProjectPayload(labels map[string]string, desiredProjects [
 	newLabels := make(map[string]string)
 	//project.cpaas.io/ALL_ALL=true
 	for k, v := range labels {
-		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", config.Get("DOMAIN"))) {
+		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", config.GetConfig().GetDomain())) {
 			newLabels[k] = v
 		}
 	}
 	for _, p := range desiredProjects {
-		newLabels[fmt.Sprintf("project.%s/%s", config.Get("DOMAIN"), p)] = "true"
+		newLabels[fmt.Sprintf("project.%s/%s", config.GetConfig().GetDomain(), p)] = "true"
 	}
 	patchPayloadTemplate :=
 		`[{
@@ -272,16 +272,4 @@ func generatePatchPortProjectPayload(labels map[string]string, desiredProjects [
 
 	raw, _ := json.Marshal(newLabels)
 	return []byte(fmt.Sprintf(patchPayloadTemplate, "replace", raw))
-}
-
-func checkIPV6() bool {
-	if config.Get("ENABLE_IPV6") == "true" {
-		if _, err := os.Stat("/proc/net/if_inet6"); err != nil {
-			if os.IsNotExist(err) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
 }

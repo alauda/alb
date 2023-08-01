@@ -14,9 +14,7 @@ RUN umask 027 && \
     mkdir -p /alb/ctl/migrate
 
 COPY run-alb.sh /alb/ctl/run-alb.sh
-COPY run-alb.sh /alb/ctl/run-alb.sh
 RUN chmod +x /alb/ctl/run-alb.sh
-COPY viper-config.toml /alb/ctl/viper-config.toml
 COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
 COPY  ./bin/alb /alb/ctl/alb
 COPY ./bin/operator /alb/ctl/operator
@@ -27,4 +25,5 @@ RUN chown -R nonroot:nonroot /alb && \
     chmod 550 /alb/ctl/run-alb.sh && \
     chmod 550 /alb/ctl/alb 
 RUN ls /usr/bin |grep nc
+
 USER nonroot

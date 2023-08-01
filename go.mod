@@ -15,7 +15,6 @@ require (
 	github.com/openlyinc/pointy v1.1.2
 	github.com/otiai10/copy v1.11.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.14.0
 	github.com/samber/lo v1.16.0
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/viper v1.8.1
@@ -58,6 +57,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/lithammer/dedent v1.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20181002194514-a7b3b318ed4e // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
@@ -70,6 +70,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml v1.9.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect

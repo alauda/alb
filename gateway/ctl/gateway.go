@@ -1,29 +1,25 @@
 package ctl
 
 import (
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"context"
 	"fmt"
 	"time"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
-	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlBuilder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"alauda.io/alb2/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -35,6 +31,7 @@ type GatewayReconciler struct {
 	invalidListenerfilter []ListenerFilter
 	invalidRoutefilter    []RouteFilter
 	supportKind           map[string][]string
+	albcfg                *config.Config
 	cfg                   config.GatewayCfg
 }
 
@@ -50,11 +47,12 @@ type RouteFilter interface {
 	Name() string
 }
 
-func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger, cfg config.GatewayCfg) GatewayReconciler {
+func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger, cfg *config.Config) GatewayReconciler {
 
 	commonFilter := CommonFiliter{log: log, c: c, ctx: ctx}
 	hostNameFilter := HostNameFilter{log: log}
-	reservedPortFilter := NewReservedPortFilter(log, []int{cfg.ReservedPort, 1936, 11782})
+	gc := cfg.GetGatewayCfg()
+	reservedPortFilter := NewReservedPortFilter(log, []int{gc.ReservedPort, 1936, 11782})
 
 	listenerFilter := []ListenerFilter{
 		&commonFilter,
@@ -72,16 +70,18 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 		controllerName:        GetControllerName(),
 		invalidListenerfilter: listenerFilter,
 		invalidRoutefilter:    routeFilter,
-		cfg:                   cfg,
+		supportKind:           SUPPORT_KIND_MAP,
+		cfg:                   gc,
+		albcfg:                cfg,
 	}
 }
 
 func (g *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gv1b1t.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway))).
-		WithEventFilter(predicate.GenerationChangedPredicate{})
+		For(&gv1b1t.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway)))
 
 	b = g.watchRoutes(b)
+	b = g.watchAlb(b)
 	// default rate limit should be enough for use.
 	b = b.WithOptions(controller.Options{RateLimiter: workqueue.DefaultControllerRateLimiter()})
 
@@ -106,70 +106,6 @@ func (g *GatewayReconciler) filterSelectedGateway(o client.Object) (ret bool) {
 		return client.ObjectKeyFromObject(o) == key
 	}
 	return false
-}
-
-func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Builder {
-	log := g.log.WithName("watchroute")
-	ctx := g.ctx
-	c := g.c
-	// TODO merge predicate and eventhandle
-	predicateFunc := func(object client.Object, eventType string) bool {
-		find, keys, err := findGatewayByRouteObject(ctx, c, object, g.cfg.GatewaySelector)
-		log.Info("route to gateway", "event", eventType, "route", client.ObjectKeyFromObject(object), "gateway", keys, "find", find, "err", err)
-		if err != nil {
-			log.Info("failed to filter route object", "event", eventType, "err", err)
-			return false
-		}
-		return find
-	}
-	routePredicate := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return predicateFunc(e.Object, "create")
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return predicateFunc(e.ObjectNew, "update")
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return predicateFunc(e.Object, "delete")
-		},
-	}
-	// ignore status change
-	options := ctrlBuilder.WithPredicates(routePredicate, predicate.GenerationChangedPredicate{})
-
-	eventhandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
-		find, keys, err := findGatewayByRouteObject(ctx, c, o, g.cfg.GatewaySelector)
-		log.Info("find gateway by route", "find", find, "key", keys, "err", err)
-		if !find {
-			return []reconcile.Request{}
-		}
-		if err != nil {
-			log.Info("find gateway by route fail", "error", err)
-			return []reconcile.Request{}
-		}
-		reqs := []reconcile.Request{}
-		for _, key := range keys {
-			reqs = append(reqs, reconcile.Request{
-				NamespacedName: types.NamespacedName{Namespace: key.Namespace, Name: key.Name},
-			})
-		}
-		return reqs
-	})
-
-	// TODO upgrade to controller-runtime 0.11.1 for better log https://github.com/kubernetes-sigs/controller-runtime/pull/1687
-	httpRoute := gv1b1t.HTTPRoute{}
-	utils.AddTypeInformationToObject(scheme, &httpRoute)
-	tcpRoute := gv1a2t.TCPRoute{}
-	utils.AddTypeInformationToObject(scheme, &tcpRoute)
-	tlspRoute := gv1a2t.TLSRoute{}
-	utils.AddTypeInformationToObject(scheme, &tlspRoute)
-	udpRoute := gv1a2t.UDPRoute{}
-	utils.AddTypeInformationToObject(scheme, &udpRoute)
-
-	b = b.Watches(&source.Kind{Type: &httpRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &tcpRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &tlspRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &udpRoute}, eventhandler, options)
-	return b
 }
 
 func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
@@ -212,11 +148,11 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 
 	g.filteRoutes(key, routes, listenerInGateway)
 
-	ips, getIpErr := g.GetGatewayIp(gateway)
-	if getIpErr != nil {
-		log.Error(err, "get gateway ip fail")
+	alb, getAlbErr := g.GetGatewayAlb(gateway)
+	if getAlbErr != nil {
+		log.Error(err, "get gateway alb fail")
 	}
-	err = g.updateGatewayStatus(gateway, listenerInGateway, ips)
+	err = g.updateGatewayStatus(gateway, listenerInGateway, alb)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("update gateway status fail %v", err)
 	}
@@ -226,7 +162,7 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 		return reconcile.Result{}, fmt.Errorf("update route status fail %v", err)
 	}
 	// retry to sync gateway ip
-	if getIpErr != nil {
+	if getAlbErr != nil {
 		return reconcile.Result{RequeueAfter: time.Second * 3}, nil
 	}
 	return reconcile.Result{}, nil
@@ -299,56 +235,97 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	}
 }
 
-func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, ips []string) error {
+func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, alb *alb2v2.ALB2) error {
 	address := []gv1b1t.GatewayAddress{}
+	ips := pickAlbAddress(alb)
 	for _, ip := range ips {
+		if ip == "" {
+			continue
+		}
 		ipType := gv1b1t.IPAddressType
-		address = []gv1b1t.GatewayAddress{{Type: &ipType, Value: ip}}
+		address = append(address, gv1b1t.GatewayAddress{Type: &ipType, Value: ip})
 	}
 
 	gateway.Status.Addresses = address
 	lsstatusList := []gv1b1t.ListenerStatus{}
-	valid := true
+	listenerValid := true
 	for _, l := range ls {
 		if !l.status.valid {
-			valid = false
+			listenerValid = false
 		}
 		log := g.log.WithValues("gateway", l.gateway, "listener", l.Name)
+
 		conditions := l.status.toConditions(gateway)
 		log.V(2).Info("conditions of listener", "conditions", conditions)
 		lsstatus := gv1b1t.ListenerStatus{
 			Name:           l.Name,
-			SupportedKinds: generateSupportKind(l.Protocol, g.supportKind),
 			AttachedRoutes: l.status.attachedRoutes,
+			SupportedKinds: []gv1b1t.RouteGroupKind{},
 			Conditions:     conditions,
+		}
+		if !l.status.allKindInvalid {
+			lsstatus.SupportedKinds = generateSupportKind(l.Protocol, g.supportKind)
 		}
 		lsstatusList = append(lsstatusList, lsstatus)
 	}
 	gateway.Status.Listeners = lsstatusList
-	if valid {
-		gateway.Status.Conditions = []metav1.Condition{
-			{
-
-				Type:               string(gv1b1t.GatewayConditionReady),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(gv1b1t.GatewayReasonReady),
-				LastTransitionTime: metav1.Now(),
-				ObservedGeneration: gateway.Generation,
-			},
-		}
-	} else {
-		gateway.Status.Conditions = []metav1.Condition{
-			{
-
-				Type:               string(gv1b1t.GatewayConditionReady),
-				Status:             metav1.ConditionFalse,
-				Reason:             string(gv1b1t.GatewayReasonListenersNotReady),
-				Message:            "one or more listener not ready",
-				LastTransitionTime: metav1.Now(),
-				ObservedGeneration: gateway.Generation,
-			},
-		}
+	albReady := alb.Status.State == alb2v2.ALB2StateRunning
+	acceptCondition := metav1.Condition{
+		Type:               string(gv1b1t.GatewayConditionAccepted),
+		LastTransitionTime: metav1.Now(),
+		ObservedGeneration: gateway.Generation,
 	}
+	if albReady {
+		acceptCondition.Status = metav1.ConditionTrue
+		acceptCondition.Reason = string(gv1b1t.GatewayReasonReady)
+		acceptCondition.Message = ""
+	} else {
+		acceptCondition.Status = metav1.ConditionUnknown
+		acceptCondition.Reason = string(gv1b1t.GatewayReasonPending)
+		acceptCondition.Message = alb.Status.Reason
+	}
+
+	conditions := []metav1.Condition{
+		acceptCondition,
+	}
+
+	if listenerValid {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gv1b1t.GatewayConditionReady),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gv1b1t.GatewayReasonReady),
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: gateway.Generation,
+		})
+	} else {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gv1b1t.GatewayConditionReady),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gv1b1t.GatewayReasonListenersNotReady),
+			Message:            "one or more listener not ready",
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: gateway.Generation,
+		})
+	}
+	if len(ips) != 0 {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gv1b1t.GatewayConditionProgrammed),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gv1b1t.GatewayReasonProgrammed),
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: gateway.Generation,
+		})
+	} else {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gv1b1t.GatewayConditionReady),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gv1b1t.GatewayReasonAddressNotAssigned),
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: gateway.Generation,
+		})
+	}
+	gateway.Status.Conditions = conditions
+	g.log.Info("status", "condition", utils.PrettyJson(conditions))
 	oldVersion := gateway.ResourceVersion
 	err := g.c.Status().Update(g.ctx, gateway)
 	newVersion := gateway.ResourceVersion
@@ -359,10 +336,10 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	return nil
 }
 
-func (g *GatewayReconciler) GetGatewayIp(gw *gv1b1t.Gateway) ([]string, error) {
+func (g *GatewayReconciler) GetGatewayAlb(gw *gv1b1t.Gateway) (*alb2v2.ALB2, error) {
 	// get ip from alb.
-	g.log.Info("get gateway ip", "mode", g.cfg.Mode)
-	return getAlbAddress(g.ctx, g.c, config.GetNs(), config.GetAlbName())
+	ns, name := config.GetConfig().GetAlbNsAndName()
+	return getAlb(g.ctx, g.c, ns, name)
 }
 
 func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {

@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"strings"
 
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/utils"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/go-cmp/cmp"
@@ -28,7 +28,7 @@ type AlbAddress struct {
 
 func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) bool {
 	ports := []int32{}
-	need := getIngressFtTypes(ing, c)
+	need := getIngressFtTypes(ing, c.Config)
 	if need.NeedHttp() {
 		ports = append(ports, int32(c.GetIngressHttpPort()))
 	}
@@ -53,7 +53,7 @@ func listAddress(alb *m.AlaudaLoadBalancer) AlbAddress {
 func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) error {
 
 	ports := []int32{}
-	need := getIngressFtTypes(ing, c)
+	need := getIngressFtTypes(ing, c.Config)
 	if need.NeedHttp() {
 		ports = append(ports, int32(c.GetIngressHttpPort()))
 	}
@@ -150,7 +150,7 @@ func splitAddress(address string) []string {
 }
 
 func parseAddress(address string) (ip []string, host []string) {
-	addrs := strings.Split(address, ",")
+	addrs := utils.SplitAndRemoveEmpty(address, ",")
 	ip = []string{}
 	host = []string{}
 	for _, addr := range addrs {

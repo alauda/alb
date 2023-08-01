@@ -1,0 +1,182 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alb-operator
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "services", "pods","secrets","namespaces","events","serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps", "services","events","serviceaccounts","events"]
+    verbs: ["create","update","delete","patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["create","update","patch","delete"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: ["crd.alauda.io"]
+    resources: ["alaudaloadbalancer2","alaudaloadbalancer2/status", "frontends","frontends/status", "rules"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["crd.alauda.io"]
+    resources: ["alaudaloadbalancer2","alaudaloadbalancer2/status"]
+    verbs: ["update", "patch","create","delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "list","update", "watch","delete","create"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gatewayclasses","gatewayclasses/status", "gateways","gateways/stauts"]
+    verbs: ["get", "list", "watch","update", "patch","create","delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch","update", "patch","create","delete"]
+  - apiGroups: ["infrastructure.alauda.io"]
+    resources: ["features"]
+    verbs: ["get", "list", "watch","update", "patch","create","delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles","clusterrolebindings"]
+    verbs: ["get", "list", "watch","update", "patch","create","delete"]
+    # we need the permissions alb have, keep it as same as alb-clusterroles.json
+  - apiGroups:
+    - ''
+    resources:
+    - configmaps
+    - services
+    - pods
+    - secrets
+    - namespaces
+    - endpoints
+    - events
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - ''
+    resources:
+    - configmaps
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+  - apiGroups:
+    - events.k8s.io
+    resources:
+    - events
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - patch
+  - apiGroups:
+    - discovery.k8s.io
+    resources:
+    - endpointslices
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - crd.alauda.io
+    resources:
+    - alaudaloadbalancer2
+    - alaudaloadbalancer2/status
+    - frontends
+    - frontends/status
+    - rules
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - crd.alauda.io
+    resources:
+    - alaudaloadbalancer2
+    verbs:
+    - update
+    - patch
+  - apiGroups:
+    - crd.alauda.io
+    resources:
+    - alaudaloadbalancer2/status
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - crd.alauda.io
+    resources:
+    - frontends
+    - frontends/status
+    - rules
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - networking.k8s.io
+    resources:
+    - ingressclasses
+    - ingresses
+    - ingresses/status
+    verbs:
+    - get
+    - list
+    - update
+    - watch
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - gatewayclasses
+    - gatewayclasses/status
+    - gateways
+    - gateways/status
+    - httproutes
+    - httproutes/status
+    - tcproutes
+    - tcproutes/status
+    - tlsroutes
+    - tlsroutes/status
+    - udproutes
+    - udproutes/status
+    - referencepolicies
+    verbs:
+    - get
+    - list
+    - watch
+    - update
+    - patch
+  - apiGroups:
+    - gateway.crd.alauda.io
+    resources:
+    - timeoutpolicies
+    verbs:
+    - get
+    - list
+    - watch
+    - update
+    - patch
+  - apiGroups:
+    - coordination.k8s.io
+    resources:
+    - leases
+    verbs:
+    - get
+    - list
+    - watch
+    - update
+    - patch
+    - create

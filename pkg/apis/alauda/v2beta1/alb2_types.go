@@ -104,18 +104,21 @@ type ExternalAlbConfig struct {
 }
 
 type VipConfig struct {
-	EnableLbSvc      bool              `yaml:"enableLbSvc" json:"enableLbSvc,omitempty"`
-	LbSvcAnnotations map[string]string `yaml:"lbSvcAnnotations" json:"lbSvcAnnotations,omitempty"`
+	EnableLbSvc                   bool              `yaml:"enableLbSvc" json:"enableLbSvc,omitempty"`
+	AllocateLoadBalancerNodePorts *bool             `yaml:"allocateLoadBalancerNodePorts" json:"allocateLoadBalancerNodePorts,omitempty"`
+	LbSvcAnnotations              map[string]string `yaml:"lbSvcAnnotations" json:"lbSvcAnnotations,omitempty"`
 }
+type GatewayMode string
+
+const (
+	GatewayModeShared     GatewayMode = "shared"
+	GatewayModeStandAlone GatewayMode = "standalone"
+)
 
 type ExternalGateway struct {
-	Enable         bool                    `yaml:"enable" json:"enable"`
-	Mode           *string                 `yaml:"mode" json:"mode,omitempty"`
-	GatewayModeCfg *ExternalGatewayModeCfg `yaml:"gatewayModeCfg" json:"gatewayModeCfg,omitempty"`
-}
-
-type ExternalGatewayModeCfg struct {
-	Name string `yaml:"name" json:"name"`
+	Enable *bool        `yaml:"enable" json:"enable,omitempty"`
+	Mode   *GatewayMode `yaml:"mode" json:"mode,omitempty"`
+	Name   *string      `yaml:"name" json:"name,omitempty"`
 }
 
 type ContainerResource struct {

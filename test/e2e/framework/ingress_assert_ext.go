@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	"alauda.io/alb2/utils/dirhash"
+	. "alauda.io/alb2/utils/test_utils"
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,16 @@ type IngressCase struct {
 	}
 }
 
-func (f *Framework) InitIngressCase(ingressCase IngressCase) {
+type IngressExt struct {
+	kc     *K8sClient
+	ns     string
+	domain string
+	ctx    context.Context
+	log    logr.Logger
+}
+
+func (i *IngressExt) InitIngressCase(ingressCase IngressCase) {
+	f := i.kc
 	var svcPort []corev1.ServicePort
 	for name, p := range ingressCase.SvcPort {
 		svcPort = append(svcPort,
@@ -135,7 +145,8 @@ func (f *Framework) InitIngressCase(ingressCase IngressCase) {
 }
 
 // TODO: use f.AssertKubectlApply
-func (f *Framework) CreateIngress(ns, name string, path string, svc string, port int) {
+func (i *IngressExt) CreateIngress(ns, name string, path string, svc string, port int) {
+	f := i.kc
 	_, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Create(context.Background(), &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -169,19 +180,23 @@ func (f *Framework) CreateIngress(ns, name string, path string, svc string, port
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func (f *Framework) WaitIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
+func (f *IngressExt) GetIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
+	selType := fmt.Sprintf("alb2.%s/source-type=ingress", f.domain)
+	sel := selType
+	rules, err := f.kc.GetAlbClient().CrdV1().Rules(f.ns).List(f.ctx, metav1.ListOptions{LabelSelector: sel})
+	if err != nil {
+		f.log.Info(fmt.Sprintf("get rule for ingress %s/%s sel -%s- fail %s", ingressNs, ingresName, sel, err))
+	}
+	return rules.Items
+}
+
+func (f *IngressExt) WaitIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
 	rulesChan := make(chan []alb2v1.Rule, 1)
 	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
-
-		selType := fmt.Sprintf("alb2.%s/source-type=ingress", f.domain)
-		selName := fmt.Sprintf("alb2.%s/source-name-hash=%s", f.domain, dirhash.LabelSafetHash(fmt.Sprintf("%s.%s", ingresName, ingressNs)))
-		sel := selType + "," + selName
-		rules, err := f.GetAlbClient().CrdV1().Rules(f.namespace).List(f.fCtx, metav1.ListOptions{LabelSelector: sel})
-		if err != nil {
-			Logf("get rule for ingress %s/%s sel -%s- fail %s", ingressNs, ingresName, sel, err)
-		}
-		if len(rules.Items) == size {
-			rulesChan <- rules.Items
+		rules := f.GetIngressRule(ingresName, ingressNs, size)
+		f.log.Info("get rule", "len", len(rules), "expect", size)
+		if len(rules) == size {
+			rulesChan <- rules
 			return true, nil
 		}
 		return false, nil

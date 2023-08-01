@@ -2,7 +2,7 @@ package workload
 
 import (
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
-	"alauda.io/alb2/pkg/operator/controllers/depl/resources"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	"alauda.io/alb2/pkg/operator/toolkit"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +54,7 @@ func (d *DeplTemplate) expectPodLabel() map[string]string {
 	if d.albcfg.Controller.NetworkMode == a2t.HOST_MODE {
 		commonlabel["alb2."+baseDomain+"/type"] = antiaffinitykey
 	}
-	labels = resources.MergeMap(labels, commonlabel)
+	labels = MergeMap(labels, commonlabel)
 	return labels
 }
 
@@ -228,8 +228,10 @@ func (d *DeplTemplate) GenExpectAffinity() *corev1.Affinity {
 				{
 					Weight: 100,
 					PodAffinityTerm: corev1.PodAffinityTerm{
-						LabelSelector: nil,
-						TopologyKey:   topologKey,
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: matchLabel,
+						},
+						TopologyKey: topologKey,
 					},
 				},
 			},

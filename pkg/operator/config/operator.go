@@ -6,10 +6,11 @@ import (
 )
 
 type OperatorCfg struct {
-	AlbImage   string
-	NginxImage string
-	BaseDomain string
-	Version    string
+	AlbImage        string
+	NginxImage      string
+	ImagePullPolicy string
+	BaseDomain      string
+	Version         string
 }
 
 type Config struct {
@@ -18,10 +19,11 @@ type Config struct {
 }
 
 var DEFAULT_OPERATOR_CFG = OperatorCfg{
-	AlbImage:   "alb.img",
-	NginxImage: "nginx.img",
-	BaseDomain: "cpaas.io",
-	Version:    "v0.0.1",
+	AlbImage:        "alb.img",
+	NginxImage:      "nginx.img",
+	BaseDomain:      "cpaas.io",
+	Version:         "v0.0.1",
+	ImagePullPolicy: "Always",
 }
 
 func OperatorCfgFromEnv() (OperatorCfg, error) {
@@ -29,14 +31,19 @@ func OperatorCfgFromEnv() (OperatorCfg, error) {
 	nginx := os.Getenv("NGINX_IMAGE")
 	version := os.Getenv("VERSION")
 	base := os.Getenv("LABEL_BASE_DOMAIN")
+	imagepull := os.Getenv("IMAGE_PULL_POLICY")
+	if imagepull == "" {
+		imagepull = "Always"
+	}
 	if alb == "" || nginx == "" || version == "" || base == "" {
 		return OperatorCfg{}, fmt.Errorf("env not set %v %v %v %v", alb, nginx, version, base)
 	}
 	return OperatorCfg{
-		AlbImage:   alb,
-		NginxImage: nginx,
-		Version:    version,
-		BaseDomain: base,
+		AlbImage:        alb,
+		NginxImage:      nginx,
+		Version:         version,
+		BaseDomain:      base,
+		ImagePullPolicy: imagepull,
 	}, nil
 }
 

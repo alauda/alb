@@ -12,6 +12,27 @@ type ingressClassLister struct {
 	cache.Store
 }
 
+// IngressClassConfiguration defines the various aspects of IngressClass parsing
+// and how the controller should behave in each case
+type IngressClassConfiguration struct {
+	// Controller defines the controller value this daemon watch to.
+	// Defaults to "alauda.io/alb2"
+	Controller string
+	// AnnotationValue defines the annotation value this Controller watch to, in case of the
+	// ingressClass is not found but the annotation is.
+	// The Annotation is deprecated and should not be used in future releases
+	AnnotationValue string
+	// WatchWithoutClass defines if Controller should watch to Ingress Objects that does
+	// not contain an IngressClass configuration
+	WatchWithoutClass bool
+	// IgnoreIngressClass defines if Controller should ignore the IngressClass Object if no permissions are
+	// granted on IngressClass
+	IgnoreIngressClass bool
+	//IngressClassByName defines if the Controller should watch for Ingress Classes by
+	// .metadata.name together with .spec.Controller
+	IngressClassByName bool
+}
+
 // ByKey returns the Ingress matching key in the local Ingress Store.
 func (il ingressClassLister) ByKey(key string) (*networkingv1.IngressClass, error) {
 	i, exists, err := il.GetByKey(key)
@@ -24,7 +45,7 @@ func (il ingressClassLister) ByKey(key string) (*networkingv1.IngressClass, erro
 	return i.(*networkingv1.IngressClass), nil
 }
 
-func CheckIngressClass(ingclass *networkingv1.IngressClass, icConfig *config.IngressClassConfiguration) bool {
+func CheckIngressClass(ingclass *networkingv1.IngressClass, icConfig *IngressClassConfiguration) bool {
 	foundClassByName := false
 	if icConfig.IngressClassByName && ingclass.Name == icConfig.AnnotationValue {
 		foundClassByName = true
@@ -35,7 +56,7 @@ func CheckIngressClass(ingclass *networkingv1.IngressClass, icConfig *config.Ing
 	return true
 }
 
-func (c *Controller) GetIngressClass(ing *networkingv1.Ingress, icConfig *config.IngressClassConfiguration) (string, error) {
+func (c *Controller) GetIngressClass(ing *networkingv1.Ingress, icConfig *IngressClassConfiguration) (string, error) {
 	// First we try ingressClassName
 	if !icConfig.IgnoreIngressClass && ing.Spec.IngressClassName != nil {
 		name := *ing.Spec.IngressClassName
@@ -48,7 +69,7 @@ func (c *Controller) GetIngressClass(ing *networkingv1.Ingress, icConfig *config
 
 	// Then we try annotation
 	if ingressClass, ok := ing.GetAnnotations()[config.IngressKey]; ok {
-		if ingressClass != "" && ingressClass != config.Get("NAME") {
+		if ingressClass != "" && ingressClass != config.GetConfig().GetAlbName() {
 			return "", fmt.Errorf("invalid ingress class annotation: %s", ingressClass)
 		}
 		return ingressClass, nil

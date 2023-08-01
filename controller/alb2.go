@@ -16,9 +16,9 @@ var ErrAlbInUse = errors.New("alb2 is used by another controller")
 
 func GetOwnProjectsFromLabel(name string, labels map[string]string) (rv []string) {
 	defer func() {
-		klog.Infof("%s, own projects from labels: %+v", labels, name, rv)
+		klog.Infof("%s, own projects from labels: %+v %v %v", labels, name, rv)
 	}()
-	domain := config.Get("DOMAIN")
+	domain := config.GetConfig().GetDomain()
 	prefix := fmt.Sprintf("project.%s/", domain)
 	// legacy: project.cpaas.io/name=ALL_ALL
 	// new: project.cpaas.io/ALL_ALL=true
@@ -40,7 +40,7 @@ func GetOwnProjectsFromAlb(name string, labels map[string]string, alb *v2beta1.A
 		projects = alb.Config.Projects
 	}
 	defer func() {
-		klog.Infof("%s, own projects: %+v", name, rv)
+		klog.Infof("%s, own projects: %+v %v", name, rv)
 	}()
 	rv = funk.UniqString(append(GetOwnProjectsFromLabel(name, labels), projects...))
 	return
@@ -52,7 +52,7 @@ const (
 )
 
 func GetAlbRoleType(labels map[string]string) string {
-	domain := config.Get("DOMAIN")
+	domain := config.GetConfig().GetDomain()
 	roleLabel := fmt.Sprintf("%s/role", domain)
 	if labels[roleLabel] == "" || labels[roleLabel] == RoleInstance {
 		return RoleInstance
@@ -61,7 +61,7 @@ func GetAlbRoleType(labels map[string]string) string {
 }
 
 func getProjectFromLabel(k, v string) string {
-	domain := config.Get("DOMAIN")
+	domain := config.GetConfig().GetDomain()
 	prefix := fmt.Sprintf("project.%s/", domain)
 	if k == fmt.Sprintf("project.%s/name", domain) {
 		return v

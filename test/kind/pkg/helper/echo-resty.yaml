@@ -49,8 +49,9 @@ data:
                           ngx.say("err: "..tostring(err))
                       end
                       for k, v in pairs(h) do
-                          ngx.say(tostring(k).." : "..tostring(v))
+                          ngx.say("header "..tostring(k).." : "..tostring(v))
                       end
+                          ngx.say("url "..ngx.var.request_uri)
                       ngx.say("http client-ip "..ngx.var.remote_addr.." client-port "..ngx.var.remote_port.." server-ip "..ngx.var.server_addr.." server-port "..ngx.var.server_port)
               }
             }

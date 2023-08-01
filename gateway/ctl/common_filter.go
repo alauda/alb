@@ -25,6 +25,31 @@ func (c *CommonFiliter) Name() string {
 }
 
 func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
+	c.filteListenerConflictPorotocol(gateway, ls, allls)
+	c.filteListenerInvalidKind(gateway, ls, allls)
+}
+func (c *CommonFiliter) filteListenerInvalidKind(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
+	for _, l := range ls {
+		if l.AllowedRoutes == nil {
+			continue
+		}
+		// invalidKindState:= In
+		invalidskinds := []string{}
+		hasinvalid := false
+		for _, k := range l.AllowedRoutes.Kinds {
+			if !SUPPORT_KIND_SET.Contains(string(k.Kind)) {
+				hasinvalid = true
+				invalidskinds = append(invalidskinds, string(k.Kind))
+			}
+		}
+		if hasinvalid {
+			allkindinvalid := len(invalidskinds) == len(l.AllowedRoutes.Kinds)
+			l.status.invalidKind(allkindinvalid, invalidskinds)
+		}
+	}
+}
+
+func (c *CommonFiliter) filteListenerConflictPorotocol(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	// TODO distinguish between protocol conflict and hostname conflict
 	log := c.log.WithValues("gateway", gateway)
 	// 1. mark listener conflict when port+protocol+hostname+port are the same

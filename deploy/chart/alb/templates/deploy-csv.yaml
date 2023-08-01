@@ -37,6 +37,7 @@ spec:
                 labels:
                   name: alb-operator
               spec:
+                serviceAccountName: alb-operator
                 nodeSelector:
                   kubernetes.io/os: linux
                 affinity:
@@ -76,11 +77,17 @@ spec:
                       successThreshold: 1
                       timeoutSeconds: 5
                     name: alb-operator
+                    securityContext:
+                      readOnlyRootFilesystem: true
                     resources:
                       requests:
                         cpu: 200m
                         ephemeral-storage: 500Mi
                         memory: 256Mi
+                      limits:
+                        cpu: 1 
+                        ephemeral-storage: 500Mi
+                        memory: 1Gi 
                 tolerations:
                   - effect: NoSchedule
                     key: node-role.kubernetes.io/master

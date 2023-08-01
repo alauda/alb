@@ -1,6 +1,7 @@
 package depl
 
 import (
+	. "alauda.io/alb2/pkg/config"
 	"context"
 	"fmt"
 	"testing"
@@ -29,7 +30,9 @@ func TestGenDeployment(t *testing.T) {
 	}
 	cfg := config.Config{
 		ALB: config.ALB2Config{
-			Name: "test-alb",
+			ALBRunConfig: ALBRunConfig{
+				Name: "test-alb",
+			},
 			Deploy: config.DeployConfig{
 				Replicas: 3,
 			},
@@ -61,7 +64,9 @@ func TestProject(t *testing.T) {
 	}
 	cfg := config.Config{
 		ALB: config.ALB2Config{
-			Name: "test-alb",
+			ALBRunConfig: ALBRunConfig{
+				Name: "test-alb",
+			},
 			Project: config.ProjectConfig{
 				EnablePortProject: false,
 			},

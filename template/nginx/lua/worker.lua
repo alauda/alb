@@ -26,7 +26,6 @@ end
 
 local sync_policy_interval = tonumber(os_getenv("SYNC_POLICY_INTERVAL"))
 
--- /usr/local/openresty/nginx/conf/policy.new
 local POLICY_PATH = os_getenv("NEW_POLICY_PATH")
 
 local clean_metrics_interval = tonumber(os_getenv("CLEAN_METRICS_INTERVAL"))

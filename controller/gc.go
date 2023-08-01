@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/config"
+	m "alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/driver"
-	m "alauda.io/alb2/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,8 +61,8 @@ type GCAction struct {
 }
 
 func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []GCAction, err error) {
-	namespace := config.Get("NAMESPACE")
-	alb, err := kd.LoadALBbyName(namespace, config.Get("NAME"))
+	namespace := config.GetConfig().GetNs()
+	alb, err := kd.LoadALBbyName(namespace, config.GetConfig().GetAlbName())
 	if err != nil {
 		klog.Error(err)
 		return nil, err
@@ -110,7 +110,7 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 							})
 						}
 					} else {
-						bindkey := service.Annotations[fmt.Sprintf(config.Get("labels.bindkey"), config.Get("DOMAIN"))]
+						bindkey := service.Annotations[config.GetConfig().GetLabelBindKey()]
 						if bindkey == "" || bindkey == "[]" {
 							gcActions = append(gcActions, GCAction{
 								Namespace: namespace,
@@ -150,7 +150,7 @@ func calculateGCActions(kd *driver.KubernetesDriver, opt GCOptions) (actions []G
 							}
 							if err == nil {
 								// handle service unbind lb in UI
-								bindkey := service.Annotations[fmt.Sprintf(config.Get("labels.bindkey"), config.Get("DOMAIN"))]
+								bindkey := service.Annotations[config.GetConfig().GetLabelBindKey()]
 								if bindkey == "" || bindkey == "[]" {
 									klog.Warningf("service bind key is empty ns:%s service:%s \n", svc.Namespace, svc.Name)
 									bindkeyEmpty = true
@@ -197,7 +197,7 @@ func GCRule(kd *driver.KubernetesDriver, opt GCOptions) error {
 				continue
 			}
 			ftRes.Spec.ServiceGroup.Services = []alb2v1.Service{}
-			if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Update(context.TODO(), ftRes, metav1.UpdateOptions{}); err != nil {
+			if _, err := kd.ALBClient.CrdV1().Frontends(config.GetConfig().GetNs()).Update(context.TODO(), ftRes, metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}
 		}

@@ -2,8 +2,10 @@ package http
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/gateway"
@@ -26,10 +28,11 @@ type HttpProtocolTranslate struct {
 	drv    *driver.KubernetesDriver
 	handle gatewayPolicyType.PolicyAttachmentHandle
 	log    logr.Logger
+	cfg    *config.Config
 }
 
-func NewHttpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger) HttpProtocolTranslate {
-	return HttpProtocolTranslate{drv: drv, log: log}
+func NewHttpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger, cfg *config.Config) HttpProtocolTranslate {
+	return HttpProtocolTranslate{drv: drv, log: log, cfg: cfg}
 }
 
 func (h *HttpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
@@ -68,6 +71,10 @@ type HttpCtx struct {
 
 func (c *HttpCtx) ToString() string {
 	return fmt.Sprintf("%s-%s-%s-%s-%s", c.listener.Gateway.Namespace, c.listener.Gateway.Name, c.listener.Listener.Name, c.httpRoute.Namespace, c.httpRoute.Name)
+}
+
+func (c *HttpCtx) GetMatcher() gv1b1t.HTTPRouteMatch {
+	return c.httpRoute.Spec.Rules[c.ruleIndex].Matches[c.matchIndex]
 }
 
 // http route attach to http listener
@@ -129,6 +136,7 @@ func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*Rule, error) {
 	rule := &Rule{}
 	rule.Type = RuleTypeGateway
 	rule.RuleID = genRuleIdViaCtx(ctx)
+	rule.Priority = h.getRulePriority(ctx)
 	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gatewayType.Hostname, _ int) string {
 		return string(h)
 	}))
@@ -253,7 +261,7 @@ func HttpRuleMatchToDSLX(hostnameStrs []string, m gatewayType.HTTPRouteMatch) (a
 			[]string{utils.OP_ENDS_WITH, hostnameStrs[0]},
 		}}
 		dslx = append(dslx, exp)
-	} else {
+	} else if len(hostnameStrs) != 0 {
 		vals := []string{utils.OP_IN}
 		vals = append(vals, hostnameStrs...)
 		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
@@ -322,6 +330,18 @@ func genRuleIdViaCtx(ctx HttpCtx) string {
 		ctx.ruleIndex,
 		ctx.matchIndex,
 	)
+}
+
+func (h *HttpProtocolTranslate) getRulePriority(ctx HttpCtx) int {
+	FMT_ALB_GATEWAY_HTTP_ROUTER_RULE_PRIORITY := "alb.%s/gateway-http-router-rule-priority-%d-%d"
+	key := fmt.Sprintf(FMT_ALB_GATEWAY_HTTP_ROUTER_RULE_PRIORITY, h.cfg.GetDomain(), ctx.ruleIndex, ctx.matchIndex)
+	if ctx.httpRoute.Annotations != nil && ctx.httpRoute.Annotations[key] != "" {
+		priority, err := strconv.Atoi(ctx.httpRoute.Annotations[key])
+		if err != nil {
+			return priority
+		}
+	}
+	return 0
 }
 
 func JoinHostnames(listenerHostname *string, routeHostnames []string) []string {

@@ -43,11 +43,11 @@ local function parse_single_matcher(matcher)
     elseif(matcher == "URL") then
         return ngx.ctx.alb_ctx.uri
     elseif(matcher == "SRC_IP") then
-        local x_real_ip = ngx.ctx.alb_ctx["http_" .. "x-real-ip"]
+        local x_real_ip = ngx.ctx.alb_ctx["http_" .. "x_real_ip"]
         if x_real_ip then
           return x_real_ip
         end
-        local x_forwarded_for = ngx.ctx.alb_ctx["http_" .. "x-forwarded-for"]
+        local x_forwarded_for = ngx.ctx.alb_ctx["http_" .. "x_forwarded_for"]
         if x_forwarded_for then
           -- X-Forwarded-For: client, proxy1, proxy2
           local idx = string_find(x_forwarded_for, ",", 1, true)

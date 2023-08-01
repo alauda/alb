@@ -45,7 +45,7 @@ _term() {
 trap _term SIGTERM
 
 umask 027
-mkdir -p /alb/last_status
+mkdir -p /etc/alb2/nginx/last_status/
 /alb/ctl/alb &
 child=$!
 echo "child is $child"

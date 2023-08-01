@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"alauda.io/alb2/config"
+	_ "alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -29,7 +29,7 @@ var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"labels.name":          "alb2.%s/name",
 	"labels.frontend":      "alb2.%s/frontend",
 	"labels.source_type":   "alb2.%s/source-type",
-	"DEFAULT-SSL-STRATEGY": "Request",
+	"DEFAULT_SSL_STRATEGY": "Request",
 }
 
 type FakeResource struct {
@@ -52,11 +52,7 @@ type FakeK8sResource struct {
 	Secrets        []k8sv1.Secret
 }
 
-func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource, configMap map[string]string) *driver.KubernetesDriver {
-
-	for key, val := range configMap {
-		config.Set(key, val)
-	}
+func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource) *driver.KubernetesDriver {
 
 	drv, err := driver.GetKubernetesDriver(ctx, true)
 

@@ -1,4 +1,6 @@
 ## global
+operator:
+  albImagePullPolicy: Always
 defaultAlb: true # 部署默认的alb
 operatorReplicas: 1
 operatorDeployMode: "csv" # csv|deployment

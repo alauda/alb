@@ -38,6 +38,7 @@ var _ = BeforeSuite(func() {
 	assert.NoError(GinkgoT(), err)
 	_, filename, _, _ := gruntime.Caller(0)
 	albBase := path.Join(path.Dir(filename), "../../../../")
+
 	err = tu.InitCrd(albBase, rcfg)
 	if err != nil {
 		panic(err)
@@ -122,7 +123,7 @@ spec:
 		assert.Equal(t, alb.Kind, "ALB2")
 		cur, err := LoadAlbDeploy(ctx, cli, log, types.NamespacedName{Namespace: "cpaas-system", Name: "alb-v2"}, config.DEFAULT_OPERATOR_CFG)
 		assert.NoError(t, err)
-		conf, err := config.NewALB2Config(cur.Alb, log)
+		conf, err := config.NewALB2Config(cur.Alb, config.DEFAULT_OPERATOR_CFG, log)
 		assert.NoError(t, err)
 		cfg := config.Config{
 			ALB:      *conf,

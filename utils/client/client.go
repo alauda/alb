@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -23,6 +24,7 @@ func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = albv2.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
 	_ = albv1.AddToScheme(scheme)
+	_ = rbacv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = netv1.AddToScheme(scheme)
 	_ = gv1b1t.AddToScheme(scheme)

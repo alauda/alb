@@ -85,11 +85,13 @@ func TestPolicies_Less(t *testing.T) {
 func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	drv := test_utils.InitFakeAlb(t, ctx, res, test_utils.DEFAULT_CONFIG_FOR_TEST)
 	cfg := config.DefaultMock()
 	cfg.Name = "alb-1"
-	cfg.NS = "ns-1"
-	cfg.EnableAlb = true
+	cfg.Ns = "ns-1"
+	cfg.Domain = "alauda.io"
+	cfg.Controller.Flags.EnableAlb = true
+	config.UseMock(cfg)
+	drv := test_utils.InitFakeAlb(t, ctx, res)
 	ctl := NewNginxController(drv, ctx, cfg, log.L(), nil)
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
@@ -198,7 +200,6 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			// ft port 8000 have 3 rule
 			// rule-1 rule-2 have same priority 4, but rule-1 is more complex that rule-2. rule-3 priority is 3, the order should be 3 1 2.
 			// rule-1 use svc1Port1 rule-2 use svc1Port2
-			Only: true,
 			Name: "http with different rule and different weight",
 			Res: func() test_utils.FakeResource {
 				ftPort := 8000

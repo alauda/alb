@@ -1,14 +1,40 @@
 package workload
 
 import (
+	"reflect"
 	"testing"
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	. "alauda.io/alb2/pkg/config"
 	"alauda.io/alb2/pkg/operator/config"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestEqual(t *testing.T) {
+	a := map[string]map[string]string{
+		"2": {
+			"1": "1",
+			"2": "2",
+		},
+		"1": {
+			"1": "1",
+			"2": "2",
+		},
+	}
+	b := map[string]map[string]string{
+		"1": {
+			"2": "2",
+			"1": "1",
+		},
+		"2": {
+			"1": "1",
+			"2": "2",
+		},
+	}
+	assert.Equal(t, reflect.DeepEqual(a, b), true, "")
+}
 
 func TestTemplate(t *testing.T) {
 	// ops := SetImage("nginx", "xx")
@@ -22,8 +48,10 @@ func TestTemplate(t *testing.T) {
 	}
 
 	cfg := &config.ALB2Config{
-		Name: name,
-		Ns:   ns,
+		ALBRunConfig: ALBRunConfig{
+			Name: name,
+			Ns:   ns,
+		},
 	}
 	cfg.Overwrite = config.OverwriteCfg{
 		Image: []a2t.ExternalImageOverwriteConfig{

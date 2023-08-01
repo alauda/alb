@@ -80,7 +80,8 @@ func IterHttpListener[T any, F func(HttpCtx) *T](listenerList []*Listener, f F) 
 			if !ok {
 				continue
 			}
-			for ruleIndex, rule := range httpRoute.Spec.Rules {
+			for ruleIndex, r := range httpRoute.Spec.Rules {
+				rule := r
 				for matchIndex := range rule.Matches {
 					// flatten nest tree
 					ctx := HttpCtx{

@@ -22,12 +22,12 @@ func (g Gateway) WaittingController() bool {
 
 func (g Gateway) Ready() bool {
 	Logf("ready %+v %v", g.Status.Conditions, g.Generation)
-	if len(g.Status.Conditions) != 1 {
-		Logf("len condition not 1 ")
-		return false
+	for _, c := range g.Status.Conditions {
+		if c.Type == "Ready" && c.Status == "True" && c.ObservedGeneration == g.Generation {
+			return true
+		}
 	}
-	c := g.Status.Conditions[0]
-	return c.Type == "Ready" && c.Status == "True" && c.ObservedGeneration == g.Generation
+	return false
 }
 
 func (g Gateway) SameAddress(ips []string) bool {
@@ -63,19 +63,19 @@ func (g Gateway) LsAttachedRoutes() map[string]int32 {
 }
 
 type GatewayAssert struct {
-	cli *K8sClient
-	ctx context.Context
+	Cli *K8sClient
+	Ctx context.Context
 }
 
 func NewGatewayAssert(cli *K8sClient, ctx context.Context) *GatewayAssert {
 	return &GatewayAssert{
-		cli: cli,
-		ctx: ctx,
+		Cli: cli,
+		Ctx: ctx,
 	}
-
 }
+
 func (ga *GatewayAssert) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool, error) {
-	g, err := ga.cli.GetGatewayClient().GatewayV1beta1().Gateways(key.Namespace).Get(ga.ctx, key.Name, metav1.GetOptions{})
+	g, err := ga.Cli.GetGatewayClient().GatewayV1beta1().Gateways(key.Namespace).Get(ga.Ctx, key.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -139,14 +139,14 @@ func (ga *GatewayAssert) WaitRouteStatus(kind string, ns, name string, ref gv1b1
 
 func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*gv1b1t.RouteStatus, error) {
 	if kind == "http" {
-		route, err := ga.cli.GetGatewayClient().GatewayV1beta1().HTTPRoutes(ns).Get(ga.ctx, name, metav1.GetOptions{})
+		route, err := ga.Cli.GetGatewayClient().GatewayV1beta1().HTTPRoutes(ns).Get(ga.Ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 		return &route.Status.RouteStatus, nil
 	}
 	if kind == "tcp" {
-		route, err := ga.cli.GetGatewayClient().GatewayV1alpha2().TCPRoutes(ns).Get(ga.ctx, name, metav1.GetOptions{})
+		route, err := ga.Cli.GetGatewayClient().GatewayV1alpha2().TCPRoutes(ns).Get(ga.Ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +158,7 @@ func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*
 func (ga *GatewayAssert) WaitGateway(ns, name string, check func(g Gateway) (bool, error)) {
 	Wait(func() (bool, error) {
 		return TestEq(func() bool {
-			g, err := ga.cli.GetGatewayClient().GatewayV1beta1().Gateways(ns).Get(ga.ctx, name, metav1.GetOptions{})
+			g, err := ga.Cli.GetGatewayClient().GatewayV1beta1().Gateways(ns).Get(ga.Ctx, name, metav1.GetOptions{})
 			GinkgoAssert(err, "get gateway fail")
 			ret, err := check(Gateway(*g))
 			GinkgoAssert(err, "check fail")

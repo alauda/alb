@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/config"
+	m "alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/driver"
-	m "alauda.io/alb2/modules"
 	"alauda.io/alb2/utils/dirhash"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,14 +21,14 @@ import (
 type IngressDriver struct {
 	*driver.KubernetesDriver
 	log logr.Logger
-	config.IConfig
+	*config.Config
 }
 
-func NewDriver(d *driver.KubernetesDriver, cfg config.IConfig, log logr.Logger) *IngressDriver {
+func NewDriver(d *driver.KubernetesDriver, cfg *config.Config, log logr.Logger) *IngressDriver {
 	return &IngressDriver{
 		KubernetesDriver: d,
 		log:              log,
-		IConfig:          cfg,
+		Config:           cfg,
 	}
 }
 

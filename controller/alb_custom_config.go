@@ -10,10 +10,10 @@ import (
 )
 
 func GetAlbIngressRewriteResponseAnnotation() string {
-	return fmt.Sprintf("alb.ingress.%s/rewrite-response", config.Get("DOMAIN"))
+	return fmt.Sprintf("alb.ingress.%s/rewrite-response", config.GetConfig().GetDomain())
 }
 func GetAlbRuleRewriteResponseAnnotation() string {
-	return fmt.Sprintf("alb.rule.%s/rewrite-response", config.Get("DOMAIN"))
+	return fmt.Sprintf("alb.rule.%s/rewrite-response", config.GetConfig().GetDomain())
 }
 
 func rewriteResponseConfigFromJson(jsonStr string) (*RewriteResponseConfig, error) {

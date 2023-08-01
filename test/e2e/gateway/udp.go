@@ -1,8 +1,6 @@
 package gateway
 
 import (
-	"context"
-
 	ct "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
@@ -11,26 +9,21 @@ import (
 )
 
 var _ = ginkgo.Describe("udp", func() {
-	var f *Framework
-	var ctx context.Context
+	var f *GatewayF
+	var env *Env
 	var ns string
 
 	ginkgo.BeforeEach(func() {
-		deployCfg := Config{InstanceMode: true, RestCfg: CfgFromEnv(), Project: []string{"project1"}, Gateway: true}
-		f = NewAlb(deployCfg)
+		f, env = DefaultGatewayF()
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.1.2"})
 		f.InitDefaultSvc("svc-2", []string{"192.168.2.1"})
 		f.InitDefaultSvc("svc-udp", []string{"192.168.3.1", "192.168.3.2"})
-		f.Init()
-		ctx = context.Background()
 		ns = f.GetProductNs()
 	})
 
 	ginkgo.AfterEach(func() {
-		f.Destroy()
-		_ = ctx
-		f = nil
+		env.Stop()
 	})
 
 	GIt("i want my app been access by udp", func() {

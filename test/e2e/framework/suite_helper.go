@@ -13,10 +13,5 @@ func AlbBeforeSuite(cfg *rest.Config) {
 	albBase := path.Join(path.Dir(filename), "../../../")
 	err := InitCrd(albBase, cfg)
 	GinkgoNoErr(err)
-	_, err = InitKubeCfgEnv(cfg)
 	GinkgoNoErr(err)
-}
-
-func AlbAfterSuite() {
-	// TODO delete those tmep file
 }

@@ -79,7 +79,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	kubeInformerFactory.Start(ctx.Done())
 
 	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0,
-		albinformers.WithNamespace(config.Get("NAMESPACE")))
+		albinformers.WithNamespace(config.GetConfig().GetNs()))
 
 	alb2Informer := albInformerFactory.Crd().V2beta1().ALB2s()
 	alb2Synced := alb2Informer.Informer().HasSynced

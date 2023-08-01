@@ -10,7 +10,7 @@ import (
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
@@ -37,7 +37,7 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 	}()
 
 	log.Info("reconcile ingress")
-	alb, err := c.kd.LoadALB(config.GetAlbKey(c))
+	alb, err := c.kd.LoadALB(config.GetAlbKey(c.Config))
 	if err != nil {
 		return false, err
 	}
@@ -287,8 +287,8 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 }
 
 func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey, ing *networkingv1.Ingress) error {
-	IngressHTTPPort := config.GetInt("INGRESS_HTTP_PORT")
-	IngressHTTPSPort := config.GetInt("INGRESS_HTTPS_PORT")
+	IngressHTTPPort := config.GetConfig().GetIngressHttpPort()
+	IngressHTTPSPort := config.GetConfig().GetIngressHttpsPort()
 	log := c.log.WithName("cleanup").WithValues("ingress", key)
 	log.Info("clean up")
 	var ft *m.Frontend
@@ -386,8 +386,8 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	IngressHTTPSPort := c.GetIngressHttpsPort()
 	defaultSSLCert := strings.ReplaceAll(c.GetDefaultSSLSCert(), "/", "_")
 
-	alblabelKey := fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN"))
-	need := getIngressFtTypes(ingress, c)
+	alblabelKey := config.GetConfig().GetLabelAlbName()
+	need := getIngressFtTypes(ingress, c.Config)
 	c.log.Info("ing need http https", "http", need.NeedHttp(), "https", need.NeedHttps())
 
 	var albhttpFt *alb2v1.Frontend
@@ -542,6 +542,15 @@ func (c *Controller) generateRule(
 	corsAllowHeaders := annotations[ALBCORSAllowHeadersAnnotation]
 	corsAllowOrigin := annotations[ALBCORSAllowOriginAnnotation]
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+	var priority int = DefaultPriority
+	priorityKey := fmt.Sprintf(FMT_ALBRulePriorityAnnotation, c.Domain, ruleIndex, pathIndex)
+	if annotations[priorityKey] != "" {
+		priority64, _ := strconv.ParseInt(annotations[priorityKey], 10, 64)
+		if priority64 != 0 {
+			priority = int(priority64)
+		}
+	}
+
 	var (
 		redirectURL  string
 		redirectCode int
@@ -600,7 +609,7 @@ func (c *Controller) generateRule(
 		Domain:           host,
 		URL:              url,
 		DSLX:             GetDSLX(host, url, pathType),
-		Priority:         DefaultPriority, // TODO ability to set priority in ingress.
+		Priority:         priority, // TODO ability to set priority in ingress.
 		RewriteBase:      url,
 		RewriteTarget:    rewriteTarget,
 		BackendProtocol:  backendProtocol,
@@ -632,17 +641,16 @@ func (c *Controller) generateRule(
 		c.log.Error(err, "")
 		return nil, err
 	}
-
+	cfg := config.GetConfig()
 	ruleRes := &alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   ft.Namespace,
 			Annotations: ruleAnnotation,
 			Labels: map[string]string{
-				fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     albKey.Name,
-				fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): ft.Name,
-				config.GetLabelSourceType():                                      m.TypeIngress,
-				config.GetLabelSourceIngressHash():                               hashSource(ruleSpec.Source),
+				cfg.GetLabelAlbName():    albKey.Name,
+				cfg.GetLabelFt():         ft.Name,
+				cfg.GetLabelSourceType(): m.TypeIngress,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{

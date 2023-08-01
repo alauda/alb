@@ -29,9 +29,9 @@ func (nc *NginxController) SyncLbSvcPort(frontends []*Frontend) error {
 
 func (nc *NginxController) getMetricsPort(serviceProtocol corev1.Protocol) ([]corev1.ServicePort, error) {
 	var metricsPorts []corev1.ServicePort
-	metricsPort := int32(config.GetInt("METRICS_PORT"))
+	metricsPort := config.GetConfig().GetMetricsPort()
 	if metricsPort > 0 && metricsPort <= 65535 {
-		metricsPorts = []corev1.ServicePort{{Name: "metrics", Port: metricsPort, Protocol: serviceProtocol}}
+		metricsPorts = []corev1.ServicePort{{Name: "metrics", Port: int32(metricsPort), Protocol: serviceProtocol}}
 	} else {
 		return nil, fmt.Errorf("ENV parameter METRICS_PORT is wrong value as(should be in 1-65535): %v", metricsPort)
 	}

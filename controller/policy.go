@@ -51,7 +51,7 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 }
 
 func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
-	zip := config.GetBool("POLICY_ZIP")
+	zip := config.GetConfig().GetFlags().PolicyZip
 	path := nc.NewPolicyPath
 	if zip {
 		path = path + ".bin"

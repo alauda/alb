@@ -7,6 +7,7 @@ import (
 	ct "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/openlyinc/pointy"
 	"github.com/stretchr/testify/assert"
@@ -14,14 +15,14 @@ import (
 )
 
 var _ = ginkgo.Describe("Http", func() {
-	var f *Framework
+	var f *GatewayF
+	var env *Env
 	var ctx context.Context
+	var log logr.Logger
 	var ns string
 	var ns1 string
-
 	ginkgo.BeforeEach(func() {
-		deployCfg := Config{InstanceMode: true, RestCfg: CfgFromEnv(), Project: []string{"project1"}, Gateway: true}
-		f = NewAlb(deployCfg)
+		f, env = DefaultGatewayF()
 		f.InitProductNs("alb-test", "project1")
 		ns1 = f.InitProductNsWithOpt(ProductNsOpt{
 			Prefix:  "alb-test1",
@@ -29,14 +30,15 @@ var _ = ginkgo.Describe("Http", func() {
 		})
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.1.2"})
 		f.InitDefaultSvc("svc-2", []string{"192.168.2.1"})
-		f.Init()
-		ctx = context.Background()
+		ctx = env.Ctx
+		_ = ctx
 		ns = f.GetProductNs()
+		log = env.Log
+		_ = log
 	})
 
 	ginkgo.AfterEach(func() {
-		f.Destroy()
-		_ = ctx
+		env.Stop()
 		f = nil
 	})
 
@@ -1016,6 +1018,95 @@ spec:
 			name := "8234-" + ns + "-g1-http-" + ns + "-h1-0-0"
 			policy, _, _ := p.FindHttpPolicy(name)
 			return policy != nil, nil
+		})
+	})
+
+	GIt("http url rewrite filter should work", func() {
+		log.Info("x  http url rewrite filter should work")
+		_ = f.AssertKubectlApply(Template(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+    name: g1
+    namespace: {{.ns}}
+spec:
+    gatewayClassName:  {{.class}}
+    listeners:
+    - name: http
+      port: 8234
+      protocol: HTTP
+      hostname: "*.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+    name: h1
+    namespace: {{.ns}}
+spec:
+    hostnames: ["a.com"]
+    parentRefs:
+      - kind: Gateway
+        namespace: {{.ns}}
+        name: g1
+        sectionName: http
+    rules:
+    - matches:
+      - path:
+          value: "/foo/bar"
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+            hostname: "xx.com"
+            path: 
+              type: ReplaceFullPath
+              replaceFullPath: "/foo"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+    - matches:
+      - path:
+          type: "PathPrefix"
+          value: "/bar/foor"
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+            hostname: "xx.com"
+            path: 
+              type: ReplacePrefixMatch
+              replacePrefixMatch: "/bar"
+      backendRefs:
+        - kind: Service
+          name: svc-1
+          namespace: {{.ns}}
+          port: 80
+          weight: 1
+`, map[string]interface{}{"ns": ns, "class": f.AlbName}))
+
+		//prefix
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			name := "8234-" + ns + "-g1-http-" + ns + "-h1-1-0"
+			policy, _, _ := p.FindHttpPolicy(name)
+			log.Info("m1", "policy", PrettyJson(policy))
+			return policy != nil &&
+				*policy.RewritePrefixMatch == "/bar/foor" &&
+				policy.VHost == "xx.com" &&
+				*policy.RewriteReplacePrefix == "/bar", nil
+		})
+		//full
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			name := "8234-" + ns + "-g1-http-" + ns + "-h1-0-0"
+			policy, _, _ := p.FindHttpPolicy(name)
+			log.Info("m1", "policy", PrettyJson(policy))
+			return policy != nil &&
+				policy.RewriteBase == ".*" &&
+				policy.VHost == "xx.com" &&
+				policy.RewriteTarget == "/foo", nil
 		})
 	})
 })

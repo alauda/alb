@@ -136,6 +136,14 @@ func CtxWithSignalAndTimeout(sec int) (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
+func PrettyCrs[T any](objs []T) string {
+	out := ""
+	for _, v := range objs {
+		out += PrettyCr(v) + "\n"
+	}
+	return out
+}
+
 func PrettyCr(obj interface{}) string {
 	if obj == nil || (reflect.ValueOf(obj).Kind() == reflect.Ptr && reflect.ValueOf(obj).IsNil()) {
 		return "isnill"
@@ -171,7 +179,7 @@ func WaitUtillSuccess(fn func() (bool, error)) {
 		defer func() {
 			err := recover()
 			if err != nil {
-				fmt.Printf("err %v", err)
+				fmt.Printf("err just rerun %v", err)
 				// ret = false
 			}
 		}()

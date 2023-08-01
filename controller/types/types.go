@@ -187,28 +187,32 @@ type BackendService struct {
 }
 
 type Rule struct {
-	Config           *RuleConfig `json:"config,omitempty"`
-	RuleID           string      `json:"rule_id"`
-	Priority         int         `json:"priority"` // priority set by user
-	Type             string      `json:"type"`
-	Domain           string      `json:"domain"` // used to fetch cert.
-	URL              string      `json:"url"`
-	DSLX             v1.DSLX     `json:"dslx"`
-	EnableCORS       bool        `json:"enable_cors"`
-	CORSAllowHeaders string      `json:"cors_allow_headers"`
-	CORSAllowOrigin  string      `json:"cors_allow_origin"`
-	BackendProtocol  string      `json:"backend_protocol"`
-	RedirectURL      string      `json:"redirect_url"`
-	RedirectCode     int         `json:"redirect_code"`
-	RedirectScheme   *string     `json:"redirect_scheme,omitempty"`
-	RedirectHost     *string     `json:"redirect_host,omitempty"`
-	RedirectPort     *int        `json:"redirect_port,omitempty"`
-	VHost            string      `json:"vhost"`
+	Config                *RuleConfig `json:"config,omitempty"`
+	RuleID                string      `json:"rule_id"`
+	Priority              int         `json:"priority"` // priority set by user
+	Type                  string      `json:"type"`
+	Domain                string      `json:"domain"` // used to fetch cert.
+	URL                   string      `json:"url"`
+	DSLX                  v1.DSLX     `json:"dslx"`
+	EnableCORS            bool        `json:"enable_cors"`
+	CORSAllowHeaders      string      `json:"cors_allow_headers"`
+	CORSAllowOrigin       string      `json:"cors_allow_origin"`
+	BackendProtocol       string      `json:"backend_protocol"`
+	RedirectURL           string      `json:"redirect_url"`
+	RedirectCode          int         `json:"redirect_code"`
+	RedirectScheme        *string     `json:"redirect_scheme,omitempty"`
+	RedirectHost          *string     `json:"redirect_host,omitempty"`
+	RedirectPort          *int        `json:"redirect_port,omitempty"`
+	RedirectPrefixMatch   *string     `json:"redirect_prefix_match,omitempty"`
+	RedirectReplacePrefix *string     `json:"redirect_replace_prefix,omitempty"`
+	VHost                 string      `json:"vhost"`
 	// CertificateName = namespace_secretname
-	CertificateName string `json:"certificate_name"`
-	RewriteBase     string `json:"rewrite_base"`
-	RewriteTarget   string `json:"rewrite_target"`
-	Description     string `json:"description"`
+	CertificateName      string  `json:"certificate_name"`
+	RewriteBase          string  `json:"rewrite_base"`
+	RewriteTarget        string  `json:"rewrite_target"`
+	RewritePrefixMatch   *string `json:"rewrite_prefix_match,omitempty"`
+	RewriteReplacePrefix *string `json:"rewrite_replace_prefix,omitempty"`
+	Description          string  `json:"description"`
 
 	SessionAffinityPolicy string            `json:"session_affinity_policy"`
 	SessionAffinityAttr   string            `json:"session_affinity_attribute"`

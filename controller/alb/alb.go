@@ -12,12 +12,12 @@ import (
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
+	"alauda.io/alb2/controller/modules"
+	"alauda.io/alb2/controller/state"
 	"alauda.io/alb2/driver"
 	gateway "alauda.io/alb2/gateway"
 	gctl "alauda.io/alb2/gateway/ctl"
 	"alauda.io/alb2/ingress"
-	"alauda.io/alb2/metrics"
-	"alauda.io/alb2/modules"
 	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
@@ -31,12 +31,12 @@ import (
 type Alb struct {
 	ctx    context.Context
 	cfg    *rest.Config
-	albcfg config.IConfig
+	albcfg *config.Config
 	lc     *ctl.LeaderElection
 	log    logr.Logger
 }
 
-func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg config.IConfig, log logr.Logger) *Alb {
+func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg *config.Config, log logr.Logger) *Alb {
 	lc := ctl.NewLeaderElection(ctx, albCfg, restcfg, log.WithName("lc"))
 	return &Alb{
 		ctx:    ctx,
@@ -54,7 +54,7 @@ func (a *Alb) Start() error {
 	l.Info("ALB start.")
 
 	albCfg := config.GetConfig()
-	config.Set("PHASE", modules.PhaseStarting)
+	state.GetState().SetPhase(modules.PhaseStarting)
 
 	go func() {
 		l.Info("start leaderelection")
@@ -72,10 +72,10 @@ func (a *Alb) Start() error {
 	if err != nil {
 		return err
 	}
-
+	enableIngress := config.GetConfig().EnableIngress()
 	// start ingress loop
-	l.Info("SERVE_INGRESS", "enable", config.GetBool("SERVE_INGRESS"))
-	if config.GetBool("SERVE_INGRESS") {
+	l.Info("SERVE_INGRESS", "enable", enableIngress)
+	if enableIngress {
 		informers := drv.Informers
 		ingressController := ingress.NewController(drv, informers, albCfg, log.L().WithName("ingress"))
 		go func() {
@@ -115,12 +115,13 @@ func (a *Alb) Start() error {
 		}
 	}
 
-	klog.Infof("reload nginx %v", config.GetBool("RELOAD_NGINX"))
+	flags := config.GetConfig().GetFlags()
+	klog.Infof("reload nginx %v", flags.ReloadNginx)
 
-	if config.GetBool("RELOAD_NGINX") {
+	if flags.ReloadNginx {
 		go a.StartReloadLoadBalancerLoop(drv, ctx)
 	}
-	if config.GetBool("ENABLE_GO_MONITOR") {
+	if flags.EnableGoMonitor {
 		go a.StartGoMonitorLoop(ctx)
 	}
 
@@ -135,8 +136,8 @@ func (a *Alb) Start() error {
 // it will gc rules, generate nginx config and reload nginx, assume that those cr really take effect.
 // TODO add a work queue.
 func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx context.Context) {
-	interval := time.Duration(config.GetInt("INTERVAL")) * time.Second
-	reloadTimeout := time.Duration(config.GetInt("RELOAD_TIMEOUT")) * time.Second
+	interval := time.Duration(config.GetConfig().GetInterval()) * time.Second
+	reloadTimeout := time.Duration(config.GetConfig().GetReloadTimeout()) * time.Second
 	log := a.log
 	klog.Infof("reload: interval is %v  reloadtimeout is %v", interval, reloadTimeout)
 
@@ -153,7 +154,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 			ctl.GC()
 		}
 
-		if config.GetBool("DISABLE_PEROID_GEN_NGINX_CONFIG") {
+		if config.GetConfig().GetFlags().DisablePeroidGenNginxConfig {
 			klog.Infof("reload: period regenerated config disabled")
 			return
 		}
@@ -182,7 +183,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 }
 
 // report ft status
-func LeaderUpdateAlbStatus(kd *driver.KubernetesDriver, cfg config.IConfig, log logr.Logger) error {
+func LeaderUpdateAlbStatus(kd *driver.KubernetesDriver, cfg *config.Config, log logr.Logger) error {
 	//  only update alb when it changed.
 	name := cfg.GetAlbName()
 	namespace := cfg.GetNs()
@@ -247,13 +248,15 @@ func albStatusChange(origin, new v2beta1.AlbStatus) bool {
 }
 
 func (a *Alb) StartGoMonitorLoop(ctx context.Context) error {
+	// TODO fixme
 	// TODO how to stop it? use http server with ctx.
 	log := a.log.WithName("monitor")
-	if !config.GetBool("ENABLE_GO_MONITOR") {
+	flags := config.GetConfig().GetFlags()
+	if !flags.EnableGoMonitor {
 		log.Info("disable, ignore")
 		return nil
 	}
-	port := config.GetInt("GO_MONITOR_PORT")
+	port := config.GetConfig().GetGoMonitorPort()
 	if port == 0 {
 		port = 1937
 		log.Info("not specific port find, use default", "port", port)
@@ -262,9 +265,8 @@ func (a *Alb) StartGoMonitorLoop(ctx context.Context) error {
 	log.Info("init", "port", port)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", metrics.Handler())
 
-	if config.GetBool("ENABLE_PROFILE") {
+	if flags.EnableProfile {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
+	_ "alauda.io/alb2/config"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"
@@ -92,23 +93,14 @@ func TestLoadALByName(t *testing.T) {
 		},
 	}
 
-	defaultCfg := map[string]string{
-		"DOMAIN":             "alauda.io",
-		"TWEAK_DIRECTORY":    "../driver/texture", // set TWEAK_DIRECTORY to a exist path: make calculate hash happy
-		"NAME":               "alb-1",
-		"NAMESPACE":          defaultNs,
-		"bindkey":            "loadbalancer.%s/bind",
-		"labels.name":        "alb2.%s/name",
-		"labels.frontend":    "alb2.%s/frontend",
-		"labels.source_type": "alb2.%s/source-type",
-	}
+	cfg := config.DefaultMock()
+	cfg.Domain = "alauda.io"
+	cfg.Name = "alb-1"
+	cfg.Ns = defaultNs
+	config.UseMock(cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	for key, val := range defaultCfg {
-		config.Set(key, val)
-	}
 
 	driver, err := GetKubernetesDriver(ctx, true)
 

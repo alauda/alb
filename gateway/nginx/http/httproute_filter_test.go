@@ -10,6 +10,7 @@ import (
 	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"alauda.io/alb2/config"
 	albType "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/gateway"
 	"alauda.io/alb2/gateway/nginx/types"
@@ -28,7 +29,7 @@ func MockCtx() HttpCtx {
 }
 func TestHttpFilterHeaderModify(t *testing.T) {
 	rule := albType.Rule{}
-	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"))
+	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
 	h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 		{
 
@@ -76,25 +77,118 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 }
 
 func TestHttpFilterRedirect(t *testing.T) {
-	rule := albType.Rule{}
-	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"))
+	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
 	host := gatewayType.PreciseHostname("a.com")
 	port := gatewayType.PortNumber(90)
 
-	h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
-		{
+	{
+		rule := albType.Rule{}
+		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+			{
 
-			Type: gv1b1t.HTTPRouteFilterRequestRedirect,
-			RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
-				Scheme:     pointy.String("https"),
-				Hostname:   &host,
-				Port:       &port,
-				StatusCode: pointy.Int(302),
+				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+					Scheme:     pointy.String("https"),
+					Hostname:   &host,
+					Port:       &port,
+					StatusCode: pointy.Int(302),
+				},
+			}})
+		t.Logf("%+v", rule)
+		assert.Equal(t, *rule.RedirectScheme, "https")
+		assert.Equal(t, *rule.RedirectHost, "a.com")
+		assert.Equal(t, *rule.RedirectPort, 90)
+		assert.Equal(t, rule.RedirectCode, 302)
+	}
+	{
+		rule := albType.Rule{}
+		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+			{
+
+				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+					Scheme:   pointy.String("https"),
+					Hostname: &host,
+					Port:     &port,
+					Path: &gv1b1t.HTTPPathModifier{
+						ReplaceFullPath: pointy.String("/abc"),
+					},
+					StatusCode: pointy.Int(302),
+				},
+			}})
+		t.Logf("%+v", rule)
+		assert.Equal(t, *rule.RedirectScheme, "https")
+		assert.Equal(t, *rule.RedirectHost, "a.com")
+		assert.Equal(t, rule.RedirectURL, "/abc")
+		assert.Equal(t, *rule.RedirectPort, 90)
+		assert.Equal(t, rule.RedirectCode, 302)
+	}
+	{
+		ctx := MockCtx()
+		prefix := gv1b1t.PathMatchPathPrefix
+		ctx.httpRoute.Spec.Rules = []gv1b1t.HTTPRouteRule{
+			{
+				Matches: []gv1b1t.HTTPRouteMatch{
+					{
+						Path: &gv1b1t.HTTPPathMatch{
+							Type:  &prefix,
+							Value: pointy.String("/abc"),
+						},
+					},
+				},
+			},
+		}
+		rule := albType.Rule{}
+		h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
+			{
+				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+					Scheme:   pointy.String("https"),
+					Hostname: &host,
+					Port:     &port,
+					Path: &gv1b1t.HTTPPathModifier{
+						ReplacePrefixMatch: pointy.String("/xxx"),
+					},
+					StatusCode: pointy.Int(302),
+				},
+			}})
+		t.Logf("%+v", rule)
+		assert.Equal(t, *rule.RedirectScheme, "https")
+		assert.Equal(t, *rule.RedirectHost, "a.com")
+		assert.Equal(t, *rule.RedirectPrefixMatch, "/abc")
+		assert.Equal(t, *rule.RedirectReplacePrefix, "/xxx")
+		assert.Equal(t, *rule.RedirectPort, 90)
+		assert.Equal(t, rule.RedirectCode, 302)
+	}
+}
+
+func TestHttpFilterRewrite(t *testing.T) {
+	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
+	ctx := MockCtx()
+	prefix := gv1b1t.PathMatchPathPrefix
+	ctx.httpRoute.Spec.Rules = []gv1b1t.HTTPRouteRule{
+		{
+			Matches: []gv1b1t.HTTPRouteMatch{
+				{
+					Path: &gv1b1t.HTTPPathMatch{
+						Type:  &prefix,
+						Value: pointy.String("/abc"),
+					},
+				},
+			},
+		},
+	}
+	rule := albType.Rule{}
+	h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
+		{
+			Type: gv1b1t.HTTPRouteFilterURLRewrite,
+			URLRewrite: &gatewayType.HTTPURLRewriteFilter{
+				Path: &gv1b1t.HTTPPathModifier{
+					ReplacePrefixMatch: pointy.String("/xxx"),
+				},
 			},
 		}})
 	t.Logf("%+v", rule)
-	assert.Equal(t, *rule.RedirectScheme, "https")
-	assert.Equal(t, *rule.RedirectHost, "a.com")
-	assert.Equal(t, *rule.RedirectPort, 90)
-	assert.Equal(t, rule.RedirectCode, 302)
+	assert.Equal(t, *rule.RewritePrefixMatch, "/abc")
+	assert.Equal(t, *rule.RewriteReplacePrefix, "/xxx")
 }

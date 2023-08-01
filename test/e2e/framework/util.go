@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -8,9 +9,12 @@ import (
 	"time"
 
 	ct "alauda.io/alb2/controller/types"
+	tu "alauda.io/alb2/utils/test_utils"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/thedevsaddam/gojsonq/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -103,10 +107,6 @@ func Access(f func()) {
 	f()
 }
 
-func log(level string, format string, args ...interface{}) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, nowStamp()+": "+level+": "+"envtest framework : "+format+"\n", args...)
-}
-
 func nowStamp() string {
 	return time.Now().Format(time.StampMilli)
 }
@@ -114,7 +114,7 @@ func nowStamp() string {
 // Logf logs to the INFO logs.
 // Deprecated: use GinkgoLog instead.
 func Logf(format string, args ...interface{}) {
-	log("INFO", format, args...)
+	fmt.Printf(nowStamp()+": "+"info"+": "+"envtest framework : "+format+"\n", args...)
 }
 
 func CfgFromFile(p string) *rest.Config {
@@ -124,12 +124,6 @@ func CfgFromFile(p string) *rest.Config {
 		panic(err)
 	}
 	return cf
-}
-
-// TODO 废弃掉这种方法，应该使用ginkgo测试中的全局变量
-func CfgFromEnv() *rest.Config {
-	kubecfg := os.Getenv("KUBECONFIG")
-	return CfgFromFile(kubecfg)
 }
 
 func GAssert[T any](f func() (T, error), msg string) T {
@@ -157,4 +151,40 @@ func TestEq(f func() bool, msg ...string) (ret bool) {
 	ret = f()
 	Logf("TestEq %s  %v", msg, ret)
 	return ret
+}
+
+func CreateToken(kc *tu.Kubectl, name string, ns string) (string, error) {
+	out, err := kc.Kubectl("create", "token", name, "-n", ns)
+	fmt.Printf("out %v\n", out)
+	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
+
+func CreateRestCfg(orgin *rest.Config, token string) *rest.Config {
+	return &rest.Config{
+		Host:        orgin.Host,
+		BearerToken: token,
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+	}
+}
+
+func MakeDeploymentReady(ctx context.Context, cli kubernetes.Interface, ns, name string) {
+	for {
+		time.Sleep(time.Second * 1)
+		dep, err := cli.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+		dep.Status.ReadyReplicas = *dep.Spec.Replicas
+		dep.Status.Replicas = *dep.Spec.Replicas
+		_, err = cli.AppsV1().Deployments(ns).UpdateStatus(ctx, dep, metav1.UpdateOptions{})
+		if err == nil {
+			break
+		}
+		fmt.Println("ok exit")
+	}
 }

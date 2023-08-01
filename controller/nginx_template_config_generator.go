@@ -48,8 +48,8 @@ type NginxTemplateConfigGenerator struct {
 	config LegacyConfig
 }
 
-func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam NginxParam) (*NginxTemplateConfig, error) {
-	ipv4, ipv6, err := GetBindIp()
+func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam NginxParam, cfg *config.Config) (*NginxTemplateConfig, error) {
+	ipv4, ipv6, err := GetBindIp(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam Ngi
 	}, nil
 }
 
-func GetBindIp() (ipv4Address []string, ipv6Address []string, err error) {
-	bindNICConfig, err := GetBindNICConfig()
+func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, err error) {
+	bindNICConfig, err := GetBindNICConfig(cfg.TweakDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -91,10 +91,10 @@ func GetBindIp() (ipv4Address []string, ipv6Address []string, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return getBindIp(bindNICConfig, networkInfo)
+	return getBindIp(bindNICConfig, networkInfo, cfg.GetNginxCfg().EnableIpv6)
 }
 
-func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo) (ipv4Address []string, ipv6Address []string, err error) {
+func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 bool) (ipv4Address []string, ipv6Address []string, err error) {
 	if len(bindNICConfig.Nic) == 0 {
 		klog.Info("[bind_nic] without config bind 0.0.0.0")
 		return []string{"0.0.0.0"}, []string{"[::]"}, nil
@@ -122,7 +122,7 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo) (ipv4Addres
 		klog.Info("[bind_nic] could not find any ipv4 address bind 0.0.0.0")
 		ipv4Address = append(ipv4Address, "0.0.0.0")
 	}
-	if config.GetBool("EnableIPV6") && len(ipv6Address) == 0 {
+	if enableIpv6 && len(ipv6Address) == 0 {
 		klog.Info("[bind_nic] could not find any ipv6 address and enableIpv6 bind [::]")
 		ipv6Address = append(ipv6Address, "[::]")
 	}
@@ -180,8 +180,8 @@ type BindNICConfig struct {
 	Nic []string `json:"nic"`
 }
 
-func GetBindNICConfig() (BindNICConfig, error) {
-	bindNICConfigFile := filepath.Join(config.Get("TWEAK_DIRECTORY"), "bind_nic.json")
+func GetBindNICConfig(base string) (BindNICConfig, error) {
+	bindNICConfigFile := filepath.Join(base, "bind_nic.json")
 	exist, err := utils.FileExists(bindNICConfigFile)
 	if err != nil {
 		return BindNICConfig{Nic: []string{}}, err

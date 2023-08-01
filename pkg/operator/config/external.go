@@ -15,7 +15,7 @@ func DefaultConfig() ExternalAlbConfig {
 		Replicas:             pointer.Of(3),
 		EnableGC:             pointer.Of("false"),
 		EnableAlb:            pointer.Of(true),
-		EnableGCAppRule:      pointer.Of("true"),
+		EnableGCAppRule:      pointer.Of("false"),
 		EnablePrometheus:     pointer.Of("true"),
 		EnablePortprobe:      pointer.Of("true"),
 		EnablePortProject:    pointer.Of(false),
@@ -41,7 +41,7 @@ func DefaultConfig() ExternalAlbConfig {
 		Backlog:              pointer.Of(2048),
 		MaxTermSeconds:       pointer.Of(30),
 		PolicyZip:            pointer.Of(false),
-		Gateway:              &ExternalGateway{Enable: false},
+		Gateway:              &ExternalGateway{},
 		Resources: &ExternalResources{
 			ExternalResource: &ExternalResource{
 				Limits: &ContainerResource{

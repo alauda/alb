@@ -9,6 +9,8 @@ import (
 	cfg "alauda.io/alb2/pkg/operator/config"
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
 	. "alauda.io/alb2/utils"
+	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	appsv1 "k8s.io/api/apps/v1"
@@ -76,8 +78,23 @@ func GenExpectStatus(cf cfg.Config, cur *AlbDeploy) albv2.ALB2Status {
 	return *status
 }
 
-func SameStatus(old, new albv2.ALB2Status) bool {
-	// TODO 因为有probetime 实际上每次都会更新
+func SameStatus(old, new albv2.ALB2Status, log logr.Logger) bool {
+	old.ProbeTime = 0
+	old.ProbeTimeStr = metav1.Time{}
+	for i, p := range old.Detail.Alb.PortStatus {
+		p.ProbeTimeStr = metav1.Time{}
+		old.Detail.Alb.PortStatus[i] = p
+	}
+	old.Detail.Deploy.ProbeTimeStr = metav1.Time{}
+
+	new.ProbeTime = 0
+	new.ProbeTimeStr = metav1.Time{}
+	for i, p := range new.Detail.Alb.PortStatus {
+		p.ProbeTimeStr = metav1.Time{}
+		new.Detail.Alb.PortStatus[i] = p
+	}
+	new.Detail.Deploy.ProbeTimeStr = metav1.Time{}
+	log.Info("check status change", "diff", cmp.Diff(old, new))
 	return reflect.DeepEqual(old, new)
 }
 
@@ -122,12 +139,12 @@ func MergeAlbStatus(status *albv2.ALB2Status, cf cfg.Config) {
 	// port conflict
 	{
 		if len(status.Detail.Alb.PortStatus) != 0 {
-			status.State = status.Detail.Deploy.State
+			status.State = albv2.ALB2StateWarning
 			reason := ""
 			for port, msg := range status.Detail.Alb.PortStatus {
 				reason += fmt.Sprintf("%s %s.", port, msg.Msg)
 			}
-			status.Reason = status.Detail.Deploy.Reason
+			status.Reason = reason
 			return
 		}
 	}

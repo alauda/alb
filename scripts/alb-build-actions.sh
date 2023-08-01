@@ -13,9 +13,14 @@ function alb-static-build() {
   md5sum ./bin/tools/tweak_gen
 }
 
-function alb-build-alb-docker() {
+function alb-build-all-docker() {
   alb-static-build
   local tag=$(cat ./deploy/chart/alb/values.yaml | yq -o x ".global.images.alb2.tag")
+  if [[ -n "$1" ]]; then
+    tag=$1
+  fi
   docker build -t registry.alauda.cn:60080/acp/alb2:$tag -f ./Dockerfile.local .
-  docker pull registry.alauda.cn:60080/acp/alb-nginx:$tag
+  #   source ./template/actions/dev.actions.sh
+  #   ang-build-nginx-image $tag
+  #   docker pull registry.alauda.cn:60080/acp/alb-nginx:$tag
 }

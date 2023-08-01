@@ -34,6 +34,7 @@ type AlbK8sCfg struct {
 	extraCrs            []string
 	stack               string
 	mockmetallb         bool
+	metallb             bool
 	v4pool              []string
 	v6pool              []string
 	disableDefault      bool
@@ -61,6 +62,12 @@ func (c *AlbK8sCfg) WithDefaultAlbName(name string) *AlbK8sCfg {
 
 func (c *AlbK8sCfg) UseMockLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
 	c.mockmetallb = true
+	c.v4pool = v4p
+	c.v6pool = v6p
+	return c
+}
+func (c *AlbK8sCfg) UseMetalLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
+	c.metallb = true
 	c.v4pool = v4p
 	c.v6pool = v6p
 	return c
@@ -103,8 +110,6 @@ func (c *AlbK8sCfg) Build() AlbK8sCfg {
 			// CI 环境
 			c.chart = fmt.Sprintf("registry.alauda.cn:60080/acp/chart-alauda-alb2:%s", chartFromenv)
 		} else {
-			//本地环境
-			// ln -s $PWD/deploy/resource/crds $PWD/deploy/chart/alb
 			c.chart = fmt.Sprintf("%s/deploy/chart/alb", os.Getenv("ALB_ROOT"))
 		}
 	}
@@ -143,6 +148,8 @@ containerdConfigPatches:
 	}
 	c.chartoverwrite = []string{
 		Template(`
+operator:
+  albImagePullPolicy: IfNotPresent
 operatorDeployMode: "deployment"
 defaultAlb: {{.defaultAlb}}
 operatorReplicas: 1
@@ -163,7 +170,6 @@ replicas: 1
 	root := os.Getenv("ALB_ROOT")
 	if root != "" {
 		albroot := env.GetString("ALB_ROOT", "")
-		c.extraCrs = append(c.extraCrs, path.Join(albroot, "deploy", "resource", "rbac"))
 		c.extraCrs = append(c.extraCrs, path.Join(albroot, "scripts", "yaml", "crds", "extra", "v1"))
 	}
 	crs := os.Getenv("ALB_EXTRA_CRS")
@@ -175,7 +181,7 @@ replicas: 1
 }
 
 type AlbK8sExt struct {
-	kind         *KindExt
+	Kind         *KindExt
 	docker       *DockerExt
 	helm         *Helm
 	Kubectl      *Kubectl
@@ -200,7 +206,7 @@ func (a *AlbK8sCtx) initExt() error {
 	l := a.Log
 	ctx := a.Ctx
 	base := a.Cfg.base
-	kubecfg, err := a.kind.GetConfig()
+	kubecfg, err := a.Kind.GetConfig()
 	a.kubecfg = kubecfg
 	if err != nil {
 		return err
@@ -241,7 +247,7 @@ func (a *AlbK8sCtx) Init() error {
 	if err != nil {
 		return err
 	}
-	a.kind = kind
+	a.Kind = kind
 	l.Info("kind", "name", kind.Name)
 	a.initExt()
 	for i, label := range a.Cfg.workerlabels {
@@ -277,8 +283,13 @@ func (a *AlbK8sCtx) Init() error {
 	}
 	if a.Cfg.mockmetallb {
 		m := NewMockMetallb(a.Ctx, a.kubecfg, a.Cfg.v4pool, a.Cfg.v6pool, a.Log)
-		go m.start()
+		go m.Start()
 	}
+	if a.Cfg.metallb {
+		m := NewMetallbInstaller(a.Ctx, base, a.kubecfg, a.Kind, a.docker, a.Cfg.v4pool, a.Cfg.v6pool, a.Log)
+		m.Init()
+	}
+
 	return nil
 }
 
@@ -344,7 +355,7 @@ func (a *AlbK8sCtx) DeployOperator() error {
 	helm := a.helm
 	ac := a.albChart
 	d := a.docker
-	kind := a.kind
+	kind := a.Kind
 	kc := a.Kubecliet
 	ns := a.Cfg.Ns
 	kubectl := a.Kubectl

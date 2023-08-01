@@ -15,14 +15,14 @@ import (
 	"alauda.io/alb2/gateway/nginx/types"
 )
 
-func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg config.IConfig) (*LoadBalancer, error) {
+func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.Config) (*LoadBalancer, error) {
 	log := L().WithName(ALB_GATEWAY_NGINX)
-	log.Info("get lb config start")
 	ret := &LoadBalancer{}
 	ret.Frontends = []*Frontend{}
-	ret.Name = config.GetAlbName()
+	ret.Name = config.GetConfig().GetAlbName()
 	d := NewDriver(drv, log)
 	gcfg := cfg.GetGatewayCfg()
+	log.Info("get lb config start", "cfg", gcfg)
 	ftMap := map[string]*Frontend{}
 	lss, err := d.ListListener(gcfg.GatewaySelector)
 	if err != nil {
@@ -37,7 +37,7 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg config.I
 	if err != nil {
 		return nil, err
 	}
-	http := httproute.NewHttpProtocolTranslate(drv, log)
+	http := httproute.NewHttpProtocolTranslate(drv, log, cfg)
 	http.SetPolicyAttachmentHandle(pm)
 	err = http.TransLate(lss, ftMap)
 	if err != nil {

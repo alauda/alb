@@ -9,7 +9,7 @@ import (
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
-	"alauda.io/alb2/pkg/operator/controllers/depl/resources"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	"alauda.io/alb2/utils"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -218,12 +218,12 @@ func (s *SvcCtl) patchMonitorSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2
 	svc.OwnerReferences = owner
 	ns := alb.Namespace
 	name := alb.Name
-	refLabel := resources.ALB2ResourceLabel(ns, name, cfg.Operator.Version)
+	refLabel := ALB2ResourceLabel(ns, name, cfg.Operator.Version)
 	// 监控的svc依赖这个label
 	label := map[string]string{
 		"service_name": "alb2-" + name,
 	}
-	svc.Labels = resources.MergeMap(refLabel, label)
+	svc.Labels = MergeMap(refLabel, label)
 	svc.Spec.Selector = label
 	return !reflect.DeepEqual(origin, svc)
 }
@@ -234,7 +234,7 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 	svc.OwnerReferences = owner
 	name := alb.Name
 	cfg := s.cfg
-	refLabel := resources.ALB2ResourceLabel(alb.Namespace, name, cfg.Version)
+	refLabel := ALB2ResourceLabel(alb.Namespace, name, cfg.Version)
 	if svc.Annotations == nil {
 		svc.Annotations = map[string]string{}
 	}
@@ -250,12 +250,17 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 		svc.Annotations[k] = v
 	}
 	// add label which will be used when load
-	svc.Labels = resources.MergeMap(refLabel, LbSvcLabel(crcli.ObjectKeyFromObject(alb), s.cfg.BaseDomain))
+	svc.Labels = MergeMap(refLabel, LbSvcLabel(crcli.ObjectKeyFromObject(alb), s.cfg.BaseDomain))
 	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	policy := corev1.IPFamilyPolicyPreferDualStack
 	svc.Spec.IPFamilyPolicy = &policy
 	// 这个svc也是指向alb的
 	svc.Spec.Selector = map[string]string{"service_name": "alb2-" + name}
+	enable := true
+	if albcfg.Vip.AllocateLoadBalancerNodePorts != nil {
+		enable = *albcfg.Vip.AllocateLoadBalancerNodePorts
+	}
+	svc.Spec.AllocateLoadBalancerNodePorts = &enable
 	return !reflect.DeepEqual(origin, svc)
 }
 
@@ -270,6 +275,17 @@ func (s *SvcCtl) findNeedDeleteAnnotation(origin map[string]string, new map[stri
 }
 
 func (s *SvcCtl) getLbSvc(key crcli.ObjectKey) (*corev1.Service, error) {
+	// 在升级时,会更新svc的label,所以在获取时要先判断下,拿到旧的label,让他去更新
+	{
+		legacy, err := s.getLbSvcLegacy(key)
+		if err != nil {
+			return nil, err
+		}
+		if legacy != nil {
+			return legacy, err
+		}
+	}
+
 	svcs := corev1.ServiceList{}
 	err := s.cli.List(s.ctx, &svcs, &crcli.ListOptions{LabelSelector: labels.SelectorFromSet(LbSvcLabel(key, s.cfg.BaseDomain))})
 	if err != nil {
@@ -281,11 +297,34 @@ func (s *SvcCtl) getLbSvc(key crcli.ObjectKey) (*corev1.Service, error) {
 	return &svcs.Items[0], nil
 }
 
-func LbSvcLabel(key crcli.ObjectKey, basedomain string) map[string]string {
-	return map[string]string{
-		serviceTypeKey(basedomain):             "lb",
-		fmt.Sprintf("alb.%s/name", basedomain): fmt.Sprintf("%s_%s", key.Namespace, key.Name),
+func (s *SvcCtl) getLbSvcLegacy(key crcli.ObjectKey) (*corev1.Service, error) {
+	svcs := corev1.ServiceList{}
+	err := s.cli.List(s.ctx, &svcs, &crcli.ListOptions{LabelSelector: labels.SelectorFromSet(LegacyLbSvcLabel(key, s.cfg.BaseDomain))})
+	if err != nil {
+		return nil, err
 	}
+	if len(svcs.Items) == 0 {
+		return nil, nil
+	}
+	return &svcs.Items[0], nil
+}
+
+func LbSvcLabel(key crcli.ObjectKey, basedomain string) map[string]string {
+	return MergeMap(
+		ALBLabel(key.Namespace, key.Name),
+		map[string]string{
+			serviceTypeKey(basedomain): "lb",
+		},
+	)
+}
+
+func LegacyLbSvcLabel(key crcli.ObjectKey, basedomain string) map[string]string {
+	return MergeMap(
+		LegacyALBLabel(key.Namespace, key.Name),
+		map[string]string{
+			serviceTypeKey(basedomain): "lb",
+		},
+	)
 }
 
 func serviceTypeKey(domain string) string {

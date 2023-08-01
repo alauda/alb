@@ -9,7 +9,7 @@ import (
 	"text/template"
 	"time"
 
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"alauda.io/alb2/config"
+	"alauda.io/alb2/controller/state"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	gateway "alauda.io/alb2/gateway/nginx"
@@ -35,33 +36,38 @@ type NginxController struct {
 	NewPolicyPath string
 	Driver        *driver.KubernetesDriver
 	Ctx           context.Context
-	albcfg        config.IConfig
+	albcfg        *config.Config
 	log           logr.Logger
 	lc            *LeaderElection
 }
 
+// keep it as same as rule
 type Policy struct {
-	Rule             string        `json:"rule"` // the name of rule, corresponding with k8s rule cr
-	Config           *RuleConfig   `json:"config,omitempty"`
-	InternalDSL      []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
-	InternalDSLLen   int           `json:"-"`            // the len of jsonstringify internal dsl, used to sort policy
-	Upstream         string        `json:"upstream"`     // name in backend group
-	URL              string        `json:"url"`
-	RewriteBase      string        `json:"rewrite_base"`
-	RewriteTarget    string        `json:"rewrite_target"`
-	Priority         int           `json:"complexity_priority"` // priority calculated by the complex of dslx, used to sort policy after user_priority
-	RawPriority      int           `json:"user_priority"`       // priority set by user, used to sort policy
-	Subsystem        string        `json:"subsystem"`
-	EnableCORS       bool          `json:"enable_cors"`
-	CORSAllowHeaders string        `json:"cors_allow_headers"`
-	CORSAllowOrigin  string        `json:"cors_allow_origin"`
-	BackendProtocol  string        `json:"backend_protocol"`
-	RedirectScheme   *string       `json:"redirect_scheme,omitempty"`
-	RedirectHost     *string       `json:"redirect_host,omitempty"`
-	RedirectPort     *int          `json:"redirect_port,omitempty"`
-	RedirectURL      string        `json:"redirect_url"`
-	RedirectCode     int           `json:"redirect_code"`
-	VHost            string        `json:"vhost"`
+	Rule                  string        `json:"rule"` // the name of rule, corresponding with k8s rule cr
+	Config                *RuleConfig   `json:"config,omitempty"`
+	InternalDSL           []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
+	InternalDSLLen        int           `json:"-"`            // the len of jsonstringify internal dsl, used to sort policy
+	Upstream              string        `json:"upstream"`     // name in backend group
+	URL                   string        `json:"url"`
+	RewriteBase           string        `json:"rewrite_base"`
+	RewriteTarget         string        `json:"rewrite_target"`
+	RewritePrefixMatch    *string       `json:"rewrite_prefix_match,omitempty"`
+	RewriteReplacePrefix  *string       `json:"rewrite_replace_prefix,omitempty"`
+	Priority              int           `json:"complexity_priority"` // priority calculated by the complex of dslx, used to sort policy after user_priority
+	RawPriority           int           `json:"user_priority"`       // priority set by user, used to sort policy which is rule's priority
+	Subsystem             string        `json:"subsystem"`
+	EnableCORS            bool          `json:"enable_cors"`
+	CORSAllowHeaders      string        `json:"cors_allow_headers"`
+	CORSAllowOrigin       string        `json:"cors_allow_origin"`
+	BackendProtocol       string        `json:"backend_protocol"`
+	RedirectScheme        *string       `json:"redirect_scheme,omitempty"`
+	RedirectHost          *string       `json:"redirect_host,omitempty"`
+	RedirectPort          *int          `json:"redirect_port,omitempty"`
+	RedirectURL           string        `json:"redirect_url"`
+	RedirectCode          int           `json:"redirect_code"`
+	RedirectPrefixMatch   *string       `json:"redirect_prefix_match,omitempty"`
+	RedirectReplacePrefix *string       `json:"redirect_replace_prefix,omitempty"`
+	VHost                 string        `json:"vhost"`
 }
 
 type NgxPolicy struct {
@@ -101,13 +107,14 @@ func (p Policies) Less(i, j int) bool {
 
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg config.IConfig, log logr.Logger, leader *LeaderElection) *NginxController {
+func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *config.Config, log logr.Logger, leader *LeaderElection) *NginxController {
+	ngx := config.GetConfig().GetNginxCfg()
 	return &NginxController{
 		BackendType:   kd.GetType(),
-		TemplatePath:  config.Get("NGINX_TEMPLATE_PATH"),
-		NewConfigPath: config.Get("NEW_CONFIG_PATH"),
-		OldConfigPath: config.Get("OLD_CONFIG_PATH"),
-		NewPolicyPath: config.Get("NEW_POLICY_PATH"),
+		TemplatePath:  ngx.NginxTemplatePath,
+		NewConfigPath: ngx.NewConfigPath,
+		OldConfigPath: ngx.OldConfigPath,
+		NewPolicyPath: ngx.NewPolicyPath,
 		Driver:        kd,
 		Ctx:           ctx,
 		albcfg:        cfg,
@@ -150,7 +157,6 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		if err != nil {
 			return nil, err
 		}
-		// TODO mask gateway ft conflict state.
 		detectAndMaskConflictPort(lb, nc.Driver)
 		migratePortProject(nc.Ctx, lb, nc.Driver)
 		lbFromAlb = lb
@@ -189,13 +195,13 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	}
 
 	if len(alb.Frontends) == 0 {
-		ns := config.Get("NAMESPACE")
-		name := config.Get("NAME")
+		ns := config.GetConfig().GetNs()
+		name := config.GetConfig().GetAlbName()
 		klog.Infof("No service bind to this nginx now %v/%v", ns, name)
 	}
 
 	nginxPolicy = nc.generateAlbPolicy(alb)
-	phase := config.Get("PHASE")
+	phase := state.GetState().GetPhase()
 	if phase != m.PhaseTerminating {
 		phase = m.PhaseRunning
 	}
@@ -207,7 +213,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 		}
 	}
 
-	cfg, err := GenerateNginxTemplateConfig(alb, phase, newNginxParam())
+	cfg, err := GenerateNginxTemplateConfig(alb, string(phase), newNginxParam(), nc.albcfg)
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
 	}
@@ -220,8 +226,6 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 	// cAlb LoadBalancer struct from controller package.
 	kd := nc.Driver
 	mAlb, err := kd.LoadALBbyName(ns, name)
-	// TODO 想在这里加log的，但是malb可能是有环的
-	// klog.Infof("get alb %s", utils.PrettyJson(mAlb))
 	if err != nil {
 		klog.Error("load mAlb fail", err)
 		return nil, err
@@ -257,7 +261,7 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 			continue
 		}
 
-		// migrate rule
+		// translate rule cr to our rule struct
 		for _, marl := range mft.Rules {
 			arl := marl.Spec
 			ruleConfig := RuleConfigFromRuleAnnotation(marl.Name, marl.Annotations)
@@ -430,6 +434,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		}
 
 		klog.V(3).Infof("Rule is %v", rule)
+		// translate our rule struct to policy (the json file)
 		policy := Policy{}
 		policy.Subsystem = SubsystemHTTP
 		policy.Rule = rule.RuleID
@@ -449,6 +454,8 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.URL = rule.URL
 		policy.RewriteBase = rule.RewriteBase
 		policy.RewriteTarget = rule.RewriteTarget
+		policy.RewritePrefixMatch = rule.RewritePrefixMatch
+		policy.RewriteReplacePrefix = rule.RewriteReplacePrefix
 		policy.EnableCORS = rule.EnableCORS
 		policy.CORSAllowHeaders = rule.CORSAllowHeaders
 		policy.CORSAllowOrigin = rule.CORSAllowOrigin
@@ -458,6 +465,8 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.RedirectHost = rule.RedirectHost
 		policy.RedirectPort = rule.RedirectPort
 		policy.RedirectURL = rule.RedirectURL
+		policy.RedirectPrefixMatch = rule.RedirectPrefixMatch
+		policy.RedirectReplacePrefix = rule.RedirectReplacePrefix
 		policy.RedirectCode = rule.RedirectCode
 
 		policy.VHost = rule.VHost
@@ -559,7 +568,7 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 }
 
 func detectAndMaskConflictPort(alb *LoadBalancer, driver *driver.KubernetesDriver) {
-	enablePortProbe := config.Get("ENABLE_PORTPROBE") == "true"
+	enablePortProbe := config.GetConfig().GetFlags().EnablePortProbe
 	if !enablePortProbe {
 		return
 	}
@@ -610,7 +619,7 @@ func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.K
 				// diff need update
 				payload := generatePatchPortProjectPayload(ft.Labels, desiredPortProjects)
 				klog.Info("update ft project %v", string(payload))
-				if _, err := driver.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(ctx, ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
+				if _, err := driver.ALBClient.CrdV1().Frontends(config.GetConfig().GetNs()).Patch(ctx, ft.FtName, types.JSONPatchType, payload, metav1.PatchOptions{}); err != nil {
 					klog.Errorf("patch port %s project failed, %v", ft.FtName, err)
 				}
 			}
@@ -700,7 +709,7 @@ func (nc *NginxController) LoadServices(alb *LoadBalancer) map[string]*driver.Se
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
 	configWriter, err := os.Create(nc.NewConfigPath)
 	if err != nil {
-		klog.Errorf("Failed to create new config file %s", err.Error())
+		klog.Errorf("Failed to create new config file |%v| %s", nc.NewConfigPath, err.Error())
 		return err
 	}
 	defer configWriter.Close()
@@ -728,7 +737,7 @@ func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, 
 }
 
 func (nc *NginxController) ReloadLoadBalancer() error {
-	StatusFileParentPath := config.Get("STATUSFILE_PARENTPATH")
+	StatusFileParentPath := config.GetConfig().GetStatusFile()
 	var err error
 	defer func() {
 		if err != nil {
@@ -760,7 +769,7 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 		}
 	}
 
-	if config.GetBool("E2E_TEST_CONTROLLER_ONLY") {
+	if config.GetConfig().GetFlags().E2eTestControllerOnly {
 		klog.Info("test mode, do not touch nginx")
 		return nil
 	}
@@ -791,9 +800,10 @@ func (nc *NginxController) reload(nginxPid string) error {
 }
 
 func (nc *NginxController) GC() error {
+	flags := config.GetConfig().GetFlags()
 	gcOpt := GCOptions{
-		GCServiceRule: config.Get("ENABLE_GC") == "true",
-		GCAppRule:     config.Get("ENABLE_GC_APP_RULE") == "true",
+		GCServiceRule: flags.EnableGC,
+		GCAppRule:     flags.EnableGCAppRule,
 	}
 	if !gcOpt.GCServiceRule && !gcOpt.GCAppRule {
 		return nil
@@ -816,17 +826,22 @@ func (nc *NginxController) MergeLBConfig(alb *LoadBalancer, gateway *LoadBalance
 		return alb, nil
 	}
 
-	ftInAlb := make(map[string]string)
+	ftInAlb := make(map[string]*Frontend)
 	for _, ft := range alb.Frontends {
 		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)
-		ftInAlb[key] = ft.FtName
+		ftInAlb[key] = ft
 	}
 	for _, ft := range gateway.Frontends {
 		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)
-		albFtName, find := ftInAlb[key]
+		albFt, find := ftInAlb[key]
 		if find {
-			klog.Warningf("merge-gateway: find conflict port %v between gateway %v and alb %v ignore this gateway ft", ft.Port, ft.FtName, albFtName)
-			continue
+			http := ft.Protocol == albv1.FtProtocolHTTP || ft.Protocol == albv1.FtProtocolHTTPS
+			// 其他协议都必须独享一个端口
+			if !http {
+				klog.Warningf("merge-gateway: find conflict port %v between gateway %v and alb %v ignore this gateway ft", ft.Port, ft.FtName, albFt.FtName)
+				continue
+			}
+			ft.Rules = append(ft.Rules, albFt.Rules...)
 		}
 		alb.Frontends = append(alb.Frontends, ft)
 	}

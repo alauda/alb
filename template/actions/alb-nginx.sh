@@ -1,11 +1,56 @@
 #!/bin/bash
 
-function alb-install-nginx-test-dependency {
+function alb-install-nginx-test-dependency() {
   apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
 }
 
-function alb-test-all-in-ci-nginx {
+function alb-install-nginx-test-dependency-arch() {
+  yay -S openresty luarocks luacheck lua51 perl-app-cpanminus wget curl make base-devel perl git neovim bash yq jq tree fd openssl
+  # export PATH=/opt/openresty/bin:$PATH
+  # export PATH=/opt/openresty/nginx/sbin:$PATH
+  # init the openresty
+  cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+}
+
+function alb-nginx-install-dependency() {
+  # keep same as dockerfile.full
+
+  LUA_VAR_NGINX_MODULE_VERSION="0.5.2"
+  LUA_RESTY_BALANCER_VERSION="0.04"
+  openresty=/opt/openresty
+  ln -s $openresty/bin/opm /usr/local/bin/opm
+  ln -s $openresty/bin/resty /usr/local/bin/resty
+  opm install thibaultcha/lua-resty-mlcache
+  opm install xiangnanscu/lua-resty-cookie
+
+  (
+    curl -fSL https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz -o lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz
+    tar xzf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz && rm -rf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz
+    cd lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION}
+    prefix=/opt/openresty/lualib/
+    make && make install
+    cd -
+    sudo rm -rf ./lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION}
+  )
+  (
+    curl -fSL https://github.com/api7/lua-var-nginx-module/archive/v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz -o lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz
+    tar xzf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz
+    rm -rf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz
+    cd lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}
+    cp -r lib/resty/* $openresty/lualib/resty
+    cd -
+    sudo rm -rf ./lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}
+  )
+}
+
+function tweak_gen_install() {
+  go build -v -v -o ./bin/tools/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
+  md5sum ./bin/tools/tweak_gen
+  cp ./bin/tools/tweak_gen /usr/local/bin
+}
+
+function alb-test-all-in-ci-nginx() {
   # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
   set -e # exit on err
   echo alb is $ALB
@@ -38,13 +83,19 @@ function test-nginx-local() {
   sudo rm -rf ./template/tweak
   sudo rm -rf ./template/dhparam.pem
   sudo rm -rf ./template/policy.new
-  test-nginx-in-ci $PWD/template/t/ping.t
+
+  # sudo setcap CAP_NET_BIND_SERVICE=+eip `which nginx`
+  local t="ping"
+  if [ -n "$1" ]; then
+    t="$1"
+  fi
+  test-nginx-in-ci $PWD/template/t/$t.t
 }
 
-function test-nginx-in-ci() {
+function test-nginx-in-ci() (
   set -x
+  set -e
   echo "test-nginx-in-ci" alb is $ALB
-
   # struct of a nginx test
   # /
   # /nginx
@@ -83,7 +134,7 @@ function test-nginx-in-ci() {
   unset http_proxy
   unset https_proxy
   prove -I $TEST_BASE/ -r $filter
-}
+)
 
 function configmap_to_file() {
   local output_dir=$1

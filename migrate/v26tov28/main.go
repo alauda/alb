@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
-	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,16 +54,15 @@ func main() {
 }
 
 func ensureEnv() {
-	klog.Info("NAME: ", config.Get("NAME"))
-	klog.Info("NAMESPACE: ", config.Get("NAMESPACE"))
-	klog.Info("DOMAIN: ", config.Get("DOMAIN"))
-	if strings.TrimSpace(config.Get("NAME")) == "" &&
-		strings.TrimSpace(config.Get("NAMESPACE")) == "" &&
-		strings.TrimSpace(config.Get("DOMAIN")) == "" {
+	Name = os.Getenv("NAME")
+	Namespace = os.Getenv("NAMESPACE")
+	Domain = os.Getenv("DOMAIN")
+	klog.Info("NAME: ", Name)
+	klog.Info("NAMESPACE: ", Namespace)
+	klog.Info("DOMAIN: ", Domain)
+	if strings.TrimSpace(Name) == "" &&
+		strings.TrimSpace(Namespace) == "" &&
+		strings.TrimSpace(Domain) == "" {
 		panic("you must set NAME and NAMESPACE and DOMAIN env")
 	}
-
-	Name = config.Get("NAME")
-	Namespace = config.Get("NAMESPACE")
-	Domain = config.Get("DOMAIN")
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"alauda.io/alb2/pkg/operator/config"
-	"alauda.io/alb2/pkg/operator/controllers"
-	f "alauda.io/alb2/test/e2e/framework"
+	"alauda.io/alb2/pkg/operator/controllers/depl"
+	. "alauda.io/alb2/test/e2e/framework"
 	"alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
@@ -18,31 +18,27 @@ import (
 )
 
 var _ = Describe("TestReConcile", func() {
+	var env *OperatorEnv
 	var log logr.Logger
-
-	var base string
 	var kt *Kubectl
 	var kc *K8sClient
 	var cli client.Client
 	var ctx context.Context
-	var cancel func()
 
 	BeforeEach(func() {
-		log = GinkgoLog()
-		ctx, cancel = context.WithCancel(context.Background())
-		base = InitBase()
-		kt = NewKubectl(base, KUBE_REST_CONFIG, log)
-		kc = NewK8sClient(ctx, KUBE_REST_CONFIG)
-		msg := kt.AssertKubectl("create ns cpaas-system")
-		log.Info("init ns", "ret", msg)
-		cli = kc.GetClient()
+		env = StartOperatorEnvOrDie()
+		kt = env.Kt
+		kc = env.Kc
+		ctx = env.Ctx
+		cli = env.Kc.GetClient()
+		log = env.Log
 	})
 
 	AfterEach(func() {
-		cancel()
+		env.Stop()
 	})
 
-	f.GIt("should bring config back", func() {
+	GIt("should bring config back", func() {
 		// 在什么情况下 会有可能在etcd中存在一个不符合crd约束的数据呢。。。
 		kt.AssertKubectlApply(`
 apiVersion: crd.alauda.io/v1
@@ -63,7 +59,7 @@ spec:
 		GinkgoNoErr(err)
 		log.Info("xx", "v2alb", utils.PrettyJson(v2alb))
 
-		ctl := controllers.ALB2Reconciler{
+		ctl := depl.ALB2Reconciler{
 			Client:     cli,
 			OperatorCf: config.DEFAULT_OPERATOR_CFG,
 			Log:        log,

@@ -3,12 +3,7 @@ package toolkit
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"reflect"
-	"regexp"
-	"strconv"
-	"strings"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/icza/dyno"
@@ -72,20 +67,6 @@ func YamlToJson(s string) (string, error) {
 		return "", err
 	}
 	return string(out), nil
-}
-
-// less 1c will be 1. 600m=>1 1800m>2 2000m>2
-func CpuPresetToCore(v string) int {
-	// cpu limit could have value like 200m, need some calculation
-	re := regexp.MustCompile(`([0-9]+)m`)
-	var val int
-	if string_decimal := strings.TrimRight(re.FindString(fmt.Sprintf("%v", v)), "m"); string_decimal == "" {
-		val, _ = strconv.Atoi(v)
-	} else {
-		val_decimal, _ := strconv.Atoi(string_decimal)
-		val = int(math.Ceil(float64(val_decimal) / 1000))
-	}
-	return val
 }
 
 func IsNil(i interface{}) bool {

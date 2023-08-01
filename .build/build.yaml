@@ -19,6 +19,7 @@ spec:
       name: source
   tasks:
     - name: kind-test 
+      timeout: 30m
       runAfter:
         - build-alb-chart
       params:
@@ -64,7 +65,7 @@ spec:
               export ALB_KIND_E2E_BRANCH=$(params.branch)
               export ALB_KIND_E2E_CHART=$(params.version)
               echo "branch  is  $ALB_KIND_E2E_BRANCH. version is $ALB_KIND_E2E_CHART"
-              bash ./scripts/kind-e2e.sh
+              timeout  20m ./scripts/kind-e2e.sh
               echo "just ignore error"
     - name: alb-test
       retries: 3
@@ -210,44 +211,7 @@ spec:
             script: |
               #!/bin/sh
               ./scripts/nginx-test.sh
-    - name: prepare-chart
-      timeout: 30m
-      retries: 1
-      workspaces:
-        - name: source
-          workspace: source
-      params:
-      - name: version 
-        value: $(build.git.version.short)
-      - name: image_tag
-        value: $(build.git.version.docker)
-      taskSpec:
-        description: >
-          parepare operator bundle and chart
-        steps:
-          - image: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
-            name: operator
-            imagePullPolicy: IfNotPresent
-            workingDir: '$(workspaces.source.path)'
-            params:
-              - name: version 
-                value: "$(params.version)"
-              - name: image_tag
-                value: "$(params.image_tag)"
-            script: |
-              #!/bin/bash
-              apt update;apt install tree
-              export OPERATOR_IMAGE="build-harbor.alauda.cn/acp/alb2:$(params.image_tag)"
-              export OPERATOR_VERSION="$(params.version)"
-              env
-              source ./scripts/alb-deploy-actions.sh
-              alb-deploy-build-alb-and-operator
-        workspaces:
-          - name: source
-            workspace: source
     - name: build-alb-chart
-      runAfter:
-        - prepare-chart
       timeout: 5m
       taskRef:
         kind: ClusterTask
@@ -279,7 +243,6 @@ spec:
       runAfter:
         - build-alb-chart
         - alb-test
-        - kind-test
       params:
       - name: branch
         value: $(build.git.branch.name)

@@ -15,13 +15,11 @@ FROM build-harbor.alauda.cn/ops/alpine:3.17 AS base
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update && apk add --no-cache iproute2 jq libcap && rm -rf /usr/bin/nc
 
+# keep it as same as pkg/config/albrun.go
 ENV NGINX_TEMPLATE_PATH /alb/ctl/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /etc/alb2/nginx/nginx.conf.new
 ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
 ENV NEW_POLICY_PATH /etc/alb2/nginx/policy.new
-ENV INTERVAL 5
-ENV BIND_ADDRESS *
-ENV GODEBUG=cgo
 
 
 RUN umask 027 && \
@@ -30,7 +28,6 @@ RUN umask 027 && \
 
 COPY run-alb.sh /alb/ctl/run-alb.sh
 RUN chmod +x /alb/ctl/run-alb.sh
-COPY viper-config.toml /alb/ctl/viper-config.toml
 COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
 COPY --from=builder /out/alb /alb/ctl/alb
 COPY --from=builder /out/operator /alb/ctl/operator

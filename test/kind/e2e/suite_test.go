@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	_ "alauda.io/alb2/test/kind/e2e/gateway"
 	_ "alauda.io/alb2/test/kind/e2e/operator"
 )
 

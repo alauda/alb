@@ -69,6 +69,10 @@ end
 function _M.assert_true(v,msg)
 	_M.assert_eq(v,true,msg)
 end
+function _M.fail(msg)
+	ngx.log(ngx.ERR,tostring(msg))
+	ngx.exit(ngx.ERR)
+end
 
 --- a simple warpper of f which represents a testcase,you could enable or disable - a simple warpper of f which represents a testcase,you could enable or disable it.
 -- TODO

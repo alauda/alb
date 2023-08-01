@@ -58,3 +58,15 @@ func (t *Template) Generate(options ...Option) *gv1b1t.GatewayClass {
 	}
 	return gc
 }
+
+func defaultLabel(baseDomain, name string) Option {
+	labels := map[string]string{
+		"alb2." + baseDomain + "/gatewayclass": name,
+	}
+	return func(gc *gv1b1t.GatewayClass) {
+		if gc == nil {
+			return
+		}
+		gc.Labels = labels
+	}
+}

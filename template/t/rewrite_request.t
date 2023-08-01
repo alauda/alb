@@ -65,6 +65,32 @@ our $policy = <<'_EOC_';
                   }
               }
           }
+        },
+        {
+          "rule": "",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/abc/1"
+            ]
+          ],
+          "upstream": "test-upstream-2",
+		  "rewrite_prefix_match": "/abc/1",
+		  "rewrite_replace_prefix": "/dddd"
+        },
+        {
+          "rule": "",
+          "internal_dsl": [
+            [
+              "STARTS_WITH",
+              "URL",
+              "/abc/2"
+            ]
+          ],
+          "upstream": "test-upstream-2",
+		  "rewrite_prefix_match": "/abc/",
+		  "rewrite_replace_prefix": ""
         }
         ]}},
   "backend_group": [
@@ -78,7 +104,19 @@ our $policy = <<'_EOC_';
           "weight": 100
         }
       ]
-    }]
+    },
+    {
+      "name": "test-upstream-2",
+      "mode": "http",
+      "backends": [
+        {
+          "address": "127.0.0.1",
+          "port": 9998,
+          "weight": 100
+        }
+      ]
+    }
+    ]
 }
 _EOC_
 our $http_config = <<'_EOC_';
@@ -87,6 +125,14 @@ server {
     location / {
        content_by_lua_block {
            ngx.print(ngx.req.raw_header())
+      }
+    }
+}
+server {
+    listen 9998;
+    location / {
+       content_by_lua_block {
+           ngx.print(ngx.var.request_uri)
       }
     }
 }
@@ -145,3 +191,20 @@ __DATA__
 
     h.assert_contains(out,"a2: b1")
     h.assert_contains(out,"a2: b2")
+
+
+=== TEST 4: test rewrite_request url rewrite
+--- ONLY
+--- policy eval: $::policy
+--- http_config eval: $::http_config
+--- lua_test
+    local F = require("F");local u = require("util");local h = require("test-helper");
+    local httpc = require("resty.http").new()
+
+    local res, err = httpc:request_uri("http://127.0.0.1:80/abc/1")
+    h.assert_eq(res.body,"/dddd")
+
+    local res, err = httpc:request_uri("http://127.0.0.1:80/abc/2")
+    h.assert_eq(res.body,"/2")
+    h.P(res)
+

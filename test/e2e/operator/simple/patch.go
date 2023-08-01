@@ -3,8 +3,7 @@ package simple
 import (
 	"context"
 
-	f "alauda.io/alb2/test/e2e/framework"
-	"github.com/go-logr/logr"
+	. "alauda.io/alb2/test/e2e/framework"
 	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
@@ -16,32 +15,24 @@ import (
 )
 
 var _ = Describe("Operator", func() {
-	var base string
-	var opext *f.AlbOperatorExt
+	var env *OperatorEnv
+	var opext *AlbOperatorExt
 	var kt *Kubectl
-	var kc *K8sClient
 	var cli client.Client
 	var ctx context.Context
-	var cancel func()
-
-	var log logr.Logger
 	BeforeEach(func() {
-		log = GinkgoLog()
-		ctx, cancel = context.WithCancel(context.Background())
-		base = InitBase()
-		kt = NewKubectl(base, KUBE_REST_CONFIG, log)
-		kc = NewK8sClient(ctx, KUBE_REST_CONFIG)
-		msg := kt.AssertKubectl("create ns cpaas-system")
-		log.Info("init ns", "ret", msg)
-		opext = f.NewAlbOperatorExt(ctx, base, KUBE_REST_CONFIG)
-		cli = kc.GetDirectClient()
+		env = StartOperatorEnvOrDie()
+		opext = env.Opext
+		kt = env.Kt
+		ctx = env.Ctx
+		cli = env.Kc.GetDirectClient()
 	})
 
 	AfterEach(func() {
-		cancel()
+		env.Stop()
 	})
 
-	f.GIt("should create/update correctly when has patch", func() {
+	GIt("should create/update correctly when has patch", func() {
 		kt.AssertKubectlApply(`
 kind: ConfigMap
 apiVersion: v1

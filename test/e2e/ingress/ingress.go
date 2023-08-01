@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
+	"alauda.io/alb2/driver"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
@@ -19,34 +21,93 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+type IngF struct {
+	*Kubectl
+	*K8sClient
+	*ProductNs
+	*AlbWaitFileExt
+	*IngressExt
+	ctx context.Context
+}
+
+func (f *IngF) Wait(fn func() (bool, error)) {
+	Wait(fn)
+}
+
+func (f *IngF) GetCtx() context.Context {
+	return f.ctx
+}
+
 var _ = ginkgo.Describe("Ingress", func() {
-	var f *Framework
+	var env *Env
+	var f *IngF
 	var l logr.Logger
 	var albname string
 	var albns string
-
+	var ctx context.Context
+	var kt *Kubectl
+	var kc *K8sClient
 	ginkgo.BeforeEach(func() {
-		deployCfg := Config{InstanceMode: true, RestCfg: KUBE_REST_CONFIG, Project: []string{"project1"}}
-		f = NewAlb(deployCfg)
+		opt := AlbEnvOpt{
+			BootYaml: `
+        apiVersion: crd.alauda.io/v2beta1
+        kind: ALB2
+        metadata:
+            name: alb-dev
+            namespace: cpaas-system
+            labels:
+                alb.cpaas.io/managed-by: alb-operator
+        spec:
+            address: "127.0.0.1"
+            type: "nginx"
+            config:
+                networkMode: host
+                projects: ["project1"]
+`,
+			Ns:       "cpaas-system",
+			Name:     "alb-dev",
+			StartAlb: true,
+		}
+		env = NewAlbEnvWithOpt(opt)
+		ctx = env.Ctx
+		l = env.Log
+		kt = env.Kt
+		_ = kt
+		kc = env.K8sClient
+		_ = kc
+		f = &IngF{
+			Kubectl:        env.Kt,
+			K8sClient:      env.K8sClient,
+			ProductNs:      env.ProductNs,
+			AlbWaitFileExt: env.AlbWaitFileExt,
+			IngressExt:     env.IngressExt,
+			ctx:            ctx,
+		}
+		albns = env.Opt.Ns
+		albname = env.Opt.Name
 		f.InitProductNs("alb-test", "project1")
 		f.InitDefaultSvc("svc-default", []string{"192.168.1.1", "192.168.2.2"})
-		f.Init()
-		l = GinkgoLog()
-		albname = f.AlbName
-		albns = f.AlbNs
-		_ = l
 	})
 
 	ginkgo.AfterEach(func() {
-		f.Destroy()
-		f = nil
+		env.Stop()
 	})
 
-	GIt("empty test", func() {
-		Logf("ok")
+	GIt("test client", func() {
+		kd, err := driver.GetAndInitDriver(ctx)
+		GinkgoNoErr(err)
+		for {
+			alb, err := kd.ALB2Lister.ALB2s("cpaas-system").Get("alb-dev")
+			if err == nil {
+				break
+			}
+			l.Info("alb", "cr", alb, "err", err)
+			time.Sleep(time.Second * 1)
+		}
 	})
 
 	GIt("should compatible with redirect ingress", func() {
+		l.Info("start test")
 		ns := f.GetProductNs()
 		// should generate rule and policy when use ingress.backend.port.number even svc not exist.
 		pathType := networkingv1.PathTypeImplementationSpecific
@@ -83,8 +144,8 @@ var _ = ginkgo.Describe("Ingress", func() {
 		}, metav1.CreateOptions{})
 
 		assert.NoError(ginkgo.GinkgoT(), err)
+		l.Info("wait ngx config")
 		f.WaitNginxConfigStr("listen.*80")
-
 		rules := f.WaitIngressRule("redirect", ns, 1)
 		rule := rules[0]
 		ruleName := rules[0].Name
@@ -185,6 +246,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 			_ = ruleName
 
 			f.WaitPolicy(func(policyRaw string) bool {
+				l.Info("policy", "raw", policyRaw)
 				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
 				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod

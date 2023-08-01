@@ -45,6 +45,14 @@ our $policy = <<'_EOC_';
           "internal_dsl": [["STARTS_WITH", "URL", "/t5"]],
 		  "redirect_scheme": "https",
           "upstream": "test-upstream-1"
+        },
+        {
+          "rule": "",
+          "internal_dsl": [["STARTS_WITH", "URL", "/t6"]],
+		  "redirect_prefix_match": "/t6/",
+		  "redirect_replace_prefix": "",
+		  "redirect_scheme": "https",
+          "upstream": "test-upstream-1"
         }
 		] }
   },
@@ -129,6 +137,18 @@ __DATA__
 		local location = res.headers['Location'] 
 		h.assert_eq(status,302)
 		h.assert_eq(location,"https://127.0.0.1/t5")
+	end
+
+    -- /abc/x /abc/ => /x
+    -- /abc   /abc/ =>  /abc
+    -- /abc/   /abc/ => /
+    -- /abcde  /abc/ => /abcde
+	do
+    	local res, err = httpc:request_uri("http://127.0.0.1:80/t6/xxx")
+		local status = res.status
+		local location = res.headers['Location'] 
+		h.assert_eq(status,302)
+		h.assert_eq(location,"https://127.0.0.1/xxx")
 	end
 
 --- response_body: ok

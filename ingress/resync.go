@@ -14,9 +14,9 @@ import (
 
 func (c *Controller) StartResyncLoop(ctx context.Context) error {
 	log := c.log.WithName("resync")
-	resyncPeriod := time.Duration(config.GetInt("RESYNC_PERIOD")) * time.Second
+	resyncPeriod := time.Duration(config.GetConfig().GetResyncPeriod()) * time.Second
 
-	if !config.GetBool("FULL_SYNC") {
+	if !config.GetConfig().GetFlags().FullSync {
 		log.Info("periodicity sync disabled ingnore")
 		return nil
 	}
@@ -36,7 +36,7 @@ func (c *Controller) StartResyncLoop(ctx context.Context) error {
 
 func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
 	// findHandledIngress
-	alb, err := c.kd.LoadALB(config.GetAlbKey(c))
+	alb, err := c.kd.LoadALB(config.GetAlbKey(c.Config))
 	if err != nil {
 		log.Error(err, "load alb fail")
 	}

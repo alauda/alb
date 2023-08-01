@@ -1,6 +1,7 @@
 package test_utils
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -12,9 +13,11 @@ import (
 
 func InitCrd(albBase string, cfg *rest.Config) error {
 	k := NewKubectl("", cfg, log.L())
+	kc := NewK8sClient(context.Background(), cfg)
+	kc.CreateNsIfNotExist("cpaas-system")
 	{
 		// init crd
-		crd := path.Join(albBase, "deploy", "resource", "crds")
+		crd := path.Join(albBase, "deploy", "chart", "alb", "crds")
 		cmds := []string{"apply", "-f", crd, "-R"}
 		_, err := k.Kubectl(cmds...)
 		if err != nil {

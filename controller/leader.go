@@ -22,12 +22,12 @@ type LeaderElection struct {
 	isLeader bool
 	// leader atomic.B
 	ctx context.Context
-	c   config.IConfig
+	c   *config.Config
 	cfg *rest.Config
 	log logr.Logger
 }
 
-func NewLeaderElection(ctx context.Context, c config.IConfig, cfg *rest.Config, log logr.Logger) *LeaderElection {
+func NewLeaderElection(ctx context.Context, c *config.Config, cfg *rest.Config, log logr.Logger) *LeaderElection {
 	return &LeaderElection{
 		ctx: ctx,
 		c:   c,
@@ -55,7 +55,6 @@ func (l *LeaderElection) looseLeader() {
 }
 
 // start leader election process,it should be run in goroutine.
-// TODO add wait group to each xx loop
 func (l *LeaderElection) StartLeaderElectionLoop() error {
 	log := l.log
 	c := l.c

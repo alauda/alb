@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"alauda.io/alb2/config"
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	"github.com/fatih/set"
 	networkingv1 "k8s.io/api/networking/v1"
 )
@@ -14,7 +14,7 @@ type Need struct {
 	s set.Interface
 }
 
-func getIngressFtTypes(ing *networkingv1.Ingress, c config.IConfig) Need {
+func getIngressFtTypes(ing *networkingv1.Ingress, c *config.Config) Need {
 	ALBSSLStrategyAnnotation := fmt.Sprintf("alb.networking.%s/enable-https", c.GetDomain())
 	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", c.GetDomain())
 	defaultSSLStrategy := c.GetDefaultSSLStrategy()

@@ -6,55 +6,60 @@ import (
 	"reflect"
 	"strings"
 
+	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
-	"alauda.io/alb2/pkg/operator/controllers/depl/resources"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/configmap"
 	rg "alauda.io/alb2/pkg/operator/controllers/depl/resources/gateway"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/ingress"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/portinfo"
+	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/workload"
-	"alauda.io/alb2/pkg/operator/resourceclient"
+	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	. "alauda.io/alb2/pkg/operator/toolkit"
+	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	perr "github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // 当前集群上alb相关的cr
 type AlbDeploy struct {
-	Alb      *albv2.ALB2
-	Deploy   *appsv1.Deployment
-	Common   *corev1.ConfigMap
-	PortInfo *corev1.ConfigMap
-	Ingress  *netv1.IngressClass
-	Gateway  *gv1b1t.GatewayClass
-	Svc      service.CurSvc
-	Feature  *unstructured.Unstructured
+	Alb                *albv2.ALB2
+	Deploy             *appsv1.Deployment
+	Common             *corev1.ConfigMap
+	PortInfo           *corev1.ConfigMap
+	Ingress            *netv1.IngressClass
+	SharedGatewayClass *gv1b1t.GatewayClass
+	Svc                service.CurSvc
+	Feature            *unstructured.Unstructured
+	Rbac               *rbac.CurRbac
 }
 
 // 为了完成升级alb所需的一些配置
 type AlbDeployUpdate struct {
-	Alb      *albv2.ALB2
-	Deploy   *appsv1.Deployment
-	Common   *corev1.ConfigMap
-	PortInfo *corev1.ConfigMap
-	Ingress  *netv1.IngressClass
-	Gateway  *gv1b1t.GatewayClass
-	Svc      service.SvcUpdates // 目前只有service有自己的配置
-	Feature  *unstructured.Unstructured
+	Alb                *albv2.ALB2
+	Deploy             *appsv1.Deployment
+	Common             *corev1.ConfigMap
+	PortInfo           *corev1.ConfigMap
+	Ingress            *netv1.IngressClass
+	SharedGatewayClass *gv1b1t.GatewayClass
+	Svc                service.SvcUpdates
+	Feature            *unstructured.Unstructured
+	Rbac               *rbac.RbacUpdate
 }
+
+// 这里的gatewayclass是共享型的gatewayclass,他的名字和alb是相同的
+// 独享型的gatewayclas的名字是固定的,是operator部署时直接创建的,和单独的某个alb的部署无关
 
 func (d *AlbDeploy) Show() string {
 	return fmt.Sprintf("alb %v,depl %v,comm %v,port %v,ic %v,gc %v,svc %v",
@@ -63,7 +68,7 @@ func (d *AlbDeploy) Show() string {
 		showCr(d.Common),
 		showCr(d.PortInfo),
 		showCr(d.Ingress),
-		showCr(d.Gateway),
+		showCr(d.SharedGatewayClass),
 		d.Svc.Show())
 }
 
@@ -75,18 +80,20 @@ func showCr(obj client.Object) string {
 }
 
 type AlbDeployCtl struct {
-	Cli    *resourceclient.ALB2ResourceClient
-	Cfg    cfg.Config
-	Log    logr.Logger
-	SvcCtl *service.SvcCtl
+	Cli     *ALB2ResourceClient
+	Cfg     cfg.Config
+	Log     logr.Logger
+	SvcCtl  *service.SvcCtl
+	RbacCtl *rbac.RbacCtl
 }
 
 func NewAlbDeployCtl(ctx context.Context, cli ctlClient.Client, cfg cfg.Config, log logr.Logger) AlbDeployCtl {
 	return AlbDeployCtl{
-		Cli:    resourceclient.NewALB2ResourceClient(cli),
-		Cfg:    cfg,
-		Log:    log,
-		SvcCtl: service.NewSvcCtl(ctx, cli, log, cfg.Operator),
+		Cli:     NewALB2ResourceClient(cli),
+		Cfg:     cfg,
+		Log:     log,
+		SvcCtl:  service.NewSvcCtl(ctx, cli, log, cfg.Operator),
+		RbacCtl: rbac.NewRbacCtl(ctx, cli, log, cfg),
 	}
 }
 
@@ -123,15 +130,17 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 	}
 	feature := d.genExpectFeature(cur, cfg)
 	svcupdate := d.SvcCtl.GenUpdate(cur.Svc, d.Cfg, cur.Alb)
+	rbac := d.RbacCtl.GenUpdate(cur.Rbac)
 	expect := AlbDeployUpdate{
-		Alb:      alb,
-		Deploy:   depl,
-		Common:   comm,
-		PortInfo: port,
-		Ingress:  ic,
-		Gateway:  gc,
-		Svc:      svcupdate,
-		Feature:  feature,
+		Alb:                alb,
+		Deploy:             depl,
+		Common:             comm,
+		PortInfo:           port,
+		Ingress:            ic,
+		SharedGatewayClass: gc,
+		Svc:                svcupdate,
+		Feature:            feature,
+		Rbac:               rbac,
 	}
 	return &expect, nil
 }
@@ -153,7 +162,7 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 		projectLabel[key] = "true"
 	}
 
-	alb.Labels = resources.MergeMap(projectLabel, resources.RemovePrefixKey(alb.Labels, projectPrefix))
+	alb.Labels = MergeMap(projectLabel, RemovePrefixKey(alb.Labels, projectPrefix))
 
 	key := fmt.Sprintf("%s/%s", labelBaseDomain, "role")
 	if conf.Project.EnablePortProject {
@@ -173,7 +182,7 @@ func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Confi
 	// TODO ingress class 的controller是不可变的
 	var (
 		alb2            = cur.Alb
-		refLabel        = resources.ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
+		refLabel        = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
 		labelBaseDomain = d.Cfg.Operator.GetLabelBaseDomain()
 	)
 	if !conf.Controller.Flags.EnableIngress {
@@ -185,21 +194,26 @@ func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Confi
 	return ic, nil
 }
 
+// TODO 共享型的gateway如何实现还是待定..所以这么就按照已经实现的逻辑来
 func (d *AlbDeployCtl) genExpectGatewayClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*gv1b1t.GatewayClass, error) {
 	var (
 		alb2            = cur.Alb
-		refLabel        = resources.ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
+		refLabel        = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
 		labelBaseDomain = d.Cfg.Operator.GetLabelBaseDomain()
 	)
 	if !conf.Gateway.Enable {
 		return nil, nil
 	}
-	if conf.Gateway.Mode != "gatewayclass" {
+	if conf.Gateway.Mode != a2t.GatewayModeShared {
 		return nil, nil
 	}
-	// TODO 像这种互相有依赖的资源，其所需要的是cur的cr还是expect的cr呢？ gatewayclass这里其实就是需要gvk所有用那个都行
-	gc := rg.NewTemplate(alb2.Namespace, alb2.Name, labelBaseDomain, alb2, cur.Gateway, d.Log).Generate(
-		rg.AddLabel(refLabel),
+
+	lable := refLabel
+
+	lable[fmt.Sprintf("gatewayclass.%s/deploy", labelBaseDomain)] = labelBaseDomain
+	lable[fmt.Sprintf("gatewayclass.%s/type", labelBaseDomain)] = "shared"
+	gc := rg.NewTemplate(alb2.Namespace, alb2.Name, labelBaseDomain, alb2, cur.SharedGatewayClass, d.Log).Generate(
+		rg.AddLabel(lable),
 	)
 	return gc, nil
 }
@@ -209,8 +223,8 @@ func (d *AlbDeployCtl) genExpectConfigmap(ctx context.Context, cur *AlbDeploy, c
 	//不应该和alb运行相关的配置放在configmap中，比如lua dict之类的
 	var (
 		ownerRefs = MakeOwnerRefs(cur.Alb)
-		bindNic   = conf.Controller.BindNic
-		refLabel  = resources.ALB2ResourceLabel(cur.Alb.Namespace, cur.Alb.Name, d.Cfg.Operator.Version)
+		bindNic   = conf.BindNic
+		refLabel  = ALB2ResourceLabel(cur.Alb.Namespace, cur.Alb.Name, d.Cfg.Operator.Version)
 		alb2      = cur.Alb
 	)
 
@@ -238,7 +252,7 @@ func (d *AlbDeployCtl) genExpectConfigmap(ctx context.Context, cur *AlbDeploy, c
 func (d *AlbDeployCtl) genExpectPortInfoConfigmap(cur *AlbDeploy, conf *cfg.ALB2Config) (*corev1.ConfigMap, error) {
 	var (
 		alb2      = cur.Alb
-		refLabel  = resources.ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
+		refLabel  = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
 		ownerRefs = MakeOwnerRefs(alb2)
 	)
 	data := conf.Project.PortProjects
@@ -253,7 +267,7 @@ func (d *AlbDeployCtl) genExpectFeature(cur *AlbDeploy, conf *cfg.ALB2Config) *u
 	if !conf.Controller.Flags.EnableIngress {
 		return nil
 	}
-	address := strings.Split(cur.Alb.Spec.Address, ",")
+	address := utils.SplitAndRemoveEmpty(cur.Alb.Spec.Address, ",")
 	address = append(address, cur.Alb.Status.Detail.AddressStatus.Ipv4...)
 	address = append(address, cur.Alb.Status.Detail.AddressStatus.Ipv6...)
 	d.Log.Info("genExpectFeature", "address", address)
@@ -268,9 +282,11 @@ func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	objs = append(objs, cur.Common)
 	objs = append(objs, cur.PortInfo)
 	objs = append(objs, cur.Deploy)
-	objs = append(objs, cur.Gateway)
+	objs = append(objs, cur.SharedGatewayClass)
 	objs = append(objs, cur.Ingress)
+	objs = append(objs, cur.Feature)
 	objs = append(objs, cur.Svc.GetObjs()...)
+	objs = append(objs, cur.Rbac.GetObjs()...)
 	l.Info("delete obj", "alb", cur.Alb.Name, "len", len(objs))
 	for _, obj := range objs {
 		if IsNil(obj) {
@@ -303,7 +319,13 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		l.Info("alb update success", "ver", expect.Alb.ResourceVersion)
 		return true, nil
 	}
-	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Deploy, expect.Deploy, func(cur *appsv1.Deployment, expect *appsv1.Deployment) bool {
+	// service account 需要在deployment之前创建
+	err = d.RbacCtl.DoUpdate(cur.Rbac, expect.Rbac)
+	if err != nil {
+		return false, err
+	}
+
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Deploy, expect.Deploy, func(cur *appsv1.Deployment, expect *appsv1.Deployment) bool {
 		if cur.Namespace != expect.Namespace {
 			return true
 		}
@@ -321,7 +343,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return false, err
 	}
 	// 我们已经通过patch生成了期望的configmap，所以这里可以直接更新
-	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Common, expect.Common, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Common, expect.Common, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
 		change := !reflect.DeepEqual(cur.Data, expect.Data)
 		if change {
 			l.Info("common configmap change", "diff", cmp.Diff(cur.Data, expect.Data))
@@ -332,7 +354,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return false, err
 	}
 	// 端口项目是完全从config生成的
-	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.PortInfo, expect.PortInfo, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.PortInfo, expect.PortInfo, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
 		change := !reflect.DeepEqual(cur.Data, expect.Data)
 		if change {
 			l.Info("port info change ", "diff", cmp.Diff(cur.Data, expect.Data))
@@ -349,19 +371,22 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	}
 
 	// ingressclass中controller是immutable的,所以这里保持原样
-	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Ingress, expect.Ingress)
+	err = DeleteOrCreate(ctx, d.Cli, d.Log, cur.Ingress, expect.Ingress)
 	if err != nil {
 		return false, err
 	}
 
 	// update gatewayclass
-	err = deleteOrCreate(ctx, d.Cli, d.Log, cur.Gateway, expect.Gateway)
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.SharedGatewayClass, expect.SharedGatewayClass, func(cur, expect *gv1b1t.GatewayClass) bool {
+		same := reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Labels, expect.Labels)
+		return !same
+	})
 	if err != nil {
 		return false, err
 	}
 
 	// update feature
-	err = deleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Feature, expect.Feature, func(cur *unstructured.Unstructured, expect *unstructured.Unstructured) bool {
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Feature, expect.Feature, func(cur *unstructured.Unstructured, expect *unstructured.Unstructured) bool {
 		curAddress, find, err := unstructured.NestedString(cur.Object, "spec", "accessInfo", "host")
 		if err != nil {
 			l.Error(err, "get address from current feature fail")
@@ -384,19 +409,18 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		}
 		return change
 	})
-
 	if err != nil {
 		return false, err
 	}
 
 	// alb 需要考虑status，自己做处理
 	expect.Alb.Status = GenExpectStatus(d.Cfg, cur)
-	if !SameStatus(cur.Alb.Status, expect.Alb.Status) {
+	if !SameStatus(cur.Alb.Status, expect.Alb.Status, l) {
 		err := d.Cli.Status().Update(ctx, expect.Alb)
 		if err != nil {
 			return false, err
 		}
-		l.Info("alb status update", "diff", cmp.Diff(cur.Alb.Status, expect.Alb.Status))
+		l.Info("alb status update", "eq", reflect.DeepEqual(cur.Alb.Status, expect.Alb.Status), "diff", cmp.Diff(cur.Alb.Status, expect.Alb.Status))
 		// 更新status时不应该在reconcile了，否则每次的probetime都是不一样的，会无限循环了
 		return false, nil
 	} else {
@@ -426,55 +450,4 @@ func SameMap(left, right map[string]string) bool {
 		}
 	}
 	return true
-}
-
-type MigrateKind string
-
-const CreateIfNotExistKind = MigrateKind("CreateIfNotExist")
-const DeleteOrUpdateOrCreateKind = MigrateKind("DeleteOrUpdateOrCreate")
-const CreateOrDeleteKind = MigrateKind("CreateOrDelete")
-
-func deleteOrCreate[T client.Object](ctx context.Context, cli client.Client, log logr.Logger, cur T, expect T) error {
-	return migrateCr(CreateOrDeleteKind, ctx, cli, log, cur, expect, func(cur T, expect T) bool { return true })
-}
-
-func deleteOrCreateOrUpdate[T client.Object](ctx context.Context, cli client.Client, log logr.Logger, cur T, expect T, need func(cur, expect T) bool) error {
-	return migrateCr(DeleteOrUpdateOrCreateKind, ctx, cli, log, cur, expect, need)
-}
-
-func migrateCr[T client.Object](kind MigrateKind, ctx context.Context, cli client.Client, log logr.Logger, cur T, expect T, need func(cur, expect T) bool) error {
-	if !IsNil(cur) && IsNil(expect) {
-		log.Info("do delete", "cur", ShowMeta(cur))
-		err := cli.Delete(ctx, expect)
-		if err != nil {
-			return perr.Wrapf(err, "delete %v %v fail", cur.GetObjectKind(), cur.GetName())
-		}
-		log.Info("do delete success", "cur", ShowMeta(expect))
-	}
-	if IsNil(cur) && !IsNil(expect) {
-		log.Info("do create", "cr", PrettyCr(expect))
-		err := cli.Create(ctx, expect)
-		if err != nil {
-			return perr.Wrapf(err, "create %v %v fail", expect.GetObjectKind(), expect.GetName())
-		}
-		log.Info("do create success", "expect", ShowMeta(expect))
-	}
-	if kind == CreateIfNotExistKind || kind == CreateOrDeleteKind {
-		log.Info("do nothing.", "kind", kind, "cur", ShowMeta(cur), "expect", ShowMeta(expect))
-		return nil
-	}
-	if !IsNil(cur) && !IsNil(expect) {
-		if !need(cur, expect) {
-			log.Info("same, ignore update.", "cur", ShowMeta(cur), "expect", ShowMeta(expect))
-			return nil
-		}
-		err := cli.Update(ctx, expect)
-		if err != nil {
-			return perr.Wrapf(err, "update %v %v fail", expect.GetObjectKind(), expect.GetName())
-		}
-		log.Info("not same, do update.", "cur", ShowMeta(cur), "expect", ShowMeta(expect))
-
-		return nil
-	}
-	return nil
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"alauda.io/alb2/config"
+	_ "alauda.io/alb2/config"
 	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	alb2scheme "alauda.io/alb2/pkg/client/clientset/versioned/scheme"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +61,8 @@ func TestLoadAlb(t *testing.T) {
 	defer cancel()
 
 	os.Setenv("DOMAIN", "alauda.io")
-	config.Set("TWEAK_DIRECTORY", "./texture") // set TWEAK_DIRECTORY to a exist path, make calculate hash happy
+	// TODO fix me
+	// config.Set("TWEAK_DIRECTORY", "./texture") // set TWEAK_DIRECTORY to a exist path, make calculate hash happy
 
 	a := assert.New(t)
 	driver, err := GetKubernetesDriver(ctx, true)

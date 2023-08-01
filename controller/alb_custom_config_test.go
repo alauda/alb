@@ -1,15 +1,17 @@
 package controller
 
 import (
-	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"alauda.io/alb2/config"
+	_ "alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRuleConfig(t *testing.T) {
-	config.Set("DOMAIN", "test")
+	config.UseMock(config.DefaultMock())
 	ALBIngressRewriteResponseAnnotation := GetAlbIngressRewriteResponseAnnotation()
 	RuleRewriteResponseAnnotation := GetAlbRuleRewriteResponseAnnotation()
 	type TestCase struct {

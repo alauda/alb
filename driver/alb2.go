@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
-	m "alauda.io/alb2/modules"
+	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils/dirhash"
@@ -30,7 +30,7 @@ const (
 func (kd *KubernetesDriver) LoadAlbResource(namespace, name string) (*albv2.ALB2, error) {
 	alb, err := kd.ALB2Lister.ALB2s(namespace).Get(name)
 	if err != nil {
-		return nil, fmt.Errorf("get alb fail err  %v %v %v", namespace, name, err)
+		return nil, fmt.Errorf("get alb fail err  %v | %v | %v", namespace, name, err)
 	}
 	return alb, nil
 }
@@ -45,7 +45,7 @@ func (kd *KubernetesDriver) UpdateAlbStatus(alb *albv2.ALB2) error {
 }
 
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.Frontend, error) {
-	sel := labels.Set{fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")): lbname}.AsSelector()
+	sel := labels.Set{config.GetConfig().GetLabelAlbName(): lbname}.AsSelector()
 	resList, err := kd.FrontendLister.Frontends(namespace).List(sel)
 	klog.V(4).Infof("loadft alb %s/%s: sel %v len %v", namespace, lbname, sel, len(resList))
 	if err != nil {
@@ -57,8 +57,8 @@ func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.F
 
 func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]*alb2v1.Rule, error) {
 	sel := labels.Set{
-		fmt.Sprintf(config.Get("labels.name"), config.Get("DOMAIN")):     lbname,
-		fmt.Sprintf(config.Get("labels.frontend"), config.Get("DOMAIN")): ftname,
+		config.GetConfig().GetLabelAlbName(): lbname,
+		config.GetConfig().GetLabelFt():      ftname,
 	}.AsSelector()
 	resList, err := kd.RuleLister.Rules(namespace).List(sel)
 	if err != nil {
@@ -90,7 +90,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	alb2.Labels = alb2Res.Labels
 
 	// calculate hash by tweak dir
-	hash, err := dirhash.HashDir(config.Get("TWEAK_DIRECTORY"), ".conf", dirhash.DefaultHash)
+	hash, err := dirhash.HashDir(config.GetConfig().GetNginxCfg().TweakDir, ".conf", dirhash.DefaultHash)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
@@ -130,7 +130,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 }
 
 func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bool) error {
-	ft, err := kd.FrontendLister.Frontends(config.Get("NAMESPACE")).Get(ftName)
+	ft, err := kd.FrontendLister.Frontends(config.GetConfig().GetNs()).Get(ftName)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (kd *KubernetesDriver) UpdateFrontendStatus(ftName string, conflictState bo
 		return nil
 	}
 	klog.Info("update ft status %v", string(patch))
-	if _, err := kd.ALBClient.CrdV1().Frontends(config.Get("NAMESPACE")).Patch(context.TODO(), ft.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := kd.ALBClient.CrdV1().Frontends(config.GetConfig().GetNs()).Patch(context.TODO(), ft.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
 		return err
 	}
 	return nil
