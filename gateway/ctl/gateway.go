@@ -285,45 +285,54 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 		acceptCondition.Message = alb.Status.Reason
 	}
 
-	conditions := []metav1.Condition{
-		acceptCondition,
-	}
-
+	var ready *metav1.Condition
+	var program *metav1.Condition
 	if listenerValid {
-		conditions = append(conditions, metav1.Condition{
+		ready = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionReady),
 			Status:             metav1.ConditionTrue,
 			Reason:             string(gv1b1t.GatewayReasonReady),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
-		})
+		}
 	} else {
-		conditions = append(conditions, metav1.Condition{
+		ready = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionReady),
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gv1b1t.GatewayReasonListenersNotReady),
 			Message:            "one or more listener not ready",
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
-		})
+		}
 	}
 	if len(ips) != 0 {
-		conditions = append(conditions, metav1.Condition{
+		program = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionProgrammed),
 			Status:             metav1.ConditionTrue,
 			Reason:             string(gv1b1t.GatewayReasonProgrammed),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
-		})
+		}
 	} else {
-		conditions = append(conditions, metav1.Condition{
+		ready = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionReady),
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gv1b1t.GatewayReasonAddressNotAssigned),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
-		})
+		}
 	}
+
+	conditions := []metav1.Condition{
+		acceptCondition,
+	}
+	if ready != nil {
+		conditions = append(conditions, *ready)
+	}
+	if program != nil {
+		conditions = append(conditions, *program)
+	}
+
 	gateway.Status.Conditions = conditions
 	g.log.Info("status", "condition", utils.PrettyJson(conditions))
 	oldVersion := gateway.ResourceVersion
