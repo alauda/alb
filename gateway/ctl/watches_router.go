@@ -22,11 +22,14 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 	// TODO merge predicate and eventhandle
 	predicateFunc := func(object client.Object, eventType string) bool {
 		find, keys, err := findGatewayByRouteObject(ctx, c, object, g.cfg.GatewaySelector)
-		log.Info("route to gateway", "event", eventType, "route", client.ObjectKeyFromObject(object), "gateway", keys, "find", find, "err", err)
 		if err != nil {
 			log.Info("failed to filter route object", "event", eventType, "err", err)
 			return false
 		}
+		if !find {
+			return false
+		}
+		log.Info("route to gateway", "event", eventType, "route", client.ObjectKeyFromObject(object), "gateway", keys, "ver", object.GetResourceVersion(), "err", err)
 		return find
 	}
 	routePredicate := predicate.Funcs{

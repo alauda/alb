@@ -36,3 +36,17 @@ func UpdateRouteStatus(r CommonRoute, f func([]gv1b1t.RouteParentStatus) []gv1b1
 	}
 	return nil, fmt.Errorf("unsupported route type %T", r)
 }
+
+func GetRouteStatus(r CommonRoute) ([]gv1b1t.RouteParentStatus, error) {
+	switch route := r.(type) {
+	case *HTTPRoute:
+		return route.Status.Parents, nil
+	case *TCPRoute:
+		return route.Status.Parents, nil
+	case *TLSRoute:
+		return route.Status.Parents, nil
+	case *UDPRoute:
+		return route.Status.Parents, nil
+	}
+	return nil, fmt.Errorf("unsupported route type %T", r)
+}

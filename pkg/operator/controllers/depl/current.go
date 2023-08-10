@@ -7,6 +7,7 @@ import (
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	appsv1 "k8s.io/api/apps/v1"
+	coov1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +33,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	portinfo := &corev1.ConfigMap{}
 	ic := &netv1.IngressClass{}
 	gc := &gv1b1t.GatewayClass{}
+	lease := &coov1.Lease{}
 	var err error
 	key := crcli.ObjectKey{Namespace: req.Namespace, Name: req.Name}
 
@@ -101,6 +103,13 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	if err != nil {
 		return nil, err
 	}
+	err = cli.Get(ctx, key, lease)
+	if errors.IsNotFound(err) {
+		lease = nil
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
 	return &AlbDeploy{
 		Alb:                alb,
 		Deploy:             depl,
@@ -111,5 +120,6 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		Feature:            feature,
 		Svc:                svc,
 		Rbac:               rbac,
+		Lease:              lease,
 	}, nil
 }

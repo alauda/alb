@@ -144,7 +144,7 @@ spec:
 
 		EventuallySuccess(func(g Gomega) {
 			l.Info("update gateway address")
-			// update alb address should updarte  update gateway
+			// update alb address should  update gateway
 			cli := kc.GetAlbClient().CrdV2beta1().ALB2s(albNs)
 			alb, err := cli.Get(ctx, albName, metav1.GetOptions{})
 			GNoErr(g, err)

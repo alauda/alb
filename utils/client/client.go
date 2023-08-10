@@ -6,6 +6,7 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	coov1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -29,6 +30,8 @@ func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = netv1.AddToScheme(scheme)
 	_ = gv1b1t.AddToScheme(scheme)
 	_ = gv1a2t.AddToScheme(scheme)
+	_ = coov1.AddToScheme(scheme)
+
 	return scheme
 }
 

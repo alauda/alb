@@ -1,16 +1,21 @@
 package ctl
 
 import (
-	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"context"
 	"fmt"
+	"reflect"
 	"time"
+
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/kube-openapi/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlBuilder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"alauda.io/alb2/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -152,7 +156,7 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	if getAlbErr != nil {
 		log.Error(err, "get gateway alb fail")
 	}
-	err = g.updateGatewayStatus(gateway, listenerInGateway, alb)
+	requene, msg, err := g.updateGatewayStatus(gateway, listenerInGateway, alb)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("update gateway status fail %v", err)
 	}
@@ -164,6 +168,10 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 	// retry to sync gateway ip
 	if getAlbErr != nil {
 		return reconcile.Result{RequeueAfter: time.Second * 3}, nil
+	}
+	if requene {
+		log.Info("requene", "cause", msg)
+		return reconcile.Result{RequeueAfter: time.Second * 10}, nil
 	}
 	return reconcile.Result{}, nil
 }
@@ -235,7 +243,8 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	}
 }
 
-func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, alb *alb2v2.ALB2) error {
+func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, alb *alb2v2.ALB2) (requene bool, msg string, err error) {
+	origin := gateway.DeepCopy()
 	address := []gv1b1t.GatewayAddress{}
 	ips := pickAlbAddress(alb)
 	for _, ip := range ips {
@@ -245,7 +254,6 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 		ipType := gv1b1t.IPAddressType
 		address = append(address, gv1b1t.GatewayAddress{Type: &ipType, Value: ip})
 	}
-
 	gateway.Status.Addresses = address
 	lsstatusList := []gv1b1t.ListenerStatus{}
 	listenerValid := true
@@ -270,6 +278,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	}
 	gateway.Status.Listeners = lsstatusList
 	albReady := alb.Status.State == alb2v2.ALB2StateRunning
+	allready := true
 	acceptCondition := metav1.Condition{
 		Type:               string(gv1b1t.GatewayConditionAccepted),
 		LastTransitionTime: metav1.Now(),
@@ -280,6 +289,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 		acceptCondition.Reason = string(gv1b1t.GatewayReasonReady)
 		acceptCondition.Message = ""
 	} else {
+		allready = false
 		acceptCondition.Status = metav1.ConditionUnknown
 		acceptCondition.Reason = string(gv1b1t.GatewayReasonPending)
 		acceptCondition.Message = alb.Status.Reason
@@ -321,6 +331,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 		}
+		allready = false
 	}
 
 	conditions := []metav1.Condition{
@@ -332,17 +343,24 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	if program != nil {
 		conditions = append(conditions, *program)
 	}
-
 	gateway.Status.Conditions = conditions
-	g.log.Info("status", "condition", utils.PrettyJson(conditions))
-	oldVersion := gateway.ResourceVersion
-	err := g.c.Status().Update(g.ctx, gateway)
-	newVersion := gateway.ResourceVersion
-	g.log.V(2).Info("update gateway status", "err", err, "gateway", client.ObjectKeyFromObject(gateway), "oldVersion", oldVersion, "newVersion", newVersion)
-	if err != nil {
-		return err
+
+	if sameGatewayStatus(origin.Status, gateway.Status) {
+		g.log.Info("gateway status same ignore")
+		return
 	}
-	return nil
+	g.log.Info("status", "condition", "diff", cmp.Diff(origin.Status, gateway.Status))
+	oldVersion := gateway.ResourceVersion
+	err = g.c.Status().Update(g.ctx, gateway)
+	newVersion := gateway.ResourceVersion
+	g.log.Info("update gateway status", "err", err, "gateway", client.ObjectKeyFromObject(gateway), "oldVersion", oldVersion, "newVersion", newVersion)
+	if err != nil {
+		return false, "", err
+	}
+	if !allready {
+		return true, "not all ready retry", nil
+	}
+	return false, "", err
 }
 
 func (g *GatewayReconciler) GetGatewayAlb(gw *gv1b1t.Gateway) (*alb2v2.ALB2, error) {
@@ -394,18 +412,101 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 
 	for _, r := range rs {
 		log := g.log.WithValues("route", "route", GetObjectKey(r.route))
-		status, err := UpdateRouteStatus(r.route, func(ss []gv1b1t.RouteParentStatus) []gv1b1t.RouteParentStatus {
+		origin, err := GetRouteStatus(r.route)
+		if err != nil {
+			log.Error(err, "invalid route")
+			continue
+		}
+		newStatus, err := UpdateRouteStatus(r.route, func(ss []gv1b1t.RouteParentStatus) []gv1b1t.RouteParentStatus {
 			return updateRoute(ss, r)
 		})
 		if err != nil {
 			log.Error(err, "update route status fail")
 			return err
 		}
-		log.V(2).Info("update route status", "route", GetObjectKey(r.route), "status", status)
+		if SameStatus(origin, newStatus) {
+			log.Info("same status ignore")
+			continue
+		}
+		log.Info("update route status", "route", GetObjectKey(r.route), "status", newStatus, "diff", cmp.Diff(origin, newStatus))
 		err = g.c.Status().Update(g.ctx, r.route.GetObject())
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func SameCondition(origin []metav1.Condition, new []metav1.Condition) bool {
+	if len(origin) != len(new) {
+		return false
+	}
+	for i, oc := range origin {
+		nc := new[i]
+		n := metav1.Now()
+		oc.LastTransitionTime = n
+		nc.LastTransitionTime = n
+		if !reflect.DeepEqual(oc, nc) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameAddress(origin []gv1b1t.GatewayAddress, new []gv1b1t.GatewayAddress) bool {
+	orginset := sets.NewString(lo.Map(origin, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
+	statusset := sets.NewString(lo.Map(new, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
+	return orginset.Equal(statusset)
+}
+
+func sameGatewayStatus(origin gv1b1t.GatewayStatus, new gv1b1t.GatewayStatus) bool {
+	return SameCondition(origin.Conditions, new.Conditions) &&
+		sameAddress(origin.Addresses, new.Addresses) &&
+		sameListenerStatus(origin.Listeners, new.Listeners)
+}
+
+func sameListenerStatus(origin []gv1b1t.ListenerStatus, new []gv1b1t.ListenerStatus) bool {
+	tomap := func(ls []gv1b1t.ListenerStatus) map[string]gv1b1t.ListenerStatus {
+		m := map[string]gv1b1t.ListenerStatus{}
+		for _, s := range ls {
+			m[string(s.Name)] = s
+		}
+		return m
+	}
+	originMap := tomap(origin)
+	newMap := tomap(new)
+	if len(originMap) != len(newMap) {
+		return false
+	}
+	for k, o := range originMap {
+		n, ok := newMap[k]
+		if !ok {
+			return false
+		}
+
+		if !(SameCondition(o.Conditions, n.Conditions) && o.AttachedRoutes == n.AttachedRoutes && reflect.DeepEqual(o.SupportedKinds, n.SupportedKinds)) {
+			return false
+		}
+	}
+	return true
+}
+
+func SameStatus(origin []gv1b1t.RouteParentStatus, new []gv1b1t.RouteParentStatus) bool {
+	if len(origin) != len(new) {
+		return false
+	}
+	for i, oc := range origin {
+		nc := new[i]
+		now := metav1.Now()
+		for i, _ := range oc.Conditions {
+			oc.Conditions[i].LastTransitionTime = now
+		}
+		for i, _ := range nc.Conditions {
+			nc.Conditions[i].LastTransitionTime = now
+		}
+		if !reflect.DeepEqual(oc, nc) {
+			return false
+		}
+	}
+	return true
 }

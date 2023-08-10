@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
+	coov1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +44,7 @@ type AlbDeploy struct {
 	Svc                service.CurSvc
 	Feature            *unstructured.Unstructured
 	Rbac               *rbac.CurRbac
+	Lease              *coov1.Lease
 }
 
 // 为了完成升级alb所需的一些配置
@@ -287,6 +289,7 @@ func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	objs = append(objs, cur.Feature)
 	objs = append(objs, cur.Svc.GetObjs()...)
 	objs = append(objs, cur.Rbac.GetObjs()...)
+	objs = append(objs, cur.Lease)
 	l.Info("delete obj", "alb", cur.Alb.Name, "len", len(objs))
 	for _, obj := range objs {
 		if IsNil(obj) {

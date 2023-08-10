@@ -7,6 +7,7 @@ import (
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/utils/log"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/gateway"
@@ -14,6 +15,18 @@ import (
 	pm "alauda.io/alb2/gateway/nginx/policyattachment"
 	"alauda.io/alb2/gateway/nginx/types"
 )
+
+func filterMetircsListener(lss []*types.Listener, cfg *config.Config) []*types.Listener {
+	metricsPort := sets.NewInt(cfg.GetMetricsPort(), 1936, 11782)
+	ret := []*types.Listener{}
+	for _, l := range lss {
+		if metricsPort.Has(int(l.Port)) {
+			continue
+		}
+		ret = append(ret, l)
+	}
+	return ret
+}
 
 func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.Config) (*LoadBalancer, error) {
 	log := L().WithName(ALB_GATEWAY_NGINX)
@@ -25,9 +38,11 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 	log.Info("get lb config start", "cfg", gcfg)
 	ftMap := map[string]*Frontend{}
 	lss, err := d.ListListener(gcfg.GatewaySelector)
+
 	if err != nil {
 		return nil, err
 	}
+	lss = filterMetircsListener(lss, cfg)
 	log.Info("listener", "total", len(lss), "status", showListenerList(lss))
 	if len(lss) == 0 {
 		return ret, nil
