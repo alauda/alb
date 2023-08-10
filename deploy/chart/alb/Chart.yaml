@@ -1,5 +1,5 @@
 name: alauda-alb2
-version: v3.14.0-beta.7.g45dd4e30
+version: v3.14.0-beta.8.g915dfba1
 description: alauda loadbalancer version 2
 apiVersion: v2
 annotations:
