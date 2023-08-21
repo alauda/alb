@@ -1,5 +1,5 @@
 #!/bin/bash
-
+source ./template/actions/dev.actions.sh
 function alb-install-nginx-test-dependency() {
   apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run

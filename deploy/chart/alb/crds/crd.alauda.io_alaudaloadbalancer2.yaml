@@ -1,11 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.1
   name: alaudaloadbalancer2.crd.alauda.io
 spec:
   group: crd.alauda.io
@@ -109,6 +107,8 @@ spec:
                     type: string
                   cleanMetricsInterval:
                     type: integer
+                  defaultIngressClass:
+                    type: boolean
                   defaultSSLCert:
                     type: string
                   defaultSSLStrategy:
@@ -251,6 +251,10 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
+                      lbSvcIpFamilyPolicy:
+                        description: IPFamilyPolicy represents the dual-stack-ness
+                          requested or required by a Service
+                        type: string
                     type: object
                   workerLimit:
                     type: integer
@@ -270,6 +274,10 @@ spec:
                   address:
                     description: status set by operator
                     properties:
+                      host:
+                        items:
+                          type: string
+                        type: array
                       ipv4:
                         items:
                           type: string
@@ -341,9 +349,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

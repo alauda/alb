@@ -10,8 +10,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// a tree like struct to load all alb route related resource such as alb/ft/rule
 type AlaudaLoadBalancer struct {
 	UID       types.UID
+	Alb       *albv2.ALB2
 	Labels    map[string]string
 	Spec      albv2.ALB2Spec
 	Status    albv2.ALB2Status

@@ -10,6 +10,7 @@ import (
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
+	u "alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/samber/lo"
@@ -246,7 +247,16 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, alb *alb2v2.ALB2) (requene bool, msg string, err error) {
 	origin := gateway.DeepCopy()
 	address := []gv1b1t.GatewayAddress{}
-	ips := pickAlbAddress(alb)
+	albaddress := alb.GetAllAddress()
+	ips, hosts := u.ParseAddressList(albaddress)
+
+	for _, host := range hosts {
+		if host == "" {
+			continue
+		}
+		hostType := gv1b1t.HostnameAddressType
+		address = append(address, gv1b1t.GatewayAddress{Type: &hostType, Value: host})
+	}
 	for _, ip := range ips {
 		if ip == "" {
 			continue
@@ -315,7 +325,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 			ObservedGeneration: gateway.Generation,
 		}
 	}
-	if len(ips) != 0 {
+	if len(albaddress) != 0 {
 		program = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionProgrammed),
 			Status:             metav1.ConditionTrue,

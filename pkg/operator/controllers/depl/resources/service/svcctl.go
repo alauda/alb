@@ -228,6 +228,22 @@ func (s *SvcCtl) patchMonitorSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2
 	return !reflect.DeepEqual(origin, svc)
 }
 
+func (s *SvcCtl) getDefaultLbSvcIpFamily() corev1.IPFamilyPolicy {
+	defaultpolicy := corev1.IPFamilyPolicyPreferDualStack
+	if s.cli == nil || s.ctx == nil {
+		return defaultpolicy
+	}
+	cce, err := ClusterTypeIsCCE(s.cli, s.ctx)
+	if err != nil {
+		s.log.Error(err, "check iscce fail")
+		return defaultpolicy
+	}
+	if !cce {
+		return defaultpolicy
+	}
+	return corev1.IPFamilyPolicySingleStack
+}
+
 func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, albcfg cfg.ALB2Config) (dirty bool) {
 	origin := svc.DeepCopy()
 	owner := MakeOwnerRefs(alb)
@@ -252,8 +268,12 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 	// add label which will be used when load
 	svc.Labels = MergeMap(refLabel, LbSvcLabel(crcli.ObjectKeyFromObject(alb), s.cfg.BaseDomain))
 	svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-	policy := corev1.IPFamilyPolicyPreferDualStack
-	svc.Spec.IPFamilyPolicy = &policy
+	policy := albcfg.Vip.LbSvcIpFamilyPolicy
+	if policy == nil {
+		defaultPolicy := s.getDefaultLbSvcIpFamily()
+		policy = &defaultPolicy
+	}
+	svc.Spec.IPFamilyPolicy = policy
 	// 这个svc也是指向alb的
 	svc.Spec.Selector = map[string]string{"service_name": "alb2-" + name}
 	enable := true

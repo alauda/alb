@@ -3,14 +3,17 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("StandAloneGateway", func() {
@@ -65,7 +68,7 @@ spec:
 			Name:     albName,
 			StartAlb: true,
 		}
-		opt.UseMockLBSvcCtl(DEFAULT_V4_IP_POOL, DEFAULT_V6_IP_POOL)
+		opt.UseMockSvcWithHost(DEFAULT_V4_IP_POOL, DEFAULT_V6_IP_POOL, []string{"a.com"})
 		f, env = NewGatewayF(opt)
 		f.InitProductNs("t1", "")
 		f.InitDefaultSvc("svc-1", []string{"192.168.1.1", "192.168.2.2"})
@@ -132,6 +135,12 @@ spec:
 			accept, find := lo.Find(g.Status.Conditions, func(c metav1.Condition) bool { return c.Type == "Accepted" })
 			o.Expect(find).Should(BeTrue())
 			o.Expect(accept.Reason).Should(Equal("Ready"))
+			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+				return a.Value
+			})
+
+			expectAddress := []string{"199.168.0.1", "2004::199:168:128:235", "a.com"}
+			StringArrayEq(o, address, expectAddress)
 		}, l)
 
 		l.Info("gateway is ready now")
@@ -139,7 +148,10 @@ spec:
 			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status.Addresses))
-			o.Expect(len(g.Status.Addresses)).Should(Equal(2))
+			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+				return a.Value
+			})
+			StringArrayEq(o, address, []string{"199.168.0.1", "2004::199:168:128:235", "a.com"})
 		}, l)
 
 		EventuallySuccess(func(g Gomega) {
@@ -160,7 +172,16 @@ spec:
 			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status))
-			o.Expect(len(g.Status.Addresses)).Should(Equal(4))
+			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+				return a.Value
+			})
+			StringArrayEq(o, address, []string{"127.0.0.2", "127.0.0.3", "199.168.0.1", "2004::199:168:128:235", "a.com"})
 		}, l)
 	})
 })
+
+func StringArrayEq(o Gomega, left []string, right []string) {
+	sort.Strings(left)
+	sort.Strings(right)
+	o.Expect(cmp.Diff(left, right)).Should(Equal(""))
+}

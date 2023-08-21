@@ -87,6 +87,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			Backlog:              pointer.Of(2048),
 			MaxTermSeconds:       pointer.Of(30),
 			PolicyZip:            pointer.Of(false),
+			DefaultIngressClass:  pointer.Of(false),
 			Gateway:              &ExternalGateway{},
 			Resources: &ExternalResources{
 				Alb: &ExternalResource{

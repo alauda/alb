@@ -147,8 +147,9 @@ func TestGetDSLX(t *testing.T) {
 }
 
 func TestNeedEnqueueObject(t *testing.T) {
+	albName := "alb-1"
 	nokIngressClass := string("test")
-	okIngressClass := string("alb2")
+	okIngressClass := albName
 
 	type TestCase struct {
 		description   string
@@ -163,7 +164,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 		{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Namespace: test_utils.DEFAULT_NS,
-				Name:      "alb-1",
+				Name:      albName,
 				Labels: map[string]string{
 					"project.alauda.io/name":    "project-1",
 					"project.alauda.io/ALL_ALL": "true",
@@ -341,7 +342,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 		t.Logf("class err %v %v", c, err)
 		alb, err := drv.LoadALBbyName(test_utils.DEFAULT_NS, test_utils.DEFAULT_ALB)
 		a.NoError(err)
-		need, _ := ingressController.shouldHandleIngress(alb, &testCase.ingress)
+		need, reason := ingressController.shouldHandleIngress(alb, &testCase.ingress)
+		t.Logf("class reason %v", reason)
 
 		a.Equal(testCase.shouldEnqueue, need, testCase.description)
 

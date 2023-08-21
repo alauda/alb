@@ -150,6 +150,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 		startTime := time.Now()
 
 		nctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"), a.lc)
+		nctl.PortProber = a.portProbe
 		// do leader stuff
 		if a.lc.AmILeader() {
 			if a.portProbe != nil {

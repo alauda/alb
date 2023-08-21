@@ -29,7 +29,12 @@ type ALB2Config struct {
 	Vip       VipConfig     // albrun 也不关心lbsvc的annotation
 	Deploy    DeployConfig
 	Overwrite OverwriteCfg
+	Flags     OperatorFlags
 	ExtraConfig
+}
+
+type OperatorFlags struct {
+	DefaultIngressClass bool
 }
 
 type ExtraConfig struct {
@@ -90,12 +95,24 @@ func (a *ALB2Config) Merge(ec ExternalAlbConfig) error {
 	if ec.Overwrite != nil {
 		a.Overwrite = OverwriteCfg(*ec.Overwrite)
 	}
+	a.Flags = mergeOperatorFlags(ec, a)
 	return nil
 }
 
 func mergeExtra(ec ExternalAlbConfig, a *ALB2Config) {
 	a.BindNic = *ec.BindNIC //bindnic 是从volume中读的
 }
+
+func mergeOperatorFlags(ec ExternalAlbConfig, a *ALB2Config) OperatorFlags {
+	defaultClass := false
+	if ec.DefaultIngressClass != nil {
+		defaultClass = *ec.DefaultIngressClass
+	}
+	return OperatorFlags{
+		DefaultIngressClass: defaultClass,
+	}
+}
+
 func MergeController(ec ExternalAlbConfig, a *ALB2Config) {
 	c := &a.Controller
 	c.BackLog = *ec.Backlog

@@ -39,7 +39,7 @@ type NginxController struct {
 	albcfg        *config.Config
 	log           logr.Logger
 	lc            *LeaderElection
-	portProbe     *PortProbe
+	PortProber    *PortProbe
 }
 
 // keep it as same as rule
@@ -122,13 +122,6 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *c
 		log:           log,
 		lc:            leader,
 	}
-	if cfg.ALBRunConfig.Controller.Flags.EnablePortProbe {
-		port, err := NewPortProbe(ctx, kd, log.WithName("portprobe"), cfg)
-		if err != nil {
-			log.Error(err, "init portprobe fail")
-		}
-		n.portProbe = port
-	}
 	return n
 }
 
@@ -166,8 +159,8 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		if err != nil {
 			return nil, err
 		}
-		if nc.portProbe != nil {
-			nc.portProbe.WorkerDetectAndMaskConflictPort(lb)
+		if nc.PortProber != nil {
+			nc.PortProber.WorkerDetectAndMaskConflictPort(lb)
 		}
 		migratePortProject(nc.Ctx, lb, nc.Driver)
 		lbFromAlb = lb

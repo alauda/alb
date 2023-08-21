@@ -27,6 +27,7 @@ type OperatorEnv struct {
 	Opext   *AlbOperatorExt
 	envcfg  OperatorEnvCfg
 	Helm    *Helm
+	InitK8s func(ctx context.Context, base string, cfg *rest.Config, l logr.Logger) error
 }
 
 type OperatorEnvCfg struct {
@@ -36,12 +37,20 @@ type OperatorEnvCfg struct {
 	mockmetallb   bool
 	v4            []string
 	v6            []string
+	host          []string
 }
 
 func (e *OperatorEnvCfg) UseMockLBSvcCtl(v4p, v6p []string) {
 	e.mockmetallb = true
 	e.v4 = v4p
 	e.v6 = v6p
+}
+
+func (e *OperatorEnvCfg) UseMockSvcWithHost(v4p, v6p, host []string) {
+	e.mockmetallb = true
+	e.v4 = v4p
+	e.v6 = v6p
+	e.host = host
 }
 
 func StartOperatorEnvOrDie() *OperatorEnv {
@@ -53,8 +62,11 @@ func StartOperatorEnvOrDie() *OperatorEnv {
 	return e
 }
 
-func StartOperatorEnvOrDieWithOpt(cfg OperatorEnvCfg) *OperatorEnv {
+func StartOperatorEnvOrDieWithOpt(cfg OperatorEnvCfg, exts ...func(e *OperatorEnv)) *OperatorEnv {
 	e := &OperatorEnv{envcfg: cfg}
+	for _, ext := range exts {
+		ext(e)
+	}
 	err := e.Start()
 	if err != nil {
 		panic(err)
@@ -81,6 +93,12 @@ func (e *OperatorEnv) Start() error {
 	bootlog.Info("start envtest over")
 
 	ctx, cancel := context.WithCancel(context.Background())
+	if e.InitK8s != nil {
+		err = e.InitK8s(ctx, base, cfg, l)
+		if err != nil {
+			return err
+		}
+	}
 	kt := NewKubectl(base, cfg, l)
 	kc := NewK8sClient(ctx, cfg)
 	// helm install the operator chart
@@ -104,7 +122,7 @@ func (e *OperatorEnv) Start() error {
 		go e.Opext.Start(ctx)
 	}
 	if e.envcfg.mockmetallb {
-		go NewMockMetallb(ctx, cfg, e.envcfg.v4, e.envcfg.v6, l).Start()
+		go NewMockMetallb(ctx, cfg, e.envcfg.v4, e.envcfg.v6, e.envcfg.host, l).Start()
 	}
 	return nil
 }

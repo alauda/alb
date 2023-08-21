@@ -7,6 +7,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+    helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Release.Namespace }}\", \"name\": \"alb-operator\"}]"
   name: alb-operator.v0.1.0
   namespace: "{{ .Values.global.namespace }}"
 spec:
@@ -59,6 +60,8 @@ spec:
                         value: "{{ .Chart.Version }}"
                       - name: LABEL_BASE_DOMAIN
                         value: "{{ .Values.global.labelBaseDomain }}"
+                      - name: IMAGE_PULL_SECRETS
+                        value: '{{ .Values.global.registry.imagePullSecrets| join "," }}'
                       - name: MY_POD_NAME
                         valueFrom:
                           fieldRef:

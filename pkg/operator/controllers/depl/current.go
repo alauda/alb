@@ -115,7 +115,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		Deploy:             depl,
 		Common:             commoncfg,
 		PortInfo:           portinfo,
-		Ingress:            ic,
+		IngressClass:       ic,
 		SharedGatewayClass: gc,
 		Feature:            feature,
 		Svc:                svc,

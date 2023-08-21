@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"alauda.io/alb2/utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	n1 "k8s.io/api/networking/v1"
@@ -28,7 +29,7 @@ func TestParseAddress(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		ip, host := parseAddress(c.address)
+		ip, host := utils.ParseAddressStr(c.address)
 		assert.Equal(t, c.ip, ip)
 		assert.Equal(t, c.hostname, host)
 	}

@@ -19,6 +19,7 @@ metadata:
     {{- end}}
   annotations:
     {{ $global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
+    helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Release.Namespace }}\", \"name\": \"{{ .Values.loadbalancerName }}\"}]"
     alb.{{ $global.labelBaseDomain }}/migrate-backup: | 
         {{ $cfg | toJson }}
     update-mode: put

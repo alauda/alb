@@ -328,12 +328,37 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 	return nil
 }
 
+func (c *Controller) GetIngressClass(ing *networkingv1.Ingress) *string {
+	var ingressclass *string
+	// get ingress class from ing.spec
+	if ing.Spec.IngressClassName != nil {
+		ingressclass = ing.Spec.IngressClassName
+	}
+	// try annotation
+	if ingressclass == nil {
+		if ingressClassFromAnnotation, ok := ing.GetAnnotations()[config.IngressKey]; ok {
+			ingressclass = &ingressClassFromAnnotation
+		}
+	}
+	return ingressclass
+}
+
+// is our ingressclass
+// 1. is our ingressclass
+// 2. does not has ingressclass
+func (c *Controller) CheckShouldHandleViaIngressClass(ing *networkingv1.Ingress) bool {
+	ingressclass := c.GetIngressClass(ing)
+	if ingressclass == nil {
+		return true
+	}
+	return *ingressclass == c.Name
+}
+
 func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *networkingv1.Ingress) (rv bool, reason string) {
 	IngressHTTPPort := c.GetIngressHttpPort()
 	IngressHTTPSPort := c.GetIngressHttpsPort()
-	_, err := c.GetIngressClass(ing, c.icConfig)
-	if err != nil {
-		reason = fmt.Sprintf("Ignoring ingress because of error while validating ingress class %v %v", ing, err)
+	if !c.CheckShouldHandleViaIngressClass(ing) {
+		reason = fmt.Sprintf("ingresclass is not our %v", c.Name)
 		return false, reason
 	}
 

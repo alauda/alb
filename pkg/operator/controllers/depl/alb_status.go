@@ -94,8 +94,9 @@ func SameStatus(old, new albv2.ALB2Status, log logr.Logger) bool {
 		new.Detail.Alb.PortStatus[i] = p
 	}
 	new.Detail.Deploy.ProbeTimeStr = metav1.Time{}
-	log.Info("check status change", "diff", cmp.Diff(old, new))
-	return reflect.DeepEqual(old, new)
+	same := reflect.DeepEqual(old, new)
+	log.Info("check status change", "diff", cmp.Diff(old, new), "same", same)
+	return same
 }
 
 func GenAddressStatusFromSvc(svc *corev1.Service, cf cfg.Config) albv2.AssignedAddress {
@@ -106,6 +107,7 @@ func GenAddressStatusFromSvc(svc *corev1.Service, cf cfg.Config) albv2.AssignedA
 	}
 	v4 := []string{}
 	v6 := []string{}
+	host := []string{}
 	for _, ingress := range svc.Status.LoadBalancer.Ingress {
 		if IsValidIPv4(ingress.IP) {
 			v4 = append(v4, ingress.IP)
@@ -113,12 +115,17 @@ func GenAddressStatusFromSvc(svc *corev1.Service, cf cfg.Config) albv2.AssignedA
 		if IsValidIPv6(ingress.IP) {
 			v6 = append(v6, ingress.IP)
 		}
+		if ingress.Hostname != "" {
+			host = append(host, ingress.Hostname)
+		}
 	}
-	ok = (len(v4)+len(v6)) != 0 && cf.ALB.Vip.EnableLbSvc
+	total := len(v4) + len(v6) + len(host)
+	ok = total != 0 && cf.ALB.Vip.EnableLbSvc
 	return albv2.AssignedAddress{
 		Ok:   ok,
 		Ipv4: v4,
 		Ipv6: v6,
+		Host: host,
 	}
 }
 

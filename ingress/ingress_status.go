@@ -10,9 +10,6 @@ package ingress
 // 不从status中删除地址
 
 import (
-	"net/url"
-	"strings"
-
 	m "alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/utils"
 	mapset "github.com/deckarep/golang-set/v2"
@@ -39,11 +36,7 @@ func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.
 }
 
 func listAddress(alb *m.AlaudaLoadBalancer) AlbAddress {
-	ipsfromSpec, hostFromSpec := parseAddress(alb.Spec.Address)
-	ips := ipsfromSpec
-	ips = append(ips, alb.Status.Detail.AddressStatus.Ipv4...)
-	ips = append(ips, alb.Status.Detail.AddressStatus.Ipv6...)
-	hosts := hostFromSpec
+	ips, hosts := utils.ParseAddressList(alb.Alb.GetAllAddress())
 	return AlbAddress{
 		ips:   ips,
 		hosts: hosts,
@@ -128,46 +121,4 @@ func FillupIngressStatusAddressAndPort(ing *n1.Ingress, ip string, host string, 
 		Ports:    ingPorts,
 	})
 	return true
-}
-
-func addressIs(address string) (ipv4 bool, ipv6 bool, domain bool, err error) {
-	if utils.IsValidIPv4(address) {
-		return true, false, false, nil
-	}
-	if utils.IsValidIPv6(address) {
-		return false, true, false, nil
-	}
-	_, err = url.Parse(address)
-	if err != nil {
-		return false, false, false, err
-	}
-	return false, false, true, nil
-}
-
-func splitAddress(address string) []string {
-	ip, host := parseAddress(address)
-	return append(ip, host...)
-}
-
-func parseAddress(address string) (ip []string, host []string) {
-	addrs := utils.SplitAndRemoveEmpty(address, ",")
-	ip = []string{}
-	host = []string{}
-	for _, addr := range addrs {
-		addr = strings.TrimSpace(addr)
-		if addr == "" {
-			continue
-		}
-		v4, v6, hostname, err := addressIs(addr)
-		if err != nil {
-			continue
-		}
-		if v4 || v6 {
-			ip = append(ip, addr)
-		}
-		if hostname {
-			host = append(host, addr)
-		}
-	}
-	return ip, host
 }

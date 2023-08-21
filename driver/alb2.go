@@ -80,6 +80,7 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	}
 	klog.V(4).Infof("load alb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	alb2.UID = alb2Res.UID
+	alb2.Alb = alb2Res
 	alb2.Status = alb2Res.Status
 	alb2.Spec = alb2Res.Spec
 	alb2.Labels = alb2Res.Labels

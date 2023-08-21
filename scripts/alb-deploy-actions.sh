@@ -1,7 +1,9 @@
 #!/bin/bash
 
 function alb-gen-crd-and-client() (
+  set -e
   # alb crd
+  # cd /tmp ; export GO111MODULE=on; go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.1
   controller-gen crd paths=./pkg/apis/alauda/... output:crd:dir=./deploy/chart/alb/crds/
   # gateway crd
   # gateway的crd是直接复制的

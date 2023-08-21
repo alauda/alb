@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
@@ -66,7 +65,6 @@ func (c *Controller) StartIngressLoop(ctx context.Context) error {
 type Controller struct {
 	ingressLister         networkinglisters.IngressLister
 	ingressClassAllLister networkinglisters.IngressClassLister
-	ingressClassLister    ingressClassLister
 	ruleLister            listerv1.RuleLister
 	namespaceLister       corelisters.NamespaceLister
 
@@ -81,9 +79,6 @@ type Controller struct {
 	recorder record.EventRecorder
 
 	kd *IngressDriver
-
-	// configuration for ingressClass
-	icConfig *IngressClassConfiguration
 
 	albInformer          informerv2.ALB2Informer
 	ingressInformer      networkinginformers.IngressInformer
@@ -119,48 +114,36 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.GetConfig().GetAlbName()), Host: hostname},
 	)
 
-	domain := albCfg.GetDomain()
-	ControllerName := fmt.Sprintf("%s/%s", domain, config.DefaultControllerName)
-
 	controller := &Controller{
-		ingressLister:         ingressInformer.Lister(),
-		ingressClassAllLister: ingressClassInformer.Lister(),
-		ingressClassLister:    ingressClassLister{cache.NewStore(cache.MetaNamespaceKeyFunc)},
-		ruleLister:            ruleInformer.Lister(),
-		namespaceLister:       namespaceLister,
-		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Ingresses"),
-		recorder:              recorder,
-		kd:                    NewDriver(d, albCfg, log.WithName("driver")),
-		icConfig:              &IngressClassConfiguration{Controller: ControllerName, AnnotationValue: config.DefaultControllerName, WatchWithoutClass: true, IgnoreIngressClass: false, IngressClassByName: true},
-		albInformer:           alb2Informer,
-		ingressInformer:       ingressInformer,
-		ingressClassInformer:  ingressClassInformer,
-		log:                   log,
-		Config:                albCfg,
+		ingressLister:        ingressInformer.Lister(),
+		ruleLister:           ruleInformer.Lister(),
+		namespaceLister:      namespaceLister,
+		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Ingresses"),
+		recorder:             recorder,
+		kd:                   NewDriver(d, albCfg, log.WithName("driver")),
+		albInformer:          alb2Informer,
+		ingressInformer:      ingressInformer,
+		ingressClassInformer: ingressClassInformer,
+		log:                  log,
+		Config:               albCfg,
 	}
 	return controller
 }
 
 func (c *Controller) setUpEventHandler() {
 
-	// icConfig: configuration items for ingressClass
-	icConfig := c.icConfig
 	// 1: reconcile ingress when ingress create/update/delete
 	c.ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newIngress := obj.(*networkingv1.Ingress)
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion))
-			ic, err := c.GetIngressClass(newIngress, icConfig)
-			if err != nil {
-				c.log.Info("Ignoring ingress because of error while validating ingress class", "ingress", Key(newIngress), "error", err)
+			if !c.CheckShouldHandleViaIngressClass(newIngress) {
+				c.log.Info("not our ingress ignore")
 				return
 			}
-			c.log.Info("Found valid IngressClass", "ingress", Key(newIngress), "ingressClass", ic)
 			c.enqueue(IngKey(newIngress))
 		},
 		UpdateFunc: func(old, new interface{}) {
-			var errOld, errCur error
-			var classCur string
 			newIngress := new.(*networkingv1.Ingress)
 			oldIngress := old.(*networkingv1.Ingress)
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
@@ -169,20 +152,10 @@ func (c *Controller) setUpEventHandler() {
 			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
 				return
 			}
-			_, errOld = c.GetIngressClass(oldIngress, icConfig)
-			classCur, errCur = c.GetIngressClass(newIngress, icConfig)
-
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion))
 
-			if errOld != nil && errCur == nil {
-				c.log.Info("creating ingress", "ingress", Key(newIngress), "ingressClass", classCur)
-			} else if errOld == nil && errCur != nil {
-				c.log.Info("removing ingress because of ingressClass changed to other ingress controller", "ingress", Key(newIngress))
-				c.enqueue(IngKey(oldIngress))
-				return
-			} else if errCur == nil && !reflect.DeepEqual(old, new) {
-				c.log.Info("update ingress", "ingress", Key(newIngress), "ingressClass", classCur)
-			} else {
+			if !c.CheckShouldHandleViaIngressClass(oldIngress) && !c.CheckShouldHandleViaIngressClass(newIngress) {
+				c.log.Info("not our ingressclass ignore")
 				return
 			}
 			c.enqueue(IngKey(newIngress))
@@ -190,61 +163,14 @@ func (c *Controller) setUpEventHandler() {
 		DeleteFunc: func(obj interface{}) {
 			ingress := obj.(*networkingv1.Ingress)
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s %s delete event", ingress.Namespace, ingress.Name, ingress.ResourceVersion))
-			_, err := c.GetIngressClass(ingress, icConfig)
-			if err != nil {
-				c.log.Info("Ignoring ingress because of error while validating ingress class", "ingress", Key(ingress), "error", err)
+			if !c.CheckShouldHandleViaIngressClass(ingress) {
+				c.log.Info("not our ingressclass ignore")
 				return
 			}
 			c.enqueue(IngKey(ingress))
 		},
 	})
 
-	// TODO remove this
-	c.ingressClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ingressClass := obj.(*networkingv1.IngressClass)
-			if !CheckIngressClass(ingressClass, icConfig) {
-				return
-			}
-			c.log.Info("add new ingressClass related to the ingress controller", "ingressClass", Key(ingressClass))
-			err := c.ingressClassLister.Add(ingressClass)
-			if err != nil {
-				c.log.Info("error adding ingressClass to store", "ingressClass", Key(ingressClass), "error", err)
-				return
-			}
-		},
-
-		UpdateFunc: func(old, cur interface{}) {
-			oic := old.(*networkingv1.IngressClass)
-			cic := cur.(*networkingv1.IngressClass)
-			if cic.Spec.Controller != icConfig.Controller {
-				c.log.Info("ignoring ingressClass as the spec.controller is not the same of this ingress", "ingressClass", Key(cic))
-				return
-			}
-			if !reflect.DeepEqual(cic.Spec.Parameters, oic.Spec.Parameters) {
-				c.log.Info("update ingressClass related to the ingress controller", "ingressClass", Key(cic))
-				err := c.ingressClassLister.Update(cic)
-				if err != nil {
-					c.log.Info("error updating ingressClass in store", "ingressClass", Key(cic), "error", err)
-					return
-				}
-			}
-		},
-
-		// ingressClass webhook filter ingressClass which is relevant to ingress
-		DeleteFunc: func(obj interface{}) {
-			ingressClass := obj.(*networkingv1.IngressClass)
-			_, err := c.ingressClassLister.ByKey(ingressClass.Name)
-			if err == nil {
-				c.log.Info("delete ingressClass related to the ingress controller", "ingressClass", Key(ingressClass))
-				err = c.ingressClassLister.Delete(ingressClass)
-				if err != nil {
-					c.log.Info("error removing ingressClass from store", "ingressClass", Key(ingressClass), "error", err)
-					return
-				}
-			}
-		},
-	})
 	// 3. reconcile ingress when alb project change.
 	// 4. reconcile ingress when alb address change.
 	c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -287,25 +213,8 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 
 	c.log.Info("Started workers")
 
-	ingclasses, err := c.ingressClassAllLister.List(labels.Everything())
-	if err != nil {
-		c.log.Error(err, "error list all ingressClasses")
-	} else {
-		for _, ingcls := range ingclasses {
-			if !CheckIngressClass(ingcls, c.icConfig) {
-				continue
-			}
-			c.log.Info("add legacy ingressClass related to the ingress controller", "ingressClass", Key(ingcls))
-			err = c.ingressClassLister.Add(ingcls)
-			if err != nil {
-				c.log.Info("error adding ingressClass to store", "ingressClass", Key(ingcls), "error", err)
-				continue
-			}
-		}
-	}
-
 	// init sync
-	err = c.syncAll()
+	err := c.syncAll()
 	if err != nil {
 		c.log.Error(err, "init sync fail")
 	}

@@ -6,7 +6,6 @@ import (
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
-	"alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/log"
 
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -200,8 +199,5 @@ func getAlb(ctx context.Context, c client.Client, ns string, name string) (*alb2
 }
 
 func pickAlbAddress(alb *alb2v2.ALB2) []string {
-	addres := utils.SplitAndRemoveEmpty(alb.Spec.Address, ",")
-	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv4...)
-	addres = append(addres, alb.Status.Detail.AddressStatus.Ipv6...)
-	return addres
+	return alb.GetAllAddress()
 }

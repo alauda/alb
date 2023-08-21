@@ -12,7 +12,7 @@ import (
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/configmap"
 	rg "alauda.io/alb2/pkg/operator/controllers/depl/resources/gateway"
-	"alauda.io/alb2/pkg/operator/controllers/depl/resources/ingress"
+	"alauda.io/alb2/pkg/operator/controllers/depl/resources/ingressclass"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/portinfo"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
@@ -39,7 +39,7 @@ type AlbDeploy struct {
 	Deploy             *appsv1.Deployment
 	Common             *corev1.ConfigMap
 	PortInfo           *corev1.ConfigMap
-	Ingress            *netv1.IngressClass
+	IngressClass       *netv1.IngressClass
 	SharedGatewayClass *gv1b1t.GatewayClass
 	Svc                service.CurSvc
 	Feature            *unstructured.Unstructured
@@ -53,7 +53,7 @@ type AlbDeployUpdate struct {
 	Deploy             *appsv1.Deployment
 	Common             *corev1.ConfigMap
 	PortInfo           *corev1.ConfigMap
-	Ingress            *netv1.IngressClass
+	IngressClass       *netv1.IngressClass
 	SharedGatewayClass *gv1b1t.GatewayClass
 	Svc                service.SvcUpdates
 	Feature            *unstructured.Unstructured
@@ -69,7 +69,7 @@ func (d *AlbDeploy) Show() string {
 		showCr(d.Deploy),
 		showCr(d.Common),
 		showCr(d.PortInfo),
-		showCr(d.Ingress),
+		showCr(d.IngressClass),
 		showCr(d.SharedGatewayClass),
 		d.Svc.Show())
 }
@@ -138,7 +138,7 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 		Deploy:             depl,
 		Common:             comm,
 		PortInfo:           port,
-		Ingress:            ic,
+		IngressClass:       ic,
 		SharedGatewayClass: gc,
 		Svc:                svcupdate,
 		Feature:            feature,
@@ -181,7 +181,6 @@ func (d *AlbDeployCtl) genExpectDeployment(cur *AlbDeploy, conf *cfg.ALB2Config)
 }
 
 func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*netv1.IngressClass, error) {
-	// TODO ingress class 的controller是不可变的
 	var (
 		alb2            = cur.Alb
 		refLabel        = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
@@ -190,8 +189,8 @@ func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Confi
 	if !conf.Controller.Flags.EnableIngress {
 		return nil, nil
 	}
-	ic := ingress.NewTemplate(alb2.GetNamespace(), alb2.Name, labelBaseDomain).Generate(
-		ingress.AddLabel(refLabel),
+	ic := ingressclass.NewTemplate(alb2.GetNamespace(), alb2.Name, labelBaseDomain, conf.Flags.DefaultIngressClass).Generate(
+		ingressclass.AddLabel(refLabel),
 	)
 	return ic, nil
 }
@@ -269,9 +268,7 @@ func (d *AlbDeployCtl) genExpectFeature(cur *AlbDeploy, conf *cfg.ALB2Config) *u
 	if !conf.Controller.Flags.EnableIngress {
 		return nil
 	}
-	address := utils.SplitAndRemoveEmpty(cur.Alb.Spec.Address, ",")
-	address = append(address, cur.Alb.Status.Detail.AddressStatus.Ipv4...)
-	address = append(address, cur.Alb.Status.Detail.AddressStatus.Ipv6...)
+	address := cur.Alb.GetAllAddress()
 	d.Log.Info("genExpectFeature", "address", address)
 	return FeatureCr(cur.Feature, conf.Name, conf.Ns, strings.Join(address, ","))
 }
@@ -285,7 +282,7 @@ func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	objs = append(objs, cur.PortInfo)
 	objs = append(objs, cur.Deploy)
 	objs = append(objs, cur.SharedGatewayClass)
-	objs = append(objs, cur.Ingress)
+	objs = append(objs, cur.IngressClass)
 	objs = append(objs, cur.Feature)
 	objs = append(objs, cur.Svc.GetObjs()...)
 	objs = append(objs, cur.Rbac.GetObjs()...)
@@ -373,8 +370,9 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return false, err
 	}
 
-	// ingressclass中controller是immutable的,所以这里保持原样
-	err = DeleteOrCreate(ctx, d.Cli, d.Log, cur.Ingress, expect.Ingress)
+	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.IngressClass, expect.IngressClass, func(cur *netv1.IngressClass, expect *netv1.IngressClass) bool {
+		return !(reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Annotations, expect.Annotations) && reflect.DeepEqual(cur.Labels, expect.Labels))
+	})
 	if err != nil {
 		return false, err
 	}
@@ -423,7 +421,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		if err != nil {
 			return false, err
 		}
-		l.Info("alb status update", "eq", reflect.DeepEqual(cur.Alb.Status, expect.Alb.Status), "diff", cmp.Diff(cur.Alb.Status, expect.Alb.Status))
+		l.Info("alb status update", "eq", reflect.DeepEqual(cur.Alb.Status, expect.Alb.Status), "newstatus", utils.PrettyJson(expect.Alb.Status), "diff", cmp.Diff(cur.Alb.Status, expect.Alb.Status))
 		// 更新status时不应该在reconcile了，否则每次的probetime都是不一样的，会无限循环了
 		return false, nil
 	} else {

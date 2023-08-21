@@ -26,6 +26,7 @@ function alb-lint-go() {
     return 1
   fi
   alb-lint-go-build
+  alb-list-kind-e2e
 }
 
 function alb-lint-go-build() {

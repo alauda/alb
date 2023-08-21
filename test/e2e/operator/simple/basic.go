@@ -226,6 +226,10 @@ spec:
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, svc)
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Labels["service_name"])
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Spec.Selector["service_name"])
+		// sa上必须有image pull secret
+		sa := &corev1.ServiceAccount{}
+		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2-serviceaccount"}, sa)
+		assert.Equal(GinkgoT(), sa.ImagePullSecrets[0].Name, "mock")
 	})
 
 	GIt("deploy like apprelease", func() {

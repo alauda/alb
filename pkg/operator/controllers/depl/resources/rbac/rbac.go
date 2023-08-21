@@ -146,12 +146,17 @@ func (r *RbacCtl) GenClusterRoleBind(role *rbacv1.ClusterRoleBinding) *rbacv1.Cl
 }
 
 func (r *RbacCtl) GenServiceAccount(sa *corev1.ServiceAccount) *corev1.ServiceAccount {
+	secrets := []corev1.LocalObjectReference{}
+	for _, name := range r.cfg.Operator.ImagePullSecrets {
+		secrets = append(secrets, corev1.LocalObjectReference{Name: name})
+	}
 	if sa == nil {
 		sa = &corev1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf(FMT_SA, r.cfg.ALB.Name),
 				Namespace: r.cfg.ALB.Ns,
 			},
+			ImagePullSecrets: secrets,
 		}
 	}
 	refLabel := ALB2ResourceLabel(r.cfg.ALB.Ns, r.cfg.ALB.Name, r.cfg.Operator.Version)

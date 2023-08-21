@@ -11,8 +11,11 @@ import (
 	"github.com/go-logr/logr"
 	_ "github.com/kr/pretty"
 	. "github.com/onsi/ginkgo"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
+
+	corev1 "k8s.io/api/core/v1"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	. "alauda.io/alb2/test/e2e/framework"
@@ -30,7 +33,9 @@ var _ = Describe("chart", func() {
 	AfterEach(func() {
 		_ = opext
 	})
+
 	f.GIt("deploy alb csv mode", func() {
+		// test point: image secrets
 		values := `
             displayName: "x"
             address: "192.168.134.195"
@@ -40,6 +45,9 @@ var _ = Describe("chart", func() {
               namespace: cpaas-system
               registry:
                 address: build-harbor.alauda.cn
+                imagePullSecrets:
+                - global-registry-auth
+                - xx
             loadbalancerName: ares-alb2
             nodeSelector:
                 kubernetes.io/hostname: 192.168.134.195
@@ -78,9 +86,19 @@ var _ = Describe("chart", func() {
 		// csv模式的时候,我们不会定义deployment,所以这里应该是空的
 		assert.Equal(GinkgoT(), strings.Contains(deplstr, "No resources found"), true)
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
+		// 1. sa 上应该设置imagepullsecrets
+		ns := "cpaas-system"
+		sa, err := kc.GetK8sClient().CoreV1().ServiceAccounts(ns).Get(ctx, "alb-operator", metav1.GetOptions{})
+		GinkgoNoErr(err)
+
+		csv, err = kt.Kubectl("get csv -A -o yaml")
+		GinkgoNoErr(err)
+		l.Info("sa", "sa", PrettyCr(sa), "csv", csv)
+		assert.Equal(GinkgoT(), lo.Map(sa.ImagePullSecrets, func(k corev1.LocalObjectReference, _ int) string { return k.Name }), []string{"global-registry-auth", "xx"})
+		assert.Equal(GinkgoT(), strings.Contains(csv, "global-registry-auth,xx"), true)
 	})
 
-	f.GIt("deploy alb raw mode", func() {
+	f.GIt("deploy alb deployment mode", func() {
 		cfg :=
 			`
             operatorDeployMode: "deployment"
@@ -91,6 +109,9 @@ var _ = Describe("chart", func() {
               namespace: cpaas-system
               registry:
                 address: build-harbor.alauda.cn
+                imagePullSecrets:
+                - global-registry-auth
+                - xx
             loadbalancerName: ares-alb2
             nodeSelector:
                 kubernetes.io/hostname: 192.168.134.195
@@ -119,11 +140,6 @@ var _ = Describe("chart", func() {
 		l.Info("csv", "csv", csv)
 		assert.Equal(GinkgoT(), strings.Contains(csv, "No resources found"), true)
 
-		depl, err := kt.Kubectl("get deployment -A")
-		GinkgoNoErr(err)
-		l.Info("depl", "depl", depl)
-		assert.Equal(GinkgoT(), strings.Contains(depl, "alb-operator"), true)
-
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
 		_, err = kc.GetK8sClient().RbacV1().ClusterRoleBindings().Get(ctx, "alb-operator", metav1.GetOptions{})
 		GinkgoNoErr(err)
@@ -134,6 +150,15 @@ var _ = Describe("chart", func() {
 		dep, err := kc.GetK8sClient().AppsV1().Deployments("cpaas-system").Get(ctx, "alb-operator", metav1.GetOptions{})
 		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), dep.Spec.Template.Spec.ServiceAccountName, "alb-operator")
+
+		sa, err := kc.GetK8sClient().CoreV1().ServiceAccounts("cpaas-system").Get(ctx, "alb-operator", metav1.GetOptions{})
+		GinkgoNoErr(err)
+		l.Info("depl", "sa", PrettyCr(sa))
+		assert.Equal(GinkgoT(), lo.Map(sa.ImagePullSecrets, func(k corev1.LocalObjectReference, _ int) string { return k.Name }), []string{"global-registry-auth", "xx"})
+		deplyaml, err := kt.Kubectl("get deployment -n cpaas-system alb-operator -o yaml")
+		GinkgoNoErr(err)
+		l.Info("depl", "yaml", deplyaml)
+		assert.Equal(GinkgoT(), strings.Contains(deplyaml, "global-registry-auth,xx"), true)
 	})
 
 	f.GIt("deploy operator only", func() {

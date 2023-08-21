@@ -23,6 +23,7 @@ func DefaultConfig() ExternalAlbConfig {
 		EnableIPV6:           pointer.Of("true"),
 		EnableHTTP2:          pointer.Of("true"),
 		EnableIngress:        pointer.Of("true"),
+		DefaultIngressClass:  pointer.Of(false),
 		EnableCrossClusters:  pointer.Of("false"),
 		EnableGzip:           pointer.Of("true"),
 		DefaultSSLCert:       pointer.Of(""),

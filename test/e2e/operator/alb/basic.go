@@ -7,6 +7,7 @@ import (
 	. "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/xorcare/pointer"
 
@@ -19,6 +20,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,6 +91,12 @@ spec:
 			log.Info("check lb svc node port", "svc", PrettyCr(svc))
 			return svc.Spec.Type == "LoadBalancer" && (svc.Spec.AllocateLoadBalancerNodePorts == nil || *svc.Spec.AllocateLoadBalancerNodePorts == true), nil
 		})
+
+		// check sa
+		sa := &corev1.ServiceAccount{}
+		kc.GetClient().Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "alb-1-serviceaccount"}, sa)
+		assert.Equal(GinkgoT(), sa.ImagePullSecrets[0].Name, "mock")
+
 		// switch to false
 		{
 			alb, err := kc.GetAlbClient().CrdV2beta1().ALB2s(ns).Get(ctx, name, metav1.GetOptions{})
@@ -237,6 +245,58 @@ spec:
 				}
 				return svc.Spec.Type == "LoadBalancer" && *svc.Spec.AllocateLoadBalancerNodePorts == true, nil
 			})
+		}
+
+		log.Info("change lbsvc ipFamilyPolicy")
+		{
+			svc, err := ctl.GetLbSvc(ctx, kc.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: name}, "cpaas.io")
+			GinkgoNoErr(err)
+			log.Info("svc", PrettyCr(svc))
+			assert.Equal(GinkgoT(), string(*svc.Spec.IPFamilyPolicy), "PreferDualStack")
+
+			cli := kc.GetAlbClient().CrdV2beta1().ALB2s(ns)
+			alb, err := cli.Get(ctx, name, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			policy := corev1.IPFamilyPolicySingleStack
+			alb.Spec.Config.Vip.LbSvcIpFamilyPolicy = &policy
+			_, err = cli.Update(ctx, alb, metav1.UpdateOptions{})
+			GinkgoNoErr(err)
+			EventuallySuccess(func(g gomega.Gomega) {
+				svc, err := ctl.GetLbSvc(ctx, kc.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: name}, "cpaas.io")
+				GinkgoNoErr(err)
+				log.Info("check svc", PrettyCr(svc))
+				g.Expect(string(*svc.Spec.IPFamilyPolicy)).Should(gomega.Equal("SingleStack"))
+			}, log)
+		}
+		log.Info("check ingress")
+		{
+			changeAndAssert := func(enable bool) {
+				enableStr := "false"
+				if enable {
+					enableStr = "true"
+				}
+				cli := kc.GetAlbClient().CrdV2beta1().ALB2s(ns)
+				alb, err := cli.Get(ctx, name, metav1.GetOptions{})
+				GinkgoNoErr(err)
+				alb.Spec.Config.DefaultIngressClass = pointer.Bool(enable)
+				alb, err = cli.Update(ctx, alb, metav1.UpdateOptions{})
+				GinkgoNoErr(err)
+				log.Info("update-alb", "alb", PrettyCr(alb))
+				EventuallySuccess(func(g gomega.Gomega) {
+					class, err := kc.GetK8sClient().NetworkingV1().IngressClasses().Get(ctx, name, metav1.GetOptions{})
+					log.Info("check ingressclass", "class", PrettyCr(class), "enable", enableStr)
+					g.Expect(err).ShouldNot(gomega.HaveOccurred())
+					g.Expect(class.Annotations["ingressclass.kubernetes.io/is-default-class"]).Should(gomega.Equal(enableStr))
+				}, log)
+			}
+
+			class, err := kc.GetK8sClient().NetworkingV1().IngressClasses().Get(ctx, name, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			log.Info("check ingress", "class", PrettyCr(class))
+			GinkgoAssertTrue(class.Annotations["ingressclass.kubernetes.io/is-default-class"] == "false", "")
+
+			changeAndAssert(true)
+			changeAndAssert(false)
 		}
 	})
 

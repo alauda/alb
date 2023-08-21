@@ -20,7 +20,9 @@ package v2beta1
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 const (
@@ -76,6 +78,7 @@ type ExternalAlbConfig struct {
 	EnableIPV6           *string            `yaml:"enableIPV6" json:"enableIPV6,omitempty"`                   // 可以删掉 默认开启 这个是传递给nginx去绑定ipv6地址的
 	EnableHTTP2          *string            `yaml:"enableHTTP2" json:"enableHTTP2,omitempty"`                 // 可以删掉 默认开启
 	EnableIngress        *string            `yaml:"enableIngress" json:"enableIngress,omitempty"`             // 是否reconcile ingress
+	DefaultIngressClass  *bool              `yaml:"defaultIngressClass" json:"defaultIngressClass,omitempty"` // 是否设置为默认的ingressclass
 	EnableCrossClusters  *string            `yaml:"enableCrossClusters" json:"enableCrossClusters,omitempty"` //在拿ep时是否同时也去拿submariner的svc的ep
 	EnableGzip           *string            `yaml:"enableGzip" json:"enableGzip,omitempty"`                   // 可以删掉 默认开启
 	DefaultSSLCert       *string            `yaml:"defaultSSLCert" json:"defaultSSLCert,omitempty"`
@@ -104,10 +107,12 @@ type ExternalAlbConfig struct {
 }
 
 type VipConfig struct {
-	EnableLbSvc                   bool              `yaml:"enableLbSvc" json:"enableLbSvc,omitempty"`
-	AllocateLoadBalancerNodePorts *bool             `yaml:"allocateLoadBalancerNodePorts" json:"allocateLoadBalancerNodePorts,omitempty"`
-	LbSvcAnnotations              map[string]string `yaml:"lbSvcAnnotations" json:"lbSvcAnnotations,omitempty"`
+	EnableLbSvc                   bool                   `yaml:"enableLbSvc" json:"enableLbSvc,omitempty"`
+	LbSvcIpFamilyPolicy           *corev1.IPFamilyPolicy `yaml:"lbSvcIpFamilyPolicy" json:"lbSvcIpFamilyPolicy,omitempty"`
+	AllocateLoadBalancerNodePorts *bool                  `yaml:"allocateLoadBalancerNodePorts" json:"allocateLoadBalancerNodePorts,omitempty"`
+	LbSvcAnnotations              map[string]string      `yaml:"lbSvcAnnotations" json:"lbSvcAnnotations,omitempty"`
 }
+
 type GatewayMode string
 
 const (
@@ -212,6 +217,7 @@ type AssignedAddress struct {
 	Msg  string   `json:"msg"`
 	Ipv4 []string `json:"ipv4"`
 	Ipv6 []string `json:"ipv6"`
+	Host []string `json:"host"`
 }
 
 type PortStatus struct {
@@ -232,4 +238,20 @@ type ALB2List struct {
 
 func init() {
 	SchemeBuilder.Register(&ALB2{}, &ALB2List{})
+}
+
+func (alb *ALB2) GetAllAddress() []string {
+	address := strings.Split(alb.Spec.Address, ",")
+	address = append(address, alb.Status.Detail.AddressStatus.Ipv4...)
+	address = append(address, alb.Status.Detail.AddressStatus.Ipv6...)
+	address = append(address, alb.Status.Detail.AddressStatus.Host...)
+
+	ret := []string{}
+	for _, addr := range address {
+		if strings.TrimSpace(addr) == "" {
+			continue
+		}
+		ret = append(ret, addr)
+	}
+	return ret
 }

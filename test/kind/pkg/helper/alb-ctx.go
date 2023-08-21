@@ -66,6 +66,7 @@ func (c *AlbK8sCfg) UseMockLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
 	c.v6pool = v6p
 	return c
 }
+
 func (c *AlbK8sCfg) UseMetalLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
 	c.metallb = true
 	c.v4pool = v4p
@@ -282,7 +283,7 @@ func (a *AlbK8sCtx) Init() error {
 		return err
 	}
 	if a.Cfg.mockmetallb {
-		m := NewMockMetallb(a.Ctx, a.kubecfg, a.Cfg.v4pool, a.Cfg.v6pool, a.Log)
+		m := NewMockMetallb(a.Ctx, a.kubecfg, a.Cfg.v4pool, a.Cfg.v6pool, []string{}, a.Log)
 		go m.Start()
 	}
 	if a.Cfg.metallb {

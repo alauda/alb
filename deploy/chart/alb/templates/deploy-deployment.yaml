@@ -4,6 +4,8 @@ apiVersion: apps/v1
 metadata:
   name: "alb-operator"
   namespace: {{ .Values.global.namespace }}
+  annotations:
+    helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Values.global.namespace }}\", \"name\": \"alb-operator\"}]"
 spec:
   strategy:
     type: RollingUpdate
@@ -39,6 +41,8 @@ spec:
               value: "{{ .Values.global.registry.address }}/{{ .Values.global.images.nginx.repository }}:{{ .Values.global.images.nginx.tag }}"
             - name: VERSION
               value: "{{ .Chart.Version }}"
+            - name: IMAGE_PULL_SECRETS
+              value: '{{ .Values.global.registry.imagePullSecrets| join "," }}'
             - name: IMAGE_PULL_POLICY
               value: "{{ .Values.operator.albImagePullPolicy }}"
             - name: LABEL_BASE_DOMAIN

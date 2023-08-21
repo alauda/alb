@@ -1,0 +1,82 @@
+{
+    "certificate_map": {},
+    "http": {
+        "tcp": {
+            "80": [
+                {
+                    "internal_dsl": [
+                        [
+                            "STARTS_WITH",
+                            "URL",
+                            "/nab"
+                        ]
+                    ],
+                    "upstream": "test-upstream-normal-and-break",
+                    "backend_protocol": "HTTP"
+                },
+                {
+                    "internal_dsl": [
+                        [
+                            "STARTS_WITH",
+                            "URL",
+                            "/normal"
+                        ]
+                    ],
+                    "upstream": "test-upstream-normal",
+                    "backend_protocol": "HTTP"
+                },
+                {
+                    "internal_dsl": [
+                        [
+                            "STARTS_WITH",
+                            "URL",
+                            "/break"
+                        ]
+                    ],
+                    "upstream": "test-upstream-break",
+                    "backend_protocol": "HTTP"
+                }
+            ]
+        }
+    },
+    "backend_group": [
+        {
+            "name": "test-upstream-break",
+            "mode": "http",
+            "backends": [
+                {
+                    "address": "127.0.0.1",
+                    "port": 65432,
+                    "weight": 100
+                }
+            ]
+        },
+        {
+            "name": "test-upstream-normal",
+            "mode": "http",
+            "backends": [
+                {
+                    "address": "127.0.0.1",
+                    "port": 65433,
+                    "weight": 100
+                }
+            ]
+        },
+        {
+            "name": "test-upstream-normal-and-break",
+            "mode": "http",
+            "backends": [
+                {
+                    "address": "127.0.0.1",
+                    "port": 65432,
+                    "weight": 100
+                },
+                {
+                    "address": "127.0.0.1",
+                    "port": 65433,
+                    "weight": 100
+                }
+            ]
+        }
+    ]
+}
