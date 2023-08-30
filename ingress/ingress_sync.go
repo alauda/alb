@@ -328,6 +328,7 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 	return nil
 }
 
+// return: nil or not-empty string
 func (c *Controller) GetIngressClass(ing *networkingv1.Ingress) *string {
 	var ingressclass *string
 	// get ingress class from ing.spec
@@ -339,6 +340,9 @@ func (c *Controller) GetIngressClass(ing *networkingv1.Ingress) *string {
 		if ingressClassFromAnnotation, ok := ing.GetAnnotations()[config.IngressKey]; ok {
 			ingressclass = &ingressClassFromAnnotation
 		}
+	}
+	if ingressclass != nil && strings.TrimSpace(*ingressclass) == "" {
+		ingressclass = nil
 	}
 	return ingressclass
 }

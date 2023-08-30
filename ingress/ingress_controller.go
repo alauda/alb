@@ -138,7 +138,7 @@ func (c *Controller) setUpEventHandler() {
 			newIngress := obj.(*networkingv1.Ingress)
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion))
 			if !c.CheckShouldHandleViaIngressClass(newIngress) {
-				c.log.Info("not our ingress ignore")
+				c.log.Info("not our ingress ignore", "ing", newIngress)
 				return
 			}
 			c.enqueue(IngKey(newIngress))
@@ -155,7 +155,7 @@ func (c *Controller) setUpEventHandler() {
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion))
 
 			if !c.CheckShouldHandleViaIngressClass(oldIngress) && !c.CheckShouldHandleViaIngressClass(newIngress) {
-				c.log.Info("not our ingressclass ignore")
+				c.log.Info("not our ingressclass ignore", "old-ing", oldIngress, "new-ing", newIngress)
 				return
 			}
 			c.enqueue(IngKey(newIngress))
@@ -164,7 +164,7 @@ func (c *Controller) setUpEventHandler() {
 			ingress := obj.(*networkingv1.Ingress)
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s %s delete event", ingress.Namespace, ingress.Name, ingress.ResourceVersion))
 			if !c.CheckShouldHandleViaIngressClass(ingress) {
-				c.log.Info("not our ingressclass ignore")
+				c.log.Info("not our ingressclass ignore", "ing", ingress)
 				return
 			}
 			c.enqueue(IngKey(ingress))
