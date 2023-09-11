@@ -5,7 +5,11 @@ metadata:
   name: "alb-operator"
   namespace: {{ .Values.global.namespace }}
   annotations:
-    helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Values.global.namespace }}\", \"name\": \"alb-operator\"}]"
+    {{- if .Values.defaultAlb }}
+    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "alb-operator"},{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "{{.Values.loadbalancerName}}"}]'
+    {{- else }}
+    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "alb-operator"}]'
+    {{- end }}
 spec:
   strategy:
     type: RollingUpdate

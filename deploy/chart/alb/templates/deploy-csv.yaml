@@ -7,7 +7,11 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.23.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-    helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Release.Namespace }}\", \"name\": \"alb-operator\"}]"
+    {{- if .Values.defaultAlb }}
+    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "alb-operator"},{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "{{.Values.loadbalancerName}}"}]'
+    {{- else }}
+    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "alb-operator"}]'
+    {{- end }}
   name: alb-operator.v0.1.0
   namespace: "{{ .Values.global.namespace }}"
 spec:
