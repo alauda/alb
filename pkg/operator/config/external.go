@@ -46,7 +46,7 @@ func DefaultConfig() ExternalAlbConfig {
 		Resources: &ExternalResources{
 			ExternalResource: &ExternalResource{
 				Limits: &ContainerResource{
-					CPU:    "200m",
+					CPU:    "2",
 					Memory: "2Gi",
 				},
 				Requests: &ContainerResource{
@@ -56,7 +56,7 @@ func DefaultConfig() ExternalAlbConfig {
 			},
 			Alb: &ExternalResource{
 				Limits: &ContainerResource{
-					CPU:    "2",
+					CPU:    "200m",
 					Memory: "2Gi",
 				},
 				Requests: &ContainerResource{

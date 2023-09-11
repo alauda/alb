@@ -12,7 +12,7 @@ import (
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/configmap"
 	rg "alauda.io/alb2/pkg/operator/controllers/depl/resources/gateway"
-	"alauda.io/alb2/pkg/operator/controllers/depl/resources/ingressclass"
+	ingcls "alauda.io/alb2/pkg/operator/controllers/depl/resources/ingressclass"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/portinfo"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
@@ -82,20 +82,22 @@ func showCr(obj client.Object) string {
 }
 
 type AlbDeployCtl struct {
-	Cli     *ALB2ResourceClient
-	Cfg     cfg.Config
-	Log     logr.Logger
-	SvcCtl  *service.SvcCtl
-	RbacCtl *rbac.RbacCtl
+	Cli       *ALB2ResourceClient
+	Cfg       cfg.Config
+	Log       logr.Logger
+	SvcCtl    *service.SvcCtl
+	RbacCtl   *rbac.RbacCtl
+	IngClsCtl *ingcls.IngClsCtl
 }
 
 func NewAlbDeployCtl(ctx context.Context, cli ctlClient.Client, cfg cfg.Config, log logr.Logger) AlbDeployCtl {
 	return AlbDeployCtl{
-		Cli:     NewALB2ResourceClient(cli),
-		Cfg:     cfg,
-		Log:     log,
-		SvcCtl:  service.NewSvcCtl(ctx, cli, log, cfg.Operator),
-		RbacCtl: rbac.NewRbacCtl(ctx, cli, log, cfg),
+		Cli:       NewALB2ResourceClient(cli),
+		Cfg:       cfg,
+		Log:       log,
+		SvcCtl:    service.NewSvcCtl(ctx, cli, log, cfg.Operator),
+		RbacCtl:   rbac.NewRbacCtl(ctx, cli, log, cfg),
+		IngClsCtl: ingcls.NewIngClsCtl(),
 	}
 }
 
@@ -116,7 +118,7 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 		return nil, err
 	}
 
-	ic, err := d.genExpectIngressClass(cur, cfg)
+	ic, err := d.IngClsCtl.GenExpectIngressClass(cur.IngressClass.DeepCopy(), &d.Cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -178,21 +180,6 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 func (d *AlbDeployCtl) genExpectDeployment(cur *AlbDeploy, conf *cfg.ALB2Config) (*appsv1.Deployment, error) {
 	deploy := workload.NewTemplate(cur.Alb, cur.Deploy.DeepCopy(), conf, d.Cfg.Operator, d.Log).Generate()
 	return deploy, nil
-}
-
-func (d *AlbDeployCtl) genExpectIngressClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*netv1.IngressClass, error) {
-	var (
-		alb2            = cur.Alb
-		refLabel        = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
-		labelBaseDomain = d.Cfg.Operator.GetLabelBaseDomain()
-	)
-	if !conf.Controller.Flags.EnableIngress {
-		return nil, nil
-	}
-	ic := ingressclass.NewTemplate(alb2.GetNamespace(), alb2.Name, labelBaseDomain, conf.Flags.DefaultIngressClass).Generate(
-		ingressclass.AddLabel(refLabel),
-	)
-	return ic, nil
 }
 
 // TODO 共享型的gateway如何实现还是待定..所以这么就按照已经实现的逻辑来
@@ -334,7 +321,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		}
 		update, reason := workload.NeedUpdate(cur, expect, l)
 		if update {
-			l.Info("deployment change", "reason", reason, "diff", cmp.Diff(cur.Spec, expect.Spec))
+			l.Info("deployment change", "reason", reason)
 			return true
 		}
 		return false

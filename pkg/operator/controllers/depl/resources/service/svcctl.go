@@ -98,7 +98,6 @@ func (s *SvcCtl) Load(albkey crcli.ObjectKey) (CurSvc, error) {
 func (s *SvcCtl) genMonitorSvcUpdate(cur CurSvc, cf cfg.Config, alb *a2t.ALB2) SvcUpdate {
 	name := cf.ALB.Name
 	ns := cf.ALB.Ns
-	metrics := int32(cf.ALB.Controller.MetricsPort)
 	svcType := "ClusterIP"
 	if IsNil(cur.MonitorSvc) {
 		svc := &corev1.Service{
@@ -112,17 +111,7 @@ func (s *SvcCtl) genMonitorSvcUpdate(cur CurSvc, cf cfg.Config, alb *a2t.ALB2) S
 			},
 			// service必须有一个port
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name:     "metrics",
-						Protocol: "TCP",
-						Port:     metrics,
-						TargetPort: intstr.IntOrString{
-							Type:   intstr.Int,
-							IntVal: metrics,
-						},
-					},
-				},
+				// add default ports in patchMonitorSvcDefaultConfig
 				Type:            corev1.ServiceType(svcType),
 				SessionAffinity: "None",
 			},
@@ -225,6 +214,46 @@ func (s *SvcCtl) patchMonitorSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2
 	}
 	svc.Labels = MergeMap(refLabel, label)
 	svc.Spec.Selector = label
+
+	metrics := int32(cfg.ALB.Controller.MetricsPort)
+	ports := []corev1.ServicePort{
+		{
+			Name:     "metrics",
+			Protocol: "TCP",
+			Port:     metrics,
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: metrics,
+			},
+		},
+	}
+	if cfg.ALB.Controller.HttpPort != 0 {
+		port := cfg.ALB.Controller.HttpPort
+		ports = append(ports, corev1.ServicePort{
+			Name:     fmt.Sprintf("http-%d", port),
+			Protocol: "TCP",
+			Port:     int32(port),
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(port),
+			},
+		})
+	}
+
+	if cfg.ALB.Controller.HttpsPort != 0 {
+		port := cfg.ALB.Controller.HttpsPort
+		ports = append(ports, corev1.ServicePort{
+			Name:     fmt.Sprintf("https-%d", port),
+			Protocol: "TCP",
+			Port:     int32(port),
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(port),
+			},
+		})
+	}
+	svc.Spec.Ports = ports
+
 	return !reflect.DeepEqual(origin, svc)
 }
 

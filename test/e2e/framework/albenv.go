@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
+	ctl "alauda.io/alb2/controller"
 	albCtl "alauda.io/alb2/controller/alb"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils/log"
@@ -207,6 +208,8 @@ func (a *AlbEnv) StartTestAlbLoop(rest *rest.Config, cfg *config.Config, log log
 	for {
 		ctx := a.albCtx
 		alb := albCtl.NewAlb(ctx, rest, cfg, log)
+		lc := ctl.NewLeaderElection(ctx, cfg, rest, log)
+		alb.WithLc(lc)
 		alb.Start()
 		ctl := <-ctlchan
 		if ctl.kind == "stop" {

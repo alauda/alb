@@ -22,6 +22,8 @@ import (
 	"alauda.io/alb2/driver"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	. "alauda.io/alb2/pkg/config"
 	"k8s.io/klog/v2"
 )
 
@@ -196,10 +198,6 @@ func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
 		fmt.Sprintf("%s-port-info", config.GetConfig().GetAlbName()), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
-	}
-	type PortProject []struct {
-		Port     string   `json:"port"`
-		Projects []string `json:"projects"`
 	}
 	if cm.Data["range"] != "" {
 		var body PortProject

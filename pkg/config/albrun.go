@@ -54,6 +54,11 @@ type ControllerConfig struct {
 	BackLog            int
 }
 
+type PortProject []struct {
+	Port     string   `json:"port"`
+	Projects []string `json:"projects"`
+}
+
 type ControllerFlags struct {
 	EnableAlb           bool
 	EnableGC            bool

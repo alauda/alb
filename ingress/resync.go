@@ -31,6 +31,7 @@ func (c *Controller) StartResyncLoop(ctx context.Context) error {
 			log.Error(err, "resync fail,just retry in next period")
 		}
 	}, resyncPeriod)
+	log.Info("resync loop over ", "ctx", ctx.Err())
 	return nil
 }
 
@@ -78,6 +79,7 @@ func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
 			overHandledIngresskey = append(overHandledIngresskey, ing)
 		}
 	}
+	// TODO add ingress-len expect-ingress-rule actual-ingress-rule-len user-rule-len
 	log.Info("resync count over", "over-handle-ing-len", len(overHandledIngresskey), "unsyncd-ing-len", len(unSyncdIngress))
 	keys := lo.KeyBy(append(unSyncdIngress, overHandledIngresskey...), func(key client.ObjectKey) client.ObjectKey {
 		return key

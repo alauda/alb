@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -70,7 +71,7 @@ type DeploySpec struct {
 type DeployContainerCfg struct {
 	Env         []corev1.EnvVar
 	Image       string
-	Resource    corev1.ResourceRequirements
+	Resource    a2t.ExternalResource
 	Probe       *corev1.Probe
 	Name        string
 	Command     []string
@@ -141,7 +142,7 @@ func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
 			Securityctx: c.SecurityContext,
 			Env:         c.Env,
 			Probe:       c.LivenessProbe,
-			Resource:    c.Resources,
+			Resource:    toResource(c.Resources),
 		}
 	}
 
@@ -224,7 +225,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				},
 			},
 			Env:      conf.GetALBContainerEnvs(),
-			Resource: conf.Deploy.ALbResource,
+			Resource: toResource(conf.Deploy.ALbResource),
 		},
 		Nginx: DeployContainerCfg{
 			Name:  "nginx",
@@ -257,7 +258,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				SuccessThreshold:    1,
 				FailureThreshold:    5,
 			},
-			Resource: conf.Deploy.NginxResource,
+			Resource: toResource(conf.Deploy.NginxResource),
 		},
 		Vol: VolumeCfg{
 			Volumes: map[string]corev1.Volume{
@@ -276,6 +277,32 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 					"nginx-run":  "/alb/nginx/run/",
 				},
 			},
+		},
+	}
+}
+
+func toResource(res corev1.ResourceRequirements) a2t.ExternalResource {
+	return a2t.ExternalResource{
+		Limits: &a2t.ContainerResource{
+			CPU:    res.Limits.Cpu().String(),
+			Memory: res.Limits.Memory().String(),
+		},
+		Requests: &a2t.ContainerResource{
+			CPU:    res.Requests.Cpu().String(),
+			Memory: res.Requests.Memory().String(),
+		},
+	}
+}
+
+func fromResource(res a2t.ExternalResource) corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(res.Limits.CPU),
+			corev1.ResourceMemory: resource.MustParse(res.Limits.Memory),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(res.Requests.CPU),
+			corev1.ResourceMemory: resource.MustParse(res.Requests.Memory),
 		},
 	}
 }
@@ -354,7 +381,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			Command:                  nginx.Command,
 			ImagePullPolicy:          nginx.Pullpolicy,
 			SecurityContext:          nginx.Securityctx,
-			Resources:                nginx.Resource,
+			Resources:                fromResource(nginx.Resource),
 			LivenessProbe:            nginx.Probe,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
@@ -368,7 +395,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			Command:                  alb.Command,
 			ImagePullPolicy:          alb.Pullpolicy,
 			SecurityContext:          alb.Securityctx,
-			Resources:                alb.Resource,
+			Resources:                fromResource(alb.Resource),
 			LivenessProbe:            alb.Probe,
 			VolumeMounts:             albMounts,
 			TerminationMessagePath:   "/dev/termination-log",
@@ -449,9 +476,11 @@ func NeedUpdate(cur, new *appv1.Deployment, log logr.Logger) (bool, string) {
 	}
 	curCfg := pickConfigFromDeploy(cur)
 	newCfg := pickConfigFromDeploy(new)
-	log.Info("check deployment change", "diff", cmp.Diff(curCfg, newCfg), "deep-eq", reflect.DeepEqual(curCfg, newCfg))
-	if reflect.DeepEqual(curCfg, newCfg) {
+	eq := reflect.DeepEqual(curCfg, newCfg)
+	diff := cmp.Diff(curCfg, newCfg)
+	log.Info("check deployment change", "diff", diff, "deep-eq", eq)
+	if eq {
 		return false, ""
 	}
-	return true, cmp.Diff(curCfg, newCfg)
+	return true, diff
 }

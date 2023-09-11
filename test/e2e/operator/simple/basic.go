@@ -226,6 +226,10 @@ spec:
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, svc)
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Labels["service_name"])
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Spec.Selector["service_name"])
+		log.Info("common svc", "svc", PrettyCr(svc))
+		assert.Equal(GinkgoT(), 1936, int(svc.Spec.Ports[0].Port))
+		assert.Equal(GinkgoT(), 80, int(svc.Spec.Ports[1].Port))
+		assert.Equal(GinkgoT(), 443, int(svc.Spec.Ports[2].Port))
 		// sa上必须有image pull secret
 		sa := &corev1.ServiceAccount{}
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2-serviceaccount"}, sa)

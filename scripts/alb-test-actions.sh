@@ -10,6 +10,25 @@ function alb-build-e2e-test() {
   ginkgo -dryRun -v ./test/e2e
 }
 
+function alb-go-test-all-with-coverage() {
+  rm ./coverage.txt || true
+  alb-go-unit-test
+  local end_unit=$(date +"%Y %m %e %T.%6N")
+  alb-run-all-e2e-test
+  local end_e2e=$(date +"%Y %m %e %T.%6N")
+  echo "end_unit $end_unit"
+  echo "end_e2e $end_e2e"
+
+  tail -n +2 ./test/e2e/coverage.e2e >>./coverage.txt
+
+  sed -e '1i\mode: atomic' ./coverage.txt >./coverage.txt.all
+  mv ./coverage.txt.all ./coverage.txt
+  go tool cover -html=./coverage.txt -o coverage.html
+  go tool cover -func=./coverage.txt >./coverage.report
+  local total=$(grep total ./coverage.report | awk '{print $3}')
+  echo $total
+}
+
 function alb-run-all-e2e-test() (
   set -e
   # TODO 覆盖率
@@ -32,15 +51,16 @@ function alb-run-all-e2e-test() (
     done < <(ginkgo -dryRun -noColor -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort)
     return
   fi
-  ginkgo -failFast -p -nodes $concurrent ./test/e2e
+
+  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
+  local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
+  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e -failFast -p -nodes $concurrent ./test/e2e
 )
 
 function alb-go-unit-test() {
   local filter=${1:-""}
   # TODO it shoult include e2e test
   # translate from https://github.com/ory/go-acc
-  rm -rf ./coverage*
-  echo 'mode: atomic' >coverage.txt
   local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
@@ -63,11 +83,6 @@ function alb-go-unit-test() {
     echo "unit test wrong"
     return 1
   fi
-
-  go tool cover -html=./coverage.txt -o coverage.html
-  go tool cover -func=./coverage.txt >./coverage.report
-  local total=$(grep total ./coverage.report | awk '{print $3}')
-  echo $total
 }
 
 function alb-envtest-install() {
@@ -124,15 +139,13 @@ function alb-test-all-in-ci-golang() {
   tree ./
   alb-lint-all
   local end_lint=$(date +"%Y %m %e %T.%6N")
-  alb-go-unit-test
-  local end_unit=$(date +"%Y %m %e %T.%6N")
-  alb-run-all-e2e-test
-  local end_e2e=$(date +"%Y %m %e %T.%6N")
+  alb-go-test-all-with-coverage
+  local end_test=$(date +"%Y %m %e %T.%6N")
+
   echo "$start"
   echo "$end_install"
   echo "$end_lint"
-  echo "$end_unit"
-  echo "$end_e2e"
+  echo "$end_test"
 }
 
 function alb-list-kind-e2e() {

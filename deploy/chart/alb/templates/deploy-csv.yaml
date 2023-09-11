@@ -81,6 +81,9 @@ spec:
                       timeoutSeconds: 5
                     name: alb-operator
                     securityContext:
+                      runAsGroup: 697
+                      runAsNonRoot: true
+                      runAsUser: 697
                       readOnlyRootFilesystem: true
                     resources:
                       requests:

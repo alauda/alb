@@ -2,6 +2,7 @@ package main
 
 import (
 	"alauda.io/alb2/config"
+	ctl "alauda.io/alb2/controller"
 	. "alauda.io/alb2/controller/alb"
 	"alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/controller/state"
@@ -25,6 +26,7 @@ func main() {
 }
 
 func run() error {
+
 	l := log.L().WithName("lifecycle")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -40,6 +42,11 @@ func run() error {
 		return err
 	}
 
+	a := NewAlb(ctx, restcfg, albCfg, log.L())
+	lcctx, lcCancel := context.WithCancel(ctx)
+	lc := ctl.NewLeaderElection(lcctx, albCfg, restcfg, log.L().WithName("lc"))
+	a.WithLc(lc)
+
 	go StartSignalLoop(cancel, SignalCallBack{
 		OnSigInt: func() {
 			l.Info("receive SIGINT(ctrl-c), shutting down")
@@ -49,13 +56,14 @@ func run() error {
 		OnSigTerm: func() {
 			l.Info("receive SIGTERM(graceful-shutdown), close nginx port")
 			state.GetState().SetPhase(modules.PhaseTerminating)
+			lcCancel()
+			l.Info("receive SIGTERM(graceful-shutdown), cancel leader")
 			//  could not cancel here. waitting f5 healthcheck to remove this port.
 			//  wait nginx close 1936 metrics port
 			//  then we could stop alb.
 		},
 	}, log.L().WithName("signal"))
 
-	a := NewAlb(ctx, restcfg, albCfg, log.L())
 	err = a.Start()
 	if err != nil {
 		l.Error(err, "alb run fail")
@@ -63,10 +71,6 @@ func run() error {
 	}
 	l.Info("graceful shutdown")
 	return nil
-}
-
-func GetState() {
-	panic("unimplemented")
 }
 
 type SignalCallBack struct {

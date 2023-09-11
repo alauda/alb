@@ -101,6 +101,14 @@ func RandomFile(base string, file string) (string, error) {
 	return p, err
 }
 
+func MarshOrPanic(data interface{}) string {
+	out, err := json.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
+}
+
 func PrettyJson(data interface{}) string {
 	out, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {

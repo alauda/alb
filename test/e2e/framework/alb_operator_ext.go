@@ -155,8 +155,7 @@ func (a *AlbOperatorExt) Start(ctx context.Context) {
 	}
 }
 
-func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv *config.OperatorCfg) {
-	// use operator to create other resources.
+func (a *AlbOperatorExt) DeployAlb(name types.NamespacedName, operatorEnv *config.OperatorCfg) (bool, error) {
 	if operatorEnv == nil {
 		operatorEnv = &config.DEFAULT_OPERATOR_CFG
 	}
@@ -164,34 +163,45 @@ func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv 
 	env := *operatorEnv
 	log := a.log
 	ctx := a.ctx
+	cur, err := depl.LoadAlbDeploy(ctx, cli, log, name, env)
+	if err != nil {
+		log.Error(err, "load err")
+		return false, err
+	}
+	conf, err := config.NewALB2Config(cur.Alb, *operatorEnv, log)
+	if err != nil {
+		log.Error(err, "new err")
+		return false, err
+	}
+	cfg := config.Config{Operator: env, ALB: *conf}
+	dctl := depl.NewAlbDeployCtl(ctx, cli, cfg, log)
+	expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
+	if err != nil {
+		log.Error(err, "gen err")
+		return false, err
+	}
+	redo, err := dctl.DoUpdate(ctx, cur, expect)
+	if err != nil {
+		log.Error(err, "update err")
+		return false, err
+	}
+	return redo, nil
+}
+
+func (a *AlbOperatorExt) AssertDeployAlb(name types.NamespacedName, operatorEnv *config.OperatorCfg) {
+	// use operator to create other resources.
+	if operatorEnv == nil {
+		operatorEnv = &config.DEFAULT_OPERATOR_CFG
+	}
+	log := a.log
 	count := 0
 	for {
 		count++
 		log.Info("mock operator reconcile", "count", count)
-		cur, err := depl.LoadAlbDeploy(ctx, cli, log, name, env)
-		if err != nil {
-			log.Error(err, "load err")
-			continue
-		}
-		conf, err := config.NewALB2Config(cur.Alb, *operatorEnv, log)
-		if err != nil {
-			log.Error(err, "new err")
-			continue
-		}
-		cfg := config.Config{Operator: env, ALB: *conf}
-		dctl := depl.NewAlbDeployCtl(ctx, cli, cfg, log)
-		expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
-		if err != nil {
-			log.Error(err, "gen err")
-			continue
-		}
-		redo, err := dctl.DoUpdate(ctx, cur, expect)
-		if err != nil {
-			log.Error(err, "update err")
-		}
 		if count > 100 {
 			GinkgoNoErr(fmt.Errorf("too many times"))
 		}
+		redo, err := a.DeployAlb(name, operatorEnv)
 		if !redo && err == nil {
 			time.Sleep(time.Millisecond * 100)
 			break

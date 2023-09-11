@@ -33,14 +33,16 @@ type Alb struct {
 }
 
 func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg *config.Config, log logr.Logger) *Alb {
-	lc := ctl.NewLeaderElection(ctx, albCfg, restcfg, log.WithName("lc"))
 	return &Alb{
 		ctx:    ctx,
 		cfg:    restcfg,
 		albcfg: albCfg,
 		log:    log,
-		lc:     lc,
 	}
+}
+
+func (a *Alb) WithLc(lc *ctl.LeaderElection) {
+	a.lc = lc
 }
 
 func (a *Alb) Start() error {
@@ -51,7 +53,7 @@ func (a *Alb) Start() error {
 
 	albCfg := config.GetConfig()
 	state.GetState().SetPhase(modules.PhaseStarting)
-
+	leaderctx := a.lc.GetCtx()
 	go func() {
 		l.Info("start leaderelection")
 		err := a.lc.StartLeaderElectionLoop()
@@ -87,18 +89,18 @@ func (a *Alb) Start() error {
 			l.Info("ingress loop, start wait leader")
 			a.lc.WaitUtilIMLeader()
 			l.Info("ingress loop, im leader now")
-			err := ingressController.StartIngressLoop(ctx)
+			err := ingressController.StartIngressLoop(leaderctx)
 			if err != nil {
-				l.Error(err, "ingress loop fail")
+				l.Error(err, "ingress loop fail", "ctx", leaderctx.Err())
 			}
 		}()
 		go func() {
 			l.Info("ingress-resync loop, start wait leader")
 			a.lc.WaitUtilIMLeader()
 			l.Info("ingress-resync loop, im leader now")
-			err := ingressController.StartResyncLoop(ctx)
+			err := ingressController.StartResyncLoop(leaderctx)
 			if err != nil {
-				l.Error(err, "ingress resync loop fail")
+				l.Error(err, "ingress resync loop fail", "ctx", leaderctx.Err())
 			}
 		}()
 	}
@@ -115,7 +117,7 @@ func (a *Alb) Start() error {
 				l.Info("wait leader")
 				lc.WaitUtilIMLeader()
 				l.Info("im leader,start gateway controller")
-				gctl.Run(ctx)
+				gctl.Run(leaderctx)
 			}()
 		}
 	}

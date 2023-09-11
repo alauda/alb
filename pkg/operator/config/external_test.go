@@ -2,16 +2,30 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	. "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/xorcare/pointer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestParseCPU(t *testing.T) {
+	// external_test.go:21: {{2000 -3} {<nil>}  DecimalSI} <nil> 2
+	// external_test.go:23: {{2 0} {<nil>} 2 DecimalSI} <nil> 2
+	cpu1, err := resource.ParseQuantity("2000m")
+	t.Log(cpu1, err, cpu1.String())
+	cpu2, err := resource.ParseQuantity("2")
+	t.Log(cpu2, err, cpu2.String())
+	assert.NotEqual(t, cpu1, cpu2)
+	assert.Equal(t, cpu1.String(), cpu2.String())
+	t.Log(cpu1.Equal(cpu2), reflect.DeepEqual(cpu1, cpu2))
+}
 
 func TestExternalConfigDefaultAndMerge(t *testing.T) {
 	{
@@ -91,7 +105,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			Gateway:              &ExternalGateway{},
 			Resources: &ExternalResources{
 				Alb: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
@@ -122,7 +136,7 @@ resources:
 `,
 			expectResource: ExternalResources{
 				Alb: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
@@ -139,11 +153,11 @@ resources:
 `,
 			expectResource: ExternalResources{
 				Alb: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "200m", Memory: "257Mi"},
+					Limits:   &ContainerResource{CPU: "2", Memory: "257Mi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 			},
@@ -156,11 +170,11 @@ resources:
 `,
 			expectResource: ExternalResources{
 				Alb: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 			},
@@ -172,11 +186,11 @@ resources:
 `,
 			expectResource: ExternalResources{
 				Alb: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "200m", Memory: "2Gi"},
+					Limits:   &ContainerResource{CPU: "2", Memory: "2Gi"},
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 			},

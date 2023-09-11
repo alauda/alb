@@ -40,7 +40,7 @@ func GetOwnProjectsFromAlb(name string, labels map[string]string, alb *v2beta1.A
 		projects = alb.Config.Projects
 	}
 	defer func() {
-		klog.Infof("%s, own projects: %+v %v", name, rv)
+		klog.Infof("%s, own projects: %+v", name, rv)
 	}()
 	rv = funk.UniqString(append(GetOwnProjectsFromLabel(name, labels), projects...))
 	return

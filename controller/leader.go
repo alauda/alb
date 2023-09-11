@@ -138,6 +138,10 @@ func (l *LeaderElection) StartLeaderElectionLoop() error {
 	return err
 }
 
+func (l *LeaderElection) GetCtx() context.Context {
+	return l.ctx
+}
+
 func (l *LeaderElection) WaitUtilIMLeader() {
 	// OPTIMIZE use sth like event(channel) base mechanism
 	for {

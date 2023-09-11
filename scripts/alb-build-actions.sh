@@ -15,11 +15,11 @@ function alb-static-build() {
 
 function alb-build-all-docker() {
   alb-static-build
-  local tag=$(cat ./deploy/chart/alb/values.yaml | yq -o x ".global.images.alb2.tag")
+  local tag=$(cat ./deploy/chart/alb/values.yaml | yq -r ".global.images.alb2.tag")
   if [[ -n "$1" ]]; then
     tag=$1
   fi
-  docker build -t registry.alauda.cn:60080/acp/alb2:$tag -f ./Dockerfile.local .
+  docker build --network=host -t registry.alauda.cn:60080/acp/alb2:$tag -f ./Dockerfile.local .
   #   source ./template/actions/dev.actions.sh
   #   ang-build-nginx-image $tag
   #   docker pull registry.alauda.cn:60080/acp/alb-nginx:$tag
