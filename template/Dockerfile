@@ -1,7 +1,4 @@
 # build nignx/openresty base image
-ARG OPS_TOOLSETS_TAG=20221011122042
-FROM build-harbor.alauda.cn/ops/toolset:${OPS_TOOLSETS_TAG} AS tools
-
 FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.15 AS tweak_gen
 COPY ./ /alb/
 ENV GO111MODULE=on
@@ -15,15 +12,12 @@ RUN ls -alh /alb/out/
 
 FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v1.22.0
 
-LABEL OPS_TOOLSETS_TAG="${OPS_TOOLSETS_TAG}"
-
 # keep it as same as pkg/config/albrun.go
 ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
 ENV NEW_POLICY_PATH /etc/alb2/nginx/policy.new
 
 RUN mkdir -p /alb/nginx
 COPY ./template/nginx /alb/nginx
-COPY --from=tools /usr/local/bin/gosu /usr/local/bin/
 COPY --from=tweak_gen /alb/out/tweak_gen /alb/tools/tweak_gen
 RUN chown -R nonroot:nonroot /alb && \ 
 chown -R nonroot:nonroot /usr/local/lib/lua && \ 

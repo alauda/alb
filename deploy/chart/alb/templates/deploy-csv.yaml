@@ -89,6 +89,7 @@ spec:
                       runAsNonRoot: true
                       runAsUser: 697
                       readOnlyRootFilesystem: true
+                      allowPrivilegeEscalation: false  
                     resources:
                       requests:
                         cpu: 200m
@@ -96,8 +97,8 @@ spec:
                         memory: 256Mi
                       limits:
                         cpu: 1 
-                        ephemeral-storage: 500Mi
                         memory: 1Gi 
+                        ephemeral-storage: 500Mi
                 tolerations:
                   - effect: NoSchedule
                     key: node-role.kubernetes.io/master

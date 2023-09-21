@@ -183,6 +183,10 @@ func (c *Controller) setUpEventHandler() {
 			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) && reflect.DeepEqual(oldAlb2.Spec, newAlb2.Spec) {
 				return
 			}
+			ns, name := c.GetAlbNsAndName()
+			if newAlb2.Name != name || newAlb2.Namespace != ns {
+				return
+			}
 			c.log.Info("find alb changed", "diff", cmp.Diff(oldAlb2, newAlb2))
 			err := c.syncAll()
 			if err != nil {

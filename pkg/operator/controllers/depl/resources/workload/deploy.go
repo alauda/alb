@@ -223,6 +223,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 						"SYS_PTRACE",
 					},
 				},
+				AllowPrivilegeEscalation: pointer.Bool(true),
 			},
 			Env:      conf.GetALBContainerEnvs(),
 			Resource: toResource(conf.Deploy.ALbResource),
@@ -242,6 +243,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 						"NET_BIND_SERVICE",
 					},
 				},
+				AllowPrivilegeEscalation: pointer.Bool(true),
 			},
 			Env: conf.GetNginxContainerEnvs(),
 			Probe: &corev1.Probe{
