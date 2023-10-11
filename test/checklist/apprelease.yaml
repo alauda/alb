@@ -1,0 +1,65 @@
+apiVersion: operator.alauda.io/v1alpha1
+kind: AppRelease
+metadata:
+  name: alauda-alb2
+  namespace: cpaas-system
+spec:
+  destination:
+    cluster: ""
+    namespace: ""
+  source:
+    chartPullSecret: global-registry-auth
+    charts:
+    - name: acp/chart-alauda-alb2
+      releaseName: alauda-alb2
+      targetRevision: v3.14.2
+    repoURL: cloud-registry.alauda.io
+  timeout: 120
+  values:
+    address: 104.199.172.169
+    antiAffinityKey: system
+    defaultSSLCert: cpaas-system/cpaas-system
+    defaultSSLStrategy: Both
+    gateway:
+      enable: false
+    global:
+      albName: cpaas-system
+      auth:
+        default_admin: admin@cpaas.io
+      cluster:
+        isGlobal: false
+        name: release-gke
+        networkType: null
+        type: GoogleCloudGKE
+      host: release-hlm-p1546.alauda.cn:45443
+      ingress:
+        annotations:
+          alb.ingress.cpaas.io/rewrite-response: |
+            { "headers": { "Content-Security-Policy": "media-src 'self';", "X-Frame-Options": "SAMEORIGIN", "X-Content-Type-Options": "nosniff", "X-XSS-Protection": "1", "Cache-Control": "no-cache", "Pragma": "no-cache", "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload", "Referrer-Policy": "no-referrer, strict-origin-when-cross-origin", "X-Permitted-Cross-Domain-Policies": "none", "X-Download-Options": "noopen" } }
+          nginx.ingress.kubernetes.io/enable-cors: |
+            false
+        ingressClassName: cpaas-system
+      labelBaseDomain: cpaas.io
+      namespace: cpaas-system
+      platformUrl: https://release-hlm-p1546.alauda.cn:45443
+      region: release-gke
+      registry:
+        address: cloud-registry.alauda.io
+        imagePullSecrets:
+        - global-registry-auth
+      replicas: 2
+      scheme: https
+    ingressHTTPPort: 11780
+    ingressHTTPSPort: 11781
+    loadbalancerName: cpaas-system
+    metricsPort: 11782
+    networkMode: container
+    nodeSelector:
+      cpaas-system-alb: ""
+    projects:
+    - cpaas-system
+    replicas: 1
+    vip:
+      allocateLoadBalancerNodePorts: true
+      enableLbSvc: true
+      lbSvcAnnotations: null

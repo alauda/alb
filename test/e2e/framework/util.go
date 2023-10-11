@@ -154,7 +154,13 @@ func TestEq(f func() bool, msg ...string) (ret bool) {
 }
 
 func CreateToken(kc *tu.Kubectl, name string, ns string) (string, error) {
-	out, err := kc.Kubectl("create", "token", name, "-n", ns)
+	cmds := []string{
+		"create", "token", name,
+	}
+	if ns != "" {
+		cmds = append(cmds, "-n", ns)
+	}
+	out, err := kc.Kubectl(cmds...)
 	fmt.Printf("out %v\n", out)
 	if err != nil {
 		return "", err

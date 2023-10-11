@@ -6,8 +6,6 @@ metadata:
   creationTimestamp: "2022-12-07T05:08:39Z"
   generation: 1
   name: clusterserviceversions.operators.coreos.com
-  resourceVersion: "2057"
-  uid: 711cc1ce-064a-42ef-bb51-29c1fa5b7524
 spec:
   conversion:
     strategy: None

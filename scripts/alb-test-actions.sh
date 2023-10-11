@@ -137,7 +137,7 @@ function alb-test-all-in-ci-golang() {
   alb-install-golang-test-dependency
   local end_install=$(date +"%Y %m %e %T.%6N")
   tree ./
-  alb-lint-all
+  alb-lint-in-ci
   local end_lint=$(date +"%Y %m %e %T.%6N")
   alb-go-test-all-with-coverage
   local end_test=$(date +"%Y %m %e %T.%6N")

@@ -21,17 +21,18 @@ type Kubectl struct {
 	log         logr.Logger
 }
 
-// if base =="" it will create /tmp/kubectl-xx else create base/kubectl
+// if base =="" it will create /tmp/kubectl-xx else create base/kubectl-xx
 func NewKubectl(base string, kubeCfg *rest.Config, log logr.Logger) *Kubectl {
+	cfg := fmt.Sprintf("kubectl-%d", rand.Int())
 	if base == "" {
-		base = path.Join(os.TempDir(), fmt.Sprintf("kubectl-%d", rand.Int()))
+		base = path.Join(os.TempDir(), cfg)
 		os.Mkdir(base, 0777)
 	} else {
-		base = path.Join(base, "kubectl")
+		base = path.Join(base, cfg)
 	}
 	os.Mkdir(base, 0777)
 	raw, _ := KubeConfigFromREST(kubeCfg, "test")
-	kubeCfgPath := path.Join(base, "kubecfg")
+	kubeCfgPath := path.Join(base, cfg)
 	os.WriteFile(kubeCfgPath, raw, 0666)
 	return &Kubectl{
 		base:        base,
@@ -54,7 +55,7 @@ func (k *Kubectl) KubectlApply(yaml string, options ...string) (string, error) {
 func (k *Kubectl) AssertKubectlApply(yaml string, options ...string) string {
 	ret, err := k.KubectlApply(yaml, options...)
 	if err != nil {
-		k.log.Error(err, "apply yaml fail")
+		k.log.Error(err, "apply yaml fail", "yaml", yaml)
 	}
 	assert.Nil(ginkgo.GinkgoT(), err, "apply yaml fail")
 	return ret
@@ -85,7 +86,7 @@ func (k *Kubectl) Kubectl(cmds ...string) (string, error) {
 	cmd := exec.Command("kubectl", cmds...)
 	stdout, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("%s err: %v", stdout, err)
+		return "", fmt.Errorf("eval %s %s err: %v", cmd, stdout, err)
 	}
 	return string(stdout), nil
 }

@@ -1,0 +1,316 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.9
+  creationTimestamp: "2023-09-22T09:55:04Z"
+  generation: 1
+  labels:
+    chart: sentry-v3.14.2-2.14
+    heritage: Helm
+    release: sentry
+  name: appreleases.operator.alauda.io
+spec:
+  conversion:
+    strategy: None
+  group: operator.alauda.io
+  names:
+    kind: AppRelease
+    listKind: AppReleaseList
+    plural: appreleases
+    shortNames:
+    - ar
+    - ars
+    singular: apprelease
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Sync")].reason
+      name: Sync
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Health")].reason
+      name: Health
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Sync")].message
+      name: Message
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Health")].lastTransitionTime
+      name: Update
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AppRelease is the Schema for the appreleases API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AppReleaseSpec defines the desired state of AppRelease
+            properties:
+              chartValues:
+                additionalProperties:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                description: ChartValues 用于指定chart特有的安装参数
+                type: object
+              dependents:
+                description: Dependents 用于多个AppRelease之间设置安装依赖
+                items:
+                  description: AppRelease依赖
+                  properties:
+                    conditions:
+                      additionalProperties:
+                        type: boolean
+                      description: 依赖的Status Condition type，类型为sync, health
+                      type: object
+                    name:
+                      description: AppRelease name
+                      type: string
+                    version:
+                      description: 依赖的AppRelease, 目前无该功能
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              destination:
+                description: 跨集群部署配置，暂未支持
+                properties:
+                  cluster:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - cluster
+                - namespace
+                type: object
+              source:
+                description: chart仓库和需要安装的charts设置
+                properties:
+                  chartPullSecret:
+                    description: 下载Chart所需账号信息
+                    type: string
+                  charts:
+                    description: Charts 设置需要安装的charts
+                    items:
+                      description: Chart配置
+                      properties:
+                        chartPullSecret:
+                          description: 下载Chart所需账号信息
+                          type: string
+                        name:
+                          description: Chart name
+                          type: string
+                        releaseName:
+                          description: chart release name，默认为chart name，如果声明后将使用该值作为chart
+                            releasename
+                          type: string
+                        repoURL:
+                          description: Chart仓库，设置后会重载RepoChartSource中的RepoURL
+                          type: string
+                        targetRevision:
+                          description: TargetRevision 表示需要安装的chart version， 留空会查找最新版本
+                          type: string
+                        wait:
+                          description: Wait 表示在chart安装后，是否等待资源ready，与helm wait相同
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  repoURL:
+                    description: RepoURL 设置所安装chart的仓库地址
+                    type: string
+                required:
+                - repoURL
+                type: object
+              timeout:
+                description: Timeout 表示安装chart时，wait等待超时时间，默认5分钟
+                format: int64
+                type: integer
+              type:
+                description: Type 表示sentry中开发的hanlder类型，对AppRelease起hook作用。
+                type: string
+              updateForce:
+                description: 强制更新，用于在chart升级时由于资源冲突失败时设置，与helm force一样
+                type: boolean
+              values:
+                description: Values 用于设置chart共用的安装参数，即values.yaml中的参数
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              valuesFrom:
+                description: ValuesFrom 用于设置外部参数，如secret或configmap
+                items:
+                  description: ValuesFromSource represents a source of values. Only
+                    one of its fields may be set.
+                  properties:
+                    configMapKeyRef:
+                      description: Selects a key of a ConfigMap.
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        optional:
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                    secretKeyRef:
+                      description: Selects a key of a Secret.
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        optional:
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                  type: object
+                type: array
+              version:
+                description: Version 用于AppRelease间依赖检查, 该功能目前未支持可不设置。
+                type: string
+            required:
+            - source
+            type: object
+          status:
+            description: AppReleaseStatus defines the observed state of AppRelease
+            properties:
+              charts:
+                additionalProperties:
+                  description: ChartStatus defines the observed state of Chart
+                  properties:
+                    conditions:
+                      description: Conditions 表示Chart在不同阶段的同步状态
+                      items:
+                        properties:
+                          lastTransitionTime:
+                            description: LastTransitionTime 表示最后一次条件同步时间
+                            format: date-time
+                            type: string
+                          lastUpdateTime:
+                            description: LastUpdateTime 表示最后一次条件同步时间
+                            format: date-time
+                            type: string
+                          message:
+                            description: Message 表示最后一次条件消息
+                            type: string
+                          reason:
+                            description: Reason 表示最后一次条件的原因
+                            type: string
+                          status:
+                            description: Status 表示阶段状态，值为"True"或"False"
+                            type: string
+                          type:
+                            description: Type 表示同步的不同阶段类型，分别为Validate,Sync,Health。
+                              Validate 表示chart下载和校验 Sync 表示chart安装同步状态 Health 表示chart安装完成后wait资源ready和running
+                            type: string
+                        required:
+                        - status
+                        - type
+                        type: object
+                      type: array
+                    installedRevision:
+                      description: InstalledRevision 已安装的版本
+                      type: string
+                    message:
+                      description: Message Chart部署信息
+                      type: string
+                    nextSyncTime:
+                      description: NextSyncTime 下次同步时间
+                      format: date-time
+                      type: string
+                    phase:
+                      description: Phase Chart处于的阶段
+                      type: string
+                    releaseName:
+                      description: ReleaseName Release的名称
+                      type: string
+                    renderedValues:
+                      description: Values 对此Chart最终生效的values
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    revision:
+                      description: Revision 当前在处理的版本
+                      type: string
+                    values:
+                      description: Values Chart配置的Values
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - installedRevision
+                  - phase
+                  - releaseName
+                  - revision
+                  type: object
+                description: Charts 表示Chart的具体状态
+                type: object
+              conditions:
+                description: Conditions 表示AppRelease在不同阶段的同步状态
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: LastTransitionTime 表示最后一次条件同步时间
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      description: LastUpdateTime 表示最后一次条件同步时间
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message 表示最后一次条件消息
+                      type: string
+                    reason:
+                      description: Reason 表示最后一次条件的原因
+                      type: string
+                    status:
+                      description: Status 表示阶段状态，值为"True"或"False"
+                      type: string
+                    type:
+                      description: Type 表示同步的不同阶段类型，分别为Validate,Sync,Health。 Validate
+                        表示chart下载和校验 Sync 表示chart安装同步状态 Health 表示chart安装完成后wait资源ready和running
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedAt:
+                type: string
+              observedGeneration:
+                description: ObservedGeneration 表示sentry操作次数
+                format: int64
+                type: integer
+              reconciledAt:
+                type: string
+              syncPolicy:
+                description: SyncPolicy 表示重新触发AppRelease的同步策略，支持resync和recreate两种同步策略。用于客户端重新同步charts。
+                  resync 表示重新同步charts资源 create 表示重建charts中的Pods资源
+                type: string
+              version:
+                description: Version 表示当前AppRelease生成的版本，对应secret历史版本
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true

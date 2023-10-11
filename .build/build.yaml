@@ -212,30 +212,31 @@ spec:
               #!/bin/sh
               ./scripts/nginx-test.sh
     - name: build-alb-chart
-      timeout: 5m
+      runAfter:
+        - nginx-build
+        - alb-build
+      timeout: 30m
+      retries: 0
       taskRef:
         kind: ClusterTask
-        name: alauda-build-oci-chart-update
+        name: chart-build
       workspaces:
         - name: source
           workspace: source
+      when: []
       params:
+        - name: helm-images
+          value:
+            - build-harbor.alauda.cn/acp/chart-alauda-alb2:$(build.git.version.short)
         - name: dir
           value: ./deploy/chart/alb
-        - name: address
-          value: build-harbor.alauda.cn/acp/chart-alauda-alb2
         - name: version
-          value: $(build.git.version.short)
-        - name: branch
-          value: $(build.git.branch.name)
-        - name: git-revision
-          value: $(params.git-revision)
-        - name: image-tag
-          value: $(build.git.version.docker),$(build.git.version.docker)
-        - name: values-path
-          value: global.images.alb2.tag,global.images.nginx.tag
-        - name: commit
-          value:  $(build.git.lastCommit.id)
+          value:
+            - chart-version=$(build.git.version.short)
+        - name: values
+          value:
+            - .global.images.alb2.tag=$(build.git.version.docker)
+            - .global.images.nginx.tag=$(build.git.version.docker) 
     - name: commit-push
       taskRef:
         name: alauda-git-commit-push

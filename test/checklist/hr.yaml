@@ -1,0 +1,29 @@
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+  annotations:
+    cpaas.io/creator: admin
+    generation: 1
+    name: global-test
+    namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: global
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    displayName: ""
+    enablePortProject: false
+    LoadbalancerName: test
+    nodeSelector:
+      beta.kubernetes.io/os: linux
+    projects:
+      - ALL_ALL
+    replicas: 1
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi

@@ -16,13 +16,13 @@ end
 ---  nil_or return second if first is nil or empty string.
 -- @return string
 function _M.nil_or(first, second)
-	return g_ext.nil_or(first, second,"")
+    return g_ext.nil_or(first, second, "")
 end
--- remove_prefix 
+-- remove_prefix
 --  if prefix not exist return the orgin str
--- @return string 
+-- @return string
 function _M.remove_prefix(s, prefix)
-    local sub=string.sub
+    local sub = string.sub
     local len = #s
     local plen = #prefix
     if len == 0 or plen == 0 or len < plen then

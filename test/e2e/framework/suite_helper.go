@@ -11,7 +11,7 @@ import (
 func AlbBeforeSuite(cfg *rest.Config) {
 	_, filename, _, _ := runtime.Caller(0)
 	albBase := path.Join(path.Dir(filename), "../../../")
-	err := InitCrd(albBase, cfg)
+	err := InitAlbCr(albBase, cfg)
 	GinkgoNoErr(err)
 	GinkgoNoErr(err)
 }

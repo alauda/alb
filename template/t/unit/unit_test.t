@@ -16,6 +16,6 @@ __DATA__
 === TEST 1: unit tests 
 --- policy eval: ""
 --- http_config eval: ""
---- lua_test
-    require("unit.unit_test").test()
+--- lua_test_eval: require("unit.unit_test").test()
+
 

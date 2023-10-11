@@ -6,31 +6,42 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"runtime"
 
 	"alauda.io/alb2/utils/log"
 	"k8s.io/client-go/rest"
 )
 
-func InitCrd(albBase string, cfg *rest.Config) error {
-	k := NewKubectl("", cfg, log.L())
+func AlbCrds() []string {
+	crds := []string{}
+	crds = append(crds, GetAlbBase()+"/deploy/chart/alb/crds")
+	crds = append(crds, GetAlbBase()+"/scripts/yaml/crds/extra/v1")
+
+	return crds
+}
+
+func InitAlbNs(albBase string, cfg *rest.Config) error {
 	kc := NewK8sClient(context.Background(), cfg)
-	kc.CreateNsIfNotExist("cpaas-system")
-	{
-		// init crd
-		crd := path.Join(albBase, "deploy", "chart", "alb", "crds")
+	return kc.CreateNsIfNotExist("cpaas-system")
+}
+
+func InitCrds(base string, cfg *rest.Config, crds []string) error {
+	k := NewKubectl(base, cfg, log.L())
+	for _, crd := range crds {
 		cmds := []string{"apply", "-f", crd, "-R"}
 		_, err := k.Kubectl(cmds...)
 		if err != nil {
 			return err
 		}
 	}
-	{
-		cmds := []string{"apply", "-f", path.Join(albBase, "./scripts/yaml/crds/extra/v1"), "-R"}
-		_, err := k.Kubectl(cmds...)
-		if err != nil {
-			return err
-		}
-	}
+	return nil
+}
+
+// install alb related crds include alb's crd and 'features'
+// create cpaas-system ns
+func InitAlbCr(base string, cfg *rest.Config) error {
+	InitAlbNs(base, cfg)
+	InitCrds(base, cfg, AlbCrds())
 	return nil
 }
 
@@ -42,6 +53,12 @@ func BaseWithDir(base, subdir string) string {
 
 func BaseWithRandomDir(base, subdirprefix string) string {
 	return BaseWithDir(base, fmt.Sprintf("%s-%v", subdirprefix, rand.Int()))
+}
+
+func GetAlbBase() string {
+	_, filename, _, _ := runtime.Caller(0)
+	albBase := path.Join(path.Dir(filename), "../../")
+	return albBase
 }
 
 func InitBase() string {

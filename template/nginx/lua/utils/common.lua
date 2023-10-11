@@ -1,3 +1,4 @@
+-- format:on
 local json = require "cjson"
 local type = type
 local pcall = pcall
@@ -256,7 +257,7 @@ end
 
 ---
 --- milliseconds to seconds,if ms is nil return nil
----@return nil,int
+---@return number|nil
 function _M.ms2sec(ms)
     if ms == nil or ms == json.null then
         return nil

@@ -87,7 +87,6 @@ func KubeConfigFromREST(cfg *rest.Config, envtestName string) ([]byte, error) {
 	kcCtx.AuthInfo = envtestName
 	kubeConfig.Contexts[envtestName] = kcCtx
 	kubeConfig.CurrentContext = envtestName
-
 	contents, err := clientcmd.Write(*kubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to serialize kubeconfig file: %w", err)

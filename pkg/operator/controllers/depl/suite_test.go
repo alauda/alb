@@ -39,7 +39,7 @@ var _ = BeforeSuite(func() {
 	_, filename, _, _ := gruntime.Caller(0)
 	albBase := path.Join(path.Dir(filename), "../../../../")
 
-	err = tu.InitCrd(albBase, rcfg)
+	err = tu.InitAlbCr(albBase, rcfg)
 	if err != nil {
 		panic(err)
 	}

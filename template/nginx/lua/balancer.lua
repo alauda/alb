@@ -1,3 +1,4 @@
+-- format:on
 -- THIS MODULE EVALED IN BOTH HTTP AND STREAM CTX
 local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
@@ -11,17 +12,15 @@ local ngx_config = ngx.config
 local ngx_shared = ngx.shared
 local string_format = string.format
 local ms2sec = common.ms2sec
+local subsys = require "utils.subsystem"
+local common = require "utils.common"
 
 local _M = {}
 local balancers = {}
 
 local subsystem = ngx_config.subsystem
 local DEFAULT_LB_ALG = "round_robin"
-local IMPLEMENTATIONS = {
-    round_robin = round_robin,
-    chash = chash,
-    sticky = sticky
-}
+local IMPLEMENTATIONS = {round_robin = round_robin, chash = chash, sticky = sticky}
 
 local function get_implementation(backend)
     local name = DEFAULT_LB_ALG
@@ -61,19 +60,6 @@ local function sync_backend(backend)
 
     local implementation = get_implementation(backend)
     local balancer = balancers[backend.name]
-    -- {
-    --  "mode": "http",
-    --  "session_affinity_attribute": "",
-    --  "name": "calico-new-yz-alb-09999-3a56db4e-20c3-42cb-82b8-fff848e8e6c3",
-    --  "session_affinity_policy": "",
-    --  "backends": [
-    --    {
-    --      "port": 80,
-    --      "address": "10.16.12.9",
-    --      "weight": 100
-    --    }
-    --  ]
-    -- }
     if not balancer then
         balancers[backend.name] = implementation:new(backend)
         return
@@ -83,8 +69,7 @@ local function sync_backend(backend)
     -- here we check if `balancer` is the instance of `implementation`
     -- if it is not then we deduce LB algorithm has changed for the backend
     if getmetatable(balancer) ~= implementation then
-        ngx_log(ngx.INFO, string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name,
-            implementation.name))
+        ngx_log(ngx.INFO, string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name, implementation.name))
         balancers[backend.name] = implementation:new(backend)
         return
     end
@@ -172,12 +157,15 @@ function _M.balance()
     end
 
     -- ngx.log(ngx.NOTICE,
-        -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
-        --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
-    local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs,
-        proxy_read_timeout_secs)
+    -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
+    --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
+    local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs, proxy_read_timeout_secs)
     if err ~= nil then
         ngx.log(ngx.ERR, err)
+    end
+    -- set balancer is the last step of send a request
+    if subsys.is_http_subsystem() and ngx.ctx.alb_ctx["http_cpaas_trace"] == "true" then
+        ngx.header["cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace)
     end
 end
 

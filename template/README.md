@@ -13,8 +13,9 @@ it should be renamed as openresty or resty-app ..
 	1. nginx --with-debug
 	2. install some lua module
 		* lua-var-nginx-module            https://github.com/api7/lua-var-nginx-module/archive/v0.5.2
-		* thibaultcha/lua-resty-mlcache   opm install thibaultcha/lua-resty-mlcache 
-		* xiangnanscu/lua-resty-cookie    opm install xiangnanscu/lua-resty-cookie
+		* thibaultcha/lua-resty-mlcache   opm install thibaultcha/lua-resty-mlcache    2.5.0
+        * Kong/lua-resty-worker-events    2.0.0 clone in repo
+		* xiangnanscu/lua-resty-cookie    opm install xiangnanscu/lua-resty-cookie     0.0.1 https://github.com/xiangnanscu/lua-resty-cookie/commit/948b77f8a5f2c9f1cdc28b4c6cd5a60d64b4fab7
 		* lua-resty-balancer              https://github.com/openresty/lua-resty-balancer/archive/v0.04
 	3. ignore luarocks
 ### 如何更新alb-nginx镜像
@@ -67,3 +68,34 @@ alb-nginx-test:20220609230028
 
 alb-nginx-test:20220711193217
     upgrade kubebuilder test-tools from 1.19.2 to 1.21.2
+
+# cache
+rule_cache cert_cache and backend_cache
+缓存层级为
+l1 worker lrucache
+l2 shared dict
+l3 callback
+0. 按照缓存层级获取数据 1->2->3
+1. 只有在master线程中读配置文件
+2. 读取配置文件之后，会直接更新l2
+3. 通过mlcache的delete 删除掉过期的配置
+3.1 当删除时，会调用ipc的boardcast，最终将所有worker的l1 cache的配置删除 (mlcache中注册了ipc，用lua-resty-worker-events做的所有worker的同步)
+4. 当获取数据时，会因为配置被删除了，而去从l2上获取信息 或者调用callback？当调用完毕之后会将结果缓存在l1上
+
+当每次请求到达时 调用get_upstream 会
+1. cache.update 触发事件机制流程，如果其他worker有delete事件，这次update会导致自己的l1的cache中的过期的key被删掉 
+2. cache.get 获取对应端口的所有规则 并反序列化成lua的table 这是会更新l1
+3. 遍历规则并判断
+cache结构
+l2 http_policy 
+    port           each port
+    all_policies   all policy
+l2 cert_cache 
+    domain         each domain
+    certficate_map all cert
+l2 http_backend_cache
+    backend_group all backend
+master每隔1s
+1.fetch policy会更新l2的 rule_cache cert_cache 和 http_backend_cache 
+每个worker每隔1s
+从l2中获取http_backend_cache，同步到自己的balancers变量中

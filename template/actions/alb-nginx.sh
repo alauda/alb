@@ -1,8 +1,13 @@
 #!/bin/bash
 source ./template/actions/dev.actions.sh
+
 function alb-install-nginx-test-dependency() {
   apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+}
+
+function alb-install-nginx-test-dependency-ubuntu() {
+  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
 }
 
 function alb-install-nginx-test-dependency-arch() {
@@ -80,7 +85,6 @@ function test-nginx-local() {
   sudo rm -rf ./template/logs
   sudo rm -rf ./template/cert
   sudo rm -rf ./template/servroot
-  sudo rm -rf ./template/tweak
   sudo rm -rf ./template/dhparam.pem
   sudo rm -rf ./template/policy.new
 
@@ -122,7 +126,10 @@ function test-nginx-in-ci() (
   export INGRESS_HTTPS_PORT=443
 
   mkdir -p $TEST_BASE/cert
-  configmap_to_file $TEST_BASE/tweak
+  if [[ "$KEEP_TWEAK" != "true" ]]; then
+    rm -rf ./template/tweak
+    configmap_to_file $TEST_BASE/tweak
+  fi
   openssl dhparam -dsaparam -out $TEST_BASE/dhparam.pem 2048
   local filter=""
   if [ -z "$1" ]; then

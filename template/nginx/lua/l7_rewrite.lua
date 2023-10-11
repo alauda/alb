@@ -1,10 +1,10 @@
+-- format:on
 local string_lower = string.lower
 local ngx = ngx
 local ngx_var = ngx.var
 local ngx_header = ngx.header
 local ngx_re = ngx.re
 local ngx_log = ngx.log
-local ngx_exit = ngx.exit
 
 local upstream = require "upstream"
 local var_proxy = require "var_proxy"
@@ -13,8 +13,7 @@ local redirect = require "l7_redirect"
 local rewrite_header = require "rewrite_header"
 local subsystem = ngx.config.subsystem
 local replace = require "replace_prefix_match"
-
-ngx.ctx.alb_ctx = var_proxy.new()
+local e = require "error"
 
 local function set_cors(matched_policy)
     local enable_cors = matched_policy["enable_cors"]
@@ -35,7 +34,7 @@ local function set_cors(matched_policy)
             ngx_header['Access-Control-Max-Age'] = '1728000'
             ngx_header['Content-Type'] = 'text/plain charset=UTF-8'
             ngx_header['Content-Length'] = '0'
-            ngx_exit(ngx.HTTP_NO_CONTENT)
+            ngx.exit(ngx.HTTP_NO_CONTENT)
         end
     end
 end
@@ -82,21 +81,25 @@ local function set_rewrite_url(matched_policy)
     end
 end
 
+-- entrypoint of l7 req
+ngx.ctx.alb_ctx = var_proxy.new()
 -- ngx_var.protocol is nil in http subsystem
 local t_upstream, matched_policy, errmsg = upstream.get_upstream(subsystem, "tcp", ngx_var.server_port)
 if errmsg ~= nil then
     ngx_log(ngx.ERR, errmsg)
-    ngx_exit(ngx.HTTP_NOT_FOUND)
+    return e.exit_with_code(e.InvalidUpstream, tostring(errmsg), ngx.HTTP_NOT_FOUND)
 end
 
 if t_upstream == nil then
-    ngx_log(ngx.ERR, "alb upstream not found")
-    ngx_exit(ngx.HTTP_NOT_FOUND)
+    local msg = "alb upstream not found"
+    ngx_log(ngx.ERR, msg)
+    return e.exit_with_code(e.InvalidUpstream, msg, ngx.HTTP_NOT_FOUND)
 end
 
 if matched_policy == nil then
-    ngx_log(ngx.ERR, "alb policy not found")
-    ngx_exit(ngx.HTTP_NOT_FOUND)
+    local msg = "alb policy not found"
+    ngx_log(ngx.ERR, msg)
+    return e.exit_with_code(e.InvalidUpstream, msg, ngx.HTTP_NOT_FOUND)
 end
 
 ngx.ctx.matched_policy = matched_policy

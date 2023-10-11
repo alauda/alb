@@ -5,19 +5,28 @@ function alb-lint-all() {
   echo "bash ok"
   alb-lint-go
   echo "go ok"
-  #   alb-lint-lua
-  #   echo "lua ok"
+  alb-lint-lua
+  echo "lua ok"
+}
+
+function alb-lint-in-ci() {
+  alb-lint-bash
+  echo "bash ok"
+  alb-lint-go
+  echo "go ok"
 }
 
 function alb-lint-bash() {
   # add "shellformat.flag": "-i 2", into vscode settings.json
   shfmt -i 2 -d ./scripts
   shfmt -i 2 -d ./template/actions
+  shfmt -i 2 -d ./migrate/checklist
 }
 
 function alb-lint-bash-fix() {
   shfmt -i 2 -w ./scripts
   shfmt -i 2 -w ./template/actions
+  shfmt -i 2 -w ./migrate/checklist
 }
 
 function alb-lint-go() {
@@ -43,17 +52,42 @@ function alb-lint-go-fix {
   gofmt -w .
 }
 
+function alb-lint-lua-install() {
+  sudo luarocks install --server=https://luarocks.org/dev luaformatter #lua-format
+  sudo luarocks install luacheck
+}
+
+TOUCHED_LUA_FILE=$(
+  find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
+)
+
+function alb-lint-lua-need-format() {
+  local f=$1
+  if (head $f -n 1 | grep format:on); then
+    echo "true"
+  fi
+  echo "false"
+}
+
 function alb-lint-lua() {
   # TODO add all lua file
-  TOUCHED_LUA_FILE=("utils/common.lua" "worker.lua" "upstream.lua" "l7_redirect.lua" "cors.lua" "cert.lua")
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo check format of $f
-    local lua=./template/nginx/lua/$f
-    lua-format --check -v $lua
-    echo "format ok"
-    luacheck ./$lua
-  done
+  while read -r f; do
+    luacheck $f
+    if [[ $? -ne 0 ]]; then
+      echo "need fix $f"
+      return
+    fi
+  done < <(echo "$TOUCHED_LUA_FILE")
+  while read -r f; do
+    if [[ "false" == "$(alb-lint-lua-need-format $f)" ]]; then
+      continue
+    fi
+    lua-format --check -v $f
+    if [[ $? -ne 0 ]]; then
+      echo "need format $f"
+      return
+    fi
+  done < <(echo "$TOUCHED_LUA_FILE")
 }
 
 function alb-lint-fix {

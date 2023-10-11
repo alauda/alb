@@ -1,3 +1,4 @@
+-- format:on
 local ngx = ngx
 local ngx_config = ngx.config
 local subsystem = ngx_config.subsystem
@@ -7,9 +8,7 @@ local common = require "utils.common"
 
 local _M = {}
 
-local ngxvar_vars = {
-    uri=true, host=true, remote_addr=true, scheme=true
-}
+local ngxvar_vars = {uri = true, host = true, remote_addr = true, scheme = true}
 local param_prefix = "param_"
 local header_prefix = "header_"
 local cookie_prefix = "cookie_"
@@ -65,7 +64,8 @@ local mt = {
         end
     end
 }
-function _M.new(self) --luacheck: ignore
+
+function _M.new(self) -- luacheck: ignore
     local req = resty_var.request()
     local method
     if subsystem == "http" then
@@ -75,8 +75,9 @@ function _M.new(self) --luacheck: ignore
     local cookie = {}
     local header = {}
     local args = {}
-    return setmetatable({_req = req, _method = method, _var = var,
-                                _cookie = cookie, _header = header, _args = args}, mt)
+    local trace = {}
+
+    return setmetatable({_req = req, _method = method, _var = var, _cookie = cookie, _header = header, _args = args, trace = trace}, mt)
 end
 
 return _M

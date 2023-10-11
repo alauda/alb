@@ -1,7 +1,8 @@
+-- format:on
 local ngx = ngx
 local ngx_var = ngx.var
 local ngx_log = ngx.log
-local ngx_exit = ngx.exit
+local e = require("error")
 
 local upstream = require "upstream"
 local var_proxy = require "var_proxy"
@@ -18,5 +19,5 @@ ngx.ctx.matched_policy = matched_policy
 
 if errmsg ~= nil then
     ngx_log(ngx.ERR, errmsg)
-    ngx_exit(ngx.ERROR)
+    e.exit(e.InvalidUpstream, errmsg)
 end

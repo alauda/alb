@@ -25,16 +25,17 @@ add_block_preprocessor(sub {
     warn "base is $base";
     my $lua_path= "/usr/local/lib/lua/?.lua;$base/nginx/lua/?.lua;$base/t/?.lua;$base/t/lib/?.lua;$base/nginx/lua/vendor/?.lua;;";
     my $server_port = $block->server_port;
-    if (defined $server_port) {
-        warn "set server_port to $server_port";
-        server_port_for_client($server_port);
-    }
     system("mkdir -p $base/logs");
     my $no_response_code= $block->no_response_code;
     if (defined $no_response_code) {
         $block->set_value("error_code",'');
     }
 
+    unless (-e "$base/cert/tls.key") {
+        my $cmd="openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout $base/cert/tls.key -out  $base/cert/tls.crt -subj \"/CN=test.com\"";
+        warn "cmd $cmd";
+        system($cmd);
+    }
     my $certificate= $block->certificate;
     if (defined $certificate) {
         my @certs = split /\s+/, $certificate;
@@ -65,11 +66,32 @@ __END
         $policy=$defaultPolicy;
     }
 	# warn "policy is $policy";
-
+    my $lua_test_mode = "false";
     my $lua_test_full = '';
+    if (defined  $block->lua_test_file) {
+        $server_port = 1999;
+        $lua_test_mode = "true";
+		my $lua_test_file=$block->lua_test_file;
+        $lua_test_full = <<__END;
+server {
+    listen 1999;
+    location /t {
+        content_by_lua_block {
+			local test=function()
+				require("$lua_test_file").test()
+			end
+			test()
+			ngx.print("ok")
+		}
+	}
+}
+__END
+    }
+
     if (defined  $block->lua_test) {
 		my $lua_test=$block->lua_test;
-    	my $server_port=1999;
+        $server_port = 1999;
+        $lua_test_mode = "true";
         $lua_test_full = <<__END;
 server {
     listen 1999;
@@ -84,18 +106,67 @@ server {
 	}
 }
 __END
-        warn "set server_port to $server_port";
-        server_port_for_client($server_port);
-        $block->set_value("request","GET /t");
-
-    	if (!defined  $block->response_body) {
-			$block->set_value("response_body","ok");
+	}
+    if (defined  $block->lua_test_eval) {
+        $server_port = 1999;
+        $lua_test_mode = "true";
+		my $lua_test_eval=$block->lua_test_eval;
+        $lua_test_full = <<__END;
+server {
+    listen 1999;
+    location /t {
+        content_by_lua_block {
+			local test = function()
+				$lua_test_eval
+			end
+			local ok,ret = pcall(test)
+            if not ok then
+                ngx.log(ngx.ERR," sth wrong "..tostring(ret).."  "..tostring(ok))
+			    ngx.print("fail")
+                ngx.exit(ngx.ERROR)
+            end
+			ngx.print("ok")
 		}
 	}
+}
+__END
+	}
+
+    if (defined $server_port) {
+        warn "set server_port to $server_port";
+        server_port_for_client($server_port);
+    }else {
+        warn "server_port not defined";
+    }
+    if (!defined $block->request) {
+        $block->set_value("request","GET /t");
+    }
+
+   	if (!defined  $block->response_body and not $lua_test_mode eq "true" and not defined $block->response) {
+        warn "response_body ok";
+		$block->set_value("response_body","ok");
+	}
+
 
     open(FH,'>',"$base/policy.new") or die $!;
     print FH $policy;
     close(FH);
+    
+
+	my $init_worker = " init_worker_by_lua_file $base/nginx/lua/worker.lua; ";
+    if (defined $block->disable_init_worker) {
+        $init_worker = "";
+    }
+
+    if (defined $block->init_worker_eval) {
+        my $init_worker_eval=$block->init_worker_eval;
+        my $init_worker_lua = <<__END;
+init_worker_by_lua_block {
+    $init_worker_eval
+}
+__END
+        $init_worker = $init_worker_lua;
+    }
 
     $block->set_value("main_config", <<_END_);
 env SYNC_POLICY_INTERVAL;
@@ -111,8 +182,8 @@ stream {
     include       $base/tweak/stream-common.conf;
     lua_package_path "$lua_path";
 
-    access_log $base/logs/access.log stream;
-    error_log $base/logs/error.log info;
+    access_log $base/servroot/logs/access.stream.log stream;
+    error_log $base/servroot/logs/error.stream.log info;
 
 
     lua_add_variable \$upstream;
@@ -126,8 +197,7 @@ stream {
                 balancer = res
             end
     }
-    init_worker_by_lua_file $base/nginx/lua/worker.lua;
-
+    $init_worker
     $stream_config
 
     server {
@@ -163,14 +233,19 @@ _END_
     }
 
 
-    my $http_config = $block->http_config;
+    my $http_config;
+    if (defined $block->http_config) {
+        $http_config = $block->http_config;
+    }else {
+        $http_config = "";
+    }
     # warn "get http config $http_config";
 
     my $cfg = <<__END;
     include       $base/tweak/http.conf;
     lua_package_path "$lua_path";
 
-    error_log $base/logs/error.log info;
+    error_log $base/servroot/logs/error.http.log info;
 
     gzip on;
     gzip_comp_level 5;
@@ -191,16 +266,61 @@ _END_
             --require("metrics").init()
     }
 
-    init_worker_by_lua_file $base/nginx/lua/worker.lua;
+    $init_worker
 
     server {
+        listen     0.0.0.0:28080 backlog=2048 default_server;
+        listen     [::]:28080 backlog=2048 default_server;
+        server_name _;
+        include       $base/tweak/http_server.conf;
+        location / {
+            set \$upstream default;
+            set \$rule_name "";
+            set \$backend_protocol http;
 
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            proxy_pass \$backend_protocol://http_backend;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
+
+            log_by_lua_block {
+                --require("metrics").log()
+            }
+        }
+    }
+
+    server {
         listen     0.0.0.0:80 backlog=2048 default_server;
         listen     [::]:80 backlog=2048 default_server;
+        server_name _;
+        include       $base/tweak/http_server.conf;
+        location / {
+            set \$upstream default;
+            set \$rule_name "";
+            set \$backend_protocol http;
+
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            proxy_pass \$backend_protocol://http_backend;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
+
+            log_by_lua_block {
+                --require("metrics").log()
+            }
+        }
+    }
+
+    server {
+        listen     0.0.0.0:3443 ssl backlog=2048;
+        listen     [::]:3443 ssl backlog=2048;
 
         server_name _;
 
         include       $base/tweak/http_server.conf;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        ssl_certificate $base/nginx/placeholder.crt;
+        ssl_certificate_key $base/nginx/placeholder.key;
+        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$upstream default;
@@ -211,13 +331,11 @@ _END_
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
-
             log_by_lua_block {
                 --require("metrics").log()
             }
         }
     }
-
     server {
         listen     0.0.0.0:443 ssl http2 backlog=2048;
         listen     [::]:443 ssl http2 backlog=2048;

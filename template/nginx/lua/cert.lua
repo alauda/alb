@@ -1,3 +1,4 @@
+-- format:on
 local string_lower = string.lower
 local string_sub = string.sub
 local string_find = string.find
@@ -11,45 +12,6 @@ local conf = require "conf"
 local s_ext = require "utils.string_ext"
 
 local subsystem = ngx_config.subsystem
-
--- clear the fallback certificates and private keys
--- set by the ssl_certificate and ssl_certificate_key
--- directives above:
-local ok, err = ssl.clear_certs()
-if not ok then
-    ngx.log(ngx.ERR, "failed to clear existing (fallback) certificates " .. tostring(err))
-    return ngx.exit(ngx.ERROR)
-end
-
-local host_name, err = ssl.server_name()
-if err then
-    ngx.log(ngx.ERR, "get sni failed", err)
-    return ngx.exit(ngx.ERROR)
-end
--- NOTE: when the SNI name is missing from the client handshake request,
--- we use the server IP address accessed by the client to identify the site
-if host_name ~= nil and tonumber(string_sub(host_name, -1)) ~= nil then
-    host_name = nil
-end
-
-local cert
-local pem_cert_chain
-local pem_pkey
-
-if host_name == nil then
-    -- no sni, try default cert
-    -- host_name = server_port
-
-    local port, err = ssl.server_port()
-    if err then
-        ngx.log(ngx.ERR, "failed to read server port: ", err)
-        return ngx.exit(ngx.ERROR)
-    end
-    -- host_name = "443"
-    host_name = port
-end
-
-host_name = string_lower(host_name)
 
 local function get_domain_cert_raw(domain)
     local cache = ngx_shared[subsystem .. "_certs_cache"]
@@ -82,16 +44,55 @@ local function get_domain_cert(domain)
     return nil, "cert not find"
 end
 
-cache.cert_cache:update(0.1)
-cert = cache.cert_cache:get(host_name, nil, get_domain_cert, host_name)
-if cert ~= nil then
-    pem_cert_chain = cert["cert"]
-    pem_pkey = cert["key"]
-else
-    -- no cert found, abort
-    ngx.log(ngx.ERR, "no cert found for ", host_name)
-    ngx.exit(ngx.ERROR)
+-- entry point of https
+
+-- we could NOT set header in ssl_certificate_by_lua phase..
+
+-- clear the fallback certificates and private keys
+-- set by the ssl_certificate and ssl_certificate_key
+-- directives above:
+local ok, err = ssl.clear_certs()
+if not ok then
+    local msg = "failed to clear existing (fallback) certificates " .. tostring(err)
+    ngx.log(ngx.ERR, msg)
+    return
 end
+
+local host_name, err = ssl.server_name()
+if err then
+    local msg = "get sni failed" .. tostring(err)
+    ngx.log(ngx.ERR, msg)
+    return ngx.exit(ngx.ERROR)
+end
+-- NOTE: when the SNI name is missing from the client handshake request,
+-- we use the server IP address accessed by the client to identify the site
+if host_name ~= nil and tonumber(string_sub(host_name, -1)) ~= nil then
+    host_name = nil
+end
+
+if host_name == nil then
+    -- no sni, try default cert
+    -- host_name = server_port
+
+    local port, err = ssl.server_port()
+    if err then
+        local msg = "failed to read server port: " .. tostring(err)
+        ngx.log(ngx.ERR, msg)
+        return ngx.exit(ngx.ERROR)
+    end
+    -- host_name = "443"
+    host_name = port
+end
+
+host_name = string_lower(host_name)
+cache.cert_cache:update(0.1)
+local cert = cache.cert_cache:get(host_name, nil, get_domain_cert, host_name)
+if cert == nil then
+    ngx.log(ngx.ERR, "no cert found for ", host_name)
+    return ngx.exit(ngx.ERROR)
+end
+local pem_cert_chain = cert["cert"]
+local pem_pkey = cert["key"]
 
 local der_cert_chain, err = ssl.cert_pem_to_der(pem_cert_chain)
 if not der_cert_chain then
