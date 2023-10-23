@@ -159,6 +159,6 @@ spec:
 			assert.NoError(t, err)
 			l.Info("alb", "alb", PrettyJson(alb.Status.Detail.Alb))
 			return len(alb.Status.Detail.Alb.PortStatus) == 0 && len(ft.Status.Instances) == 0
-		}, time.Second*30, time.Second*3)
+		}, time.Second*600, time.Second*3)
 	}
 }

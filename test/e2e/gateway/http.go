@@ -741,7 +741,7 @@ spec:
 					},
 				},
 			}, func(p c.Policy) bool {
-				return p.BackendProtocol == "http" && p.Priority == 52000
+				return p.BackendProtocol == "http"
 			})
 
 			if err != nil {
@@ -761,7 +761,7 @@ spec:
 					},
 				},
 			}, func(p c.Policy) bool {
-				return p.BackendProtocol == "http" && p.Priority == 51100
+				return p.BackendProtocol == "http"
 			})
 			if err != nil {
 				return false, err

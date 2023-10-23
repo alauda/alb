@@ -254,15 +254,18 @@ func (dslx DSLX) Priority() int {
 			}
 		} else if term.Type == KEY_URL {
 			for _, item := range term.Values {
-				if item[0] == OP_EQ {
+				op := item[0]
+				if op == OP_EQ {
 					// EQ is more concrete than STARTS_WITH/REGEX, thus has bigger weight 2000
 					p += 2000
-				} else if item[0] == OP_STARTS_WITH {
-					// STARTS_WITH is more concrete than REGEX, thus has bigger weight 1000
+				}
+				if op == OP_STARTS_WITH || op == OP_REGEX {
+					val := item[1]
 					p += 1000
-				} else if item[0] == OP_REGEX {
-					// REGEX is less concrete than EQ/STARTS_WITH, thus has smaller weight 500
-					p += 500
+					p += len(val)
+					if op == OP_STARTS_WITH {
+						p += 2 // STARTS_WITH /abc == REGEX /abc.*
+					}
 				}
 			}
 		} else {

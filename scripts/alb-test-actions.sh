@@ -70,7 +70,7 @@ function alb-go-unit-test() {
     echo "pkg $pkg"
     if [ -f ./coverage.tmp ]; then rm ./coverage.tmp; fi
     touch ./coverage.tmp
-    go test -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg "$coverpkg" $pkg
+    go test -v -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg "$coverpkg" $pkg
     fail="$?"
     echo "pkg test over $pkg $fail"
     if [[ ! "$fail" == "0" ]]; then

@@ -48,7 +48,7 @@ metadata:
   namespace: cpaas-system
   annotations:
     alb.cpaas.io/migrate-backup: | 
-      {"replicas":10}
+      {"replicas":10,"resources":{"limits":{"cpu":2}}}
 spec:
   address: 127.0.0.1
   type: nginx
@@ -65,7 +65,7 @@ spec:
 			Log:        log,
 		}
 		reque, err := ctl.HandleBackupAnnotation(ctx, v2alb)
-		log.Info("xx", "req", reque)
+		log.Info("xx", "req", reque, "er", err)
 		assert.Equal(GinkgoT(), reque, true)
 		GinkgoNoErr(err)
 		err = kc.GetDirectClient().Get(ctx, key, v2alb)
