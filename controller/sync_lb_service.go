@@ -74,10 +74,15 @@ func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*Frontend) error
 	ns := cfg.GetNs()
 	name := cfg.GetAlbName()
 	svc, err := GetLbSvc(ctx, cli.Client, crcli.ObjectKey{Namespace: ns, Name: name}, cfg.GetDomain())
-	// 当lb svc不存在时，做任何事
-	if k8serrors.IsNotFound(err) {
+	// 当lb svc不存在时，不做任何事
+	if svc == nil || k8serrors.IsNotFound(err) {
+		log.Info("svc not find. ignore")
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+
 	metricsPort := int32(cfg.GetMetricsPort())
 	origin := svc.DeepCopy()
 	svc.Spec.Ports = []corev1.ServicePort{
