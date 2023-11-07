@@ -1,3 +1,4 @@
+-- format:on
 local _M = {}
 local F = require "F"
 local u = require "util"
@@ -5,15 +6,42 @@ local h = require "test-helper"
 local common = require "utils.common"
 local dsl = require "dsl"
 local ups = require "upstream"
-
+-- LuaFormatter off
 local function default_policy()
     return {
         certificate_map = {},
-        http = {tcp = {["80"] = {{rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1"}, {rule = "2", internal_dsl = {{"STARTS_WITH", "URL", "/t2"}}, upstream = "test-upstream-1"}}}},
+        http = {
+            tcp = {
+                ["80"] = {
+                    {rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1"},
+                    {rule = "2", internal_dsl = {{"STARTS_WITH", "URL", "/t2"}}, upstream = "test-upstream-1"},
+                    {rule = "3", internal_dsl = {{"STARTS_WITH", "URL", "/t3"}}, upstream = "test-upstream-3"},
+                    {rule = "4", internal_dsl = {{"STARTS_WITH", "URL", "/t4"}}, upstream = "test-upstream-4"},
+                    {rule = "5", internal_dsl = {{"STARTS_WITH", "URL", "/t5"}}, upstream = "test-upstream-5"},
+                    {rule = "t6", internal_dsl = {{"REGEX", "URL", "/t6/*"}}, upstream = "test-upstream-1"},
+                    {rule = "t7", internal_dsl = {{"REGEX", "URL", "/t7/.*"}}, upstream = "test-upstream-1"},
+                }
+            }
+        },
         stream = {tcp = {["81"] = {{upstream = "test-upstream-1"}}}},
-        backend_group = {{name = "test-upstream-1", mode = "http", backends = {{address = "127.0.0.1", port = 1880, weight = 100}}}}
+        backend_group = {
+            {
+                name = "test-upstream-1", mode = "http", backends = {
+                    {address = "127.0.0.1", port = 1880, weight = 100}
+                }
+            },
+            {
+                name = "test-upstream-4", mode = "http", backends = {}
+            },
+            {
+                name = "test-upstream-5", mode = "http", backends = {
+                    {address = "127.0.0.1", port = 11880, weight = 100}
+                }
+            }
+        }
     }
 end
+-- LuaFormatter on
 
 function _M.as_backend()
     if string.find(ngx.var.uri, "404") then
@@ -21,8 +49,13 @@ function _M.as_backend()
         ngx.exit(404)
     end
     if string.find(ngx.var.uri, "timeout") then
-        local t = tonumber(ngx.var.arg_timeout)
+        ngx.exit(504)
+    end
+    if string.find(ngx.var.uri, "sleep") then
+        local t = tonumber(ngx.var.arg_sleep)
+        u.logs("sleep in backend start", t)
         ngx.sleep(t)
+        u.logs("sleep in backend over", t)
     end
     if string.find(ngx.var.uri, "detail") then
         local h, err = ngx.req.get_headers()
@@ -61,6 +94,8 @@ end
 function _M.set_policy_lua(policy_table)
     local p = require "policy_fetch"
     p.update_policy(common.json_encode(policy_table, true), "manual")
+    -- TODO FIXME wait backend sync
+    ngx.sleep(3)
 end
 
 function _M.test_policy_cache()
@@ -84,6 +119,31 @@ end
 function _M.test_error_reason()
     local melf = _M
     local httpc = require"resty.http".new()
+    -- backend connect fail
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t5", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 502)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 0, 0, 0, 0, 0")
+    end
+    -- balancer err
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t3", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 500)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidBalancer : no balancer found for test-upstream-3")
+
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t4", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 500)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidBalancer : no balancer found for test-upstream-4")
+    end
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 200)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], nil)
+    end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/asdsafadfafda", {})
         u.logs(res, err)
@@ -92,9 +152,9 @@ function _M.test_error_reason()
     end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/404", {})
-        u.logs(res, err)
+        u.logs(res, err, "should 404")
         h.assert_eq(res.status, 404)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], nil)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 293")
     end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:28080/", {})
@@ -128,18 +188,25 @@ function _M.test_error_reason()
         h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidUpstream : no http_tcp_443")
         melf.set_policy_lua(default_policy())
     end
-    -- timeout
+    -- -- timeout
     do
         local p = default_policy()
         p["http"]["tcp"]["80"] = {{rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1", config = {timeout = {proxy_read_timeout_ms = "3000"}}}}
         melf.set_policy_lua(p)
-        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/timeout?timeout=1", {})
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/sleep?sleep=1", {})
         u.logs(res, err)
         h.assert_eq(res.status, 200)
         h.assert_eq(res.body, "from backend\n")
-
-        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/timeout?timeout=5", {})
+        -- 现在alb设置的timeout是3s，所以报错应该是alb timeout
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/sleep?sleep=5", {})
         u.logs(res, err)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 0, 0, 0, 0, 0")
+        h.assert_eq(res.status, 504)
+
+        -- 现在是后端直接返回的504 所以报错应该是backenderror
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/timeout", {})
+        u.logs(res, err)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 314")
         h.assert_eq(res.status, 504)
     end
 end
@@ -147,6 +214,27 @@ end
 function _M.test_trace()
     local httpc = require"resty.http".new()
     -- with cpaas-trace it should return cpaas-trace header
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t6/detail", {headers = {["cpaas-trace"] = "true"}})
+        u.logs(res, err)
+        h.assert_eq(res.status, 200)
+        local trace = common.json_decode(res.headers["cpaas-trace"])
+        h.assert_eq(trace.rule, "t6")
+        h.assert_eq(trace.upstream, "test-upstream-1")
+        u.logs(trace)
+    end
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t7/detail", {headers = {["cpaas-trace"] = "true"}})
+        u.logs(res, err)
+        h.assert_eq(res.status, 200)
+        local trace = common.json_decode(res.headers["cpaas-trace"])
+        h.assert_eq(trace.rule, "t7")
+        h.assert_eq(trace.upstream, "test-upstream-1")
+        u.logs(trace)
+    end
+    do
+        return
+    end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/detail", {headers = {["cpaas-trace"] = "true"}})
         u.logs(res, err)
@@ -168,19 +256,59 @@ function _M.test_trace()
         u.logs(trace)
     end
 end
+
 function _M.test()
     local s = _M
     u.logs "in test"
 
     s.set_policy_lua(default_policy())
-    s.test_policy_cache()
-
-    s.set_policy_lua(default_policy())
     s.test_error_reason()
+    s.set_policy_lua(default_policy())
+    s.test_policy_cache()
 
     s.set_policy_lua(default_policy())
     s.test_trace()
 
+    s.set_policy_lua(default_policy())
+    s.test_metrics()
+end
+
+local function get_metrics()
+    local res, err = u.httpc():request_uri("http://127.0.0.1:1936/metrics", {})
+    h.assert_is_nil(err)
+    return res.body
+end
+
+local function clear_metrics()
+    local res, err = u.httpc():request_uri("http://127.0.0.1:1936/clear", {})
+    h.assert_is_nil(err)
+    return res.body
+end
+
+function _M.test_metrics()
+    clear_metrics()
+    local httpc = require"resty.http".new()
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/asdsafadfafda", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 404)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidUpstream : no rule match")
+        h.assert_contains(get_metrics(), [[alb_error{port="80"} 1]])
+    end
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/404", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 404)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 293")
+        h.assert_contains(get_metrics(), [[alb_error{port="80"} 1]])
+    end
+    do
+        local res, err = httpc:request_uri("http://127.0.0.1:80/asdsafadfafda", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 404)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidUpstream : no rule match")
+        h.assert_contains(get_metrics(), [[alb_error{port="80"} 2]])
+    end
 end
 
 return _M

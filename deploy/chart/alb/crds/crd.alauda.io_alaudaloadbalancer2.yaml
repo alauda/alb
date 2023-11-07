@@ -201,6 +201,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  reloadtimeout:
+                    type: integer
                   replicas:
                     type: integer
                   resources:

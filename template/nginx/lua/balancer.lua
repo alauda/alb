@@ -14,6 +14,7 @@ local string_format = string.format
 local ms2sec = common.ms2sec
 local subsys = require "utils.subsystem"
 local common = require "utils.common"
+local e = require "error"
 
 local _M = {}
 local balancers = {}
@@ -126,13 +127,16 @@ function _M.balance()
     local balancer = get_balancer()
     local policy = get_policy()
     if not balancer then
-        ngx_log(ngx.ERR, "no balancer found for ", ngx_var.upstream)
+        local msg = "no balancer found for " .. ngx_var.upstream
+        ngx_log(ngx.ERR, msg)
+        e.exit(e.InvalidBalancer, msg)
         return
     end
 
     local peer = balancer:balance()
     if not peer then
         ngx.log(ngx.ERR, "no peer was returned, balancer: " .. balancer.name)
+        e.exit(e.InvalidBalancer, "no peer")
         return
     end
     -- TODO 在实现retrypolicy时这里需要被重写。注意测试。
@@ -141,28 +145,28 @@ function _M.balance()
     local ok, err = ngx_balancer.set_current_peer(peer)
     if not ok then
         ngx.log(ngx.ERR, string.format("error while setting current upstream peer %s: %s", peer, err))
+        e.exit(e.InvalidBalancer, "set peer fail")
     end
 
     -- TODO: dynamic keepalive connections pooling
     -- https://github.com/openresty/lua-nginx-module/pull/1600
     -- ngx.log(ngx.NOTICE, "send timeout "..common.json_encode(policy))
-    local proxy_connect_timeout_secs = nil
-    local proxy_send_timeout_secs = nil
-    local proxy_read_timeout_secs = nil
+
     if common.has_key(policy, {"config", "timeout"}) then
         local timeout = policy.config.timeout
-        proxy_connect_timeout_secs = ms2sec(timeout.proxy_connect_timeout_ms)
-        proxy_send_timeout_secs = ms2sec(timeout.proxy_send_timeout_ms)
-        proxy_read_timeout_secs = ms2sec(timeout.proxy_read_timeout_ms)
+        local proxy_connect_timeout_secs = ms2sec(timeout.proxy_connect_timeout_ms)
+        local proxy_send_timeout_secs = ms2sec(timeout.proxy_send_timeout_ms)
+        local proxy_read_timeout_secs = ms2sec(timeout.proxy_read_timeout_ms)
+        -- ngx.log(ngx.NOTICE,
+        -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
+        --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
+        local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs, proxy_read_timeout_secs)
+        if err ~= nil then
+            ngx.log(ngx.ERR, err)
+            e.exit(e.InvalidBalancer, "set timeout fail")
+        end
     end
 
-    -- ngx.log(ngx.NOTICE,
-    -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
-    --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
-    local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs, proxy_read_timeout_secs)
-    if err ~= nil then
-        ngx.log(ngx.ERR, err)
-    end
     -- set balancer is the last step of send a request
     if subsys.is_http_subsystem() and ngx.ctx.alb_ctx["http_cpaas_trace"] == "true" then
         ngx.header["cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace)
@@ -170,4 +174,3 @@ function _M.balance()
 end
 
 return _M
-

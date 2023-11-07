@@ -1,13 +1,14 @@
 #!/bin/bash
 
-function alb-lint-all() {
+function alb-lint-all() (
+  set -e
   alb-lint-bash
   echo "bash ok"
   alb-lint-go
   echo "go ok"
   alb-lint-lua
   echo "lua ok"
-}
+)
 
 function alb-lint-in-ci() {
   alb-lint-bash
@@ -53,13 +54,11 @@ function alb-lint-go-fix {
 }
 
 function alb-lint-lua-install() {
+  # https://github.com/Koihik/LuaFormatter
+  # use VS Marketplace Link: https://marketplace.visualstudio.com/items?itemName=Koihik.vscode-lua-format
   sudo luarocks install --server=https://luarocks.org/dev luaformatter #lua-format
   sudo luarocks install luacheck
 }
-
-TOUCHED_LUA_FILE=$(
-  find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
-)
 
 function alb-lint-lua-need-format() {
   local f=$1
@@ -69,34 +68,56 @@ function alb-lint-lua-need-format() {
   echo "false"
 }
 
-function alb-lint-lua() {
-  # TODO add all lua file
+function alb-lint-lua() (
   while read -r f; do
     luacheck $f
     if [[ $? -ne 0 ]]; then
       echo "need fix $f"
+      exit 1
       return
     fi
-  done < <(echo "$TOUCHED_LUA_FILE")
+  done < <(alb-lua-list-all-app-file)
+
+  # TODO add all lua file
+  while read -r f; do
+    lua-format --check -v $f
+    if [[ $? -ne 0 ]]; then
+      echo "need format $f"
+      exit 1
+      return
+    fi
+  done < <(alb-lua-list-all-needformat-file)
+
+  echo "lua ok"
+)
+
+function alb-lua-lint-format-fix() (
+  # shellcheck disable=SC2068
+  while read -r f; do
+    lua-format -i -v $f
+  done < <(alb-lua-list-all-needformat-file)
+)
+
+function alb-lua-list-all-file() {
+  alb-lua-list-all-test-file
+  alb-lua-list-all-app-file
+}
+
+function alb-lua-list-all-test-file() {
+  find $PWD/template/t -type f | grep '\.lua'
+}
+
+function alb-lua-list-all-app-file() {
+  find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
+}
+
+function alb-lua-list-all-needformat-file() {
   while read -r f; do
     if [[ "false" == "$(alb-lint-lua-need-format $f)" ]]; then
       continue
     fi
-    lua-format --check -v $f
-    if [[ $? -ne 0 ]]; then
-      echo "need format $f"
-      return
-    fi
-  done < <(echo "$TOUCHED_LUA_FILE")
-}
-
-function alb-lint-fix {
-  # shellcheck disable=SC2068
-  for f in ${TOUCHED_LUA_FILE[@]}; do
-    echo format $f
-    local lua=./template/nginx/lua/$f
-    lua-format -i -v $lua
-  done
+    echo $f
+  done < <(alb-lua-list-all-file)
 }
 
 function alb-init-git-hook {

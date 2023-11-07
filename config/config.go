@@ -2,14 +2,15 @@ package config
 
 // 这里的config的目的是将环境变量或者默认配置文件转换为内存中的结构体，方便后续使用
 import (
-	. "alauda.io/alb2/pkg/config"
-	"alauda.io/alb2/utils"
-	"alauda.io/alb2/utils/log"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	. "alauda.io/alb2/pkg/config"
+	"alauda.io/alb2/utils"
+	"alauda.io/alb2/utils/log"
 )
 
 const (
@@ -91,7 +92,7 @@ func ExtraFlagsFromEnv(env map[string]string) ExtraConfig {
 		NewPolicyPath:               ToStrOr(env[NEW_POLICY_PATH], NEW_POLICY_PATH_VAL),
 		TweakDir:                    TWEAK_DIR_VAL,
 		Interval:                    INTERVAL_VAL,
-		ReloadTimeout:               RELOAD_TIMEOUT_VAL,
+		ReloadTimeout:               ToIntOr(env[RELOAD_TIMEOUT], DEFAULT_RELOAD_TIMEOUT_VAL),
 		Pod:                         env[MY_POD_NAME],
 		DebugRuleSync:               ToBoolOr(env[DEBUG_RULESYNC], false),
 		K8s:                         k8sFromEnv(env),

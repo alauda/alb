@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
@@ -18,117 +17,220 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestRule_GetPriority(t *testing.T) {
+func TestRuleOrder(t *testing.T) {
 	type fields struct {
+		Name string
 		DSLX v1.DSLX
 	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   int
-	}{
+	rules := []fields{
 		{
-			name: "include host + url priority",
-			fields: fields{
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{utils.OP_EQ, "a.b.c"}},
-						Type:   utils.KEY_HOST,
-					},
-					{
-						Values: [][]string{{utils.OP_STARTS_WITH, "/"}},
-						Type:   utils.KEY_URL,
-					},
+			Name: "start with /abc or regex ^/v1/*",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/k8s"}, {utils.OP_REGEX, "^/v1/*"}},
+					Type:   utils.KEY_URL,
 				},
 			},
-			want: 50000 + 1000,
 		},
-		// when rule has same calculated dslx priority, we will compare the length of whole dslx
 		{
-			name: "include generic-host + url priority",
-			fields: fields{
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
-						Type:   utils.KEY_HOST,
-					},
-					{
-						Values: [][]string{{utils.OP_STARTS_WITH, "/a"}},
-						Type:   utils.KEY_URL,
-					},
+			Name: "start with /abcde",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/abcde"}},
+					Type:   utils.KEY_URL,
 				},
 			},
-			want: 10000 + 1000,
 		},
 		{
-			name: "include host + regex-url priority",
-			fields: fields{
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{utils.OP_EQ, "a.b.c"}},
-						Type:   utils.KEY_HOST,
-					},
-					{
-						Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
-						Type:   utils.KEY_URL,
-					},
+			Name: "start with /abc",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/abc"}},
+					Type:   utils.KEY_URL,
 				},
 			},
-			want: 50000 + 500,
 		},
 		{
-			name: "include generic-host + regex-url priority",
-			fields: fields{
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
-						Type:   utils.KEY_HOST,
-					},
-					{
-						Values: [][]string{{utils.OP_REGEX, "^/v1/*"}},
-						Type:   utils.KEY_URL,
-					},
+			Name: "wildcard host and regex /abcd.*",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+				{
+					Values: [][]string{{utils.OP_REGEX, "/abcd.*"}},
+					Type:   utils.KEY_URL,
 				},
 			},
-			want: 10000 + 500,
 		},
 		{
-			name: "complex dslx with generic-host, cookie and multiple urls",
-			fields: fields{
-				DSLX: []v1.DSLXTerm{
-					{
-						Values: [][]string{{utils.OP_ENDS_WITH, "*.b.c"}},
-						Type:   utils.KEY_HOST,
-					},
-					{
-						Values: [][]string{{utils.OP_STARTS_WITH, "/k8s"}, {utils.OP_REGEX, "^/v1/*"}},
-						Type:   utils.KEY_URL,
-					},
-					{
-						Values: [][]string{{utils.OP_EQ, "lorem"}},
-						Type:   utils.KEY_COOKIE,
-						Key:    "test",
-					},
+			Name: "wildcard host and regex /a.*",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+				{
+					Values: [][]string{{utils.OP_REGEX, "/a.*"}},
+					Type:   utils.KEY_URL,
 				},
 			},
-			want: 10000 + 1000 + 500 + 100,
 		},
 		{
-			name:   "empty dslx with priority 0",
-			fields: fields{},
-			want:   0,
+			Name: "wildcard host and start with /abc",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/abc"}},
+					Type:   utils.KEY_URL,
+				},
+			},
+		},
+		{
+			Name: "wildcard host and start with /ab",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/ab"}},
+					Type:   utils.KEY_URL,
+				},
+			},
+		},
+		{
+			Name: "wildcard host and start with /",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/"}},
+					Type:   utils.KEY_URL,
+				},
+			},
+		},
+		{
+			Name: "wildcard host",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_ENDS_WITH, ".c.com"}},
+					Type:   utils.KEY_HOST,
+				},
+			},
+		},
+		{
+			Name: "start with /",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/"}},
+					Type:   utils.KEY_URL,
+				},
+			},
+		},
+		{
+			Name: "start with /abc with host",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/abc"}},
+					Type:   utils.KEY_URL,
+				},
+				{
+					Values: [][]string{{utils.OP_EQ, "a.c"}},
+					Type:   utils.KEY_HOST,
+				},
+			},
+		},
+		{
+			Name: "start with / with host",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_STARTS_WITH, "/"}},
+					Type:   utils.KEY_URL,
+				},
+				{
+					Values: [][]string{{utils.OP_EQ, "a.c"}},
+					Type:   utils.KEY_HOST,
+				},
+			},
+		},
+		{
+			Name: "regex /a.* wiht host",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_REGEX, "/a.*"}},
+					Type:   utils.KEY_URL,
+				},
+				{
+					Values: [][]string{{utils.OP_EQ, "a.c"}},
+					Type:   utils.KEY_HOST,
+				},
+			},
+		},
+		{
+			Name: "exact /a  with host",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_EQ, "/a"}},
+					Type:   utils.KEY_URL,
+				},
+				{
+					Values: [][]string{{utils.OP_EQ, "a.com"}},
+					Type:   utils.KEY_HOST,
+				},
+			},
+		},
+		{
+			Name: "regex /abcd.*",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_REGEX, "/abcd.*"}},
+					Type:   utils.KEY_URL,
+				},
+			},
+		},
+		{
+			Name: "regex /a.*",
+			DSLX: []v1.DSLXTerm{
+				{
+					Values: [][]string{{utils.OP_REGEX, "/a.*"}},
+					Type:   utils.KEY_URL,
+				},
+			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rl := Rule{
-				DSLX: tt.fields.DSLX,
-			}
-			if got := rl.GetPriority(); got != tt.want {
-				t.Errorf("GetPriority() = %v, want %v", got, tt.want)
-			}
-		})
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].DSLX.Priority() > rules[j].DSLX.Priority()
+	})
+	expectOrder := []string{
+		"exact /a  with host",
+		"start with /abc with host",
+		"regex /a.* wiht host",
+		"start with / with host",
+		"wildcard host and regex /abcd.*",
+		"wildcard host and start with /abc",
+		"wildcard host and start with /ab",
+		"wildcard host and regex /a.*",
+		"wildcard host and start with /",
+		"wildcard host",
+		"start with /abc or regex ^/v1/*",
+		"start with /abcde",
+		"regex /abcd.*",
+		"start with /abc",
+		"regex /a.*",
+		"start with /",
 	}
+	order := []string{}
+	for _, r := range rules {
+		order = append(order, r.Name)
+		t.Logf(r.Name)
+	}
+	assert.Equal(t, expectOrder, order)
 }
 
 func TestSortPolicy(t *testing.T) {

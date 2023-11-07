@@ -2,6 +2,10 @@ local _M = {}
 
 local inspect = require "inspect"
 
+function _M.httpc()
+    return require "resty.http".new()
+end
+
 function _M.curl(url, cfg)
     local httpc = require("resty.http").new()
     if cfg == nil then

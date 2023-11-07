@@ -233,7 +233,12 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Name:  "ENABLE_VIP",
 			Value: "true",
 		},
+		{
+			Name:  "RELOAD_TIMEOUT",
+			Value: "30",
+		},
 	}
+	t.Log(test_utils.PrettyJson(cfg))
 	actual := cfg.GetALBContainerEnvs()
 	sort.Slice(actual, func(i, j int) bool {
 		return actual[i].Name < actual[j].Name

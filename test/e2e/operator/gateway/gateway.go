@@ -31,7 +31,7 @@ var _ = Describe("Operator Gateway", func() {
 	var log logr.Logger
 	BeforeEach(func() {
 		opt := OperatorEnvCfg{RunOpext: true}
-		opt.UseMockLBSvcCtl(DEFAULT_V4_IP_POOL, DEFAULT_V6_IP_POOL)
+		opt.UseMockLBSvcCtl(append(DEFAULT_V4_IP_POOL, "127.0.0.1"), append(DEFAULT_V6_IP_POOL, "2004::199:168:128:236"))
 		env = StartOperatorEnvOrDieWithOpt(opt)
 		kt = env.Kt
 		kc = env.Kc
@@ -301,7 +301,46 @@ spec:
 			g.Expect(accept.Message).Should(ContainSubstring("wait workload ready spec"))
 		}, log)
 
-		// 2. delete gateway alb should be deleted.
+		// 3 change gatewayclass should delete alb
+		gatew, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+		gatew.Spec.GatewayClassName = "xxx"
+		_, err = kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Update(ctx, gatew, metav1.UpdateOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+
+		EventuallySuccess(func(g Gomega) {
+			albls, err := kc.GetAlbClient().CrdV2beta1().ALB2s("g1").List(ctx, metav1.ListOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			log.Info("albs", "albs", PrettyCrs(albls.Items))
+			g.Expect(len(albls.Items)).Should(Equal(0))
+		}, log)
+
+		gatew, err = kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+		label := gatew.Labels[fmt.Sprintf(FMT_ALB_REF, "cpaas.io")]
+		log.Info("should be nil", "label", gatew.Labels, "x", label)
+		g.Expect(label).Should(Equal(""))
+
+		log.Info("bring it back")
+		gatew, err = kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+		gatew.Spec.GatewayClassName = STAND_ALONE_GATEWAY_CLASS
+		_, err = kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Update(ctx, gatew, metav1.UpdateOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+
+		EventuallySuccess(func(g Gomega) {
+			albls, err := kc.GetAlbClient().CrdV2beta1().ALB2s("g1").List(ctx, metav1.ListOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			log.Info("albs", "albs", PrettyCrs(albls.Items))
+			g.Expect(len(albls.Items)).Should(Equal(1))
+		}, log)
+
+		gatew, err = kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+		g.Expect(err).ShouldNot(HaveOccurred())
+		log.Info("should not nil", "label", gatew.Labels)
+		g.Expect(gatew.Labels[fmt.Sprintf(FMT_ALB_REF, "cpaas.io")]).ShouldNot(Equal(nil))
+
+		// 4. delete gateway alb should be deleted.
 		kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Delete(ctx, "g1", metav1.DeleteOptions{})
 		EventuallySuccess(func(g Gomega) {
 			albls, err := kc.GetAlbClient().CrdV2beta1().ALB2s("g1").List(ctx, metav1.ListOptions{})

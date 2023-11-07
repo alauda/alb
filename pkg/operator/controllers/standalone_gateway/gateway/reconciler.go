@@ -67,16 +67,34 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *GatewayReconciler) ignoreNotSharedGateway() predicate.Funcs {
-	return predicate.NewPredicateFuncs(func(object ctrcli.Object) bool {
+	ignore := func(object ctrcli.Object) bool {
 		g, ok := object.(*gv1b1t.Gateway)
 		if !ok {
 			return false
 		}
 		class := string(g.Spec.GatewayClassName)
 		process := class == STAND_ALONE_GATEWAY_CLASS
-		r.log.Info("filter gateway", "process", process, "name", g.Name, "class", g.Spec.GatewayClassName, "ns", g.Namespace)
 		return process
-	})
+	}
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return ignore(e.Object)
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldgw := e.ObjectOld.(*gv1b1t.Gateway)
+			newgw := e.ObjectNew.(*gv1b1t.Gateway)
+			if oldgw.Spec.GatewayClassName != STAND_ALONE_GATEWAY_CLASS && newgw.Spec.GatewayClassName != STAND_ALONE_GATEWAY_CLASS {
+				return false
+			}
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return ignore(e.Object)
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return ignore(e.Object)
+		},
+	}
 }
 
 func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -85,6 +103,21 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.Log.Error(err, "reconcile fail")
 	}
 	return res, err
+}
+
+func (r *GatewayReconciler) gatewayclassChange(ctx context.Context, g *gv1b1t.Gateway) (ctrl.Result, error) {
+	_, err := r.gatewayDeleted(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: g.Namespace, Name: g.Name},
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	delete(g.Labels, fmt.Sprintf(FMT_ALB_REF, r.OperatorCf.BaseDomain))
+	err = r.Client.Update(ctx, g)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -97,6 +130,10 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if g.Spec.GatewayClassName != STAND_ALONE_GATEWAY_CLASS {
+		return r.gatewayclassChange(ctx, g)
+	}
+
 	l.Info("find gateway", "gateway", PrettyCr(g))
 	// 如果gateway上有label了.那么应该就是有对应的alb了的.
 	alb, err := r.getAlbFromLabel(ctx, g)
@@ -230,7 +267,7 @@ func (r *GatewayReconciler) gatewayDeleted(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 	for _, alb := range albs {
-		r.log.Info("delete alb cause gateway delete", "alb", PrettyCr(alb))
+		r.log.Info("delete gateway cause gateway delete", "alb", PrettyCr(alb))
 		err := r.Delete(ctx, alb)
 		if err != nil {
 			r.log.Info("delete alb fail alb, ignore")

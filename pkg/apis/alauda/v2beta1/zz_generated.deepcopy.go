@@ -398,6 +398,11 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.ReloadTimeout != nil {
+		in, out := &in.ReloadTimeout, &out.ReloadTimeout
+		*out = new(int)
+		**out = **in
+	}
 	if in.PolicyZip != nil {
 		in, out := &in.PolicyZip, &out.PolicyZip
 		*out = new(bool)

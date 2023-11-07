@@ -96,6 +96,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			GoMonitorPort:        pointer.Of(1937),
 			WorkerLimit:          pointer.Of(8),
 			ResyncPeriod:         pointer.Of(300),
+			ReloadTimeout:        pointer.Of(30),
 			SyncPolicyInterval:   pointer.Of(1),
 			CleanMetricsInterval: pointer.Of(2592000),
 			Backlog:              pointer.Of(2048),

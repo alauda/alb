@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	. "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	rc "alauda.io/alb2/pkg/config"
 	"github.com/xorcare/pointer"
 )
 
@@ -40,6 +41,7 @@ func DefaultConfig() ExternalAlbConfig {
 		SyncPolicyInterval:   pointer.Of(1),
 		CleanMetricsInterval: pointer.Of(2592000),
 		Backlog:              pointer.Of(2048),
+		ReloadTimeout:        pointer.Of(rc.DEFAULT_RELOAD_TIMEOUT_VAL),
 		MaxTermSeconds:       pointer.Of(30),
 		PolicyZip:            pointer.Of(false),
 		Gateway:              &ExternalGateway{},

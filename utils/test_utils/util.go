@@ -84,6 +84,7 @@ func KubeConfigFromREST(cfg *rest.Config, envtestName string) ([]byte, error) {
 	}
 	kcCtx := kcapi.NewContext()
 	kcCtx.Cluster = envtestName
+	kcCtx.Namespace = "default"
 	kcCtx.AuthInfo = envtestName
 	kubeConfig.Contexts[envtestName] = kcCtx
 	kubeConfig.CurrentContext = envtestName

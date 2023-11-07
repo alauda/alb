@@ -52,7 +52,7 @@ function _M.assert_eq(left, right, msg)
     local ty1 = type(left)
     local ty2 = type(right)
     if ty1 ~= ty2 then
-        ngx.log(ngx.ERR, "type not same " .. ty1 .. " " .. ty2)
+        ngx.log(ngx.ERR, "type not same " .. ty1..":"..tostring(left) .. " " .. ty2..":"..tostring(right))
         ngx.exit(ngx.ERR)
     end
     if ty1 == ty2 and ty1 == "table" then

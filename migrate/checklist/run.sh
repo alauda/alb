@@ -1,10 +1,8 @@
 #!/bin/bash
+env
 set -o pipefail
 source helper.sh
-source ./custom/helper.sh
-source ./custom/check-alb-project.sh
-source ./custom/check-alb-ingressport.sh
-source ./custom/check-alb-resource.sh
+source ./custom/check-alb.sh
 echo "$@"
 if [[ -n "$2" ]]; then
   prdb_version="$2"

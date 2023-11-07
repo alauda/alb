@@ -2,16 +2,16 @@ package test_utils
 
 import (
 	"context"
-	"fmt"
+	"sort"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MockMetallb struct {
@@ -47,7 +47,8 @@ func (m *MockMetallb) Start() {
 	cli := m.cli
 	w, err := cli.CoreV1().Services("").Watch(m.ctx, metav1.ListOptions{})
 	if err != nil {
-		panic(fmt.Errorf("watch svc fail %v", err))
+		m.log.Error(err, "watch svc fail")
+		return
 	}
 	// log.Info("start watch ", "gvr", wi.gvr, "ns", wi.ns)
 	for event := range w.ResultChan() {
@@ -55,20 +56,29 @@ func (m *MockMetallb) Start() {
 		if !ok {
 			continue
 		}
-		err := m.onSvc(client.ObjectKeyFromObject(svc))
+
+		if event.Type == watch.Deleted {
+			m.onSvcDelete(svc)
+		}
+		err := m.onSvc(svc)
 		if err != nil {
 			m.log.Error(err, "fail")
 		}
 	}
 }
 
-func (m *MockMetallb) onSvc(key client.ObjectKey) error {
-	cli := m.cli
-	svc, err := cli.CoreV1().Services(key.Namespace).Get(m.ctx, key.Name, metav1.GetOptions{})
-	if err != nil {
-		m.log.Error(err, "get svc fail")
-		return nil
+func (m *MockMetallb) onSvcDelete(svc *corev1.Service) error {
+	ips := []string{}
+	for _, ing := range svc.Status.LoadBalancer.Ingress {
+		ips = append(ips, ing.IP)
 	}
+	m.v4used.RemoveAll(ips...)
+	return nil
+}
+
+func (m *MockMetallb) onSvc(svc *corev1.Service) error {
+	cli := m.cli
+
 	if svc.Spec.Type != "LoadBalancer" {
 		return nil
 	}
@@ -107,7 +117,7 @@ func (m *MockMetallb) onSvc(key client.ObjectKey) error {
 			Hostname: m.getHost(),
 		})
 	}
-	nsvc, err := cli.CoreV1().Services(key.Namespace).UpdateStatus(m.ctx, svc, metav1.UpdateOptions{})
+	nsvc, err := cli.CoreV1().Services(svc.Namespace).UpdateStatus(m.ctx, svc, metav1.UpdateOptions{})
 	if err != nil {
 		m.log.Error(err, "update svc fail")
 		return nil
@@ -118,8 +128,10 @@ func (m *MockMetallb) onSvc(key client.ObjectKey) error {
 
 func (m *MockMetallb) getIpv4() string {
 	ips := m.v4pool.Difference(m.v4used).ToSlice()
+	sort.Strings(ips)
 	if len(ips) == 0 {
-		panic("no ip")
+		m.log.Info("no ip", "v4used", m.v4used, "v4all", m.v4pool)
+		panic("get v4 no ip ")
 	}
 	ip := ips[0]
 	m.v4used.Add(ip)
@@ -139,7 +151,7 @@ func (m *MockMetallb) getHost() string {
 func (m *MockMetallb) getIpv6() string {
 	ips := m.v6pool.Difference(m.v6used).ToSlice()
 	if len(ips) == 0 {
-		panic("no ip")
+		panic("get v6 no ip")
 	}
 	ip := ips[0]
 	m.v6used.Add(ip)

@@ -2,6 +2,7 @@ package depl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"testing"
@@ -12,12 +13,14 @@ import (
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/config"
+	"alauda.io/alb2/utils"
 	cliu "alauda.io/alb2/utils/client"
 	tu "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/xorcare/pointer"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -135,5 +138,56 @@ spec:
 		assert.NoError(t, err)
 		_, err = dep.DoUpdate(ctx, cur, exp)
 		assert.NoError(t, err)
+	})
+
+	It("test migration", func() {
+		type tcase struct {
+			annotaion string
+			cfg       albv2.ExternalAlbConfig
+		}
+		cases := []tcase{
+			{
+				annotaion: `{"replicas":10}`,
+				cfg:       albv2.ExternalAlbConfig{Replicas: pointer.Int(10)},
+			},
+			{
+				annotaion: `{"resources":{"limits":{"cpu":"200m"}}}`,
+				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
+					ExternalResource: &albv2.ExternalResource{
+						Limits: &albv2.ContainerResource{
+							CPU: "200m",
+						},
+					},
+				}},
+			},
+			{
+				annotaion: `{"resources":{"limits":{"cpu":2}}}`,
+				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
+					ExternalResource: &albv2.ExternalResource{
+						Limits: &albv2.ContainerResource{
+							CPU: "2",
+						},
+					},
+				}},
+			},
+			{
+				annotaion: `{"resources":{"limits":{"cpu":"2"}}}`,
+				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
+					ExternalResource: &albv2.ExternalResource{
+						Limits: &albv2.ContainerResource{
+							CPU: "2",
+						},
+					},
+				}},
+			},
+		}
+
+		for _, c := range cases {
+			cfg := albv2.ExternalAlbConfig{}
+			err := json.Unmarshal([]byte(c.annotaion), &cfg)
+			assert.NoError(t, err)
+			t.Logf("cfg %v", utils.PrettyJson(cfg))
+			assert.Equal(t, cfg, c.cfg)
+		}
 	})
 })

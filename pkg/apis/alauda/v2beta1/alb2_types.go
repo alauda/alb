@@ -20,9 +20,12 @@ package v2beta1
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 import (
+	"encoding/json"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -95,6 +98,7 @@ type ExternalAlbConfig struct {
 	CleanMetricsInterval *int               `yaml:"cleanMetricsInterval" json:"cleanMetricsInterval,omitempty"` // 可以删掉 用默认值就行 还没遇到过需要配置的
 	Backlog              *int               `yaml:"backlog" json:"backlog,omitempty"`                           // 可以删掉 用默认值就行 还没遇到过需要配置的
 	MaxTermSeconds       *int               `yaml:"maxTermSeconds" json:"maxTermSeconds,omitempty"`             // 可以删掉 用默认值就行 还没遇到过需要配置的
+	ReloadTimeout        *int               `yaml:"reloadtimeout" json:"reloadtimeout,omitempty"`               // 每次生成配置的最大超时时间
 	PolicyZip            *bool              `yaml:"policyZip" json:"policyZip,omitempty"`                       // zip policy.new 规避安全审查 防止明文policy
 	Gateway              *ExternalGateway   `yaml:"gateway" json:"gateway,omitempty"`
 	Resources            *ExternalResources `yaml:"resources" json:"resources,omitempty"`
@@ -129,6 +133,24 @@ type ExternalGateway struct {
 type ContainerResource struct {
 	CPU    string `yaml:"cpu" json:"cpu,omitempty"`
 	Memory string `yaml:"memory" json:"memory,omitempty"`
+}
+
+func (c *ContainerResource) UnmarshalJSON(data []byte) error {
+	type FixedResources struct {
+		CPU    intstr.IntOrString `yaml:"cpu" json:"cpu,omitempty"`
+		Memory intstr.IntOrString `yaml:"memory" json:"memory,omitempty"`
+	}
+	res := FixedResources{}
+	if err := json.Unmarshal(data, &res); err != nil {
+		return err
+	}
+	if res.CPU.String() != "0" {
+		c.CPU = res.CPU.String()
+	}
+	if res.Memory.String() != "0" {
+		c.Memory = res.Memory.String()
+	}
+	return nil
 }
 
 type ExternalResource struct {

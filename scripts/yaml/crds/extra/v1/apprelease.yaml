@@ -257,11 +257,6 @@ spec:
                       description: Values Chart配置的Values
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
-                  required:
-                  - installedRevision
-                  - phase
-                  - releaseName
-                  - revision
                   type: object
                 description: Charts 表示Chart的具体状态
                 type: object

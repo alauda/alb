@@ -263,7 +263,7 @@ _END_
             else
                 balancer = res
             end
-            --require("metrics").init()
+            require("metrics").init()
     }
 
     $init_worker
@@ -283,7 +283,7 @@ _END_
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
-                --require("metrics").log()
+                require("metrics").log()
             }
         }
     }
@@ -303,7 +303,7 @@ _END_
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
-                --require("metrics").log()
+                require("metrics").log()
             }
         }
     }
@@ -332,7 +332,7 @@ _END_
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
-                --require("metrics").log()
+                require("metrics").log()
             }
         }
     }
@@ -360,7 +360,7 @@ _END_
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
-                --require("metrics").log()
+                require("metrics").log()
             }
         }
     }
@@ -389,7 +389,7 @@ _END_
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
             log_by_lua_block {
-                --require("metrics").log()
+                require("metrics").log()
             }
         }
     }
@@ -406,6 +406,28 @@ _END_
     $http_config
 
 	$lua_test_full
+
+    server {
+        listen    0.0.0.0:1936;
+        access_log off;
+
+        location /status {
+            stub_status;
+        }
+
+        location /metrics {
+            content_by_lua_block {
+                require("metrics").collect()
+            }
+        }
+
+        location /clear {
+            content_by_lua_block {
+                require("metrics").clear()
+            }
+        }
+    }
+
 __END
     $block->set_value("http_config",$cfg);
 });

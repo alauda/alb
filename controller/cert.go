@@ -79,13 +79,22 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	}
 
 	certMap := make(map[string]Certificate)
+	certCache := make(map[string]Certificate)
+
 	for domain, secret := range secretMap {
+		secretkey := secret.String()
+		if cert, ok := certCache[secretkey]; ok {
+			certMap[domain] = cert
+			continue
+		}
+		klog.V(3).Infof("get cert for domain %v %v", secretkey, domain)
 		cert, err := getCertificateFromSecret(d, secret.Namespace, secret.Name)
 		if err != nil {
 			klog.Errorf("get cert %s failed, %+v", secret, err)
 			continue
 		}
 		certMap[domain] = *cert
+		certCache[secretkey] = *cert
 	}
 	return certMap
 }

@@ -11,13 +11,20 @@ function alb-build-e2e-test() {
 }
 
 function alb-go-test-all-with-coverage() {
+  echo "lift: start test"
+  env
+  alb-run-checklist-test
   rm ./coverage.txt || true
   alb-go-unit-test
   local end_unit=$(date +"%Y %m %e %T.%6N")
+  echo "life: unittest ok"
   alb-run-all-e2e-test
   local end_e2e=$(date +"%Y %m %e %T.%6N")
+  echo "life: e2e ok"
+  local end_checklist=$(date +"%Y %m %e %T.%6N")
   echo "end_unit $end_unit"
   echo "end_e2e $end_e2e"
+  echo "end_checklist $end_checklist"
 
   tail -n +2 ./test/e2e/coverage.e2e >>./coverage.txt
 
@@ -28,6 +35,12 @@ function alb-go-test-all-with-coverage() {
   local total=$(grep total ./coverage.report | awk '{print $3}')
   echo $total
 }
+
+function alb-run-checklist-test() (
+  echo "life: checklist start"
+  ginkgo -v ./test/checklist
+  echo "life: checklist end"
+)
 
 function alb-run-all-e2e-test() (
   set -e
@@ -87,8 +100,8 @@ function alb-go-unit-test() {
 
 function alb-envtest-install() {
   # TODO use http://prod-minio.alauda.cn/acp/
-  curl --progress-bar -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)"
-  #   curl --progress-bar -sSLo envtest-bins.tar.gz "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz"
+  #   curl --progress-bar -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)"
+  curl --progress-bar -sSLo envtest-bins.tar.gz "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz"
   mkdir -p /usr/local/kubebuilder
   tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
   rm envtest-bins.tar.gz
@@ -101,15 +114,14 @@ function alb-install-golang-test-dependency() {
   which helm || true
   if [ -f "$(which helm)" ]; then echo "dependency already installed" return; else echo "dependency not installed. install it"; fi
 
-  rm kubernetes-client-linux-amd64.tar.gz || true
-  wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
+  # rm -rf kubernetes-client-linux-amd64.tar.gz &&  wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
   wget http://prod-minio.alauda.cn/acp/kubectl-v1.24.1 && chmod +x ./kubectl-v1.24.1 && mv ./kubectl-v1.24.1 /usr/local/bin/kubectl
   which kubectl
 
   echo "install helm"
   #   rm helm-v3.9.3-linux-amd64.tar.gz || true
-  wget https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz && tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
-  #   wget http://prod-minio.alauda.cn/acp/helm-v3.9.3 && chmod +x ./helm-v3.9.3 && mv ./helm-v3.9.3 /usr/local/bin/helm
+  #   wget https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz && tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
+  wget http://prod-minio.alauda.cn/acp/helm-v3.9.3 && chmod +x ./helm-v3.9.3 && mv ./helm-v3.9.3 /usr/local/bin/helm
 
   helm version
 

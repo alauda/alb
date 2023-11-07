@@ -27,6 +27,8 @@ func MockCluster(global *EnvtestExt, cluster *EnvtestExt, l logr.Logger) error {
 	globalkc := NewKubectl(global.Base, global.GetRestCfg(), l)
 	clusterkc := NewKubectl(cluster.Base, cluster.GetRestCfg(), l)
 	l.Info("mock cluster")
+	l.Info("debug ", "ns", clusterkc.AssertKubectl("get ns -A"))
+	l.Info("debug ", "ctx", clusterkc.AssertKubectl("config get-contexts"))
 	clusterkc.AssertKubectlApply(`
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -42,9 +44,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: debug
+  namespace: default
 `)
 	clusterkc.AssertKubectl("create", "clusterrolebinding", "debug", "--clusterrole=debug", "--serviceaccount=default:debug")
-	token := clusterkc.AssertKubectl("create", "token", "debug")
+	token := clusterkc.AssertKubectl("create token debug --namespace default")
 
 	parseHostAndPort := func(host string) (string, string, error) {
 		// implementation of parseHostAndPort function
@@ -288,6 +291,70 @@ spec:
 		})
 	})
 
+	GIt("should check alb ingress path", func() {
+		cringlobal := []string{
+			`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ing
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: echo-resty-b
+            port:
+              number: 80
+        path: /abc.*
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: echo-resty
+            port:
+              number: 80
+        path: /
+        pathType: ImplementationSpecific
+`}
+		crinproduct := []string{
+			`
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test-ing
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: echo-resty-b
+            port:
+              number: 80
+        path: /abc.*
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: echo-resty
+            port:
+              number: 80
+        path:   /   
+        pathType: ImplementationSpecific
+`}
+
+		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
+			out, err := NewCmd().
+				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
+				Cwd(GetAlbBase()+"/migrate/checklist").
+				Call("bash", "run.sh", "check_alb_ingress_path", "v3.6.1", "v3.8.1")
+			GinkgoAssert(err, "")
+			GinkgoAssertTrue(strings.Contains(out, "集群 global 发现1 个 path: /的ingress 请检查"), "")
+			GinkgoAssertTrue(strings.Contains(out, "集群 p1 发现1 个 path: /的ingress 请检查"), "")
+			_ = out
+		})
+	})
+
 	GIt("should check alb resources", func() {
 		// 本质上是检查默认alb的ingress http port在关闭的情况下，是否还有旧的http port 在
 		// 在3.10之后才会有这个问题
@@ -357,7 +424,26 @@ spec:
 apiVersion: app.alauda.io/v1
 kind: HelmRequest
 metadata:
-  name: p1-test-2
+  name: p1-test-4
+  namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    projects:
+      - ALL_ALL
+    replicas: 1
+    resources:
+      limits:
+        cpu: "2"
+        memory: 2Gi
+---
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+  name: p1-test-5
   namespace: cpaas-system
 spec:
   chart: stable/alauda-alb2
@@ -380,7 +466,7 @@ kind: AppRelease
 metadata:
   name: alauda-alb2
   namespace: cpaas-system
-  status:
+status:
   charts:
     acp/chart-alauda-alb2:
      values:
@@ -404,4 +490,139 @@ metadata:
 		})
 	})
 
+	GIt("should check alb hr", func() {
+		cringlobal := []string{
+			`
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+  name: p1-test1
+  namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    loadbalancerName: p1-test1
+    projects:
+      - ALL_ALL
+    replicas: 1
+---
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+  name: p1-test2
+  namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    loadbalancerName: p1-test2
+    projects:
+      - ALL_ALL
+    replicas: 1
+`}
+		crinproduct := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test1
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+`}
+
+		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
+			out, err := NewCmd().
+				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
+				Cwd(GetAlbBase()+"/migrate/checklist").
+				Call("bash", "run.sh", "check_alb_hr", "v3.6.1", "v3.8.1")
+			GinkgoAssert(err, "")
+			GinkgoAssertTrue(!strings.Contains(out, "p1 集群的alb test1 hr 还在但是alb不在了"), "")
+			GinkgoAssertTrue(strings.Contains(out, "p1 集群的alb test2 hr 还在但是alb不在了"), "")
+			_ = out
+		})
+	})
+
+	GIt("should check alb rule", func() {
+		cringlobal := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  labels:
+    alb2.cpaas.io/source-type: ingress
+  name: x-60080-1
+  namespace: cpaas-system
+spec:
+  source:
+    name: test-ing
+    namespace: cpaas-system
+    type: ingress
+  type: ""
+  url: /
+  vhost: ""
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  labels:
+    alb2.cpaas.io/source-type: ingress
+    alb2.cpaas.io/source-name: b.cpaas-system
+  name: x-60080-2
+  namespace: cpaas-system
+spec:
+  type: ""
+  url: /
+  vhost: ""
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  labels:
+    alb2.cpaas.io/source-type: ingress
+    alb2.cpaas.io/source-name: a.cpaas-system
+  name: x-60080-3
+  namespace: cpaas-system
+spec:
+  type: ""
+  url: /
+  vhost: ""
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: a
+  namespace: cpaas-system
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: none
+            port:
+              number: 8080
+        path: /$
+        pathType: ImplementationSpecific
+`}
+		crinproduct := []string{}
+
+		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
+			out, err := NewCmd().
+				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
+				Cwd(GetAlbBase()+"/migrate/checklist").
+				Call("bash", "run.sh", "check_alb", "v3.6.1", "v3.8.1")
+			GinkgoAssert(err, "")
+			GinkgoAssertTrue(strings.Contains(out, "集群 global 的rule的ingress test-ing 不存在"), "")
+			GinkgoAssertTrue(strings.Contains(out, "集群 global 的rule的ingress b 不存在"), "")
+			GinkgoAssertTrue(!strings.Contains(out, "集群 global 的rule的ingress a 不存在"), "")
+			_ = out
+		})
+	})
 })
