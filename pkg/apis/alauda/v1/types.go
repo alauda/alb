@@ -176,6 +176,10 @@ type DSLXTerm struct {
 
 type DSLX []DSLXTerm
 
+func (d DSLX) ToSearchbleString() string {
+	return fmt.Sprintf("%v", d)
+}
+
 type RuleSpec struct {
 	Description string `json:"description"`
 	Domain      string `json:"domain"`

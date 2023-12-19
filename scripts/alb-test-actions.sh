@@ -32,7 +32,7 @@ function alb-go-test-all-with-coverage() {
 function alb-run-all-e2e-test() (
   set -e
   # TODO 覆盖率
-  local concurrent=${1:-1}
+  local concurrent=${1:-3}
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
   if [[ "$filter" != "" ]]; then
