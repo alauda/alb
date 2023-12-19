@@ -28,6 +28,7 @@ func DefaultMock() *Config {
 				LeaseDuration: time.Second * time.Duration(120),
 				RenewDeadline: time.Second * time.Duration(40),
 				RetryPeriod:   time.Second * time.Duration(12),
+				SkipExit:      true,
 			},
 		},
 	}

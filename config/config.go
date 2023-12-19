@@ -57,6 +57,7 @@ type LeaderConfig struct {
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
 	RetryPeriod   time.Duration
+	SkipExit      bool
 }
 
 func K8sFromEnv() K8sConfig {

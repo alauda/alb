@@ -96,6 +96,7 @@ func (e *OperatorEnv) Start() error {
 	if e.InitK8s != nil {
 		err = e.InitK8s(ctx, base, cfg, l)
 		if err != nil {
+			cancel()
 			return err
 		}
 	}
