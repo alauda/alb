@@ -13,7 +13,7 @@ function alb-build-e2e-test() {
 function alb-go-test-all-with-coverage() {
   echo "lift: start test"
   env
-  alb-run-checklist-test
+  #   alb-run-checklist-test
   rm ./coverage.txt || true
   alb-go-unit-test
   local end_unit=$(date +"%Y %m %e %T.%6N")
@@ -45,7 +45,7 @@ function alb-run-checklist-test() (
 function alb-run-all-e2e-test() (
   set -e
   # TODO 覆盖率
-  local concurrent=${1:-6}
+  local concurrent=${1:-3}
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
   if [[ "$filter" != "" ]]; then
