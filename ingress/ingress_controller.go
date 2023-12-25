@@ -149,7 +149,7 @@ func (c *Controller) setUpEventHandler() {
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
 			}
-			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) {
+			if reflect.DeepEqual(newIngress.Annotations, oldIngress.Annotations) && reflect.DeepEqual(newIngress.Spec, oldIngress.Spec) && reflect.DeepEqual(newIngress.Labels, oldIngress.Labels) {
 				return
 			}
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion))

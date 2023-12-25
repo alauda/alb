@@ -113,9 +113,12 @@ spec:
       port: 80
       weight: 1
 `)
+		l.Info("wait nginx")
 		f.WaitNginxConfigStr("listen.*8234")
+		l.Info("wait nginx ok")
 		// gateway的status 应该是从 notready ，然后deployment ready 然后alb ready 然后才ready的
 		EventuallySuccess(func(o Gomega) {
+			l.Info("wait gateway ok")
 			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status))

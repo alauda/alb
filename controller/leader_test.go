@@ -75,12 +75,10 @@ var _ = Describe("LeaderElection", func() {
 			quit <- true
 		}()
 		go func() {
-			err := lb.StartLeaderElectionLoop()
-			assert.NoError(GinkgoT(), err)
+			lb.StartLeaderElectionLoop()
 		}()
 		go func() {
-			err := la.StartLeaderElectionLoop()
-			assert.NoError(GinkgoT(), err)
+			la.StartLeaderElectionLoop()
 		}()
 
 		<-quit

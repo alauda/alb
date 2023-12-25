@@ -113,7 +113,9 @@ func (l *LeaderElection) StartLeaderElectionLoop() error {
 					log.Error(nil, "leader lost", "id", id)
 					// IMPORTANT lossing leader means sth is wrong. let it just die.
 					// TODO we need a event system.
-					os.Exit(-1)
+					if !lcfg.SkipExit {
+						os.Exit(-1)
+					}
 				}
 			},
 			OnNewLeader: func(identity string) {

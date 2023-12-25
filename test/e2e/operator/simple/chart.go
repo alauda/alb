@@ -96,6 +96,12 @@ var _ = Describe("chart", func() {
 		l.Info("sa", "sa", PrettyCr(sa), "csv", csv)
 		assert.Equal(GinkgoT(), lo.Map(sa.ImagePullSecrets, func(k corev1.LocalObjectReference, _ int) string { return k.Name }), []string{"global-registry-auth", "xx"})
 		assert.Equal(GinkgoT(), strings.Contains(csv, "global-registry-auth,xx"), true)
+
+		// https://jira.alauda.cn/browse/ACP-30778
+		// operator的nodeselector和默认的alb保持一致
+		sel := kt.AssertKubectl("get csv -n cpaas-system alb-operator.v0.1.0 -o=jsonpath='{.spec.install.spec.deployments[0].spec.template.spec.nodeSelector}'")
+		assert.Equal(GinkgoT(), sel == "'{\"kubernetes.io/hostname\":\"192.168.134.195\",\"kubernetes.io/os\":\"linux\"}'", true)
+		l.Info("csv", "csv", csv, "sel", sel)
 	})
 
 	f.GIt("deploy alb deployment mode", func() {
@@ -115,6 +121,9 @@ var _ = Describe("chart", func() {
             loadbalancerName: ares-alb2
             nodeSelector:
                 kubernetes.io/hostname: 192.168.134.195
+                alb: "true"
+                "1": "true"
+                "xtrue": "true"
             gateway:
                 enable: true
             replicas: 1
@@ -159,6 +168,17 @@ var _ = Describe("chart", func() {
 		GinkgoNoErr(err)
 		l.Info("depl", "yaml", deplyaml)
 		assert.Equal(GinkgoT(), strings.Contains(deplyaml, "global-registry-auth,xx"), true)
+
+		// https://jira.alauda.cn/browse/ACP-30778
+		// operator的nodeselector和默认的alb保持一致
+		assert.Equal(GinkgoT(), dep.Spec.Template.Spec.NodeSelector, map[string]string{
+			"kubernetes.io/hostname": "192.168.134.195",
+			"kubernetes.io/os":       "linux",
+			"alb":                    "true",
+			"xtrue":                  "true",
+			"1":                      "true",
+		})
+
 	})
 
 	f.GIt("deploy operator only", func() {

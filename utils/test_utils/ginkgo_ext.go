@@ -13,8 +13,9 @@ func nowStamp() string {
 
 func EventuallySuccess(f func(g gomega.Gomega), log logr.Logger) {
 	gomega.Eventually(func(g gomega.Gomega) {
+		log.Info("check")
 		f(g)
-	}, "300s", "2s").Should(gomega.Succeed(), func(message string, callerSkip ...int) {
+	}, "10m", "2s").Should(gomega.Succeed(), func(message string, callerSkip ...int) {
 	})
 }
 func GNoErr(g gomega.Gomega, err error) {

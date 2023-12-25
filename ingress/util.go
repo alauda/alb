@@ -25,7 +25,7 @@ func parseSSLAnnotation(sslAnno string) map[string]string {
 			return nil
 		}
 		k, v := kv[0], kv[1]
-		if rv[k] != "" {
+		if rv[k] != "" && rv[k] != v {
 			klog.Warningf("invalid ssl annotation duplicate host, %s", p)
 			return nil
 		}

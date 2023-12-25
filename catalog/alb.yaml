@@ -1,0 +1,38 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: alb
+  description: alauda loadbalancer controller
+  annotations:
+    # gitlab 仓库地址，格式：${group}/${name}
+    gitlab.com/project-slug: container-platform/alb2
+    gitlab.com/instance: gitlab-ce.alauda.cn
+
+    # acp ci 流水线地址，格式：${project}/${cluster}/${ns}/${name}
+    # 文档地址： https://dp.alauda.cn/docs/default/component/developer-platform/plugins/dp-cicd/#for-developer
+    # 如果有多个流水线，用逗号分隔
+    acp.cpaas.io/ci-pipeline: acp/business-build/acp-dev/alb
+
+    # harbor 仓库信息，格式：${project}/${repo}
+    # 如果有多个仓库，用逗号分隔
+    goharbor.io/repository-slug: acp/alb2
+
+    # sonarqube 项目信息(projectKey)。比如下面的 sonar 项目地址，projectKey 为 gitlab-ce.alauda.cn-developer-platform-octopus
+    # https://build-sonar.alauda.cn/dashboard?id=gitlab-ce.alauda.cn-developer-platform-octopus
+    sonarqube.org/project-key: gitlab-ce.alauda.cn-container-platform-alb2
+
+    # 组件的管理人员，格式 ${owner}
+    acp.cpaas.io/owner: congwu@alauda.io
+
+    # 技术文档目录，相对于 catalog-info.yaml 文件 mkdocs.yaml 所在的位置。比如下面的目录结构，技术文档目录为 ./
+    # .
+    # ├── mkdocs.mk
+    # ├── catalog-info.yaml
+    backstage.io/techdocs-ref: dir:./
+spec:
+  # 组件属于什么类型
+  type: service
+  # 组件属于什么生命周期，可选值{"experimental":"试验阶段","production":"维护阶段","deprecated":"周期末尾阶段，稍后回收"}
+  lifecycle: production
+  # 组件所属团队
+  owner: ACP

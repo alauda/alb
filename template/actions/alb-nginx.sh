@@ -18,14 +18,13 @@ function alb-install-nginx-test-dependency-arch() {
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
 }
 
-function alb-nginx-install-dependency() {
+function alb-nginx-install-dependency() (
   # keep same as dockerfile.full
-
+  set -x
   LUA_VAR_NGINX_MODULE_VERSION="0.5.2"
   LUA_RESTY_BALANCER_VERSION="0.04"
   openresty=/opt/openresty
-  ln -s $openresty/bin/opm /usr/local/bin/opm
-  ln -s $openresty/bin/resty /usr/local/bin/resty
+  export PATH=$openresty/bin:$PATH
   opm install thibaultcha/lua-resty-mlcache
   opm install xiangnanscu/lua-resty-cookie
 
@@ -33,7 +32,7 @@ function alb-nginx-install-dependency() {
     curl -fSL https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz -o lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz
     tar xzf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz && rm -rf lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz
     cd lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION}
-    prefix=/opt/openresty/lualib/
+    export LUA_LIB_DIR=$openresty/lualib
     make && make install
     cd -
     sudo rm -rf ./lua-resty-balancer-${LUA_RESTY_BALANCER_VERSION}
@@ -43,11 +42,12 @@ function alb-nginx-install-dependency() {
     tar xzf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz
     rm -rf lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz
     cd lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}
+    ls lib/resty/*
     cp -r lib/resty/* $openresty/lualib/resty
     cd -
     sudo rm -rf ./lua-var-nginx-module-${LUA_VAR_NGINX_MODULE_VERSION}
   )
-}
+)
 
 function tweak_gen_install() {
   go build -v -v -o ./bin/tools/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen

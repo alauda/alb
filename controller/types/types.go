@@ -286,7 +286,7 @@ func (r RuleConfig) ToJsonString() (string, error) {
 }
 
 func (r RuleConfig) IsEmpty() bool {
-	if r.RewriteResponse != nil && !r.RewriteResponse.IsEmpty() {
+	if r.RewriteResponse != nil || r.RewriteRequest != nil || r.Timeout != nil {
 		return false
 	}
 	return true

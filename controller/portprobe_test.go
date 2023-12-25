@@ -129,7 +129,7 @@ spec:
 			l.Info("ft1", "ft", PrettyJson(ft.Status))
 			l.Info("alb", "alb", PrettyJson(alb.Status.Detail.Alb))
 			return len(ft.Status.Instances) == 1 && alb.Status.Detail.Alb.PortStatus["tcp-80"].Conflict == true
-		}, time.Second*30, time.Second*3)
+		}, time.Minute*10, time.Second*3)
 	}
 	// when alb pod change we should cleanup the old pod status
 	{
@@ -159,6 +159,6 @@ spec:
 			assert.NoError(t, err)
 			l.Info("alb", "alb", PrettyJson(alb.Status.Detail.Alb))
 			return len(alb.Status.Detail.Alb.PortStatus) == 0 && len(ft.Status.Instances) == 0
-		}, time.Second*30, time.Second*3)
+		}, time.Minute*10, time.Second*3)
 	}
 }

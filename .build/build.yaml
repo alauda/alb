@@ -93,6 +93,32 @@ spec:
             script: |
               #!/bin/sh
               scripts/go-test.sh
+    - name: image-scan
+      runAfter:
+        - nginx-build
+        - alb-build
+      timeout: 30m
+      retries: 0
+      taskRef:
+        kind: ClusterTask
+        name: trivy-image-scan
+      workspaces:
+        - name: source
+          workspace: source
+        - name: cache
+          workspace: cache
+      params:
+        - name: targets
+          value:
+            - $(tasks.alb-build.results.ociContainerImageBuild-url)
+            - $(tasks.nginx-build.results.ociContainerImageBuild-url)
+        - name: scan-flags
+          value:
+            - db.repository=build-harbor.alauda.cn/3rdparty/aquasec/trivy-db
+            - db.skip-update=false
+        - name: quality-gate-rules
+          value:
+            - score=7
     - name: code-scan
       runAfter:
         - alb-test
@@ -233,14 +259,14 @@ spec:
         - name: version
           value:
             - chart-version=$(build.git.version.short)
-        - name: values
-          value:
-            - .global.images.alb2.tag=$(build.git.version.docker)
-            - .global.images.nginx.tag=$(build.git.version.docker) 
         - name: annotations
           value:
             - branch=$(build.git.branch.name)
             - commit=$(build.git.lastCommit.id)
+        - name: values
+          value:
+            - .global.images.alb2.tag=$(build.git.version.docker)
+            - .global.images.nginx.tag=$(build.git.version.docker) 
     - name: commit-push
       taskRef:
         name: alauda-git-commit-push

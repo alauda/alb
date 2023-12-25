@@ -634,10 +634,12 @@ func (c *Controller) generateRule(
 	ruleAnnotation[c.GetLabelSourceIngressPathIndex()] = fmt.Sprintf("%d", pathIndex)
 	ruleAnnotation[c.GetLabelSourceIngressRuleIndex()] = fmt.Sprintf("%d", ruleIndex)
 	name := strings.ToLower(utils.RandomStr(ft.Name, 4))
+	dslx := GetDSLX(host, url, pathType)
 	ruleSpec := alb2v1.RuleSpec{
 		Domain:           host,
 		URL:              url,
-		DSLX:             GetDSLX(host, url, pathType),
+		DSL:              dslx.ToSearchbleString(),
+		DSLX:             dslx,
 		Priority:         priority, // TODO ability to set priority in ingress.
 		RewriteBase:      url,
 		RewriteTarget:    rewriteTarget,

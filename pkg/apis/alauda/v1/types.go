@@ -176,12 +176,16 @@ type DSLXTerm struct {
 
 type DSLX []DSLXTerm
 
+func (d DSLX) ToSearchbleString() string {
+	return fmt.Sprintf("%v", d)
+}
+
 type RuleSpec struct {
 	Description string `json:"description"`
 	Domain      string `json:"domain"`
 	// +optional
-	// dsl is deprecated
-	DSL string `json:"dsl"` // deprecated
+	// used for searching on the UI interface
+	DSL string `json:"dsl"`
 	// dslx defines the matching criteria
 	DSLX DSLX `json:"dslx"`
 	// priority ranges from [1,10], if multiple rules match, less value prioritize

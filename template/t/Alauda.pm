@@ -244,8 +244,13 @@ _END_
     my $cfg = <<__END;
     include       $base/tweak/http.conf;
     lua_package_path "$lua_path";
-
     error_log $base/servroot/logs/error.http.log info;
+
+	log_format  test  '[\$time_local] \$remote_addr:\$remote_port "\$host" "\$request" '
+                      '\$status \$upstream_status \$upstream_addr '
+                      '"\$http_user_agent" "\$http_x_forwarded_for" '
+                      '\$request_time \$upstream_response_time';
+    access_log $base/servroot/logs/access.http.log test;
 
     gzip on;
     gzip_comp_level 5;
@@ -297,7 +302,7 @@ _END_
             set \$upstream default;
             set \$rule_name "";
             set \$backend_protocol http;
-
+ 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;

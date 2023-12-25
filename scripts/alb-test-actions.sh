@@ -67,7 +67,13 @@ function alb-run-all-e2e-test() (
 
   local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
-  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e -failFast -p -nodes $concurrent ./test/e2e
+  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e -failFast -debug -p -nodes $concurrent ./test/e2e
+  if [ -f ./debug ]; then
+    while true; do
+      echo "debug"
+      sleep 1s
+    done
+  fi
 )
 
 function alb-go-unit-test() {
@@ -83,7 +89,7 @@ function alb-go-unit-test() {
     echo "pkg $pkg"
     if [ -f ./coverage.tmp ]; then rm ./coverage.tmp; fi
     touch ./coverage.tmp
-    go test -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg "$coverpkg" $pkg
+    go test -v -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg "$coverpkg" $pkg
     fail="$?"
     echo "pkg test over $pkg $fail"
     if [[ ! "$fail" == "0" ]]; then

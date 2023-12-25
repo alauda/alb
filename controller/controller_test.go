@@ -17,6 +17,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func TestDslString(t *testing.T) {
+
+	dslx := v1.DSLX{
+		{
+			Values: [][]string{{utils.OP_STARTS_WITH, "/k8s"}, {utils.OP_REGEX, "^/v1/*"}},
+			Type:   utils.KEY_URL,
+		},
+	}
+	assert.Equal(t, dslx.ToSearchbleString(), "[{[[STARTS_WITH /k8s] [REGEX ^/v1/*]] URL }]")
+}
+
 func TestRuleOrder(t *testing.T) {
 	type fields struct {
 		Name string
