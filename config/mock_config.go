@@ -31,6 +31,7 @@ func DefaultMock() *Config {
 				SkipExit:      true,
 			},
 		},
+		Names: NewNames("cpaas.io"),
 	}
 }
 

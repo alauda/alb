@@ -130,7 +130,8 @@ function alb-install-golang-test-dependency() {
   wget http://prod-minio.alauda.cn/acp/helm-v3.9.3 && chmod +x ./helm-v3.9.3 && mv ./helm-v3.9.3 /usr/local/bin/helm
 
   helm version
-
+  # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+  wget http://prod-minio.alauda.cn/acp/golangci-lint && chmod +x ./golangci-lint && mv ./golangci-lint /usr/local/bin/golangci-lint
   apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install

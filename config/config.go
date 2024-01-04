@@ -109,6 +109,7 @@ func ExtraFlagsFromEnv(env map[string]string) ExtraConfig {
 type Config struct {
 	ALBRunConfig
 	ExtraConfig
+	Names
 }
 
 var (
@@ -136,6 +137,7 @@ func InitFromEnv(env map[string]string) *Config {
 	cfg := &Config{
 		ALBRunConfig: acfg,
 		ExtraConfig:  ExtraFlagsFromEnv(env),
+		Names:        Names{domain: acfg.Domain},
 	}
 	log.L().Info("alb cfg from env", "cfg", utils.PrettyJson(cfg))
 	return cfg
@@ -155,6 +157,11 @@ func GetConfig() *Config {
 		cfg = InitFromEnv(env)
 	})
 	return cfg
+}
+
+func (c *Config) SetDomain(domain string) {
+	c.domain = domain
+	c.Domain = domain
 }
 
 func (c *Config) GetNs() string {
@@ -205,8 +212,45 @@ const (
 	FMT_INGRESS_ADDRESS_NAME      = "alb2.%s/%s_address"
 )
 
-func (c *Config) GetLabelLeader() string {
-	return fmt.Sprintf(FMT_LEADER, c.GetDomain())
+type Names struct {
+	domain string
+}
+
+func NewNames(domain string) Names {
+	return Names{domain: domain}
+}
+
+func (n *Names) GetLabelLeader() string {
+	return fmt.Sprintf(FMT_LEADER, n.domain)
+}
+
+func (n *Names) GetLabelSourceIngressVer() string {
+	sourceIngressVersion := fmt.Sprintf(FMT_SOURCE_INGRESS_VERSION, n.domain)
+	return sourceIngressVersion
+}
+
+func (n *Names) GetLabelSourceIngressPathIndex() string {
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_PATH_INDEX, n.domain)
+}
+
+func (n *Names) GetLabelBindKey() string {
+	return fmt.Sprintf(FMT_BINDKEY, n.domain)
+}
+
+func (n *Names) GetLabelSourceIngressRuleIndex() string {
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_RULE_INDEX, n.domain)
+}
+
+func (n *Names) GetLabelAlbName() string {
+	return fmt.Sprintf(FMT_NAME, n.domain)
+}
+
+func (n *Names) GetLabelFt() string {
+	return fmt.Sprintf(FMT_FT, n.domain)
+}
+
+func (n *Names) GetLabelSourceType() string {
+	return fmt.Sprintf(FMT_SOURCE_TYPE, n.domain)
 }
 
 type Flags struct {
@@ -241,23 +285,6 @@ func (c *Config) GetIngressHttpsPort() int {
 	return c.Controller.HttpsPort
 }
 
-func (c *Config) GetLabelSourceIngressVer() string {
-	sourceIngressVersion := fmt.Sprintf(FMT_SOURCE_INGRESS_VERSION, c.GetDomain())
-	return sourceIngressVersion
-}
-
-func (c *Config) GetLabelSourceIngressPathIndex() string {
-	return fmt.Sprintf(FMT_SOURCE_INGRESS_PATH_INDEX, c.GetDomain())
-}
-
-func (c *Config) GetLabelBindKey() string {
-	return fmt.Sprintf(FMT_BINDKEY, c.GetDomain())
-}
-
-func (c *Config) GetLabelSourceIngressRuleIndex() string {
-	return fmt.Sprintf(FMT_SOURCE_INGRESS_RULE_INDEX, c.GetDomain())
-}
-
 func (c *Config) GetCpuPreset() int {
 	return c.Controller.CpuPreset
 }
@@ -272,18 +299,6 @@ func (c *Config) GetLeaderConfig() LeaderConfig {
 
 func (c *Config) DebugRuleSync() bool {
 	return c.ExtraConfig.DebugRuleSync
-}
-
-func (c *Config) GetLabelAlbName() string {
-	return fmt.Sprintf(FMT_NAME, c.GetDomain())
-}
-
-func (c *Config) GetLabelFt() string {
-	return fmt.Sprintf(FMT_FT, c.GetDomain())
-}
-
-func (c *Config) GetLabelSourceType() string {
-	return fmt.Sprintf(FMT_SOURCE_TYPE, c.GetDomain())
 }
 
 func (c *Config) EnableIngress() bool {
