@@ -18,11 +18,14 @@ package depl
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	sharecfg "alauda.io/alb2/pkg/config"
 	"alauda.io/alb2/pkg/operator/config"
 	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	"alauda.io/alb2/pkg/operator/toolkit"
@@ -46,6 +49,7 @@ import (
 )
 
 var alb2OperatorFinalizer = "alb2.finalizer"
+var alb2Finalizer = sharecfg.Alb2Finalizer
 
 // ALB2Reconciler reconciles a ALB2 object
 type ALB2Reconciler struct {
@@ -66,8 +70,8 @@ func (r *ALB2Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := r.Log
-	l.Info("reconcile alb", "alb", req)
+	l := r.Log.WithValues("alb", fmt.Sprintf("%s/%s", req.Name, req.Namespace))
+	l.Info("reconcile")
 	// 处理
 	//   alb not found
 	//   alb 没有config
@@ -87,7 +91,7 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		l := l.WithValues("alb", req, "ver", alb.ResourceVersion)
+		l := l.WithValues("ver", alb.ResourceVersion)
 		if alb.Annotations["alb.cpaas.io/ignoreme"] == "true" {
 			l.Info("respect ignore me annotation")
 			return ctrl.Result{}, nil
@@ -107,6 +111,7 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if !controllerutil.ContainsFinalizer(alb, alb2OperatorFinalizer) {
 			l.Info("finalizer not found update it first")
 			controllerutil.AddFinalizer(alb, alb2OperatorFinalizer)
+			controllerutil.AddFinalizer(alb, alb2Finalizer)
 			if err := r.Update(ctx, alb); err != nil {
 				l.Error(err, "unable to add finalizer on alb2", "alb2", alb)
 				return ctrl.Result{}, err
@@ -116,7 +121,19 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 
 		if !alb.GetDeletionTimestamp().IsZero() {
-			l.Info("find a deleting alb", "deletionTimestamp", alb.GetDeletionTimestamp())
+			l = l.WithName("cleanup")
+			deleteTime := alb.GetDeletionTimestamp()
+			graceTime := 10
+			now := time.Now()
+			lastWaitTime := deleteTime.Add(time.Duration(graceTime) * time.Second)
+			shouldWait := now.Before(lastWaitTime)
+			albcleanuped := !controllerutil.ContainsFinalizer(alb, alb2Finalizer)
+			l.Info("deleting alb", "delete", deleteTime, "now", now, "grace", graceTime, "wait", shouldWait, "cleaned", albcleanuped)
+			// 如果在给定时间内alb没有把自己的finalizer去掉，那么就直接删除他
+			if !albcleanuped && shouldWait {
+				l.Info("wait alb cleanup")
+				return ctrl.Result{Requeue: true, RequeueAfter: time.Duration(1) * time.Second}, nil
+			}
 			cur, err := LoadAlbDeploy(ctx, r.Client, r.Log, req.NamespacedName, r.OperatorCf)
 			if err != nil {
 				return ctrl.Result{}, perr.Wrapf(err, "load alb deploy in delete status fail")
@@ -128,6 +145,7 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			}
 			// all clear now.
 			controllerutil.RemoveFinalizer(alb, alb2OperatorFinalizer)
+			controllerutil.RemoveFinalizer(alb, alb2Finalizer)
 			if err := r.Update(ctx, alb); err != nil {
 				l.Error(err, "unable to remove finalizer on alb2", "alb2", alb)
 				return ctrl.Result{}, perr.Wrapf(err, "remove finalizer,update alb fail")

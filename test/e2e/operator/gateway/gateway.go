@@ -311,7 +311,7 @@ spec:
 		EventuallySuccess(func(g Gomega) {
 			albls, err := kc.GetAlbClient().CrdV2beta1().ALB2s("g1").List(ctx, metav1.ListOptions{})
 			g.Expect(err).ShouldNot(HaveOccurred())
-			log.Info("albs", "albs", PrettyCrs(albls.Items))
+			log.Info("albs", "alb should be delete", PrettyCrs(albls.Items))
 			g.Expect(len(albls.Items)).Should(Equal(0))
 		}, log)
 
@@ -331,7 +331,7 @@ spec:
 		EventuallySuccess(func(g Gomega) {
 			albls, err := kc.GetAlbClient().CrdV2beta1().ALB2s("g1").List(ctx, metav1.ListOptions{})
 			g.Expect(err).ShouldNot(HaveOccurred())
-			log.Info("albs", "albs", PrettyCrs(albls.Items))
+			log.Info("alb should back", "albs", PrettyCrs(albls.Items))
 			g.Expect(len(albls.Items)).Should(Equal(1))
 		}, log)
 

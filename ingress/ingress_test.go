@@ -165,9 +165,10 @@ func TestNeedEnqueueObject(t *testing.T) {
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Namespace: test_utils.DEFAULT_NS,
 				Name:      albName,
-				Labels: map[string]string{
-					"project.alauda.io/name":    "project-1",
-					"project.alauda.io/ALL_ALL": "true",
+			},
+			Spec: albv2.ALB2Spec{
+				Config: &albv2.ExternalAlbConfig{
+					Projects: []string{"ALL_ALL", "project-1"},
 				},
 			},
 		},

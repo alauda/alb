@@ -8,7 +8,7 @@ import (
 	"alauda.io/alb2/config"
 	"github.com/thoas/go-funk"
 
-	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"k8s.io/klog/v2"
 )
 
@@ -34,16 +34,12 @@ func GetOwnProjectsFromLabel(name string, labels map[string]string) (rv []string
 	return
 }
 
-func GetOwnProjectsFromAlb(name string, labels map[string]string, alb *v2beta1.ALB2Spec) (rv []string) {
+func GetOwnProjectsFromAlb(alb *alb2v2.ALB2) (rv []string) {
 	projects := []string{}
-	if alb != nil && alb.Config != nil && alb.Config.Projects != nil {
-		projects = alb.Config.Projects
+	if alb != nil && alb.Spec.Config != nil && alb.Spec.Config.Projects != nil {
+		projects = alb.Spec.Config.Projects
 	}
-	defer func() {
-		klog.Infof("%s, own projects: %+v", name, rv)
-	}()
-	rv = funk.UniqString(append(GetOwnProjectsFromLabel(name, labels), projects...))
-	return
+	return projects
 }
 
 const (

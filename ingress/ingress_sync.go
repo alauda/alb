@@ -398,7 +398,7 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 		return false, reason
 	}
 
-	projects := ctl.GetOwnProjectsFromAlb(alb.Name, alb.Labels, &alb.Spec)
+	projects := ctl.GetOwnProjectsFromAlb(alb.Alb)
 	if funk.Contains(projects, m.ProjectALL) {
 		return true, ""
 	}

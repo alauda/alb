@@ -153,11 +153,17 @@ func (c *Controller) setUpEventHandler() {
 				return
 			}
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s update event  version:%s/%s", newIngress.Namespace, newIngress.Name, oldIngress.ResourceVersion, newIngress.ResourceVersion))
-
+			// 如果更新成了别的ingressclass，我们也要去处理下，要cleanup
 			if !c.CheckShouldHandleViaIngressClass(oldIngress) && !c.CheckShouldHandleViaIngressClass(newIngress) {
 				c.log.Info("not our ingressclass ignore", "old-ing", oldIngress, "new-ing", newIngress)
 				return
 			}
+
+			if c.CheckShouldHandleViaIngressClass(oldIngress) && !c.CheckShouldHandleViaIngressClass(newIngress) {
+				c.log.Info("change to other ingress class", "old-ing", oldIngress, "new-ing", newIngress)
+				c.onIngressclassChange(newIngress)
+			}
+
 			c.enqueue(IngKey(newIngress))
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -174,9 +180,18 @@ func (c *Controller) setUpEventHandler() {
 	// 3. reconcile ingress when alb project change.
 	// 4. reconcile ingress when alb address change.
 	c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(albraw interface{}) {
+			alb := albraw.(*alb2v2.ALB2)
+			c.onAlbDelete(alb)
+		},
 		UpdateFunc: func(old, new interface{}) {
 			newAlb2 := new.(*alb2v2.ALB2)
 			oldAlb2 := old.(*alb2v2.ALB2)
+			if !newAlb2.GetDeletionTimestamp().IsZero() {
+				c.onAlbDelete(newAlb2)
+				return
+			}
+
 			if oldAlb2.ResourceVersion == newAlb2.ResourceVersion {
 				return
 			}
@@ -188,6 +203,7 @@ func (c *Controller) setUpEventHandler() {
 				return
 			}
 			c.log.Info("find alb changed", "diff", cmp.Diff(oldAlb2, newAlb2))
+			c.onAlbChangeUpdateIngressStatus(oldAlb2, newAlb2)
 			err := c.syncAll()
 			if err != nil {
 				c.log.Error(err, "reprocess all ingress when alb changed failed")

@@ -14,6 +14,7 @@ import (
 	. "alauda.io/alb2/utils/test_utils/assert"
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -438,6 +439,7 @@ spec:
 				l.Info("check ingress status", "ing", PrettyCr(ing))
 				return NewIngressAssert(ing).HasLoadBalancerIP("127.0.0.1"), nil
 			})
+
 			// change alb address
 			alb, err := f.GetAlbClient().CrdV2beta1().ALB2s(albns).Get(ctx, albname, metav1.GetOptions{})
 			GinkgoNoErr(err)
@@ -450,8 +452,10 @@ spec:
 				if err != nil {
 					return false, err
 				}
-				l.Info("check ingress status", "ing", PrettyCr(ing))
-				return NewIngressAssert(ing).HasLoadBalancerHostAndPort("alauda.com", []int32{80}), nil
+				has127 := NewIngressAssert(ing).HasLoadBalancerHostAndPort("127.0.0.1", []int32{80})
+				hasalauda := NewIngressAssert(ing).HasLoadBalancerHostAndPort("alauda.com", []int32{80})
+				l.Info("check ingress status", "ing", PrettyCr(ing), "has127", has127, "hasalauda", hasalauda)
+				return !has127 && hasalauda, nil
 			})
 
 			Wait(func() (bool, error) {
@@ -470,7 +474,8 @@ spec:
 			ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
 			GinkgoNoErr(err)
 			ing.Annotations["alb.networking.cpaas.io/tls"] = "svc.test=cpaas-system/svc.test-xtgdc"
-			ing, err = f.GetK8sClient().NetworkingV1().Ingresses(ns).Update(ctx, ing, metav1.UpdateOptions{})
+			_, err = f.GetK8sClient().NetworkingV1().Ingresses(ns).Update(ctx, ing, metav1.UpdateOptions{})
+			GinkgoNoErr(err)
 
 			Wait(func() (bool, error) {
 				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
@@ -492,6 +497,47 @@ spec:
 				}
 				return len(rs.Items) == 1, nil
 			})
+
+			// alb 项目切换 应该更新不需要处理的ingress的status
+			alb, err = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Get(ctx, albname, metav1.GetOptions{})
+			GinkgoNoErr(err)
+			alb.Spec.Config.Projects = []string{"xxx"}
+			_, err = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Update(ctx, alb, metav1.UpdateOptions{})
+
+			GinkgoNoErr(err)
+			EventuallySuccess(func(g Gomega) {
+				GinkgoNoErr(err)
+				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+				GNoErr(g, err)
+				l.Info("check ingress status", "ing", PrettyCr(ing))
+				GEqual(g, len(ing.Status.LoadBalancer.Ingress), 0)
+			}, l)
+
+			// bring back
+			{
+				alb, err = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Get(ctx, albname, metav1.GetOptions{})
+				GinkgoNoErr(err)
+				alb.Spec.Config.Projects = []string{"project1"}
+				_, err = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Update(ctx, alb, metav1.UpdateOptions{})
+				EventuallySuccess(func(g Gomega) {
+					GinkgoNoErr(err)
+					ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+					GNoErr(g, err)
+					l.Info("check ingress status", "ing", PrettyCr(ing))
+					GEqual(g, len(ing.Status.LoadBalancer.Ingress), 1)
+				}, l)
+			}
+
+			// alb 删除 应该更新所有ingress的status
+			_ = f.GetAlbClient().CrdV2beta1().ALB2s(albns).Delete(ctx, albname, metav1.DeleteOptions{})
+			EventuallySuccess(func(g Gomega) {
+				GinkgoNoErr(err)
+				ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
+				GNoErr(g, err)
+				l.Info("check ingress status", "ing", PrettyCr(ing))
+				GEqual(g, len(ing.Status.LoadBalancer.Ingress), 0)
+			}, l)
+
 		})
 
 		GIt("should not recreate rule when ingress annotation/owner change", func() {

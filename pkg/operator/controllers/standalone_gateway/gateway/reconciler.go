@@ -267,7 +267,7 @@ func (r *GatewayReconciler) gatewayDeleted(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 	for _, alb := range albs {
-		r.log.Info("delete gateway cause gateway delete", "alb", PrettyCr(alb))
+		r.log.Info("delete gateway cause alb delete", "alb", PrettyCr(alb))
 		err := r.Delete(ctx, alb)
 		if err != nil {
 			r.log.Info("delete alb fail alb, ignore")
@@ -324,7 +324,7 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 			if !isAndHasGateway(new) {
 				return false
 			}
-			r.log.Info("gateway w alb", "alb change", cmp.Diff(old.Status, new.Status))
+			r.log.Info("gateway watch alb", "alb change", cmp.Diff(old.Status, new.Status))
 			statusChange := old.Status.State != new.Status.State
 			return statusChange
 		},
