@@ -43,7 +43,13 @@
                 "events"
             ],
             "verbs": [
-                "create"
+                "get",
+                "list",
+                "watch",
+                "create",
+                "update",
+                "delete",
+                "patch"
             ]
         },
         {
@@ -58,6 +64,8 @@
                 "list",
                 "watch",
                 "create",
+                "update",
+                "delete",
                 "patch"
             ]
         },

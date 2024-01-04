@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestLog(t *testing.T) {
+func TestLog(_ *testing.T) {
 	l := L()
 	l.V(-100).Info("test v-100")
 	l.V(-3).Info("test v-3")

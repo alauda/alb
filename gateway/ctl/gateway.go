@@ -46,14 +46,13 @@ type ListenerFilter interface {
 }
 
 type RouteFilter interface {
-	// 1. you must call route.unAllowRoute(ref,msg) by youself if route couldnot not match
+	// 1. you must call route.unAllowRoute(ref,msg) by yourself if route couldnt not match
 	// 2. you must return false if route is not match
 	FilteRoute(ref gv1b1t.ParentReference, route *Route, ls *Listener) bool
 	Name() string
 }
 
 func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger, cfg *config.Config) GatewayReconciler {
-
 	commonFilter := CommonFiliter{log: log, c: c, ctx: ctx}
 	hostNameFilter := HostNameFilter{log: log}
 	gc := cfg.GetGatewayCfg()
@@ -288,7 +287,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	}
 	gateway.Status.Listeners = lsstatusList
 	albReady := alb.Status.State == alb2v2.ALB2StateRunning
-	allready := true
+	allReady := true
 	acceptCondition := metav1.Condition{
 		Type:               string(gv1b1t.GatewayConditionAccepted),
 		LastTransitionTime: metav1.Now(),
@@ -299,14 +298,14 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 		acceptCondition.Reason = string(gv1b1t.GatewayReasonReady)
 		acceptCondition.Message = ""
 	} else {
-		allready = false
+		allReady = false
 		acceptCondition.Status = metav1.ConditionUnknown
 		acceptCondition.Reason = string(gv1b1t.GatewayReasonPending)
 		acceptCondition.Message = alb.Status.Reason
 	}
 
-	var ready *metav1.Condition
 	var program *metav1.Condition
+	var ready *metav1.Condition
 	if listenerValid {
 		ready = &metav1.Condition{
 			Type:               string(gv1b1t.GatewayConditionReady),
@@ -341,15 +340,14 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 		}
-		allready = false
+		allReady = false
 	}
 
 	conditions := []metav1.Condition{
 		acceptCondition,
 	}
-	if ready != nil {
-		conditions = append(conditions, *ready)
-	}
+
+	conditions = append(conditions, *ready)
 	if program != nil {
 		conditions = append(conditions, *program)
 	}
@@ -367,7 +365,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	if err != nil {
 		return false, "", err
 	}
-	if !allready {
+	if !allReady {
 		return true, "not all ready retry", nil
 	}
 	return false, "", err
@@ -447,12 +445,12 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 	return nil
 }
 
-func SameCondition(origin []metav1.Condition, new []metav1.Condition) bool {
-	if len(origin) != len(new) {
+func SameCondition(left []metav1.Condition, right []metav1.Condition) bool {
+	if len(left) != len(right) {
 		return false
 	}
-	for i, oc := range origin {
-		nc := new[i]
+	for i, oc := range left {
+		nc := right[i]
 		n := metav1.Now()
 		oc.LastTransitionTime = n
 		nc.LastTransitionTime = n
@@ -463,19 +461,19 @@ func SameCondition(origin []metav1.Condition, new []metav1.Condition) bool {
 	return true
 }
 
-func sameAddress(origin []gv1b1t.GatewayAddress, new []gv1b1t.GatewayAddress) bool {
+func sameAddress(origin []gv1b1t.GatewayAddress, latest []gv1b1t.GatewayAddress) bool {
 	orginset := sets.NewString(lo.Map(origin, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
-	statusset := sets.NewString(lo.Map(new, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
+	statusset := sets.NewString(lo.Map(latest, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
 	return orginset.Equal(statusset)
 }
 
-func sameGatewayStatus(origin gv1b1t.GatewayStatus, new gv1b1t.GatewayStatus) bool {
-	return SameCondition(origin.Conditions, new.Conditions) &&
-		sameAddress(origin.Addresses, new.Addresses) &&
-		sameListenerStatus(origin.Listeners, new.Listeners)
+func sameGatewayStatus(origin gv1b1t.GatewayStatus, latest gv1b1t.GatewayStatus) bool {
+	return SameCondition(origin.Conditions, latest.Conditions) &&
+		sameAddress(origin.Addresses, latest.Addresses) &&
+		sameListenerStatus(origin.Listeners, latest.Listeners)
 }
 
-func sameListenerStatus(origin []gv1b1t.ListenerStatus, new []gv1b1t.ListenerStatus) bool {
+func sameListenerStatus(origin []gv1b1t.ListenerStatus, latest []gv1b1t.ListenerStatus) bool {
 	tomap := func(ls []gv1b1t.ListenerStatus) map[string]gv1b1t.ListenerStatus {
 		m := map[string]gv1b1t.ListenerStatus{}
 		for _, s := range ls {
@@ -484,7 +482,7 @@ func sameListenerStatus(origin []gv1b1t.ListenerStatus, new []gv1b1t.ListenerSta
 		return m
 	}
 	originMap := tomap(origin)
-	newMap := tomap(new)
+	newMap := tomap(latest)
 	if len(originMap) != len(newMap) {
 		return false
 	}
@@ -501,17 +499,17 @@ func sameListenerStatus(origin []gv1b1t.ListenerStatus, new []gv1b1t.ListenerSta
 	return true
 }
 
-func SameStatus(origin []gv1b1t.RouteParentStatus, new []gv1b1t.RouteParentStatus) bool {
-	if len(origin) != len(new) {
+func SameStatus(origin []gv1b1t.RouteParentStatus, latest []gv1b1t.RouteParentStatus) bool {
+	if len(origin) != len(latest) {
 		return false
 	}
 	for i, oc := range origin {
-		nc := new[i]
+		nc := latest[i]
 		now := metav1.Now()
-		for i, _ := range oc.Conditions {
+		for i := range oc.Conditions {
 			oc.Conditions[i].LastTransitionTime = now
 		}
-		for i, _ := range nc.Conditions {
+		for i := range nc.Conditions {
 			nc.Conditions[i].LastTransitionTime = now
 		}
 		if !reflect.DeepEqual(oc, nc) {

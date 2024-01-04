@@ -13,8 +13,10 @@ type State struct {
 	lock  sync.Mutex
 }
 
-var instance *State
-var once sync.Once
+var (
+	instance *State
+	once     sync.Once
+)
 
 func GetState() *State {
 	once.Do(func() {

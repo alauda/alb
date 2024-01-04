@@ -68,7 +68,13 @@ rules:
     resources:
     - events
     verbs:
+    - get
+    - list
+    - watch
+    - update
+    - delete
     - create
+    - patch
   - apiGroups:
     - events.k8s.io
     resources:
@@ -77,6 +83,8 @@ rules:
     - get
     - list
     - watch
+    - update
+    - delete
     - create
     - patch
   - apiGroups:

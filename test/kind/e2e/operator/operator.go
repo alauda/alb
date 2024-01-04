@@ -47,7 +47,7 @@ var _ = Describe("operator", func() {
 
 		AfterEach(func() {
 			cancel()
-			actx.Destory()
+			actx.Destroy()
 		})
 
 		It("enablelbsvc and add ft it should add port in lbsvc", func() {
@@ -191,7 +191,6 @@ spec:
 `)
 			WaitAlbReady(cli, l, ctx, ns, "c-lb-2")
 			l.Info(kubectl.AssertKubectl("get po -n cpaas-system -o wide"))
-
 		})
 	})
 })

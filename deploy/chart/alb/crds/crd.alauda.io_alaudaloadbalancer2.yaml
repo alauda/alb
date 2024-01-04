@@ -16,7 +16,9 @@ spec:
     singular: alaudaloadbalancer2
   scope: Namespaced
   versions:
-  - name: v1
+  - deprecated: true
+    deprecationWarning: alb2.v1.crd is deprecated,use alb2.v2beta1.crd instead.
+    name: v1
     schema:
       openAPIV3Schema:
         properties:

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
@@ -19,9 +21,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
@@ -141,7 +140,6 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	}
 	if err := c.doUpdateRule(httpsrule); err != nil {
 		return false, err
-
 	}
 	return false, nil
 }
@@ -410,7 +408,6 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 }
 
 func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *networkingv1.Ingress) (http *alb2v1.Frontend, https *alb2v1.Frontend, err error) {
-
 	IngressHTTPPort := c.GetIngressHttpPort()
 	IngressHTTPSPort := c.GetIngressHttpsPort()
 	defaultSSLCert := strings.ReplaceAll(c.GetDefaultSSLSCert(), "/", "_")
@@ -652,7 +649,7 @@ func (c *Controller) generateRule(
 		RedirectCode:     redirectCode,
 		VHost:            vhost,
 		Description:      ingInfo,
-		ServiceGroup: &alb2v1.ServiceGroup{ //TODO ingress could only have one service as backend
+		ServiceGroup: &alb2v1.ServiceGroup{ // TODO ingress could only have one service as backend
 			Services: []alb2v1.Service{
 				{
 					Namespace: ingress.Namespace,
@@ -891,32 +888,25 @@ func hashRule(id string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (c *Controller) ruleIngressPathIndex(r *alb2v1.Rule) string {
-	return r.Annotations[c.GetLabelSourceIngressPathIndex()]
-}
-
-func (c *Controller) ruleIngressRuleIndex(r *alb2v1.Rule) string {
-	return r.Annotations[c.GetLabelSourceIngressPathIndex()]
-}
-
 func GetDSLX(domain, url string, pathType networkingv1.PathType) alb2v1.DSLX {
 	var dslx alb2v1.DSLX
 	if url != "" {
-		if pathType == networkingv1.PathTypeExact {
+		switch pathType {
+		case networkingv1.PathTypeExact:
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_EQ, url},
 				},
 				Type: utils.KEY_URL,
 			})
-		} else if pathType == networkingv1.PathTypePrefix {
+		case networkingv1.PathTypePrefix:
 			dslx = append(dslx, alb2v1.DSLXTerm{
 				Values: [][]string{
 					{utils.OP_STARTS_WITH, url},
 				},
 				Type: utils.KEY_URL,
 			})
-		} else {
+		default:
 			// path is regex
 			if strings.ContainsAny(url, "^$():?[]*\\") {
 				if !strings.HasPrefix(url, "^") {

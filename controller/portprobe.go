@@ -142,7 +142,7 @@ func genCurPortConflictStatus(fts []*alb2v1.Frontend) v2beta1.AlbStatus {
 		sort.Strings(conflictIns)
 		if len(conflictIns) != 0 {
 			key := fmt.Sprintf("%v-%v", ft.Spec.Protocol, ft.Spec.Port)
-			msg := fmt.Sprintf("confilct on %s", strings.Join(conflictIns, ", "))
+			msg := fmt.Sprintf("conflict on %s", strings.Join(conflictIns, ", "))
 			status.PortStatus[key] = v2beta1.PortStatus{
 				Msg:          msg,
 				Conflict:     true,
@@ -153,12 +153,12 @@ func genCurPortConflictStatus(fts []*alb2v1.Frontend) v2beta1.AlbStatus {
 	return status
 }
 
-func albStatusChange(origin, new v2beta1.AlbStatus) bool {
-	if len(origin.PortStatus) != len(new.PortStatus) {
+func albStatusChange(origin, latest v2beta1.AlbStatus) bool {
+	if len(origin.PortStatus) != len(latest.PortStatus) {
 		return true
 	}
 	for key, op := range origin.PortStatus {
-		np, find := new.PortStatus[key]
+		np, find := latest.PortStatus[key]
 		if !find {
 			return true
 		}
@@ -172,6 +172,7 @@ func albStatusChange(origin, new v2beta1.AlbStatus) bool {
 func genPodPortConflictKey(host string, pod string) string {
 	return host + "/" + pod
 }
+
 func parsePodPortConflictKey(key string) (host string, pod string, err error) {
 	items := strings.Split(key, "/")
 	if len(items) != 2 {
@@ -211,14 +212,14 @@ func (p *PortProbe) UpdateFrontendStatus(kd *driver.KubernetesDriver, ftName str
 	return p.patchFtStatus(origin, ft)
 }
 
-func (p *PortProbe) patchFtStatus(old *alb2v1.Frontend, new *alb2v1.Frontend) error {
+func (p *PortProbe) patchFtStatus(old *alb2v1.Frontend, latest *alb2v1.Frontend) error {
 	ns := p.cfg.GetNs()
 	ctx := p.ctx
 	bytesOrigin, err := json.Marshal(old)
 	if err != nil {
 		return err
 	}
-	bytesModified, err := json.Marshal(new)
+	bytesModified, err := json.Marshal(latest)
 	if err != nil {
 		return err
 	}
@@ -230,7 +231,7 @@ func (p *PortProbe) patchFtStatus(old *alb2v1.Frontend, new *alb2v1.Frontend) er
 		return nil
 	}
 	klog.Infof("patch ft status %v", string(patch))
-	if _, err := p.kd.ALBClient.CrdV1().Frontends(ns).Patch(ctx, new.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := p.kd.ALBClient.CrdV1().Frontends(ns).Patch(ctx, latest.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
 		return err
 	}
 	return nil
@@ -320,7 +321,7 @@ func (p *PortProbe) cleanUpOldPodSatus(fts []*alb2v1.Frontend) (dirty bool, msg 
 	for _, ft := range fts {
 		ftDirty := false
 		origin := ft.DeepCopy()
-		for key, _ := range ft.Status.Instances {
+		for key := range ft.Status.Instances {
 			_, pod, err := parsePodPortConflictKey(key)
 			if err != nil || !curPods.Has(pod) {
 				ftDirty = true

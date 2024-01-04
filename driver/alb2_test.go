@@ -20,14 +20,14 @@ import (
 )
 
 func init() {
-	alb2scheme.AddToScheme(scheme.Scheme)
-	corev1.AddToScheme(scheme.Scheme)
+	_ = alb2scheme.AddToScheme(scheme.Scheme)
+	_ = corev1.AddToScheme(scheme.Scheme)
 }
 
 func loadData(dir, prefix string) ([]runtime.Object, error) {
 	var rv []runtime.Object
 	decode := scheme.Codecs.UniversalDeserializer().Decode
-	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, f os.FileInfo, _ error) error {
 		if f.IsDir() || !strings.HasSuffix(path, ".json") {
 			return nil
 		}
@@ -73,7 +73,7 @@ func TestLoadAlb(t *testing.T) {
 	a.NoError(err)
 	driver.ALBClient = albfakeclient.NewSimpleClientset(crdDataset...)
 	driver.Client = fake.NewSimpleClientset(nativeDataset...)
-	InitDriver(driver, ctx)
+	_ = InitDriver(driver, ctx)
 
 	alb, err := driver.LoadALBbyName("default", "test1")
 	a.NoError(err)

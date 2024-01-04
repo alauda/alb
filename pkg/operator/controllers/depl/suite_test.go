@@ -28,25 +28,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
-var testEnv *envtest.Environment
-var rcfg *rest.Config
-var _ = BeforeSuite(func() {
-	testEnv = &envtest.Environment{}
-	var err error
+var (
+	testEnv *envtest.Environment
+	rcfg    *rest.Config
+	_       = BeforeSuite(func() {
+		testEnv = &envtest.Environment{}
+		var err error
 
-	rcfg, err = testEnv.Start()
-	if err != nil {
-		panic(err)
-	}
-	assert.NoError(GinkgoT(), err)
-	_, filename, _, _ := gruntime.Caller(0)
-	albBase := path.Join(path.Dir(filename), "../../../../")
+		rcfg, err = testEnv.Start()
+		if err != nil {
+			panic(err)
+		}
+		assert.NoError(GinkgoT(), err)
+		_, filename, _, _ := gruntime.Caller(0)
+		albBase := path.Join(path.Dir(filename), "../../../../")
 
-	err = tu.InitAlbCr(albBase, rcfg)
-	if err != nil {
-		panic(err)
-	}
-})
+		err = tu.InitAlbCr(albBase, rcfg)
+		if err != nil {
+			panic(err)
+		}
+	})
+)
 
 var _ = AfterSuite(func() {
 	err := testEnv.Stop()
@@ -81,7 +83,6 @@ var _ = Describe("Operator Depl", func() {
 		assert.NoError(t, err)
 		_ = ctx
 		_ = log
-
 	})
 	AfterEach(func() {
 		cancel()

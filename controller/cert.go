@@ -18,7 +18,6 @@ import (
 )
 
 func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certificate {
-
 	certProtocol := map[albv1.FtProtocol]bool{
 		albv1.FtProtocolHTTPS: true,
 		albv1.FtProtocolgRPC:  true,
@@ -97,18 +96,6 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 		certCache[secretkey] = *cert
 	}
 	return certMap
-}
-
-func parseAndGetCertificate(d *driver.KubernetesDriver, secretObjKey string) (*Certificate, error) {
-	secretNs, secretName, err := ParseCertificateName(secretObjKey)
-	if err != nil {
-		return nil, fmt.Errorf("invalid certificateName, %s", secretObjKey)
-	}
-	cert, err := getCertificateFromSecret(d, secretNs, secretName)
-	if err != nil {
-		return nil, fmt.Errorf("get cert %s failed, %+v", secretObjKey, err)
-	}
-	return cert, nil
 }
 
 func getCertificateFromSecret(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, error) {

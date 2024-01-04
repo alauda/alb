@@ -20,7 +20,7 @@ import (
 
 func TestMain(m *testing.M) {
 	klog.InitFlags(nil)
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	flag.Parse()
 	code := m.Run()
 	os.Exit(code)

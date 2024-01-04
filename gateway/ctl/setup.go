@@ -16,9 +16,7 @@ import (
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
@@ -52,7 +50,6 @@ func StartGatewayController(ctx context.Context) error {
 		LeaderElection:     false, // disable leader election. we use alb's leader election
 		LeaderElectionID:   "",
 	})
-
 	if err != nil {
 		return err
 	}

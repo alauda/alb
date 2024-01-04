@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
 	. "alauda.io/alb2/controller/alb"
@@ -8,11 +13,8 @@ import (
 	"alauda.io/alb2/controller/state"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/utils/log"
-	"context"
+
 	"github.com/go-logr/logr"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -21,12 +23,10 @@ func main() {
 	if err != nil {
 		log.L().Error(err, "run fail")
 		log.Flush()
-		os.Exit(-1)
 	}
 }
 
 func run() error {
-
 	l := log.L().WithName("lifecycle")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

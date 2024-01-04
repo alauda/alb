@@ -26,14 +26,14 @@ func NewKubectl(base string, kubeCfg *rest.Config, log logr.Logger) *Kubectl {
 	cfg := fmt.Sprintf("kubectl-%d", rand.Int())
 	if base == "" {
 		base = path.Join(os.TempDir(), cfg)
-		os.Mkdir(base, 0777)
+		os.Mkdir(base, 0o777)
 	} else {
 		base = path.Join(base, cfg)
 	}
-	os.Mkdir(base, 0777)
+	os.Mkdir(base, 0o777)
 	raw, _ := KubeConfigFromREST(kubeCfg, "test")
 	kubeCfgPath := path.Join(base, cfg)
-	os.WriteFile(kubeCfgPath, raw, 0666)
+	os.WriteFile(kubeCfgPath, raw, 0o666)
 	return &Kubectl{
 		base:        base,
 		kubeCfgPath: kubeCfgPath,
@@ -106,6 +106,7 @@ func (k *Kubectl) AssertKubectlOmgea(o gomega.Gomega, cmds ...string) string {
 func (k *Kubectl) GetKubecfg() string {
 	return k.kubeCfgPath
 }
+
 func (k *Kubectl) CleanUp() error {
 	return os.RemoveAll(k.base)
 }

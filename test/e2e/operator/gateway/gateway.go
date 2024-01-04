@@ -47,8 +47,7 @@ var _ = Describe("Operator Gateway", func() {
 
 	// whhich used in global
 	GIt("case 1. deploy shared gateway", func() {
-		alb :=
-			`
+		alb := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
@@ -123,8 +122,7 @@ spec:
 		}, "300s", "3s").Should(Succeed())
 
 		// switch to standalone mode
-		newalb :=
-			`
+		newalb := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
@@ -151,7 +149,6 @@ spec:
 			if gc.Name == "exclusive-gateway" {
 				GEqual(g, gc.Labels["gatewayclass.cpaas.io/type"], "standalone")
 			} else {
-
 				GEqual(g, gc.Labels["gatewayclass.cpaas.io/type"], "shared")
 			}
 		}
@@ -170,8 +167,7 @@ spec:
 
 	GIt("case 2. deploy a alb in standalone gateway mode", func() {
 		kc.CreateNsIfNotExist("g1")
-		alb :=
-			`
+		alb := `
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:

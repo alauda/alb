@@ -83,12 +83,12 @@ func DeployOrAdopt(cfg KindConfig, base string, prefix string, log logr.Logger) 
 
 func DeployKind(cfg KindConfig, base string, log logr.Logger) (*KindExt, error) {
 	base = base + "/" + "kind"
-	err := os.MkdirAll(base, 0777)
+	err := os.MkdirAll(base, 0o777)
 	if err != nil {
 		return nil, err
 	}
 	kindcluster := base + "/kind-cluster.yaml"
-	err = os.WriteFile(kindcluster, []byte(cfg.ClusterYaml), 0666)
+	err = os.WriteFile(kindcluster, []byte(cfg.ClusterYaml), 0o666)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,6 @@ func (k *KindExt) GetConfig() (*rest.Config, error) {
 		return nil, fmt.Errorf("get config from raw fail %v", err)
 	}
 	return r, nil
-
 }
 
 func (k *KindExt) ExecInDocker(cmd string) (string, error) {

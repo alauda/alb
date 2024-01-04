@@ -1,20 +1,15 @@
 package ctl
 
 import (
-	"context"
-
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/gateway/utils"
 	"github.com/go-logr/logr"
 	"github.com/samber/lo"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type HostNameFilter struct {
 	log logr.Logger
-	c   client.Client
-	ctx context.Context
 }
 
 func (c *HostNameFilter) Name() string {

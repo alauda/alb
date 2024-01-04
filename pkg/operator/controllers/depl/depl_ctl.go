@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/configmap"
+	"alauda.io/alb2/pkg/operator/controllers/depl/resources/feature"
 	rg "alauda.io/alb2/pkg/operator/controllers/depl/resources/gateway"
 	ingcls "alauda.io/alb2/pkg/operator/controllers/depl/resources/ingressclass"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/portinfo"
@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -42,7 +41,7 @@ type AlbDeploy struct {
 	IngressClass       *netv1.IngressClass
 	SharedGatewayClass *gv1b1t.GatewayClass
 	Svc                service.CurSvc
-	Feature            *unstructured.Unstructured
+	Feature            feature.FeatureCur
 	Rbac               *rbac.CurRbac
 	Lease              *coov1.Lease
 }
@@ -56,7 +55,7 @@ type AlbDeployUpdate struct {
 	IngressClass       *netv1.IngressClass
 	SharedGatewayClass *gv1b1t.GatewayClass
 	Svc                service.SvcUpdates
-	Feature            *unstructured.Unstructured
+	Feature            feature.FeatureUpdate
 	Rbac               *rbac.RbacUpdate
 }
 
@@ -82,22 +81,24 @@ func showCr(obj client.Object) string {
 }
 
 type AlbDeployCtl struct {
-	Cli       *ALB2ResourceClient
-	Cfg       cfg.Config
-	Log       logr.Logger
-	SvcCtl    *service.SvcCtl
-	RbacCtl   *rbac.RbacCtl
-	IngClsCtl *ingcls.IngClsCtl
+	Cli        *ALB2ResourceClient
+	Cfg        cfg.Config
+	Log        logr.Logger
+	SvcCtl     *service.SvcCtl
+	RbacCtl    *rbac.RbacCtl
+	IngClsCtl  *ingcls.IngClsCtl
+	FeatureCtl *feature.FeatureCtl
 }
 
 func NewAlbDeployCtl(ctx context.Context, cli ctlClient.Client, cfg cfg.Config, log logr.Logger) AlbDeployCtl {
 	return AlbDeployCtl{
-		Cli:       NewALB2ResourceClient(cli),
-		Cfg:       cfg,
-		Log:       log,
-		SvcCtl:    service.NewSvcCtl(ctx, cli, log, cfg.Operator),
-		RbacCtl:   rbac.NewRbacCtl(ctx, cli, log, cfg),
-		IngClsCtl: ingcls.NewIngClsCtl(),
+		Cli:        NewALB2ResourceClient(cli),
+		Cfg:        cfg,
+		Log:        log,
+		SvcCtl:     service.NewSvcCtl(ctx, cli, log, cfg.Operator),
+		RbacCtl:    rbac.NewRbacCtl(ctx, cli, log, cfg),
+		IngClsCtl:  ingcls.NewIngClsCtl(),
+		FeatureCtl: feature.NewFeatureCtl(ctx, cli, log),
 	}
 }
 
@@ -132,7 +133,7 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 	if err != nil {
 		return nil, err
 	}
-	feature := d.genExpectFeature(cur, cfg)
+	feature := d.FeatureCtl.GenUpdate(cur.Feature, d.Cfg, cur.Alb)
 	svcupdate := d.SvcCtl.GenUpdate(cur.Svc, d.Cfg, cur.Alb)
 	rbac := d.RbacCtl.GenUpdate(cur.Rbac)
 	expect := AlbDeployUpdate{
@@ -158,7 +159,7 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 		labelBaseDomain = env.GetLabelBaseDomain()
 	)
 	alb := cur.Alb.DeepCopy()
-	var projectLabel = map[string]string{}
+	projectLabel := map[string]string{}
 
 	projectPrefix := fmt.Sprintf("project.%s", labelBaseDomain)
 	for _, project := range conf.Project.Projects {
@@ -208,7 +209,7 @@ func (d *AlbDeployCtl) genExpectGatewayClass(cur *AlbDeploy, conf *cfg.ALB2Confi
 
 func (d *AlbDeployCtl) genExpectConfigmap(ctx context.Context, cur *AlbDeploy, conf *cfg.ALB2Config) (*corev1.ConfigMap, error) {
 	// TODO 我们需要考虑configmap break change 的情况,现在是直接更新configmap的，这样有可能旧版本的alb看到了新版本的configmap。。
-	//不应该和alb运行相关的配置放在configmap中，比如lua dict之类的
+	// 不应该和alb运行相关的配置放在configmap中，比如lua dict之类的
 	var (
 		ownerRefs = MakeOwnerRefs(cur.Alb)
 		bindNic   = conf.BindNic
@@ -244,24 +245,15 @@ func (d *AlbDeployCtl) genExpectPortInfoConfigmap(cur *AlbDeploy, conf *cfg.ALB2
 		ownerRefs = MakeOwnerRefs(alb2)
 	)
 	data := conf.Project.PortProjects
-	portMap := portinfo.NewTemplate(alb2.Namespace, alb2.Name, string(data)).Generate(
+	portMap := portinfo.NewTemplate(alb2.Namespace, alb2.Name, data).Generate(
 		portinfo.AddLabel(refLabel),
 		portinfo.SetOwnerRefs(ownerRefs),
 	)
 	return portMap, nil
 }
 
-func (d *AlbDeployCtl) genExpectFeature(cur *AlbDeploy, conf *cfg.ALB2Config) *unstructured.Unstructured {
-	if !conf.Controller.Flags.EnableIngress {
-		return nil
-	}
-	address := cur.Alb.GetAllAddress()
-	d.Log.Info("genExpectFeature", "address", address)
-	return FeatureCr(cur.Feature, conf.Name, conf.Ns, strings.Join(address, ","))
-}
-
 // 对于升级上来的资源，我们可能没有更新他，即没有设置ownerRefs，所以这里还是自己手动删一下
-func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDeploy) error {
+func Destroy(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDeploy) error {
 	l := log
 	objs := []ctlClient.Object{}
 	objs = append(objs, cur.Alb)
@@ -270,7 +262,7 @@ func Destory(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	objs = append(objs, cur.Deploy)
 	objs = append(objs, cur.SharedGatewayClass)
 	objs = append(objs, cur.IngressClass)
-	objs = append(objs, cur.Feature)
+	objs = append(objs, cur.Feature.Raw)
 	objs = append(objs, cur.Svc.GetObjs()...)
 	objs = append(objs, cur.Rbac.GetObjs()...)
 	objs = append(objs, cur.Lease)
@@ -356,6 +348,10 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	if err != nil {
 		return false, err
 	}
+	err = d.FeatureCtl.DoUpdate(expect.Feature)
+	if err != nil {
+		return false, err
+	}
 
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.IngressClass, expect.IngressClass, func(cur *netv1.IngressClass, expect *netv1.IngressClass) bool {
 		return !(reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Annotations, expect.Annotations) && reflect.DeepEqual(cur.Labels, expect.Labels))
@@ -368,34 +364,6 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.SharedGatewayClass, expect.SharedGatewayClass, func(cur, expect *gv1b1t.GatewayClass) bool {
 		same := reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Labels, expect.Labels)
 		return !same
-	})
-	if err != nil {
-		return false, err
-	}
-
-	// update feature
-	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Feature, expect.Feature, func(cur *unstructured.Unstructured, expect *unstructured.Unstructured) bool {
-		curAddress, find, err := unstructured.NestedString(cur.Object, "spec", "accessInfo", "host")
-		if err != nil {
-			l.Error(err, "get address from current feature fail")
-			return false
-		}
-		if !find {
-			curAddress = ""
-		}
-		expectAddress, find, err := unstructured.NestedString(expect.Object, "spec", "accessInfo", "host")
-		if err != nil {
-			l.Error(err, "get address from expect feature fail")
-			return false
-		}
-		if !find {
-			expectAddress = ""
-		}
-		change := curAddress != expectAddress
-		if change {
-			l.Info("feature address change ", "cur", curAddress, "new", expectAddress)
-		}
-		return change
 	})
 	if err != nil {
 		return false, err
@@ -417,10 +385,10 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	return false, nil
 }
 
-func (d *AlbDeployCtl) SameAlb(origin *albv2.ALB2, new *albv2.ALB2) (bool, string) {
-	sameAnnotation := SameMap(origin.GetAnnotations(), new.GetAnnotations())
-	sameLabel := SameMap(origin.GetLabels(), new.GetLabels())
-	sameSpec := reflect.DeepEqual(origin.Spec, new.Spec)
+func (d *AlbDeployCtl) SameAlb(origin *albv2.ALB2, latest *albv2.ALB2) (bool, string) {
+	sameAnnotation := SameMap(origin.GetAnnotations(), latest.GetAnnotations())
+	sameLabel := SameMap(origin.GetLabels(), latest.GetLabels())
+	sameSpec := reflect.DeepEqual(origin.Spec, latest.Spec)
 	if sameAnnotation && sameLabel && sameSpec {
 		return true, ""
 	}

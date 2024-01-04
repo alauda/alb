@@ -21,7 +21,8 @@ func TestPortProbe(t *testing.T) {
 	l := log.InitKlogV2(log.LogCfg{ToFile: base + "/port-test.log"})
 	env := NewEnvtestExt(base, l)
 	kcfg := env.AssertStart()
-	ctx, _ := context.WithTimeout(context.Background(), time.Minute*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	defer cancel()
 	defer env.Stop()
 	kt := NewKubectl(base, kcfg, l)
 	kc := NewK8sClient(ctx, kcfg)
@@ -149,7 +150,7 @@ spec:
 `)
 		kt.Kubectl("delete po -n cpaas-system a")
 		p.listTcpPort = func() (map[int]bool, error) { return map[int]bool{}, nil }
-		l.Info("delete pod a, mark port as no confilct")
+		l.Info("delete pod a, mark port as no conflict")
 		assert.Eventually(t, func() bool {
 			p.LeaderUpdateAlbPortStatus()
 			ft, err := kc.GetAlbClient().CrdV1().Frontends(ns).Get(ctx, ftName, metav1.GetOptions{})

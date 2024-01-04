@@ -17,7 +17,5 @@ func GetProcessId() (string, error) {
 	return string(out), err
 }
 
-var (
-	//ErrStandAlone will be returned when do something that is not allowed in stand-alone mode
-	ErrStandAlone = errors.New("operation is not allowed in stand-alone mode")
-)
+// ErrStandAlone will be returned when do something that is not allowed in stand-alone mode
+var ErrStandAlone = errors.New("operation is not allowed in stand-alone mode")

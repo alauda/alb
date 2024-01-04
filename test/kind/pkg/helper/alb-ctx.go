@@ -50,6 +50,7 @@ func (c *AlbK8sCfg) WithChart(chart string) *AlbK8sCfg {
 	c.chart = chart
 	return c
 }
+
 func (c *AlbK8sCfg) WithKindName(name string) *AlbK8sCfg {
 	c.KindName = name
 	return c
@@ -122,7 +123,7 @@ func (c *AlbK8sCfg) Build() AlbK8sCfg {
 	}
 
 	workers := ""
-	for _, _ = range c.workerlabels {
+	for range c.workerlabels {
 		workers = fmt.Sprintf("%s  - role: worker\n", workers)
 	}
 
@@ -252,7 +253,7 @@ func (a *AlbK8sCtx) Init() error {
 	l.Info("kind", "name", kind.Name)
 	a.initExt()
 	for i, label := range a.Cfg.workerlabels {
-		i = i + 1
+		i++
 		name := fmt.Sprintf("%d", i)
 		if i == 1 {
 			name = ""
@@ -432,7 +433,7 @@ func (a *AlbK8sCtx) DeployAlb(yaml string, name string, ns string) {
 	})
 }
 
-func (a *AlbK8sCtx) Destory() error {
+func (a *AlbK8sCtx) Destroy() error {
 	if os.Getenv("DEV_MODE") != "true" {
 		KindDelete(a.Cfg.KindName)
 	}

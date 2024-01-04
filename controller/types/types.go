@@ -18,8 +18,10 @@ const (
 	CaCert = "ca.crt"
 )
 
-var LastConfig = ""
-var LastFailure = false
+var (
+	LastConfig  = ""
+	LastFailure = false
+)
 
 type Domain struct {
 	Domain   string `json:"domain"`

@@ -95,7 +95,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 		log.V(4).Info("tls route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := TLSRoute(route)
-			httpCommonRoutes = append(tlsCommonRoutes, &Route{route: &r})
+			tlsCommonRoutes = append(tlsCommonRoutes, &Route{route: &r})
 		}
 	}
 	log.Info("list tls route", "total-len", len(tlsRouteList.Items), "len", len(tlsCommonRoutes))

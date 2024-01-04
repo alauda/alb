@@ -35,5 +35,4 @@ nodes:
 	out, err := k.Kubectl("get", "nodes")
 	t.Log(out)
 	assert.NoError(t, err)
-
 }

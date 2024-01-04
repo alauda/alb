@@ -3,7 +3,6 @@ package framework
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"time"
@@ -33,9 +32,9 @@ func ToPointOfString(str string) *string {
 
 func JqFindAndTestEq(v interface{}, path string, expect string) (bool, error) {
 	var ret interface{}
-	switch v.(type) {
+	switch v := v.(type) {
 	case string:
-		ret = gojsonq.New().FromString(v.(string)).Find(path)
+		ret = gojsonq.New().FromString(v).Find(path)
 	default:
 		ret = gojsonq.New().FromInterface(v).Find(path)
 	}
@@ -75,10 +74,6 @@ func GFIt(text string, body interface{}, timeout ...float64) bool {
 		return GIt(text, body, timeout...)
 	}
 	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
-}
-
-func random() string {
-	return fmt.Sprintf("%v", rand.Int())
 }
 
 func listen(network, addr string, stopCh chan struct{}) {
@@ -168,9 +163,9 @@ func CreateToken(kc *tu.Kubectl, name string, ns string) (string, error) {
 	return out, nil
 }
 
-func CreateRestCfg(orgin *rest.Config, token string) *rest.Config {
+func CreateRestCfg(origin *rest.Config, token string) *rest.Config {
 	return &rest.Config{
-		Host:        orgin.Host,
+		Host:        origin.Host,
 		BearerToken: token,
 		TLSClientConfig: rest.TLSClientConfig{
 			Insecure: true,

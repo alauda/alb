@@ -23,7 +23,8 @@ func TestQps(t *testing.T) {
 		http.ListenAndServe(":8090", nil)
 	}()
 	defer cancel()
-	tctx, _ := context.WithTimeout(ctx, time.Second*30)
+	tctx, xcancel := context.WithTimeout(ctx, time.Second*30)
+	defer xcancel()
 	r := NewReqProvider("http://localhost:8090", l, tctx)
 	r.WithSampleInterval(3)
 	r.Start()
@@ -31,5 +32,4 @@ func TestQps(t *testing.T) {
 	s := NewSummaryAssert(r.Summary())
 	s.NoError()
 	s.QpsAbove(300)
-
 }

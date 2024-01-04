@@ -21,7 +21,7 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 		klog.Errorf("Failed to create new policy file %s", err.Error())
 		return err
 	}
-	err = policyWriter.Chmod(0640)
+	err = policyWriter.Chmod(0o640)
 	if err != nil {
 		klog.Errorf("Failed to add read permission of %s, err %v", path, err.Error(), err)
 		return err
@@ -46,15 +46,14 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 		klog.Errorf("Write policy file failed %s", err.Error())
 		return err
 	}
-	policyWriter.Sync()
-	return nil
+	return policyWriter.Sync()
 }
 
 func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
 	zip := config.GetConfig().GetFlags().PolicyZip
 	path := nc.NewPolicyPath
 	if zip {
-		path = path + ".bin"
+		path += ".bin"
 	}
 	klog.Infof("update policy %v", path)
 	return nc.updatePolicyFileRaw(ngxPolicies, path, zip)

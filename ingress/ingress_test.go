@@ -19,7 +19,6 @@ import (
 )
 
 func TestGetDSLX(t *testing.T) {
-
 	tests := []struct {
 		description string
 		domain      string
@@ -287,11 +286,11 @@ func TestNeedEnqueueObject(t *testing.T) {
 			},
 		},
 
-		//TODO add more case here
-		//1. enqueue when alb role is instance and ingress's project belongs to ft's project
-		//2. enqueue when alb role is port and ingress's project belongs to alb's project
-		//3. do not enqueue when alb role is port, without project and ingress without project neither
-		//4. do not enqueue when ingress has spec.ingressClassName or annotation referenced to ingress controller,
+		// TODO add more case here
+		// 1. enqueue when alb role is instance and ingress's project belongs to ft's project
+		// 2. enqueue when alb role is port and ingress's project belongs to alb's project
+		// 3. do not enqueue when alb role is port, without project and ingress without project neither
+		// 4. do not enqueue when ingress has spec.ingressClassName or annotation referenced to ingress controller,
 		//   but irrelevant to alb2
 	}
 
@@ -353,7 +352,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 
 func TestFindUnSyncedIngress(t *testing.T) {
 	expect := []string{"ing-1", "ing-2"}
-	var fakeResource = test_utils.FakeResource{
+	fakeResource := test_utils.FakeResource{
 		Alb: test_utils.FakeALBResource{
 			Rules: []albv1.Rule{
 				{

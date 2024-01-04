@@ -46,7 +46,7 @@ var _ = Describe("gateway", func() {
 
 		AfterEach(func() {
 			cancel()
-			actx.Destory()
+			actx.Destroy()
 		})
 
 		It("create a stand alone gateay,and curl it", func() {

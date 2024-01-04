@@ -17,9 +17,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	_ = gv1b1t.AddToScheme(scheme)
@@ -240,7 +238,7 @@ func ListenerToKey(ls *Listener) ListenerKey {
 
 func IsListenerReady(status []gv1b1t.ListenerStatus, key client.ObjectKey, name string, generation int64) bool {
 	for _, s := range status {
-		if string(s.Name) == string(name) {
+		if string(s.Name) == name {
 			for _, c := range s.Conditions {
 				if c.ObservedGeneration == generation && c.Type == "Ready" && c.Status == "True" {
 					return true

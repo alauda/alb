@@ -21,6 +21,7 @@ var _ = Describe("test qps", func() {
 		var ctx context.Context
 		var cancel context.CancelFunc
 		var sctx context.Context
+		var scancel context.CancelFunc
 		var actx *AlbK8sCtx
 		var url string
 		var ing string
@@ -60,13 +61,14 @@ var _ = Describe("test qps", func() {
 
 			// 测一分钟
 			dur := time.Duration(60*1) * time.Second
-			sctx, _ = context.WithTimeout(ctx, dur)
+			sctx, scancel = context.WithTimeout(ctx, dur)
 			go tweak_ingress(sctx, actx.Kubectl, actx.Log, ing)
 		})
 
 		AfterEach(func() {
+			scancel()
 			cancel()
-			actx.Destory()
+			actx.Destroy()
 		})
 
 		It("should ok", func() {
@@ -90,7 +92,7 @@ func tweak_ingress(ctx context.Context, kubectl *Kubectl, l logr.Logger, ing str
 			return nil
 		case <-time.After(5 * time.Second):
 		}
-		count = count + 1
+		count++
 		out, err := kubectl.Kubectl("annotate", "ingresses.networking.k8s.io", ing, fmt.Sprintf("a=%d", count), "--overwrite")
 		if err != nil {
 			l.Error(err, "annotate", "out", out)

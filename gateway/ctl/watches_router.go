@@ -67,13 +67,13 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 
 	// TODO upgrade to controller-runtime 0.11.1 for better log https://github.com/kubernetes-sigs/controller-runtime/pull/1687
 	httpRoute := gv1b1t.HTTPRoute{}
-	utils.AddTypeInformationToObject(scheme, &httpRoute)
+	_ = utils.AddTypeInformationToObject(scheme, &httpRoute)
 	tcpRoute := gv1a2t.TCPRoute{}
-	utils.AddTypeInformationToObject(scheme, &tcpRoute)
+	_ = utils.AddTypeInformationToObject(scheme, &tcpRoute)
 	tlspRoute := gv1a2t.TLSRoute{}
-	utils.AddTypeInformationToObject(scheme, &tlspRoute)
+	_ = utils.AddTypeInformationToObject(scheme, &tlspRoute)
 	udpRoute := gv1a2t.UDPRoute{}
-	utils.AddTypeInformationToObject(scheme, &udpRoute)
+	_ = utils.AddTypeInformationToObject(scheme, &udpRoute)
 
 	b = b.Watches(&source.Kind{Type: &httpRoute}, eventhandler, options)
 	b = b.Watches(&source.Kind{Type: &tcpRoute}, eventhandler, options)

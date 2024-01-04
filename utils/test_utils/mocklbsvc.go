@@ -157,7 +157,3 @@ func (m *MockMetallb) getIpv6() string {
 	m.v6used.Add(ip)
 	return ips[0]
 }
-
-func (m *MockMetallb) getDual() (string, string) {
-	return m.getIpv4(), m.getIpv6()
-}

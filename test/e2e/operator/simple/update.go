@@ -88,7 +88,7 @@ spec:
 		opext.AssertDeploy(types.NamespacedName{Namespace: "cpaas-system", Name: "alb-3"}, alb3, nil)
 	})
 
-	GIt("should work normaly when update", func() {
+	GIt("should work normally when update", func() {
 		type TestExpect struct {
 			bindNic        string
 			portInfo       string

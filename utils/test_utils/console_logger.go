@@ -8,7 +8,6 @@ import (
 
 type ConsoleLogSink struct {
 	prefix string
-	level  int
 }
 
 func ConsoleLog() logr.Logger {

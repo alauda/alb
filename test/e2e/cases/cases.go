@@ -68,10 +68,10 @@ spec:
 		change := 0
 		count := 0
 		for {
-			count = count + 1
+			count++
 			_, err := env.Opext.DeployAlb(key, nil)
 			GinkgoNoErr(err)
-			time.Sleep(time.Duration(200 * time.Millisecond))
+			time.Sleep(200 * time.Millisecond)
 			dep, err := kc.GetK8sClient().AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				log.Info("dep", "err", err)
@@ -79,7 +79,7 @@ spec:
 			}
 			if dep.ResourceVersion != ver {
 				ver = dep.ResourceVersion
-				change = change + 1
+				change++
 			}
 			log.Info("dep==============", "ver", dep.ResourceVersion)
 			if change > 10 {

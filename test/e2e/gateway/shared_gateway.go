@@ -71,7 +71,7 @@ var _ = ginkgo.Describe("SharedGateway", func() {
 		env.Stop()
 	})
 
-	GIt("when i deploy an alb, it should create a default gatewayclass and controll all gateways attach to it", func() {
+	GIt("when i deploy an alb, it should create a default gatewayclass and control all gateways attach to it", func() {
 		// should create a gatewayclass, and mark it's as accept
 		f.Wait(func() (bool, error) {
 			Logf("wait gateway class")
@@ -566,5 +566,4 @@ spec:
 			return policy != nil && len(p.Http.Tcp) == 2 && len(p.Stream.Tcp) == 0, nil
 		})
 	})
-
 })

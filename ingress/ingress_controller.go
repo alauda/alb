@@ -63,10 +63,9 @@ func (c *Controller) StartIngressLoop(ctx context.Context) error {
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	ingressLister         networkinglisters.IngressLister
-	ingressClassAllLister networkinglisters.IngressClassLister
-	ruleLister            listerv1.RuleLister
-	namespaceLister       corelisters.NamespaceLister
+	ingressLister   networkinglisters.IngressLister
+	ruleLister      listerv1.RuleLister
+	namespaceLister corelisters.NamespaceLister
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -89,7 +88,6 @@ type Controller struct {
 
 // NewController returns a new sample controller
 func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCfg *config.Config, log logr.Logger) *Controller {
-
 	alb2Informer := informers.Alb.Alb
 	ruleInformer := informers.Alb.Rule
 	ingressInformer := informers.K8s.Ingress
@@ -130,10 +128,9 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	return controller
 }
 
-func (c *Controller) setUpEventHandler() {
-
+func (c *Controller) setUpEventHandler() error {
 	// 1: reconcile ingress when ingress create/update/delete
-	c.ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			newIngress := obj.(*networkingv1.Ingress)
 			c.log.Info(fmt.Sprintf("receive ingress %s/%s %s create event", newIngress.Namespace, newIngress.Name, newIngress.ResourceVersion))
@@ -143,8 +140,8 @@ func (c *Controller) setUpEventHandler() {
 			}
 			c.enqueue(IngKey(newIngress))
 		},
-		UpdateFunc: func(old, new interface{}) {
-			newIngress := new.(*networkingv1.Ingress)
+		UpdateFunc: func(old, latest interface{}) {
+			newIngress := latest.(*networkingv1.Ingress)
 			oldIngress := old.(*networkingv1.Ingress)
 			if newIngress.ResourceVersion == oldIngress.ResourceVersion {
 				return
@@ -161,7 +158,9 @@ func (c *Controller) setUpEventHandler() {
 
 			if c.CheckShouldHandleViaIngressClass(oldIngress) && !c.CheckShouldHandleViaIngressClass(newIngress) {
 				c.log.Info("change to other ingress class", "old-ing", oldIngress, "new-ing", newIngress)
-				c.onIngressclassChange(newIngress)
+				if err := c.onIngressclassChange(newIngress); err != nil {
+					c.log.Error(err, "handle ingressclass change fail")
+				}
 			}
 
 			c.enqueue(IngKey(newIngress))
@@ -176,16 +175,15 @@ func (c *Controller) setUpEventHandler() {
 			c.enqueue(IngKey(ingress))
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	// 3. reconcile ingress when alb project change.
 	// 4. reconcile ingress when alb address change.
-	c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(albraw interface{}) {
-			alb := albraw.(*alb2v2.ALB2)
-			c.onAlbDelete(alb)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			newAlb2 := new.(*alb2v2.ALB2)
+	_, err = c.albInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(old, latest interface{}) {
+			newAlb2 := latest.(*alb2v2.ALB2)
 			oldAlb2 := old.(*alb2v2.ALB2)
 			if !newAlb2.GetDeletionTimestamp().IsZero() {
 				c.onAlbDelete(newAlb2)
@@ -203,13 +201,21 @@ func (c *Controller) setUpEventHandler() {
 				return
 			}
 			c.log.Info("find alb changed", "diff", cmp.Diff(oldAlb2, newAlb2))
-			c.onAlbChangeUpdateIngressStatus(oldAlb2, newAlb2)
-			err := c.syncAll()
+			err = c.onAlbChangeUpdateIngressStatus(oldAlb2, newAlb2)
+			if err != nil {
+				c.log.Error(err, "update ingress status fail")
+			}
+			err = c.syncAll()
 			if err != nil {
 				c.log.Error(err, "reprocess all ingress when alb changed failed")
 			}
 		},
 	})
+
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Run will set up the event handlers for types we are interested in, as well
@@ -222,7 +228,10 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 	stopCh := ctx.Done()
 
 	c.log.Info("Setting up event handlers")
-	c.setUpEventHandler()
+	err := c.setUpEventHandler()
+	if err != nil {
+		return err
+	}
 	// Start the informer factories to begin populating the informer caches
 	c.log.Info("start ingress controller")
 	c.log.Info("Starting workers")
@@ -234,7 +243,7 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 	c.log.Info("Started workers")
 
 	// init sync
-	err := c.syncAll()
+	err = c.syncAll()
 	if err != nil {
 		c.log.Error(err, "init sync fail")
 	}

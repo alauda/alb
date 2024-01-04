@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -78,7 +79,7 @@ func TestUpdateLbSvcAnnotation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewSvcCtl(nil, nil, ConsoleLog(), tt.cf.Operator)
+			svc := NewSvcCtl(context.TODO(), nil, ConsoleLog(), tt.cf.Operator)
 			svc.patchLbSvcDefaultConfig(tt.svc, tt.alb, tt.cf.ALB)
 			assert.Equal(t, tt.expectAnnotations, tt.svc.Annotations)
 		})

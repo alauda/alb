@@ -94,7 +94,7 @@ func isNeedGC(ts string) (bool, string) {
 	}
 	tm := time.Unix(t, 0)
 	now := time.Now()
-	diff := time.Now().Sub(tm)
+	diff := time.Since(now)
 	toleration := time.Hour * 1
 	if diff > toleration {
 		return true, fmt.Sprintf("over toleration %v | %v | %v", now, tm, diff)

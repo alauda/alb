@@ -13,10 +13,9 @@ import (
 var EchoRestyTemplate string
 
 type Echo struct {
-	log     logr.Logger
-	albroot string
-	base    string
-	k       *Kubectl
+	log  logr.Logger
+	base string
+	k    *Kubectl
 }
 
 func NewEchoResty(base string, cfg *rest.Config, log logr.Logger) *Echo {
@@ -25,10 +24,6 @@ func NewEchoResty(base string, cfg *rest.Config, log logr.Logger) *Echo {
 		base: base,
 		k:    NewKubectl(base, cfg, log),
 	}
-}
-
-func (e *Echo) enable() error {
-	return nil
 }
 
 type EchoCfg struct {

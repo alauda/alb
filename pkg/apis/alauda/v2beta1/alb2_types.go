@@ -58,8 +58,10 @@ type ALB2Spec struct {
 	Config *ExternalAlbConfig `json:"config"`
 }
 
-const HOST_MODE = "host"
-const CONTAINER_MODE = "container"
+const (
+	HOST_MODE      = "host"
+	CONTAINER_MODE = "container"
+)
 
 // 这里将所有的fied都设置为指针，这样只是为了方便merge
 // crd中所有的字段默认都是optional是通过注解完成的。
@@ -82,7 +84,7 @@ type ExternalAlbConfig struct {
 	EnableHTTP2          *string            `yaml:"enableHTTP2" json:"enableHTTP2,omitempty"`                 // 可以删掉 默认开启
 	EnableIngress        *string            `yaml:"enableIngress" json:"enableIngress,omitempty"`             // 是否reconcile ingress
 	DefaultIngressClass  *bool              `yaml:"defaultIngressClass" json:"defaultIngressClass,omitempty"` // 是否设置为默认的ingressclass
-	EnableCrossClusters  *string            `yaml:"enableCrossClusters" json:"enableCrossClusters,omitempty"` //在拿ep时是否同时也去拿submariner的svc的ep
+	EnableCrossClusters  *string            `yaml:"enableCrossClusters" json:"enableCrossClusters,omitempty"` // 在拿ep时是否同时也去拿submariner的svc的ep
 	EnableGzip           *string            `yaml:"enableGzip" json:"enableGzip,omitempty"`                   // 可以删掉 默认开启
 	DefaultSSLCert       *string            `yaml:"defaultSSLCert" json:"defaultSSLCert,omitempty"`
 	DefaultSSLStrategy   *string            `yaml:"defaultSSLStrategy" json:"defaultSSLStrategy,omitempty"`
@@ -181,10 +183,12 @@ type ExternalConfigmapOverwriteConfig struct {
 
 type ALB2State string
 
-const ALB2StateRunning = ALB2State("Running")
-const ALB2StateProgressing = ALB2State("Progressing")
-const ALB2StatePending = ALB2State("Pending")
-const ALB2StateWarning = ALB2State("Warning")
+const (
+	ALB2StateRunning     = ALB2State("Running")
+	ALB2StateProgressing = ALB2State("Progressing")
+	ALB2StatePending     = ALB2State("Pending")
+	ALB2StateWarning     = ALB2State("Warning")
+)
 
 // ALB2Status defines the observed state of ALB2, detail in ALB2StatusDetail
 type ALB2Status struct {

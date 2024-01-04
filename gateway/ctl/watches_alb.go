@@ -44,19 +44,19 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 			if !me {
 				return false
 			}
-			new, ok := e.ObjectNew.(*albv2.ALB2)
+			latest, ok := e.ObjectNew.(*albv2.ALB2)
 			if !ok {
 				return false
 			}
 			oldAddress := pickAlbAddress(old)
-			newAddress := pickAlbAddress(new)
+			newAddress := pickAlbAddress(latest)
 			addressChange := !reflect.DeepEqual(oldAddress, newAddress)
 			if addressChange {
 				log.Info("alb address change", "old", oldAddress, "new", newAddress, "name", old.Name, "ns", old.Namespace)
 			}
-			statusChange := old.Status.State != new.Status.State
+			statusChange := old.Status.State != latest.Status.State
 			if statusChange {
-				log.Info("alb status change", "diff", cmp.Diff(old.Status, new.Status))
+				log.Info("alb status change", "diff", cmp.Diff(old.Status, latest.Status))
 			}
 			return addressChange || statusChange
 		},
@@ -100,7 +100,10 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 	})
 
 	alb := albv2.ALB2{}
-	utils.AddTypeInformationToObject(scheme, &alb)
+	err := utils.AddTypeInformationToObject(scheme, &alb)
+	if err != nil {
+		log.Error(err, "failed to add type information to object")
+	}
 	b = b.Watches(&source.Kind{Type: &alb}, eventhandler, options)
 	return b
 }

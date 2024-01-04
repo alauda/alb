@@ -17,7 +17,7 @@ rules:
     verbs: ["create","update","patch"]
   - apiGroups: ["events.k8s.io"]
     resources: ["events"]
-    verbs: ["get", "list", "watch", "create"]
+    verbs: ["get", "list", "watch", "create","update","delete"]
   - apiGroups: ["crd.alauda.io"]
     resources: ["alaudaloadbalancer2","alaudaloadbalancer2/status", "frontends","frontends/status", "rules"]
     verbs: ["get", "list", "watch"]

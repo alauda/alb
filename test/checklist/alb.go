@@ -4,7 +4,6 @@ import (
 	"fmt"
 	_ "fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	. "alauda.io/alb2/test/e2e/framework"
@@ -13,14 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 )
-
-func getcwd() string {
-	path, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return path
-}
 
 func MockCluster(global *EnvtestExt, cluster *EnvtestExt, l logr.Logger) error {
 	name := cluster.Name
@@ -164,7 +155,8 @@ metadata:
 spec:
   address: 127.0.0.1
   type: nginx
-`}
+`,
+		}
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
 			out, err := NewCmd().
 				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
@@ -228,7 +220,8 @@ spec:
   certificate_name: ""
   port: 80
   protocol: http
-`}
+`,
+		}
 		crinproduct := []string{
 			`
 apiVersion: operator.alauda.io/v1alpha1
@@ -259,10 +252,10 @@ spec:
   certificate_name: ""
   port: 11780
   protocol: http
-`}
+`,
+		}
 
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
-
 			out, err := NewCmd().
 				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
 				Cwd(GetAlbBase()+"/migrate/checklist").
@@ -316,7 +309,8 @@ spec:
               number: 80
         path: /
         pathType: ImplementationSpecific
-`}
+`,
+		}
 		crinproduct := []string{
 			`
 apiVersion: networking.k8s.io/v1
@@ -341,7 +335,8 @@ spec:
               number: 80
         path:   /   
         pathType: ImplementationSpecific
-`}
+`,
+		}
 
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
 			out, err := NewCmd().
@@ -458,7 +453,8 @@ spec:
       limits:
         cpu: 2
         memory: 2Gi
-`}
+`,
+		}
 		crinproduct := []string{
 			`
 apiVersion: operator.alauda.io/v1alpha1
@@ -471,7 +467,8 @@ status:
     acp/chart-alauda-alb2:
      values:
        loadbalancerName: cpaas-system
-`}
+`,
+		}
 
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
 			out, err := NewCmd().
@@ -524,7 +521,8 @@ spec:
     projects:
       - ALL_ALL
     replicas: 1
-`}
+`,
+		}
 		crinproduct := []string{
 			`
 apiVersion: crd.alauda.io/v1
@@ -535,7 +533,8 @@ metadata:
 spec:
   address: 127.0.0.1
   type: nginx
-`}
+`,
+		}
 
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {
 			out, err := NewCmd().
@@ -610,7 +609,8 @@ spec:
               number: 8080
         path: /$
         pathType: ImplementationSpecific
-`}
+`,
+		}
 		crinproduct := []string{}
 
 		test(cfg{cringlobal: cringlobal, crinproduct: crinproduct}, func(c ctx) {

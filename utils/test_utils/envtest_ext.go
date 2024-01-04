@@ -39,6 +39,7 @@ func (e *EnvtestExt) NotInitAlbCr() *EnvtestExt {
 	e.initForAlb = false
 	return e
 }
+
 func (e *EnvtestExt) Kubectl() *Kubectl {
 	return NewKubectl(e.Base, e.cfg, e.log.WithName("kubctl"))
 }
@@ -46,6 +47,7 @@ func (e *EnvtestExt) Kubectl() *Kubectl {
 func (e *EnvtestExt) GetKubeCfgPath() string {
 	return e.cfgpath
 }
+
 func (e *EnvtestExt) GetRestCfg() *rest.Config {
 	return e.cfg
 }
@@ -66,7 +68,7 @@ func (e *EnvtestExt) Start() (*rest.Config, error) {
 	}
 	raw, _ := KubeConfigFromREST(cfg, "test")
 	kubeCfgPath := path.Join(e.Base, "default-kubecfg")
-	os.WriteFile(kubeCfgPath, raw, 0666)
+	os.WriteFile(kubeCfgPath, raw, 0o666)
 	e.cfgpath = kubeCfgPath
 	return cfg, nil
 }

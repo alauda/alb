@@ -17,8 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-const DEFAULT_NS = "ns-1"
-const DEFAULT_ALB = "alb-1"
+const (
+	DEFAULT_NS  = "ns-1"
+	DEFAULT_ALB = "alb-1"
+)
 
 var DEFAULT_CONFIG_FOR_TEST = map[string]string{
 	"DOMAIN":               "alauda.io",
@@ -53,7 +55,6 @@ type FakeK8sResource struct {
 }
 
 func InitFakeAlb(t *testing.T, ctx context.Context, fakeResource FakeResource) *driver.KubernetesDriver {
-
 	drv, err := driver.GetKubernetesDriver(ctx, true)
 
 	a := assert.New(t)

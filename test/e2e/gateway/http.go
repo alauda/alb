@@ -205,7 +205,6 @@ spec:
 			}
 			return true, nil
 		})
-
 	})
 	GIt("i want my app been access by both http and https", func() {
 		f.InitSvcWithOpt(SvcOpt{
@@ -369,7 +368,7 @@ spec:
 		})
 	})
 
-	GIt("i want my mutliple app use different cert in different hostname in same port", func() {
+	GIt("i want my multiple app use different cert in different hostname in same port", func() {
 		secretInit, _ := f.CreateTlsSecret("init.com", "secret-init", ns)
 		secretHarbor, _ := f.CreateTlsSecret("harbor.com", "secret-harbor", ns)
 		_ = secretInit
@@ -563,7 +562,7 @@ spec:
 		})
 	})
 
-	GIt("http rule with mutliple match should work", func() {
+	GIt("http rule with multiple match should work", func() {
 		_, err := f.KubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
@@ -722,7 +721,6 @@ spec:
 		f.WaitNginxConfigStr("listen.*8234")
 
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-
 			name := "8234-" + ns + "-g1-http-generic-host-" + ns + "-h1-0-0"
 			expectedDsl := `["AND",["IN","HOST","a.com"],["EQ","URL","/foo"]]`
 			findHttpPolicy1, err := p.PolicyEq("http", name, 8234, expectedDsl, ct.BackendGroup{
@@ -743,7 +741,6 @@ spec:
 			}, func(p c.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
-
 			if err != nil {
 				return false, err
 			}
@@ -870,7 +867,6 @@ spec:
 			}, func(p c.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
-
 			if err != nil {
 				return false, err
 			}
@@ -1088,7 +1084,7 @@ spec:
           weight: 1
 `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
 
-		//prefix
+		// prefix
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
 			name := "8234-" + ns + "-g1-http-" + ns + "-h1-1-0"
 			policy, _, _ := p.FindHttpPolicy(name)
@@ -1098,7 +1094,7 @@ spec:
 				policy.VHost == "xx.com" &&
 				*policy.RewriteReplacePrefix == "/bar", nil
 		})
-		//full
+		// full
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
 			name := "8234-" + ns + "-g1-http-" + ns + "-h1-0-0"
 			policy, _, _ := p.FindHttpPolicy(name)

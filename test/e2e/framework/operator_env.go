@@ -1,10 +1,7 @@
 package framework
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"io"
 	"os"
 
 	alog "alauda.io/alb2/utils/log"
@@ -96,6 +93,7 @@ func (e *OperatorEnv) Start() error {
 	if e.InitK8s != nil {
 		err = e.InitK8s(ctx, base, cfg, l)
 		if err != nil {
+			cancel()
 			return err
 		}
 	}
@@ -133,24 +131,4 @@ func (e *OperatorEnv) Stop() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// newLogWriter 创建一个新的 io.Writer，它会立即打印每一行输出。
-func newLogWriter(prefix string, log logr.Logger) io.Writer {
-	return &logWriter{prefix: prefix, log: log}
-}
-
-type logWriter struct {
-	prefix string
-	log    logr.Logger
-}
-
-func (w *logWriter) Write(p []byte) (n int, err error) {
-	scanner := bufio.NewScanner(bytes.NewReader(p))
-	for scanner.Scan() {
-		txt := scanner.Text()
-		// println(txt)
-		w.log.Info(txt, "prefix", w.prefix)
-	}
-	return len(p), scanner.Err()
 }

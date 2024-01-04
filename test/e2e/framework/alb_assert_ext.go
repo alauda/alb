@@ -19,8 +19,10 @@ import (
 	. "alauda.io/alb2/utils/test_utils"
 )
 
-type NgxPolicy c.NgxPolicy
-type BackendGroup ct.BackendGroup
+type (
+	NgxPolicy    c.NgxPolicy
+	BackendGroup ct.BackendGroup
+)
 
 func (p NgxPolicy) String() string {
 	ret, err := json.MarshalIndent(p, "", "  ")
@@ -112,6 +114,7 @@ func (p NgxPolicy) FindPolicy(mode, rule string) (*c.Policy, int, *ct.BackendGro
 func (p NgxPolicy) FindTcpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("tcp", rule)
 }
+
 func (p NgxPolicy) FindUdpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("udp", rule)
 }
@@ -128,7 +131,7 @@ type AlbHelper struct {
 func (f *AlbHelper) CreateFt(port a1t.PortNumber, protocol string, svcName string, svcNs string) {
 	name := fmt.Sprintf("%s-%05d", f.AlbName, port)
 	if protocol == "udp" {
-		name = name + "-udp"
+		name += "-udp"
 	}
 	ft := a1t.Frontend{
 		ObjectMeta: metav1.ObjectMeta{

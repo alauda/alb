@@ -31,7 +31,7 @@ func NewHelm(base string, kubeCfg *rest.Config, l logr.Logger) *Helm {
 	if kubeCfg != nil {
 		raw, _ := KubeConfigFromREST(kubeCfg, "test")
 		kubeCfgPath = path.Join(helmBase, "kubecfg")
-		os.WriteFile(kubeCfgPath, raw, 0600)
+		os.WriteFile(kubeCfgPath, raw, 0o600)
 	}
 
 	return &Helm{
@@ -46,7 +46,7 @@ func (h *Helm) Install(cfgs []string, name string, base, val string) (string, er
 	releaseBase := path.Join(h.helmBase, name)
 	os.MkdirAll(releaseBase, os.ModePerm)
 	for index, yaml := range cfgs {
-		os.WriteFile(path.Join(releaseBase, fmt.Sprintf("ov.%d.yaml", index)), []byte(yaml), 0666)
+		os.WriteFile(path.Join(releaseBase, fmt.Sprintf("ov.%d.yaml", index)), []byte(yaml), 0o666)
 	}
 	cmds := []string{"install", "-f", val}
 	for index := range cfgs {
@@ -55,13 +55,13 @@ func (h *Helm) Install(cfgs []string, name string, base, val string) (string, er
 	}
 	cmds = append(cmds, name, base)
 	cmds = append(cmds, "--kubeconfig", h.kubeCfgPath, "--create-namespace")
-	dryrunCmds := append(cmds, "--dry-run")
-	out, err := h.helm(dryrunCmds...)
+	cmds = append(cmds, "--dry-run")
+	out, err := h.helm(cmds...)
 	if err != nil {
 		return "", err
 	}
 	h.Log.Info("hr yamls dryrun", "out", out)
-	return h.helm(cmds...)
+	return h.helm(cmds[:len(cmds)-1]...)
 }
 
 func (h *Helm) UnInstall(name string) (string, error) {
@@ -154,7 +154,6 @@ func (h *Helm) Pull(chart string) (string, error) {
 }
 
 func helmWithBase(cmds []string, dir string, log logr.Logger) (string, error) {
-
 	log.Info("helm call", "cmds", cmds, "dir", dir)
 
 	cmd := exec.Command("helm", cmds...)
@@ -172,6 +171,6 @@ func (h *Helm) helm(cmds ...string) (string, error) {
 	return helmWithBase(cmds, "", h.Log)
 }
 
-func (h *Helm) Destory() error {
+func (h *Helm) Destroy() error {
 	return os.RemoveAll(h.helmBase)
 }

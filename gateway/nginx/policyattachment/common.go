@@ -50,7 +50,7 @@ func getConfigList(ref Ref, allPolicy []CommonPolicyAttachment, cfg PolicyAttach
 				// TODO allow listeners protocol filter
 			}
 			// allow route kind filter
-			if _, ok := cfg.AllowRouteKind[string(target.Kind)]; ok {
+			if _, ok := cfg.AllowRouteKind[target.Kind]; ok {
 				routeObj := ref.Route.GetObject()
 				if target.Name == routeObj.GetName() && target.Namespace == routeObj.GetNamespace() {
 					if target.SectionIndex == nil && target.SectionName == nil {

@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
-
 	"net/http/pprof"
+	"time"
 
 	"alauda.io/alb2/config"
 	ctl "alauda.io/alb2/controller"
@@ -192,14 +191,13 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 	klog.Infof("reload: end of reload loop")
 }
 
-func (a *Alb) StartGoMonitorLoop(ctx context.Context) error {
+func (a *Alb) StartGoMonitorLoop(ctx context.Context) {
 	// TODO fixme
 	// TODO how to stop it? use http server with ctx.
 	log := a.log.WithName("monitor")
 	flags := config.GetConfig().GetFlags()
 	if !flags.EnableGoMonitor {
 		log.Info("disable, ignore")
-		return nil
 	}
 	port := config.GetConfig().GetGoMonitorPort()
 	if port == 0 {
@@ -221,8 +219,5 @@ func (a *Alb) StartGoMonitorLoop(ctx context.Context) error {
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
 	if err != nil {
 		log.Error(err, "init metrics http handle fail")
-		return err
 	}
-
-	return nil
 }

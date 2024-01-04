@@ -16,12 +16,6 @@ type SvcExt struct {
 	ctx context.Context
 }
 
-type SvcOptPort struct {
-	port        int
-	Protocol    string
-	AppProtocol *string
-}
-
 type SvcOpt struct {
 	Ns    string
 	Name  string
@@ -35,6 +29,7 @@ func NewSvcExt(kc *K8sClient, ctx context.Context) *SvcExt {
 		ctx: ctx,
 	}
 }
+
 func (s *SvcExt) initSvcWithOpt(opt SvcOpt) error {
 	ns := opt.Ns
 	name := opt.Name

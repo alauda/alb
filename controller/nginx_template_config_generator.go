@@ -44,10 +44,6 @@ type NginxTemplateConfig struct {
 	NginxParam
 }
 
-type NginxTemplateConfigGenerator struct {
-	config LegacyConfig
-}
-
 func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam NginxParam, cfg *config.Config) (*NginxTemplateConfig, error) {
 	ipv4, ipv6, err := GetBindIp(cfg)
 	if err != nil {

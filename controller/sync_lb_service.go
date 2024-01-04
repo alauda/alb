@@ -22,20 +22,9 @@ import (
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// in container mode, we want to create/update loadbalancer tcp/udp service,use it as high avaiable solution.
+// in container mode, we want to create/update loadbalancer tcp/udp service,use it as high available solution.
 func (nc *NginxController) SyncLbSvcPort(frontends []*Frontend) error {
 	return MixProtocolLbSvc{nc: nc}.sync(nc.Ctx, frontends)
-}
-
-func (nc *NginxController) getMetricsPort(serviceProtocol corev1.Protocol) ([]corev1.ServicePort, error) {
-	var metricsPorts []corev1.ServicePort
-	metricsPort := config.GetConfig().GetMetricsPort()
-	if metricsPort > 0 && metricsPort <= 65535 {
-		metricsPorts = []corev1.ServicePort{{Name: "metrics", Port: int32(metricsPort), Protocol: serviceProtocol}}
-	} else {
-		return nil, fmt.Errorf("ENV parameter METRICS_PORT is wrong value as(should be in 1-65535): %v", metricsPort)
-	}
-	return metricsPorts, nil
 }
 
 // LoadBalancer Service could only have one protocol.

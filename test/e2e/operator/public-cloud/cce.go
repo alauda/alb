@@ -86,7 +86,5 @@ spec:
 			log.Info("svc ", "svc", PrettyCr(svc))
 			g.Expect(string(*svc.Spec.IPFamilyPolicy)).Should(Equal("SingleStack"))
 		}, log)
-
 	})
-
 })

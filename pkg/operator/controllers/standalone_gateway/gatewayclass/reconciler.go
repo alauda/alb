@@ -2,11 +2,12 @@ package gatewayclass
 
 import (
 	"context"
+	"fmt"
 
 	"alauda.io/alb2/pkg/operator/config"
 	. "alauda.io/alb2/pkg/operator/controllers/types"
 	. "alauda.io/alb2/pkg/operator/toolkit"
-	"fmt"
+
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

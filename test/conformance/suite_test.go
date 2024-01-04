@@ -24,7 +24,7 @@ func TestAlbGatewayConformance(t *testing.T) {
 		DisableDefaultAlb().
 		Build(),
 	)
-	defer actx.Destory()
+	defer actx.Destroy()
 	err := actx.Init()
 	assert.NoError(t, err)
 

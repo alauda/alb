@@ -22,14 +22,8 @@ func TestLeader(t *testing.T) {
 }
 
 var testEnv *envtest.Environment
-var _ = BeforeSuite(func() {
-})
-
-var _ = AfterSuite(func() {
-})
 
 var _ = Describe("LeaderElection", func() {
-
 	It("leader election should ok", func() {
 		t := GinkgoT()
 		testEnv = &envtest.Environment{}

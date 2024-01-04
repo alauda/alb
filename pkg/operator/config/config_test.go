@@ -306,7 +306,6 @@ func TestConfigFromEnv(t *testing.T) {
 }
 
 func TestConfigViaAlbCr(t *testing.T) {
-
 	type TestCase struct {
 		albCr  string
 		ns     string

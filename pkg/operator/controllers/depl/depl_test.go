@@ -1,10 +1,11 @@
 package depl
 
 import (
-	. "alauda.io/alb2/pkg/config"
 	"context"
 	"fmt"
 	"testing"
+
+	. "alauda.io/alb2/pkg/config"
 
 	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"

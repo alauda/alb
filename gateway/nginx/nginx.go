@@ -38,7 +38,6 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 	log.Info("get lb config start", "cfg", gcfg)
 	ftMap := map[string]*Frontend{}
 	lss, err := d.ListListener(gcfg.GatewaySelector)
-
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +84,6 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 	return ret, nil
 }
 
-func showLb(lb *LoadBalancer) string {
-	ft_len := len(lb.Frontends)
-	out := fmt.Sprintf("%v ", ft_len)
-	for _, ft := range lb.Frontends {
-		out += fmt.Sprintf("%v %v", ft.FtName, len(ft.Rules))
-	}
-	return out
-}
 func showListenerList(lss []*types.Listener) string {
 	ret := map[string][]string{}
 	for _, ls := range lss {

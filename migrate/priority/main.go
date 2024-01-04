@@ -40,7 +40,7 @@ func main() {
 		}
 		rl.Spec.Priority = 5
 		klog.Infof("convert rule %s/%s priority: %d", rl.Namespace, rl.Name, rl.Spec.Priority)
-		if *dryRun == false {
+		if !*dryRun {
 			if _, err = k8sDriver.ALBClient.CrdV1().Rules(Namespace).Update(context.TODO(), &rl, metav1.UpdateOptions{}); err != nil {
 				klog.Error(err)
 			}

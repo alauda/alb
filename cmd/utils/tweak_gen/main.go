@@ -11,7 +11,7 @@ import (
 // generate configmap used for nginx test
 func main() {
 	outDir := os.Args[1]
-	os.MkdirAll(outDir, 0700)
+	_ = os.MkdirAll(outDir, 0o700)
 	fmt.Printf("%v", configmap.HTTP)
 	fmt.Printf("%v", outDir)
 	toFile(configmap.HTTP, path.Join(outDir, "http.conf"))

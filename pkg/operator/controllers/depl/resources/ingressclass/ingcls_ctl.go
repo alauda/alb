@@ -15,15 +15,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type IngClsCtl struct {
-}
+type IngClsCtl struct{}
 
 func NewIngClsCtl() *IngClsCtl {
 	return &IngClsCtl{}
 }
 
-const INGCLS_PROJECT_FMT = "alb.%s/project"
-const ALL_PROJECT = "ALL_ALL"
+const (
+	INGCLS_PROJECT_FMT = "alb.%s/project"
+	ALL_PROJECT        = "ALL_ALL"
+)
 
 func (c *IngClsCtl) GenExpectIngressClass(origin *netv1.IngressClass, conf *cfg.Config) (*netv1.IngressClass, error) {
 	var (

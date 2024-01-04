@@ -48,8 +48,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var alb2OperatorFinalizer = "alb2.finalizer"
-var alb2Finalizer = sharecfg.Alb2Finalizer
+var (
+	alb2OperatorFinalizer = "alb2.finalizer"
+	alb2Finalizer         = sharecfg.Alb2Finalizer
+)
 
 // ALB2Reconciler reconciles a ALB2 object
 type ALB2Reconciler struct {
@@ -138,10 +140,10 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			if err != nil {
 				return ctrl.Result{}, perr.Wrapf(err, "load alb deploy in delete status fail")
 			}
-			err = Destory(ctx, r.Client, r.Log, cur)
+			err = Destroy(ctx, r.Client, r.Log, cur)
 			if err != nil {
 				l.Error(err, "clear alb2 subResource", "alb2", alb)
-				return ctrl.Result{}, perr.Wrapf(err, "destory alb deploy fail")
+				return ctrl.Result{}, perr.Wrapf(err, "destroy alb deploy fail")
 			}
 			// all clear now.
 			controllerutil.RemoveFinalizer(alb, alb2OperatorFinalizer)

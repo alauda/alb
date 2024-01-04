@@ -67,12 +67,12 @@ func InitKlogV2(cfg LogCfg) logr.Logger {
 	klogv2.InitFlags(flags)
 
 	if cfg.ToFile != "" {
-		flags.Set("log_file", cfg.ToFile)
-		flags.Set("alsologtostderr", "true")
-		flags.Set("logtostderr", "false")
+		_ = flags.Set("log_file", cfg.ToFile)
+		_ = flags.Set("alsologtostderr", "true")
+		_ = flags.Set("logtostderr", "false")
 	}
 	if cfg.Level != "" {
-		flags.Set("v", cfg.Level)
+		_ = flags.Set("v", cfg.Level)
 	}
 
 	logger := klogr.NewWithOptions(klogr.WithFormat("Klog"))

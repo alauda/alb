@@ -27,7 +27,7 @@ type ReqProvider struct {
 	ctx            context.Context
 	history        []History
 	curCount       map[string]uint64 // current
-	curRecords     []Record          // curent records
+	curRecords     []Record          // current records
 }
 
 type Record struct {
@@ -46,14 +46,6 @@ func NewReqProvider(url string, log logr.Logger, ctx context.Context) *ReqProvid
 func (r *ReqProvider) WithSampleInterval(samp int) *ReqProvider {
 	r.sampleinterval = samp
 	return r
-}
-
-func (r *ReqProvider) successCount() uint64 {
-	var sum uint64 = 0
-	for _, v := range r.curCount {
-		sum += v
-	}
-	return sum
 }
 
 func errCount(c map[string]uint64) uint64 {
@@ -98,13 +90,13 @@ func (r *ReqProvider) job() {
 		resp, err := c.Do(req)
 		if err != nil {
 			r.log.Error(err, "curl url failed")
-			r.curCount["err"] = r.curCount["err"] + 1
+			r.curCount["err"]++
 			continue
 		}
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 		end := time.Now()
-		r.curCount[resp.Status] = r.curCount[resp.Status] + 1
+		r.curCount[resp.Status]++
 		latency := int(end.Sub(start).Microseconds())
 
 		r.curRecords = append(r.curRecords, Record{Id: count, time: int(time.Now().Unix()), code: resp.StatusCode, latency: latency})

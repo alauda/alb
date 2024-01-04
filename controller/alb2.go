@@ -61,11 +61,9 @@ func getProjectFromLabel(k, v string) string {
 	prefix := fmt.Sprintf("project.%s/", domain)
 	if k == fmt.Sprintf("project.%s/name", domain) {
 		return v
-	} else {
-		if v == "true" {
-			if project := strings.TrimPrefix(k, prefix); project != "" {
-				return project
-			}
+	} else if v == "true" {
+		if project := strings.TrimPrefix(k, prefix); project != "" {
+			return project
 		}
 	}
 	return ""

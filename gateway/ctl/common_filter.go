@@ -28,6 +28,7 @@ func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, 
 	c.filteListenerConflictPorotocol(gateway, ls, allls)
 	c.filteListenerInvalidKind(gateway, ls, allls)
 }
+
 func (c *CommonFiliter) filteListenerInvalidKind(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	for _, l := range ls {
 		if l.AllowedRoutes == nil {
@@ -128,7 +129,7 @@ func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.
 		}
 		match := sel.Matches(labels.Set(ns.Labels))
 		if !match {
-			return false, fmt.Sprintf("ns selector not match")
+			return false, "ns selector not match"
 		}
 	}
 	return true, ""

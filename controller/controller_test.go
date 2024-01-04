@@ -18,7 +18,6 @@ import (
 )
 
 func TestDslString(t *testing.T) {
-
 	dslx := v1.DSLX{
 		{
 			Values: [][]string{{utils.OP_STARTS_WITH, "/k8s"}, {utils.OP_REGEX, "^/v1/*"}},
@@ -171,7 +170,7 @@ func TestRuleOrder(t *testing.T) {
 			},
 		},
 		{
-			Name: "regex /a.* wiht host",
+			Name: "regex /a.* with host",
 			DSLX: []v1.DSLXTerm{
 				{
 					Values: [][]string{{utils.OP_REGEX, "/a.*"}},
@@ -221,7 +220,7 @@ func TestRuleOrder(t *testing.T) {
 	expectOrder := []string{
 		"exact /a  with host",
 		"start with /abc with host",
-		"regex /a.* wiht host",
+		"regex /a.* with host",
 		"start with / with host",
 		"wildcard host and regex /abcd.*",
 		"wildcard host and start with /abc",
@@ -245,7 +244,6 @@ func TestRuleOrder(t *testing.T) {
 }
 
 func TestSortPolicy(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		policies Policies
@@ -365,7 +363,6 @@ func TestSortPolicy(t *testing.T) {
 }
 
 func TestGCRule(t *testing.T) {
-
 	type TestCase struct {
 		description   string
 		options       GCOptions
@@ -421,7 +418,7 @@ func TestGCRule(t *testing.T) {
 								ServiceGroup: &v1.ServiceGroup{
 									Services: []v1.Service{
 										{
-											Name: "ft-default-backend-service-whcih-should-not-exist",
+											Name: "ft-default-backend-service-which-should-not-exist",
 										},
 									},
 								},

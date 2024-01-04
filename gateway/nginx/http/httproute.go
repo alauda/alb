@@ -120,7 +120,7 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 		ft.Rules = append(ft.Rules, rules...)
 
 		if len(ft.Rules) == 0 {
-			log.V(2).Info("could not find rule. ignore this port", "port", port)
+			log.Info("could not find rule. ignore this port", "port", port)
 			continue
 		}
 		ftMap.SetFt(string(ft.Protocol), ft.Port, ft)
@@ -258,7 +258,7 @@ func HttpRuleMatchToDSLX(hostnameStrs []string, m gatewayType.HTTPRouteMatch) (a
 	// generic domain name
 	if len(hostnameStrs) == 1 && strings.HasPrefix(hostnameStrs[0], "*.") {
 		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
-			[]string{utils.OP_ENDS_WITH, hostnameStrs[0]},
+			{utils.OP_ENDS_WITH, hostnameStrs[0]},
 		}}
 		dslx = append(dslx, exp)
 	} else if len(hostnameStrs) != 0 {

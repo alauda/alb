@@ -1,9 +1,10 @@
 package checklist
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"testing"
 )
 
 func TestALBCheckList(t *testing.T) {

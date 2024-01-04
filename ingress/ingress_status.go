@@ -60,7 +60,6 @@ func (c *Controller) NeedUpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.
 }
 
 func (c *Controller) UpdateIngressStatus(alb *m.AlaudaLoadBalancer, ing *n1.Ingress) error {
-
 	ports := []int32{}
 	need := getIngressFtTypes(ing, c.Config)
 	if need.NeedHttp() {
@@ -127,7 +126,7 @@ func FillupIngressStatusAddressAndPort(ing *n1.Ingress, ip string, host string, 
 	ingPorts := []n1.IngressPortStatus{}
 	for _, p := range ports {
 		ingPorts = append(ingPorts, n1.IngressPortStatus{
-			Port:     int32(p),
+			Port:     p,
 			Protocol: "TCP",
 		})
 	}
@@ -192,7 +191,7 @@ func (c *Controller) onAlbDelete(alb *alb2v2.ALB2) {
 
 	addressList := listAddress(alb).ToList()
 	for _, ing := range ings {
-		c.RemoveIngressStatusAaddress(addressList, ing)
+		_ = c.RemoveIngressStatusAaddress(addressList, ing)
 	}
 	controllerutil.RemoveFinalizer(alb, cfg.Alb2Finalizer)
 	_, err = c.kd.ALBClient.CrdV2beta1().ALB2s(c.GetNs()).Update(c.kd.Ctx, alb, metav1.UpdateOptions{})
@@ -220,11 +219,11 @@ func (c *Controller) onAlbChangeUpdateIngressStatus(oldalb, newalb *alb2v2.ALB2)
 		return err
 	}
 	addressList := append(address.ToSlice(), oldaddress.ToSlice()...)
-	//当是地址变化时，要把旧的地址去掉
-	//当是project变化时，要把当前的address去掉
-	//当alb变化时，所有的ingress都要resync一次，那时会保证需要设置的status都更新上去了，所以这里我们直接把所有的地址都去掉就行了
+	// 当是地址变化时，要把旧的地址去掉
+	// 当是project变化时，要把当前的address去掉
+	// 当alb变化时，所有的ingress都要resync一次，那时会保证需要设置的status都更新上去了，所以这里我们直接把所有的地址都去掉就行了
 	for _, ing := range ings {
-		c.RemoveIngressStatusAaddress(addressList, ing)
+		_ = c.RemoveIngressStatusAaddress(addressList, ing)
 	}
 	return nil
 }

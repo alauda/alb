@@ -303,6 +303,7 @@ func gatewayFromEnv(env map[string]string, a *ALBRunConfig) {
 func IntToEnv(x int) string {
 	return fmt.Sprintf("%d", x)
 }
+
 func BoolToEnv(x bool) string {
 	return fmt.Sprintf("%v", x)
 }
@@ -325,6 +326,7 @@ func ToIntOr(x string, backup int) int {
 	}
 	return i
 }
+
 func ToStringOr(x string, backup string) string {
 	if x == "" {
 		return backup

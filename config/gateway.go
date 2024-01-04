@@ -1,8 +1,10 @@
 package config
 
 import (
-	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"fmt"
+
+	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

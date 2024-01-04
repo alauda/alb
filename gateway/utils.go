@@ -46,6 +46,7 @@ type TLSRoute gv1a2t.TLSRoute
 func (r *TLSRoute) GetSpec() gv1b1t.CommonRouteSpec {
 	return r.Spec.CommonRouteSpec
 }
+
 func (r *TLSRoute) GetObject() client.Object {
 	return (*gv1a2t.TLSRoute)(r)
 }

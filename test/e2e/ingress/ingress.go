@@ -179,7 +179,6 @@ var _ = ginkgo.Describe("Ingress", func() {
 				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
 				return hasRule && hasPod
 			})
-
 		})
 
 		GIt("should get correct backend port when ingress use port.name", func() {
@@ -404,7 +403,6 @@ spec:
 				eq := reflect.DeepEqual(rules.Items[0].Spec.DSLX[0].Values[0], []string{"STARTS_WITH", "/xx1"})
 				return eq, nil
 			})
-
 		})
 
 		GIt("should write status in ingress", func() {
@@ -537,7 +535,6 @@ spec:
 				l.Info("check ingress status", "ing", PrettyCr(ing))
 				GEqual(g, len(ing.Status.LoadBalancer.Ingress), 0)
 			}, l)
-
 		})
 
 		GIt("should not recreate rule when ingress annotation/owner change", func() {
@@ -602,7 +599,6 @@ spec:
 				}
 				return true, nil
 			})
-
 		})
 	})
 })

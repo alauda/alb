@@ -26,7 +26,6 @@ func (c *ALB2ResourceClient) CreateOrUpdateConfigmap(cm *v1.ConfigMap) error {
 		Namespace: cm.GetNamespace(),
 		Name:      cm.GetName(),
 	}, currentDeployment)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return c.Create(context.Background(), cm)
@@ -43,7 +42,6 @@ func (c *ALB2ResourceClient) CreateOrUpdateService(svc *v1.Service) error {
 		Namespace: svc.GetNamespace(),
 		Name:      svc.GetName(),
 	}, currentDeployment)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return c.Create(context.Background(), svc)
@@ -67,7 +65,6 @@ func (c *ALB2ResourceClient) CreateOrUpdateIngressClass(ic *netv1.IngressClass) 
 		Namespace: ic.GetNamespace(),
 		Name:      ic.GetName(),
 	}, currentIngressClass)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return c.Create(context.Background(), ic)
@@ -84,7 +81,6 @@ func (c *ALB2ResourceClient) CreateOrUpdateGatewayClass(gc *gv1b1t.GatewayClass)
 		Namespace: gc.GetNamespace(),
 		Name:      gc.GetName(),
 	}, currentGatewayClass)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return c.Create(context.Background(), gc)

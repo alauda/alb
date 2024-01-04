@@ -18,8 +18,7 @@ type AlbWaitFileExt struct {
 	log    logr.Logger
 }
 
-type DefaultReadFile struct {
-}
+type DefaultReadFile struct{}
 
 func (d *DefaultReadFile) ReadFile(p string) (string, error) {
 	ret, err := os.ReadFile(p)
@@ -44,7 +43,7 @@ func (f *AlbWaitFileExt) waitFile(file string, matcher func(string) (bool, error
 		if err != nil {
 			return false, nil
 		}
-		ok, err := matcher(string(fileCtx))
+		ok, err := matcher(fileCtx)
 		if err != nil {
 			return false, err
 		}

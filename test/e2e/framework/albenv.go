@@ -261,5 +261,5 @@ func (a *AlbEnv) initDefaultFt() {
 		},
 	}, metav1.CreateOptions{})
 
-	GinkgoAssert(err, "init defualt ft fail")
+	GinkgoAssert(err, "init default ft fail")
 }

@@ -63,7 +63,7 @@ spec:
 	assert.NoError(t, err)
 	for ri, r := range ing.Spec.Rules {
 		for pi, p := range r.HTTP.Paths {
-			albrule, err := ingc.generateRule(ing, crcli.ObjectKey{"x", "x"}, &albv1.Frontend{}, r.Host, p, ri, pi)
+			albrule, err := ingc.generateRule(ing, crcli.ObjectKey{Namespace: "x", Name: "x"}, &albv1.Frontend{}, r.Host, p, ri, pi)
 			l.Info("rule", "cr", PrettyCr(albrule))
 			assert.NoError(t, err)
 		}

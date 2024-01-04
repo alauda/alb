@@ -9,7 +9,6 @@ import (
 )
 
 func TestEchoResty(t *testing.T) {
-
 	print(EchoRestyTemplate)
 	base := InitBase()
 	kd := AdoptKind(base, "alb-dual", log.L())
@@ -19,5 +18,4 @@ func TestEchoResty(t *testing.T) {
 	e := NewEchoResty(base, cfg, log.L())
 	err = e.Deploy(EchoCfg{Name: "echo-resty", Image: image, Ip: "v4"})
 	assert.NoError(t, err)
-
 }

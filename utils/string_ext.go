@@ -16,7 +16,7 @@ func StrListRemoveDuplicates(list []string) []string {
 		m[x] = x
 	}
 	var ClearedArr []string
-	for x, _ := range m {
+	for x := range m {
 		ClearedArr = append(ClearedArr, x)
 	}
 	return ClearedArr

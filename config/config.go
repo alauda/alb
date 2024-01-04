@@ -111,8 +111,10 @@ type Config struct {
 	ExtraConfig
 }
 
-var cfg *Config
-var once sync.Once
+var (
+	cfg  *Config
+	once sync.Once
+)
 
 func getAllEnv() map[string]string {
 	e := map[string]string{}
@@ -162,6 +164,7 @@ func (c *Config) GetNs() string {
 func (c *Config) GetMetricsPort() int {
 	return c.Controller.MetricsPort
 }
+
 func (c *Config) GetInterval() int {
 	return c.ExtraConfig.Interval
 }
@@ -246,6 +249,7 @@ func (c *Config) GetLabelSourceIngressVer() string {
 func (c *Config) GetLabelSourceIngressPathIndex() string {
 	return fmt.Sprintf(FMT_SOURCE_INGRESS_PATH_INDEX, c.GetDomain())
 }
+
 func (c *Config) GetLabelBindKey() string {
 	return fmt.Sprintf(FMT_BINDKEY, c.GetDomain())
 }
@@ -257,6 +261,7 @@ func (c *Config) GetLabelSourceIngressRuleIndex() string {
 func (c *Config) GetCpuPreset() int {
 	return c.Controller.CpuPreset
 }
+
 func (c *Config) GetWorkerLimit() int {
 	return c.Controller.WorkerLimit
 }
@@ -272,6 +277,7 @@ func (c *Config) DebugRuleSync() bool {
 func (c *Config) GetLabelAlbName() string {
 	return fmt.Sprintf(FMT_NAME, c.GetDomain())
 }
+
 func (c *Config) GetLabelFt() string {
 	return fmt.Sprintf(FMT_FT, c.GetDomain())
 }
@@ -279,6 +285,7 @@ func (c *Config) GetLabelFt() string {
 func (c *Config) GetLabelSourceType() string {
 	return fmt.Sprintf(FMT_SOURCE_TYPE, c.GetDomain())
 }
+
 func (c *Config) EnableIngress() bool {
 	return c.Controller.Flags.EnableIngress
 }

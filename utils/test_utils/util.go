@@ -135,7 +135,7 @@ func CtxWithSignalAndTimeout(sec int) (context.Context, context.CancelFunc) {
 	go func() {
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		_ = <-sigs
+		<-sigs
 		fmt.Println("rece stop signal, exit")
 		cancel()
 		time.Sleep(time.Second * 5)
@@ -194,6 +194,7 @@ func WaitUtillSuccess(fn func() (bool, error)) {
 		return fn()
 	})
 }
+
 func Wait(fn func() (bool, error)) {
 	const (
 		// Poll how often to poll for conditions

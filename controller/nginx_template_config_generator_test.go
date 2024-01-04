@@ -1,11 +1,12 @@
 package controller
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCurrentNetwork(t *testing.T) {
@@ -84,21 +85,20 @@ func TestBindIp(t *testing.T) {
 		}}, false)
 	assert.NoError(t, err)
 	assert.Equal(t, len(v6), 0)
-	//must be sorted,otherwise it will reload nginx everytime.
+	// must be sorted,otherwise it will reload nginx everytime.
 	assert.Equal(t, v4[0], "192.168.0.1")
 	assert.Equal(t, v4[1], "192.168.0.2")
 	assert.Equal(t, len(v4), 2)
 }
 
 func TestGetBindIpConfig(t *testing.T) {
-
 	testGet := func(configStr *string) (BindNICConfig, error) {
 		if configStr == nil {
 			return GetBindNICConfig("")
 		}
 		dir := os.TempDir()
 		path := filepath.Join(dir, "bind_nic.json")
-		ioutil.WriteFile(path, []byte(*configStr), 0666)
+		ioutil.WriteFile(path, []byte(*configStr), 0o666)
 		return GetBindNICConfig(dir)
 	}
 	cfg, err := testGet(nil)

@@ -21,10 +21,12 @@ func (c *Cmd) Logout(logout bool) *Cmd {
 	c.logout = logout
 	return c
 }
+
 func (c *Cmd) Cwd(cwd string) *Cmd {
 	c.cwd = cwd
 	return c
 }
+
 func (c *Cmd) Env(envs map[string]string) *Cmd {
 	c.envs = envs
 	return c
@@ -57,13 +59,13 @@ func (c *Cmd) Call(name string, cmds ...string) (string, error) {
 		if c.logout {
 			fmt.Print(string(tmp))
 		}
-		out = out + string(tmp[0:n])
+		out += string(tmp[0:n])
 		if err != nil {
 			break
 		}
 	}
 	err = cmd.Wait()
-	return string(out), err
+	return out, err
 }
 
 func Command(name string, cmds ...string) (string, error) {

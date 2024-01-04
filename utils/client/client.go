@@ -49,7 +49,12 @@ func GetClient(ctx context.Context, cfg *rest.Config, scheme *runtime.Scheme) (c
 		return nil, err
 	}
 	cache, err := cache.New(cfg, cache.Options{Scheme: scheme, Mapper: mapper})
-	go cache.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		_ = cache.Start(ctx)
+	}()
 	cache.WaitForCacheSync(ctx)
 	if err != nil {
 		return nil, err

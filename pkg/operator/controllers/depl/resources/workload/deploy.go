@@ -24,11 +24,12 @@ import (
 var (
 	defaultMaxSurge       = intstr.FromInt(0)
 	defaultMaxUnavailable = intstr.FromInt(1)
-	defaultReplicas       = int32(1)
 )
 
-const ALB_CONTAINER_NAME = "alb2"
-const NGINX_CONTAINER_NAME = "nginx"
+const (
+	ALB_CONTAINER_NAME   = "alb2"
+	NGINX_CONTAINER_NAME = "nginx"
+)
 
 type DeplTemplate struct {
 	alb        *a2t.ALB2
@@ -463,6 +464,7 @@ func (b *DeplTemplate) shareVolume() corev1.Volume {
 		},
 	}
 }
+
 func (b *DeplTemplate) nginxRunVolume() corev1.Volume {
 	return corev1.Volume{
 		Name: "nginx-run",
@@ -472,12 +474,12 @@ func (b *DeplTemplate) nginxRunVolume() corev1.Volume {
 	}
 }
 
-func NeedUpdate(cur, new *appv1.Deployment, log logr.Logger) (bool, string) {
-	if cur == nil || new == nil {
+func NeedUpdate(cur, latest *appv1.Deployment, log logr.Logger) (bool, string) {
+	if cur == nil || latest == nil {
 		return false, "is nill"
 	}
 	curCfg := pickConfigFromDeploy(cur)
-	newCfg := pickConfigFromDeploy(new)
+	newCfg := pickConfigFromDeploy(latest)
 	eq := reflect.DeepEqual(curCfg, newCfg)
 	diff := cmp.Diff(curCfg, newCfg)
 	log.Info("check deployment change", "diff", diff, "deep-eq", eq)

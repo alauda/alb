@@ -51,7 +51,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
            external: "ignore and not throw err"
 `
 		albcfg := &ExternalAlbConfig{}
-		yaml.Unmarshal([]byte(rawStr), albcfg)
+		_ = yaml.Unmarshal([]byte(rawStr), albcfg)
 		alb := &ALB2{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "global-alb2",
@@ -85,7 +85,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			EnableIngress:        pointer.Of("true"),
 			EnableCrossClusters:  pointer.Of("false"),
 			EnableGzip:           pointer.Of("true"),
-			DefaultSSLCert:       pointer.Of("cpaas-system/dex.tls"), //overwrite
+			DefaultSSLCert:       pointer.Of("cpaas-system/dex.tls"), // overwrite
 			DefaultSSLStrategy:   pointer.Of("Both"),
 			IngressHTTPPort:      pointer.Of(80),
 			IngressHTTPSPort:     pointer.Of(443),
@@ -110,8 +110,8 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},
 				},
 				ExternalResource: &ExternalResource{
-					Limits:   &ContainerResource{CPU: "210m", Memory: "256Mi"}, //用户配置的
-					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},  //默认的
+					Limits:   &ContainerResource{CPU: "210m", Memory: "256Mi"}, // 用户配置的
+					Requests: &ContainerResource{CPU: "50m", Memory: "128Mi"},  // 默认的
 				},
 			},
 			Projects:        []string{"cpaas-system"},
@@ -120,7 +120,6 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			BindNIC:         pointer.Of("{}"),
 		}, cfg)
 	}
-
 }
 
 func TestDefaultAndMergeResource(t *testing.T) {
@@ -199,7 +198,7 @@ resources:
 	}
 	for _, c := range cases {
 		albcfg := &ExternalAlbConfig{}
-		yaml.Unmarshal([]byte(c.rawStr), albcfg)
+		_ = yaml.Unmarshal([]byte(c.rawStr), albcfg)
 		alb := &ALB2{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "global-alb2",

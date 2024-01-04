@@ -11,16 +11,6 @@ import (
 
 type Option func(deploy *appv1.Deployment)
 
-func setSelector(labels map[string]string) Option {
-	selector := &metav1.LabelSelector{MatchLabels: labels}
-	return func(deploy *appv1.Deployment) {
-		if deploy == nil {
-			return
-		}
-		deploy.Spec.Selector = selector
-	}
-}
-
 func (d *DeplTemplate) getAntiaffinitykey() string {
 	return d.albcfg.Deploy.AntiAffinityKey
 }
@@ -175,7 +165,6 @@ func SetEnvs(envs []corev1.EnvVar, containerName string) Option {
 				containers[index].Env = envs
 				break
 			}
-
 		}
 	}
 }
@@ -250,7 +239,6 @@ func SetResource(resource corev1.ResourceRequirements, containerName string) Opt
 				containers[index].Resources = resource
 				break
 			}
-
 		}
 	}
 }

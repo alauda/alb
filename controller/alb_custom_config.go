@@ -12,12 +12,15 @@ import (
 func GetAlbIngressRewriteResponseAnnotation() string {
 	return fmt.Sprintf("alb.ingress.%s/rewrite-response", config.GetConfig().GetDomain())
 }
+
 func GetAlbRuleRewriteResponseAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-response", config.GetConfig().GetDomain())
 }
+
 func GetAlbIngressRewriteRequestAnnotation() string {
 	return fmt.Sprintf("alb.ingress.%s/rewrite-request", config.GetConfig().GetDomain())
 }
+
 func GetAlbRuleRewriteRequestAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-request", config.GetConfig().GetDomain())
 }
@@ -44,7 +47,6 @@ func rewriteRequestConfigFromJson(jsonStr string) (*RewriteRequestConfig, error)
 }
 
 func GenerateRuleAnnotationFromIngressAnnotation(ingressName string, annotation map[string]string) map[string]string {
-
 	ruleAnnotation := make(map[string]string)
 
 	if val, ok := annotation[GetAlbIngressRewriteResponseAnnotation()]; ok {

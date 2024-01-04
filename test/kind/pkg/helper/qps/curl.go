@@ -6,7 +6,6 @@ import (
 )
 
 func Curl(url string) (string, error) {
-
 	c := http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

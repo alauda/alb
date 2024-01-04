@@ -9,7 +9,6 @@ import (
 
 type GinkgoLogSink struct {
 	prefix string
-	level  int
 }
 
 func GinkgoLog() logr.Logger {

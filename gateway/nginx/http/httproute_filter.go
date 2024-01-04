@@ -85,7 +85,7 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gv
 
 func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *Rule, redirect gv1a2t.HTTPRequestRedirectFilter) error {
 	if redirect.StatusCode != nil {
-		rule.RedirectCode = int(*redirect.StatusCode)
+		rule.RedirectCode = *redirect.StatusCode
 	}
 	if redirect.Scheme != nil && *redirect.Scheme != "" {
 		rule.RedirectScheme = redirect.Scheme
@@ -126,7 +126,7 @@ func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, rule *Rule, rewr
 	}
 	if path.ReplaceFullPath != nil {
 		rule.RewriteBase = ".*"
-		rule.RewriteTarget = string(*rewrite.Path.ReplaceFullPath)
+		rule.RewriteTarget = *rewrite.Path.ReplaceFullPath
 		return nil
 	}
 

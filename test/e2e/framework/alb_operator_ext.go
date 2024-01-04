@@ -3,11 +3,12 @@ package framework
 import (
 	"context"
 	"fmt"
-	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"os"
 	"path"
 	"time"
+
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"alauda.io/alb2/pkg/operator/config"
 
@@ -41,7 +42,7 @@ type AlbOperatorExt struct {
 
 func NewAlbOperatorExt(ctx context.Context, base string, kubecfg *rest.Config, log logr.Logger) *AlbOperatorExt {
 	base = path.Join(base, "operator")
-	os.Mkdir(base, 0777)
+	os.Mkdir(base, 0o777)
 	kubectl := NewKubectl(base, kubecfg, log)
 	cli, err := cliu.GetClient(ctx, kubecfg, cliu.InitScheme(runtime.NewScheme()))
 	GinkgoNoErr(err)

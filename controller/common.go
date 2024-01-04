@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"os"
 	"path"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -65,7 +64,7 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 		if !ok || len(backends) == 0 {
 			continue
 		}
-		//100 is the max weigh in SLB
+		// 100 is the max weigh in SLB
 		weight := int(math.Floor(float64(svc.Weight*100)/float64(totalWeight*len(backends)) + 0.5))
 		if weight == 0 && svc.Weight != 0 {
 			weight = 1
@@ -113,7 +112,10 @@ func fileSha256(file string) (string, error) {
 		return "", err
 	}
 	sha256h := sha256.New()
-	io.Copy(sha256h, f)
+	_, err = io.Copy(sha256h, f)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("%x", sha256h.Sum(nil)), nil
 }
 
@@ -156,30 +158,6 @@ func getLastReloadStatus(statusFileParentPath string) string {
 	return FAILED
 }
 
-func jsonEqual(a, b []byte) bool {
-	var j, j2 interface{}
-	if err := json.Unmarshal(a, &j); err != nil {
-		return false
-	}
-	if err := json.Unmarshal(b, &j2); err != nil {
-		return false
-	}
-	return reflect.DeepEqual(j2, j)
-}
-
-func mergeFullchainCert(cert *Certificate, caCert *CaCertificate) *Certificate {
-	var fullChainCert string
-	if strings.HasSuffix(cert.Cert, "\n") {
-		fullChainCert = strings.Join([]string{cert.Cert, caCert.Cert}, "")
-	} else {
-		fullChainCert = strings.Join([]string{cert.Cert, caCert.Cert}, "\n")
-	}
-	return &Certificate{
-		Cert: fullChainCert,
-		Key:  cert.Key,
-	}
-}
-
 func workerLimit() int {
 	n := config.GetConfig().GetWorkerLimit()
 	if n > 0 {
@@ -204,7 +182,7 @@ func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
 		if err := json.Unmarshal([]byte(cm.Data["range"]), &body); err != nil {
 			return nil, err
 		}
-		var rv = make(map[string][]string)
+		rv := make(map[string][]string)
 		for _, i := range body {
 			rv[i.Port] = i.Projects
 		}
@@ -252,7 +230,7 @@ func getPortProject(port int, info map[string][]string) ([]string, error) {
 
 func generatePatchPortProjectPayload(labels map[string]string, desiredProjects []string) []byte {
 	newLabels := make(map[string]string)
-	//project.cpaas.io/ALL_ALL=true
+	// project.cpaas.io/ALL_ALL=true
 	for k, v := range labels {
 		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", config.GetConfig().GetDomain())) {
 			newLabels[k] = v
@@ -261,8 +239,7 @@ func generatePatchPortProjectPayload(labels map[string]string, desiredProjects [
 	for _, p := range desiredProjects {
 		newLabels[fmt.Sprintf("project.%s/%s", config.GetConfig().GetDomain(), p)] = "true"
 	}
-	patchPayloadTemplate :=
-		`[{
+	patchPayloadTemplate := `[{
         "op": "%s",
         "path": "/metadata/labels",
         "value": %s

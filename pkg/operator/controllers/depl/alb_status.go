@@ -78,7 +78,7 @@ func GenExpectStatus(cf cfg.Config, cur *AlbDeploy) albv2.ALB2Status {
 	return *status
 }
 
-func SameStatus(old, new albv2.ALB2Status, log logr.Logger) bool {
+func SameStatus(old, latest albv2.ALB2Status, log logr.Logger) bool {
 	old.ProbeTime = 0
 	old.ProbeTimeStr = metav1.Time{}
 	for i, p := range old.Detail.Alb.PortStatus {
@@ -87,15 +87,15 @@ func SameStatus(old, new albv2.ALB2Status, log logr.Logger) bool {
 	}
 	old.Detail.Deploy.ProbeTimeStr = metav1.Time{}
 
-	new.ProbeTime = 0
-	new.ProbeTimeStr = metav1.Time{}
-	for i, p := range new.Detail.Alb.PortStatus {
+	latest.ProbeTime = 0
+	latest.ProbeTimeStr = metav1.Time{}
+	for i, p := range latest.Detail.Alb.PortStatus {
 		p.ProbeTimeStr = metav1.Time{}
-		new.Detail.Alb.PortStatus[i] = p
+		latest.Detail.Alb.PortStatus[i] = p
 	}
-	new.Detail.Deploy.ProbeTimeStr = metav1.Time{}
-	same := reflect.DeepEqual(old, new)
-	log.Info("check status change", "diff", cmp.Diff(old, new), "same", same)
+	latest.Detail.Deploy.ProbeTimeStr = metav1.Time{}
+	same := reflect.DeepEqual(old, latest)
+	log.Info("check status change", "diff", cmp.Diff(old, latest), "same", same)
 	return same
 }
 

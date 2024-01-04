@@ -1,12 +1,9 @@
 package ingress
 
 import (
-	"fmt"
-
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/driver"
-	"alauda.io/alb2/utils/dirhash"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -84,11 +81,4 @@ func (kd *IngressDriver) ListAllIngress() ([]*n1.Ingress, error) {
 func (kd *IngressDriver) UpdateIngressStatus(ing *n1.Ingress) (*n1.Ingress, error) {
 	ing, err := kd.Client.NetworkingV1().Ingresses(ing.Namespace).UpdateStatus(kd.Ctx, ing, metav1.UpdateOptions{})
 	return ing, err
-}
-
-func hashSource(source *alb2v1.Source) string {
-	if source == nil {
-		return ""
-	}
-	return dirhash.LabelSafetHash(fmt.Sprintf("%s.%s", source.Name, source.Namespace))
 }

@@ -14,9 +14,11 @@ import (
 
 type MigrateKind string
 
-const CreateIfNotExistKind = MigrateKind("CreateIfNotExist")
-const DeleteOrUpdateOrCreateKind = MigrateKind("DeleteOrUpdateOrCreate")
-const CreateOrDeleteKind = MigrateKind("CreateOrDelete")
+const (
+	CreateIfNotExistKind       = MigrateKind("CreateIfNotExist")
+	DeleteOrUpdateOrCreateKind = MigrateKind("DeleteOrUpdateOrCreate")
+	CreateOrDeleteKind         = MigrateKind("CreateOrDelete")
+)
 
 func DeleteOrCreate[T client.Object](ctx context.Context, cli client.Client, log logr.Logger, cur T, expect T) error {
 	return migrateCr(CreateOrDeleteKind, ctx, cli, log, cur, expect, func(cur T, expect T) bool { return true })
@@ -65,10 +67,12 @@ func migrateCr[T client.Object](kind MigrateKind, ctx context.Context, cli clien
 }
 
 // 标识这个资源的alb
-var ALB2OperatorResourceLabelName = "alb.cpaas.io/alb2-operator-albname"
-var ALB2OperatorResourceLabelNs = "alb.cpaas.io/alb2-operator-albns"
-var ALB2OperatorResourceLabelLegacy = "alb.cpaas.io/alb2-operator"
-var ALB2OperatorLabel = "alb.cpaas.io/managed-by"
+var (
+	ALB2OperatorResourceLabelName   = "alb.cpaas.io/alb2-operator-albname"
+	ALB2OperatorResourceLabelNs     = "alb.cpaas.io/alb2-operator-albns"
+	ALB2OperatorResourceLabelLegacy = "alb.cpaas.io/alb2-operator"
+	ALB2OperatorLabel               = "alb.cpaas.io/managed-by"
+)
 
 // 表示这个资源部署时operator的版本
 var ALB2OperatorVersionLabel = "alb.cpaas.io/version"

@@ -38,7 +38,7 @@ type OperatorFlags struct {
 }
 
 type ExtraConfig struct {
-	BindNic string //bindnic 是写在configmap然后volume的,不是环境变量
+	BindNic string // bindnic 是写在configmap然后volume的,不是环境变量
 }
 
 type ProjectConfig struct {
@@ -100,7 +100,7 @@ func (a *ALB2Config) Merge(ec ExternalAlbConfig) error {
 }
 
 func mergeExtra(ec ExternalAlbConfig, a *ALB2Config) {
-	a.BindNic = *ec.BindNIC //bindnic 是从volume中读的
+	a.BindNic = *ec.BindNIC // bindnic 是从volume中读的
 }
 
 func mergeOperatorFlags(ec ExternalAlbConfig, a *ALB2Config) OperatorFlags {
@@ -294,12 +294,12 @@ func (a *ALB2Config) Show() string {
 }
 
 func toBool(x interface{}) bool {
-	switch x.(type) {
+	switch x := x.(type) {
 	case string:
-		bs := strings.ToLower(x.(string))
+		bs := strings.ToLower(x)
 		return bs == "true"
 	case bool:
-		return x.(bool)
+		return x
 	default:
 		panic("? what is you type")
 	}

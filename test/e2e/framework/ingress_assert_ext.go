@@ -100,7 +100,8 @@ func (i *IngressExt) InitIngressCase(ingressCase IngressCase) {
 			Name:      ingressCase.Name,
 			Labels:    map[string]string{"kube-app": ingressCase.Name},
 		},
-		Subsets: []corev1.EndpointSubset{subSet}}
+		Subsets: []corev1.EndpointSubset{subSet},
+	}
 
 	_, err = f.GetK8sClient().CoreV1().Endpoints(ingressCase.Namespace).Create(context.Background(), ep, metav1.CreateOptions{})
 	assert.Nil(ginkgo.GinkgoT(), err, "")

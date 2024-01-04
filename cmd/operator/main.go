@@ -17,9 +17,7 @@ import (
 	//+kubebuilder:scaffold:imports
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	controllers.InitScheme(scheme)
@@ -33,9 +31,9 @@ func main() {
 	setupLog := l.WithName("setup")
 	ctrl.SetLogger(l)
 
-	retryPeriod := time.Duration(12 * time.Second)
-	renewDeadline := time.Duration(40 * time.Second)
-	leaseDuration := time.Duration(60 * time.Second)
+	retryPeriod := 12 * time.Second
+	renewDeadline := 40 * time.Second
+	leaseDuration := 60 * time.Second
 	restcfg, err := driver.GetKubeCfg(rc.K8sFromEnv())
 	if err != nil {
 		l.Error(err, "init kube cfg fail")
@@ -57,7 +55,6 @@ func main() {
 		opt.LeaderElectionNamespace = os.Getenv("LEADER_NS")
 	}
 	mgr, err := ctrl.NewManager(restcfg, opt)
-
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

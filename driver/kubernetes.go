@@ -258,9 +258,7 @@ func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (boo
 
 // GetEndPointAddress return a list of pod ip in the endpoint
 func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svc *v1types.Service, svcPortNum int, protocol v1types.Protocol) (*Service, error) {
-
 	ep, err := kd.EndpointLister.Endpoints(namespace).Get(name)
-
 	if err != nil {
 		return nil, err
 	}
@@ -440,8 +438,7 @@ func (kd *KubernetesDriver) GetServiceByName(namespace, name string, servicePort
 	return kd.GetServiceAddress(name, namespace, servicePort, protocol)
 }
 
-func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name, svcPortName string, Backends []*Backend, protocol v1types.Protocol) []*Backend {
-
+func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name, svcPortName string, backends []*Backend, protocol v1types.Protocol) []*Backend {
 	sel := metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
@@ -453,12 +450,12 @@ func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name,
 	selector, err := metav1.LabelSelectorAsSelector(&sel)
 	if err != nil {
 		klog.Errorf("label selector:%s, for endpointslice is wrong: %s", selector, err.Error())
-		return Backends
+		return backends
 	}
 	endpointSlices, err := kd.Informers.K8s.EndpointSlice.Lister().EndpointSlices(namespace).List(selector)
 	if err != nil {
 		klog.Errorf("Get cross-cluster endpointSlices from ns: %s, failed: %s", namespace, err.Error())
-		return Backends
+		return backends
 	} else {
 		klog.Infof("Got endpointslice cross-clusters from ns:%s, %s", namespace, endpointSlices)
 	}
@@ -467,10 +464,10 @@ func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name,
 			for _, port := range endpointSlice.Ports {
 				if svcPortName == "" || svcPortName == *port.Name {
 					for _, endpoint := range endpointSlice.Endpoints {
-						if *endpoint.Conditions.Ready == true {
+						if *endpoint.Conditions.Ready {
 							for _, ip := range endpoint.Addresses {
 								containerPort := int(*port.Port)
-								Backends = append(Backends, &Backend{
+								backends = append(backends, &Backend{
 									InstanceID:        *endpoint.Hostname,
 									IP:                ip,
 									Protocol:          string(protocol),
@@ -484,7 +481,7 @@ func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name,
 			}
 		}
 	}
-	return Backends
+	return backends
 }
 
 // IsPodReady returns true if a pod is ready; false otherwise.

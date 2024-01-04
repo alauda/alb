@@ -11,9 +11,8 @@ import (
 )
 
 type ProductNs struct {
-	ns      string
-	project string
-	env     *Env
+	ns  string
+	env *Env
 }
 
 type ProductNsOpt struct {
@@ -51,6 +50,7 @@ func (f *ProductNs) InitProductNsWithOpt(opt ProductNsOpt) string {
 func (p *ProductNs) GetProductNs() string {
 	return p.ns
 }
+
 func (p *ProductNs) InitProductNs(ns string, project string) string {
 	ns = p.InitProductNsWithOpt(ProductNsOpt{
 		Prefix:  ns,
@@ -59,6 +59,7 @@ func (p *ProductNs) InitProductNs(ns string, project string) string {
 	p.ns = ns
 	return ns
 }
+
 func (f *ProductNs) InitDefaultSvc(name string, ep []string) {
 	opt := SvcOpt{
 		Ns:   f.ns,

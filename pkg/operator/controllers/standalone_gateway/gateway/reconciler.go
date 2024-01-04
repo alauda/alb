@@ -290,7 +290,8 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 			return false
 		}
 		// 必须在有gateway的情况下才能去reconcile，否则会被gateway的reconcile认为是一个不存在gateway，会走到删除的逻辑了
-		ctx, _ := context.WithTimeout(context.Background(), time.Minute*5)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+		defer cancel()
 		key := client.ObjectKey{Namespace: gcfg.GatewayNS, Name: gcfg.GatewayName}
 		g := &gv1b1t.Gateway{}
 		err = r.Get(ctx, key, g)
@@ -317,15 +318,15 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 			if !ok {
 				return false
 			}
-			new, ok := e.ObjectNew.(*albv2.ALB2)
+			latest, ok := e.ObjectNew.(*albv2.ALB2)
 			if !ok {
 				return false
 			}
-			if !isAndHasGateway(new) {
+			if !isAndHasGateway(latest) {
 				return false
 			}
-			r.log.Info("gateway watch alb", "alb change", cmp.Diff(old.Status, new.Status))
-			statusChange := old.Status.State != new.Status.State
+			r.log.Info("gateway watch alb", "alb change", cmp.Diff(old.Status, latest.Status))
+			statusChange := old.Status.State != latest.Status.State
 			return statusChange
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
@@ -377,7 +378,7 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, g *gv1b1t.G
 	// 只有当alb not ready时，operator才去更新gateway的状态，当alb ready了，alb会自己更新自己的gateway的状态的
 	needUpdate := !find || (find && !albReady && !(gwReady == albReady && gwOriginMsg == albErrMsg))
 
-	r.log.Info("check gateway status", "need", needUpdate, "albready", albReady, "orgin", gwOriginMsg, "alb-msg", albErrMsg, "alb", alb.Status)
+	r.log.Info("check gateway status", "need", needUpdate, "albready", albReady, "origin", gwOriginMsg, "alb-msg", albErrMsg, "alb", alb.Status)
 	if needUpdate {
 		// 和前端保持兼容
 		g.Status.Conditions[index].LastTransitionTime = metav1.Now()

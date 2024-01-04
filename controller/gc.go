@@ -43,7 +43,6 @@ func (r GCReason) String() string {
 	default:
 		return fmt.Sprintf("undefined reason: %d", int(r))
 	}
-
 }
 
 type GCActionKind int

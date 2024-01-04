@@ -105,8 +105,7 @@ var _ = Describe("chart", func() {
 	})
 
 	f.GIt("deploy alb deployment mode", func() {
-		cfg :=
-			`
+		cfg := `
             operatorDeployMode: "deployment"
             displayName: "x"
             address: "192.168.134.195"
@@ -178,12 +177,10 @@ var _ = Describe("chart", func() {
 			"xtrue":                  "true",
 			"1":                      "true",
 		})
-
 	})
 
 	f.GIt("deploy operator only", func() {
-		cfg :=
-			`
+		cfg := `
             operatorDeployMode: "deployment"
             defaultAlb: false
             displayName: "x"

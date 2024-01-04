@@ -2,9 +2,10 @@ package utils
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUtilWithContextAndTimeout(t *testing.T) {
@@ -39,11 +40,10 @@ func TestUtilWithContextAndTimeout(t *testing.T) {
 		}, 10*time.Millisecond, 20*time.Millisecond)
 		assert.Equal(t, isTimeout, true)
 		select {
-		case _, _ = <-msgChan:
+		case <-msgChan:
 			assert.Fail(t, "should never receive msg")
 		default:
 			assert.True(t, true, "no msg from chan")
 		}
 	}
-
 }

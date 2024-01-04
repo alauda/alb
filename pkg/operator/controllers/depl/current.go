@@ -2,7 +2,6 @@ package depl
 
 import (
 	"context"
-	"fmt"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	. "alauda.io/alb2/pkg/operator/toolkit"
@@ -20,12 +19,12 @@ import (
 	perr "github.com/pkg/errors"
 
 	"alauda.io/alb2/pkg/operator/config"
+	"alauda.io/alb2/pkg/operator/controllers/depl/resources/feature"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
 )
 
-//从当前集群中获取到正在运行的这个alb的状态
-
+// 从当前集群中获取到正在运行的这个alb的状态
 func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req types.NamespacedName, operatorCf config.OperatorCfg) (*AlbDeploy, error) {
 	alb := &albv2.ALB2{}
 	depl := &appsv1.Deployment{}
@@ -84,13 +83,10 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
-	feature := EmptyFeatureCr()
-	featureKey := crcli.ObjectKey{Namespace: "", Name: fmt.Sprintf("%s-%s", req.Name, req.Namespace)}
-	err = cli.Get(ctx, featureKey, feature)
-	if errors.IsNotFound(err) {
-		feature = nil
-	}
-	if err != nil && !errors.IsNotFound(err) {
+
+	fc := feature.NewFeatureCtl(ctx, cli, l)
+	fcur, err := fc.Load(key)
+	if err != nil {
 		return nil, err
 	}
 
@@ -117,7 +113,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		PortInfo:           portinfo,
 		IngressClass:       ic,
 		SharedGatewayClass: gc,
-		Feature:            feature,
+		Feature:            fcur,
 		Svc:                svc,
 		Rbac:               rbac,
 		Lease:              lease,

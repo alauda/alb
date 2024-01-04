@@ -10,6 +10,7 @@ import (
 	_ "alauda.io/alb2/test/e2e/operator/alb"
 	_ "alauda.io/alb2/test/e2e/operator/gateway"
 	_ "alauda.io/alb2/test/e2e/operator/public-cloud"
+	_ "alauda.io/alb2/test/e2e/operator/rawk8s"
 	_ "alauda.io/alb2/test/e2e/operator/simple"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

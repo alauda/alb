@@ -13,13 +13,16 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type AssertDeploymentFunc = func(*v1.Deployment) bool
-type ExpectDeployment struct {
-	ExpectContainlerEnv   map[string]map[string]string
-	UnexpectContainlerEnv map[string]map[string]string
-	Hostnetwork           bool
-	Test                  AssertDeploymentFunc
-}
+type (
+	AssertDeploymentFunc = func(*v1.Deployment) bool
+	ExpectDeployment     struct {
+		ExpectContainlerEnv   map[string]map[string]string
+		UnexpectContainlerEnv map[string]map[string]string
+		Hostnetwork           bool
+		Test                  AssertDeploymentFunc
+	}
+)
+
 type Resource struct {
 	Ns    string
 	Kind  string

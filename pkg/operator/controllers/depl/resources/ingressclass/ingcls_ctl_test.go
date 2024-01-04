@@ -1,10 +1,11 @@
 package ingressclass
 
 import (
+	"testing"
+
 	"alauda.io/alb2/utils/log"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 
 	. "alauda.io/alb2/pkg/config"
 	cfg "alauda.io/alb2/pkg/operator/config"
@@ -27,11 +28,10 @@ func TestIngressClassCtl(t *testing.T) {
 		},
 	}
 	type Tcase struct {
-		project          cfg.ProjectConfig
-		httpport         int
-		httspport        int
-		expectAnnotation map[string]string
-		expectProject    string
+		project       cfg.ProjectConfig
+		httpport      int
+		httspport     int
+		expectProject string
 	}
 	cases := []Tcase{
 		{

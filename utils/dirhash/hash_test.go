@@ -4,9 +4,10 @@ package dirhash
 import (
 	"crypto/sha256"
 	"encoding/base32"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLabelSafeHash(t *testing.T) {
@@ -17,5 +18,4 @@ func TestLabelSafeHash(t *testing.T) {
 	str := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(sha256Result)
 	t.Logf("str %s %v", str, len(str))
 	assert.Equal(t, true, len(str) == 52)
-
 }

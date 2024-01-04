@@ -11,5 +11,4 @@ func TestParseSSLAnnotation(t *testing.T) {
 		"a.com": "1",
 	})
 	assert.Equal(t, parseSSLAnnotation("a.com=1,a.com=2"), (map[string]string)(nil))
-
 }

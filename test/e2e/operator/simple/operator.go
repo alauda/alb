@@ -101,6 +101,5 @@ spec:
 		err = kc.GetDirectClient().Get(ctx, key, v2alb)
 		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), *v2alb.Spec.Config.Replicas, 1)
-
 	})
 })

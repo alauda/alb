@@ -31,6 +31,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular=alaudaloadbalancer2,path=alaudaloadbalancer2,shortName=alb2,scope=Namespaced
 // +kubebuilder:subresource:status
+// +kubebuilder:deprecatedversion:warning="alb2.v1.crd is deprecated,use alb2.v2beta1.crd instead."
 type ALB2 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -248,15 +249,17 @@ func (s Service) Is(ns, name string, port int) bool {
 func (dslx DSLX) Priority() int {
 	var p int
 	for _, term := range dslx {
-		if term.Type == KEY_HOST {
-			if term.Values[0][0] == OP_EQ || term.Values[0][0] == OP_IN {
+		switch term.Type {
+		case KEY_HOST:
+			switch term.Values[0][0] {
+			case OP_EQ, OP_IN:
 				// exact host has bigger weight 50000, make sure concrete-host prioritize generic-host
 				p += 50000
-			} else if term.Values[0][0] == OP_ENDS_WITH {
+			case OP_ENDS_WITH:
 				// generic host has smaller weight 10000
 				p += 10000
 			}
-		} else if term.Type == KEY_URL {
+		case KEY_URL:
 			for _, item := range term.Values {
 				op := item[0]
 				if op == OP_EQ {
@@ -272,7 +275,7 @@ func (dslx DSLX) Priority() int {
 					}
 				}
 			}
-		} else {
+		default:
 			p += 100 * len(term.Values)
 		}
 	}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,8 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"context"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/state"
@@ -130,7 +129,7 @@ func (nc *NginxController) GenerateConf() error {
 	if err != nil {
 		return err
 	}
-	nc.WriteConfig(nginxConfig, ngxPolicies)
+	err = nc.WriteConfig(nginxConfig, ngxPolicies)
 
 	if err != nil {
 		return err
@@ -139,7 +138,6 @@ func (nc *NginxController) GenerateConf() error {
 }
 
 func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
-	var err error = nil
 	log := nc.log
 	cfg := nc.albcfg
 	ns := cfg.GetNs()
@@ -166,13 +164,14 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		lbFromAlb = lb
 	}
 	var lbFromGateway *LoadBalancer
+	var err error
 	if gatewayEnable {
 		lbFromGateway, err = gateway.GetLBConfig(context.Background(), nc.Driver, cfg)
 		if err != nil {
 			log.Error(err, "get lb from gateway fail", "alb", name)
 			return nil, err
 		}
-		log.V(2).Info("lb config from gateway ", "lbconfig", lbFromGateway)
+		log.Info("lb config from gateway ", "lbconfig", lbFromGateway)
 	}
 
 	if lbFromAlb == nil && lbFromGateway == nil {
@@ -183,7 +182,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		log.Error(err, "merge config fail ")
 		return nil, err
 	}
-	log.V(3).Info("gen lb config ok", "lb-from-alb", lbFromAlb, "lb-from-gateway", lbFromGateway, "lb", lb)
+	log.Info("gen lb config ok", "lb-from-alb", lbFromAlb, "lb-from-gateway", lbFromGateway, "lb", lb)
 
 	return lb, err
 }
@@ -334,7 +333,6 @@ func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBala
 }
 
 func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
-
 	services := nc.LoadServices(cAlb)
 
 	backendMap := make(map[string][]*driver.Backend)
@@ -723,9 +721,9 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 	var err error
 	defer func() {
 		if err != nil {
-			setLastReloadStatus(FAILED, StatusFileParentPath)
+			_ = setLastReloadStatus(FAILED, StatusFileParentPath)
 		} else {
-			setLastReloadStatus(SUCCESS, StatusFileParentPath)
+			_ = setLastReloadStatus(SUCCESS, StatusFileParentPath)
 		}
 	}()
 
@@ -781,19 +779,24 @@ func (nc *NginxController) reload(nginxPid string) error {
 	return err
 }
 
-func (nc *NginxController) GC() error {
+func (nc *NginxController) GC() {
 	flags := config.GetConfig().GetFlags()
 	gcOpt := GCOptions{
 		GCServiceRule: flags.EnableGC,
 		GCAppRule:     flags.EnableGCAppRule,
 	}
 	if !gcOpt.GCServiceRule && !gcOpt.GCAppRule {
-		return nil
+		return
 	}
 	start := time.Now()
 	klog.Info("begin gc rule")
-	defer klog.Infof("end gc rule, spend time %s", time.Since(start))
-	return GCRule(nc.Driver, gcOpt)
+	defer func() {
+		klog.Infof("end gc rule, spend time %s", time.Since(start))
+	}()
+	err := GCRule(nc.Driver, gcOpt)
+	if err != nil {
+		klog.Error(err)
+	}
 }
 
 // alb or gateway could be nil

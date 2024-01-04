@@ -89,7 +89,7 @@ spec:
 				return false, err
 			}
 			log.Info("check lb svc node port", "svc", PrettyCr(svc))
-			return svc.Spec.Type == "LoadBalancer" && (svc.Spec.AllocateLoadBalancerNodePorts == nil || *svc.Spec.AllocateLoadBalancerNodePorts == true), nil
+			return svc.Spec.Type == "LoadBalancer" && *svc.Spec.AllocateLoadBalancerNodePorts, nil
 		})
 
 		// check sa
@@ -110,7 +110,7 @@ spec:
 					return false, err
 				}
 				log.Info("lb svc should be false", "svc", PrettyCr(svc))
-				return svc.Spec.Type == "LoadBalancer" && (svc.Spec.AllocateLoadBalancerNodePorts != nil && *svc.Spec.AllocateLoadBalancerNodePorts == false), nil
+				return svc.Spec.Type == "LoadBalancer" && !*svc.Spec.AllocateLoadBalancerNodePorts, nil
 			})
 		}
 
@@ -243,7 +243,7 @@ spec:
 				if svc.Spec.AllocateLoadBalancerNodePorts == nil {
 					return false, err
 				}
-				return svc.Spec.Type == "LoadBalancer" && *svc.Spec.AllocateLoadBalancerNodePorts == true, nil
+				return svc.Spec.Type == "LoadBalancer" && *svc.Spec.AllocateLoadBalancerNodePorts, nil
 			})
 		}
 
@@ -299,7 +299,6 @@ spec:
 			changeAndAssert(false)
 		}
 	})
-
 })
 
 func MakeLbSvcReady(ctx context.Context, log logr.Logger, cli kubernetes.Interface, ns, name string, v4 string, v6 string) error {

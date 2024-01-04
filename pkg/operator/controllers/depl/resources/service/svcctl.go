@@ -313,14 +313,14 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 	return !reflect.DeepEqual(origin, svc)
 }
 
-func (s *SvcCtl) findNeedDeleteAnnotation(origin map[string]string, new map[string]string) []string {
+func (s *SvcCtl) findNeedDeleteAnnotation(origin map[string]string, latest map[string]string) []string {
 	val, ok := origin[s.originAnnotationKey()]
 	if !ok {
 		return []string{}
 	}
 	originCfg := map[string]string{}
-	json.Unmarshal([]byte(val), &originCfg)
-	return mapset.NewSetFromMapKeys(originCfg).Difference(mapset.NewSetFromMapKeys(new)).ToSlice()
+	_ = json.Unmarshal([]byte(val), &originCfg)
+	return mapset.NewSetFromMapKeys(originCfg).Difference(mapset.NewSetFromMapKeys(latest)).ToSlice()
 }
 
 func (s *SvcCtl) getLbSvc(key crcli.ObjectKey) (*corev1.Service, error) {

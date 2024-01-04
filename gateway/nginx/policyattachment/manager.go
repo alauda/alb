@@ -37,5 +37,4 @@ func (pm *PolicyAttachmentManager) OnRule(ft *Frontend, rule *Rule, ref Ref) err
 		return err
 	}
 	return nil
-
 }

@@ -27,12 +27,12 @@ func MockCtx() HttpCtx {
 		matchIndex: 0,
 	}
 }
+
 func TestHttpFilterHeaderModify(t *testing.T) {
 	rule := albType.Rule{}
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
-	h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+	err := h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 		{
-
 			Type: gv1b1t.HTTPRouteFilterRequestHeaderModifier,
 			RequestHeaderModifier: &gv1b1t.HTTPHeaderFilter{
 				Add: []gatewayType.HTTPHeader{
@@ -61,7 +61,9 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 				},
 				Remove: []string{"r1", "r2"},
 			},
-		}})
+		},
+	})
+	assert.NoError(t, err)
 	t.Logf("%+v", rule.Config.RewriteRequest)
 	assert.Equal(t, rule.Config.RewriteRequest.Headers, map[string]string{
 		"sa": "sa2",
@@ -85,7 +87,6 @@ func TestHttpFilterRedirect(t *testing.T) {
 		rule := albType.Rule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 			{
-
 				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
 				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 					Scheme:     pointy.String("https"),
@@ -93,7 +94,8 @@ func TestHttpFilterRedirect(t *testing.T) {
 					Port:       &port,
 					StatusCode: pointy.Int(302),
 				},
-			}})
+			},
+		})
 		t.Logf("%+v", rule)
 		assert.Equal(t, *rule.RedirectScheme, "https")
 		assert.Equal(t, *rule.RedirectHost, "a.com")
@@ -104,7 +106,6 @@ func TestHttpFilterRedirect(t *testing.T) {
 		rule := albType.Rule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 			{
-
 				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
 				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 					Scheme:   pointy.String("https"),
@@ -115,7 +116,8 @@ func TestHttpFilterRedirect(t *testing.T) {
 					},
 					StatusCode: pointy.Int(302),
 				},
-			}})
+			},
+		})
 		t.Logf("%+v", rule)
 		assert.Equal(t, *rule.RedirectScheme, "https")
 		assert.Equal(t, *rule.RedirectHost, "a.com")
@@ -151,7 +153,8 @@ func TestHttpFilterRedirect(t *testing.T) {
 					},
 					StatusCode: pointy.Int(302),
 				},
-			}})
+			},
+		})
 		t.Logf("%+v", rule)
 		assert.Equal(t, *rule.RedirectScheme, "https")
 		assert.Equal(t, *rule.RedirectHost, "a.com")
@@ -187,7 +190,8 @@ func TestHttpFilterRewrite(t *testing.T) {
 					ReplacePrefixMatch: pointy.String("/xxx"),
 				},
 			},
-		}})
+		},
+	})
 	t.Logf("%+v", rule)
 	assert.Equal(t, *rule.RewritePrefixMatch, "/abc")
 	assert.Equal(t, *rule.RewriteReplacePrefix, "/xxx")

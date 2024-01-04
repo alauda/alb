@@ -127,6 +127,7 @@ const STREAM_TCP = `
     proxy_timeout              120s;
     tcp_nodelay                on;
 `
+
 const STREAM_UDP = `
     proxy_next_upstream_tries 5;
     proxy_connect_timeout      5s;
