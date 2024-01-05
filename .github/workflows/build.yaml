@@ -1,0 +1,128 @@
+name: Build 
+
+on:
+  pull_request:
+    branches:
+    - master
+    - release-*
+    paths-ignore:
+    - 'docs/**'
+    - '**.md'
+    - '.github/VERSION'
+  push:
+    branches:
+    - master
+    - release-*
+    paths-ignore:
+    - 'docs/**'
+    - '**.md'
+    - '.github/VERSION'
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: ''
+  GOSEC_VERSION: '2.18.2'
+  HELM_VERSION: v3.13.3
+  SUBMARINER_VERSION: '0.16.2'
+  IMAGE_REPO: "theseedoaa"
+jobs:
+  build-alb:
+    name: Build alb
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: false
+          large-packages: false
+          tool-cache: false
+          swap-storage: false
+
+      - uses: actions/checkout@v4
+      - name: version
+        uses: HardNorth/github-version-generate@v1.3.0
+        with:
+          version-source: file
+          version-file: .github/VERSION
+          version-file-extraction-pattern: 'v(.+)'
+      - uses: docker/setup-buildx-action@v3
+      - uses: azure/setup-helm@v3
+        with:
+          version: '${{ env.HELM_VERSION }}'
+      - name: build
+        run: |
+          set -x
+          source ./scripts/alb-dev-actions.sh
+          export VERSION=$(alb-github-gen-version)
+
+          OPENRESTY_BASE=theseedoaa/alb-nginx-base:v1.22.0
+          GO_BUILD_BASE=golang:1.18.10-alpine3.16
+          RUN_BASE=theseedoaa/ops-alpine:3.17 # we need nonroot user
+
+          #  build images
+          docker buildx build --platform linux/amd64 -t $IMAGE_REPO/alb:$VERSION --build-arg VERSION=$VERSION  --build-arg RUN_BASE=$RUN_BASE --build-arg BUILD_BASE=$GO_BUILD_BASE -o type=docker -f ./Dockerfile . 
+
+          docker pull $OPENRESTY_BASE 
+          docker buildx build --platform linux/amd64 -t $IMAGE_REPO/alb-nginx:$VERSION --build-arg VERSION=$VERSION  --build-arg OPENRESTY_BASE=$OPENRESTY_BASE --build-arg BUILD_BASE=$GO_BUILD_BASE -o type=docker -f ./template/Dockerfile ./ 
+
+          docker images
+          
+          docker save $IMAGE_REPO/alb:$VERSION > alb.tar
+          docker save $IMAGE_REPO/alb-nginx:$VERSION > alb-nginx.tar
+          ls
+          env
+          # build chart
+          rm -rf .cr-release-packages
+          mkdir -p .cr-release-packages
+          chart=$(alb-build-github-chart $IMAGE_REPO $VERSION  ./deploy/chart/alb .cr-release-packages/ )
+          cp $chart alauda-alb2.tgz
+          tree ./deploy/chart/alb
+          tree .cr-release-packages
+          cat ./deploy/chart/alb/Chart.yaml
+      - name: Upload alb images to artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: alb
+          path: alb.tar
+      - name: Upload alb-nginx images to artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: alb-nginx
+          path: alb-nginx.tar
+      - name: Upload chart's to artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: alb-chart
+          path: alauda-alb2.tgz
+      - name: sync docker
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_CLI_EXPERIMENTAL: enabled
+        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        run: |
+          source ./scripts/alb-dev-actions.sh
+          export VERSION=$(alb-github-gen-version)
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          docker push $IMAGE_REPO/alb:$VERSION
+          docker push $IMAGE_REPO/alb-nginx:$VERSION
+      - name: sync chart
+        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: deploy/chart/alb
+          skip_packaging: true  # we build packages by ourself
+          config: .github/cr.yaml
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: bump version
+        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+        run: |
+          source ./scripts/alb-dev-actions.sh
+          git status
+          git diff
