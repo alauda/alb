@@ -1,68 +1,198 @@
-## what it is
-ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. sometimes we use the same term alb2.
-## project struct
-```plantuml
-@startmindmap
-* alb
-** .build             (ci配置)
-** cmd
-*** operator          (operator的入口)
-*** controller        (alb controller的入口)
-*** utils             (一些工具binary)
-**** sync_rbac        (更新rbac相应的yaml)
-**** tweak_gen        (生成默认的configmap的yaml)
-** config             (alb controller使用的config [应该迁移到pkg下])
-** controller         (alb controller的代码 [应该迁移到pkg下])
-** pkg
-*** alb
-*** apis              (自动生成的alb client的api)
-*** client            (自动生成的alb client的client)
-*** config            (operator和alb controller通用的配置解析相关的逻辑)
-*** operator
-** scripts            (alb开发/debug/测试相关的actions)
-** template           (openresty的lua代码)
-*** lua 
-*** test              (lua的测试)
-** test               (e2e测试)
-** deploy             (部署所需要的chart)
-*** chart             (alb-operator的chart)
-*** resource          (生成chart,部署相关的一些资源)
-** Dockerfile
-** Dockerfile.local   (本地测试用,快速build一个alb的docker)
-** run-alb.sh         (alb docker内的启动脚本)
-@endmindmap
+# Alauda Load Balancer v2
+
+# how to deploy operator in kind
+1. create kind cluster
+2. `helm repo add alb https://alauda.github.io/alb/;helm repo update;helm search repo|grep alb`
+3. `helm install alb-operator alb/alauda-alb2` 
+# how to create and use a alb as ingress controller
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+    name: alb-demo
+    namespace: kube-system
+spec:
+    address: "172.20.0.5"  # the ip address of node where alb been deployed
+    type: "nginx" 
+    config:
+        networkMode: host
+        loadbalancerName: alb-demo
+        nodeSelector:
+          alb-demo: "true"
+        projects:
+        - ALL_ALL
+        replicas: 1
+EOF
 ```
-## image file struct
-```plantuml
-@startmindmap
-* /alb/
-** nginx/
-*** /run     (volumed empty dir)
-*** lua/
-** ctl/
-*** alb
-** tools/
-*** twwak_gen
-** tweak/
-* /etc/alb2/nginx/ (volume alb容器和nginx容器共享)
-** nginx.conf
-** policy.new
-** nginx.pid
-@endmindmap
+prepare the demo app
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+  labels:
+    k8s-app: hello-world
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      k8s-app: hello-world
+  template:
+    metadata:
+      labels:
+        k8s-app: hello-world
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: hello-world
+        image: docker.io/crccheck/hello-world:latest 
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-world
+  labels:
+    k8s-app: hello-world
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+  selector:
+    k8s-app: hello-world 
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-world
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello-world
+            port:
+              number: 80
+EOF
+```
+now you could `curl http://${ip}`
+# more advance config
+## ft and rule
+in addition to ingress, routing rules for alb can be configed by ft and rule
+```yaml
+apiVersion: crd.alauda.io/v1
+kind: Frontend
+metadata:
+  labels:
+    alb2.cpaas.io/name: alb-demo # required, indicate the alb to which this ft belongs
+  name: alb-demo-00080
+  namespace: kube-system
+spec:
+  backendProtocol: ""   # http|https 
+  certificate_name: ""  # $secret_ns/$secret_name
+  port: 80              
+  protocol: http        # protocol of this ft itself
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  labels:
+    alb2.cpaas.io/frontend: alb-demo-00080  # required, indicate the ft to which this rule belongs
+    alb2.cpaas.io/name: alb-demo            # required, indicate the alb to which this rule belongs
+  name: alb-demo-00080-topu
+  namespace: kube-system
+spec:
+  backendProtocol: ""                       # as same as ft
+  certificate_name: ""                      # as same as ft
+  dslx:                                     # 匹配规则，详细配置见 TODO 匹置规则
+  - type: URL
+    values:
+    - - STARTS_WITH
+      - /
+  enableCORS: false
+  priority: 5                              # Rule Prioritization, the smaller it is the more it will match first则优先级，越小越会优先匹配
+  serviceGroup:
+    services:
+    - name: hello-world
+      namespace: default
+      port: 80
+      weight: 100
+```
+## ingress 
+### ingress with other port
+### supported annotation
+#### alb only 
+##### rewrite request
+headers_add  will only be added if there is no header
+```yaml
+alb.ingress.cpaas.io/rewrite-request: |
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
+```
+##### rewrite response
+as same as rewrite request
+```yaml
+alb.ingress.cpaas.io/rewrite-response: |
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
 ```
 
-## lint 
-follow by ./scripts/alb-lint-actions.sh
-## git repo 
-https://gitlab-ce.alauda.cn/container-platform/alb2
-## ci
-http://confluence.alauda.cn/pages/viewpage.action?pageId=94878636
-## doc
-http://confluence.alauda.cn/label/cp/alb-doc
-### labels of alb in confluence
-alb-doc: all document that related to alb.
-## notes
-### how to update rbac
-1. 更新alb-clusterrole.json                             (这是放alb-controller的权限的地方)
-2. 更新deploy/resource/rbac/operator-clusterrole.yaml   (这是放alb-operator的权限的地方)
-3. 将上述权限merge,更新到deploy/chart/operator-clusterrole.yaml和deploy/chart/deploy-csv.yaml
+#### compatiable with ingress-nginx
+##### rewrite
+	nginx.ingress.kubernetes.io/rewrite-target
+##### cors
+	nginx.ingress.kubernetes.io/enable-cors
+	nginx.ingress.kubernetes.io/cors-allow-headers
+	nginx.ingress.kubernetes.io/cors-allow-origin
+##### backend
+	nginx.ingress.kubernetes.io/backend-protocol
+##### redirect
+	nginx.ingress.kubernetes.io/temporal-redirect
+	nginx.ingress.kubernetes.io/permanent-redirect
+##### vhost
+	nginx.ingress.kubernetes.io/upstream-vhost"
+## alb
+### container network
+By default, alb is deployed as a host network, which has the advantage of direct access via node ip, and the disadvantage that each alb can only have exclusive access to the node, or you need to manually manage the alb's ports.
+But, alb also supports container network mode deployment and provides external access through lbsvc.
+```yaml
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+    name: alb-demo
+    namespace: kube-system
+spec:
+    type: "nginx" 
+    config:
+        networkMode: container           # use container networkmode
+        vip:
+            enableLbSvc: true            # automatically creates an svc of type loadbalancer and treats the address assigned to the svc as the address of the alb
+        loadbalancerName: alb-demo
+        nodeSelector:
+          alb-demo: "true"
+        projects:
+        - ALL_ALL
+        replicas: 1
+```
+### gatewayapi
+alb supports gatewayapi natively, just specify the gatewayclass as `exclusive-gateway` when creating the gateway.
+```yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: g1 
+  namespace: g1 
+spec:
+  gatewayClassName:  exclusive-gateway
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+```

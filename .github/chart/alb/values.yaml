@@ -1,0 +1,34 @@
+## global
+operator:
+  albImagePullPolicy: IfNotPresent
+defaultAlb: false # 部署默认的alb
+operatorReplicas: 1
+operatorDeployMode: "deployment" # csv|deployment
+global:
+  labelBaseDomain: cpaas.io
+  namespace: kube-system
+  registry:
+    address: theseedoaa
+  images:
+    alb2:
+      code: https://github.com/alauda/alb
+      support_arm: true
+      repository: alb
+    nginx:
+      code: https://github.com/alauda/alb
+      support_arm: true
+      repository: alb-nginx
+resources:
+  alb:
+    limits:
+      cpu: "200m"
+      memory: 2Gi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+  requests:
+    cpu: 50m
+    memory: 128Mi

@@ -1,4 +1,7 @@
-FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.16  AS builder
+ARG BUILD_BASE=build-harbor.alauda.cn/ops/golang:1.18-alpine3.16
+ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.17
+
+FROM ${BUILD_BASE}  AS builder
 
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
@@ -11,7 +14,7 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/migrate/init-port-info alauda.io/alb2/migrate/init-port-info
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/operator alauda.io/alb2/cmd/operator
 
-FROM build-harbor.alauda.cn/ops/alpine:3.17 AS base
+FROM $RUN_BASE AS base
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update && apk add --no-cache iproute2 jq libcap && rm -rf /usr/bin/nc
 
