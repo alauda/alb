@@ -1,6 +1,7 @@
 package ctl
 
 import (
+	"context"
 	"reflect"
 
 	"alauda.io/alb2/utils"
@@ -12,16 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 )
 
 func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builder {
 	log := g.log.WithName("watchalb")
-	ctx := g.ctx
 	c := g.c
 	IsMe := func(a client.Object) bool {
 		alb, ok := a.(*albv2.ALB2)
@@ -66,7 +64,7 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 	}
 	options := ctrlBuilder.WithPredicates(predicate)
 
-	eventhandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) (ret []reconcile.Request) {
+	eventhandler := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) (ret []reconcile.Request) {
 		if g.cfg.GatewaySelector.GatewayClass != nil {
 			list := &gv1b1t.GatewayList{}
 			err := c.List(ctx, list)
@@ -104,6 +102,6 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 	if err != nil {
 		log.Error(err, "failed to add type information to object")
 	}
-	b = b.Watches(&source.Kind{Type: &alb}, eventhandler, options)
+	b = b.Watches(&alb, eventhandler, options)
 	return b
 }

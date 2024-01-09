@@ -34,6 +34,7 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
         antiAffinityKey: system
         defaultSSLCert: cpaas-system/dex.tls
         defaultSSLStrategy: Both
+        interval: 1
         ingressHTTPPort: 80
         ingressHTTPSPort: 443
         metricsPort: 11782
@@ -96,7 +97,8 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			GoMonitorPort:        pointer.Of(1937),
 			WorkerLimit:          pointer.Of(8),
 			ResyncPeriod:         pointer.Of(300),
-			ReloadTimeout:        pointer.Of(30),
+			Interval:             pointer.Of(1),
+			ReloadTimeout:        pointer.Of(600),
 			SyncPolicyInterval:   pointer.Of(1),
 			CleanMetricsInterval: pointer.Of(2592000),
 			Backlog:              pointer.Of(2048),

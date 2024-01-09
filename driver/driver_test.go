@@ -94,7 +94,7 @@ func TestLoadALByName(t *testing.T) {
 	}
 
 	cfg := config.DefaultMock()
-	cfg.Domain = "alauda.io"
+	cfg.SetDomain("alauda.io")
 	cfg.Name = "alb-1"
 	cfg.Ns = defaultNs
 	config.UseMock(cfg)

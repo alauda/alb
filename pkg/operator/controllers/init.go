@@ -13,7 +13,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func StandAloneGatewayClassInit(ctx context.Context, cfg config.OperatorCfg, cli crcli.Client, log logr.Logger) error {
@@ -22,20 +22,20 @@ func StandAloneGatewayClassInit(ctx context.Context, cfg config.OperatorCfg, cli
 		fmt.Sprintf("gatewayclass.%s/deploy", cfg.BaseDomain): cfg.BaseDomain,
 		fmt.Sprintf("gatewayclass.%s/type", cfg.BaseDomain):   "standalone",
 	})
-	gclass := &gv1b1t.GatewayClass{}
+	gclass := &gv1.GatewayClass{}
 	name := STAND_ALONE_GATEWAY_CLASS
-	ctlName := gv1b1t.GatewayController(fmt.Sprintf(FMT_STAND_ALONE_GATEWAY_CLASS_CTL_NAME, cfg.BaseDomain))
+	ctlName := gv1.GatewayController(fmt.Sprintf(FMT_STAND_ALONE_GATEWAY_CLASS_CTL_NAME, cfg.BaseDomain))
 	err := cli.Get(ctx, crcli.ObjectKey{Name: name}, gclass)
 	log = log.WithName("shared-gclass")
 	if k8serrors.IsNotFound(err) {
 		log.Info("not found create it")
 		// do create
-		return cli.Create(ctx, &gv1b1t.GatewayClass{
+		return cli.Create(ctx, &gv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   name,
 				Labels: labels,
 			},
-			Spec: gv1b1t.GatewayClassSpec{
+			Spec: gv1.GatewayClassSpec{
 				ControllerName: ctlName,
 			},
 		})
@@ -50,7 +50,7 @@ func StandAloneGatewayClassInit(ctx context.Context, cfg config.OperatorCfg, cli
 	}
 	origin := gclass.DeepCopy()
 	gclass.Labels = MergeMap(gclass.Labels, labels)
-	gclass.Spec = gv1b1t.GatewayClassSpec{
+	gclass.Spec = gv1.GatewayClassSpec{
 		ControllerName: ctlName,
 	}
 	if reflect.DeepEqual(origin.Labels, gclass.Labels) && reflect.DeepEqual(origin.Spec, gclass.Spec) {

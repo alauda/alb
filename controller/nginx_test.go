@@ -88,7 +88,7 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	cfg := config.DefaultMock()
 	cfg.Name = "alb-1"
 	cfg.Ns = "ns-1"
-	cfg.Domain = "alauda.io"
+	cfg.SetDomain("alauda.io")
 	cfg.Controller.Flags.EnableAlb = true
 	config.UseMock(cfg)
 	drv := test_utils.InitFakeAlb(t, ctx, res)

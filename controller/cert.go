@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -39,32 +40,10 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 		return cm
 	}
 
-	getCertFromRule := func(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]client.ObjectKey {
-		cm := make(map[string]client.ObjectKey)
-		for _, ft := range alb.Frontends {
-			if ft.Conflict || !certProtocol[ft.Protocol] {
-				continue
-			}
-			for _, rule := range ft.Rules {
-				if rule.Domain == "" || rule.CertificateName == "" {
-					continue
-				}
-				ns, name, err := ParseCertificateName(rule.CertificateName)
-				if err != nil {
-					klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
-					continue
-				}
-				cm[rule.Domain] = client.ObjectKey{Namespace: ns, Name: name}
-			}
-		}
-		return cm
-	}
-
 	portDefaultCert := getPortDefaultCert(alb, d)
-	certFromRule := getCertFromRule(alb, d)
+	certFromRule := formatCertsmap(getCertsFromRule(alb, certProtocol, d))
 
 	secretMap := make(map[string]client.ObjectKey)
-	klog.Infof("port-cert %v %v", portDefaultCert, certFromRule)
 
 	for port, secret := range portDefaultCert {
 		if _, ok := secretMap[port]; !ok {
@@ -76,6 +55,7 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 			secretMap[domain] = secret
 		}
 	}
+	klog.Infof("secretMap %v", secretMap)
 
 	certMap := make(map[string]Certificate)
 	certCache := make(map[string]Certificate)
@@ -155,4 +135,68 @@ func SameCertificateName(left, right string) (bool, error) {
 		return false, err
 	}
 	return ln == rn && lc == rc, nil
+}
+
+// domain / ft / cert
+func getCertsFromRule(alb *LoadBalancer, certProtocol map[albv1.FtProtocol]bool, d *driver.KubernetesDriver) map[string]map[string][]client.ObjectKey {
+	cm := make(map[string]map[string][]client.ObjectKey)
+	for _, ft := range alb.Frontends {
+		if ft.Conflict || !certProtocol[ft.Protocol] {
+			continue
+		}
+		port := strconv.Itoa(int(ft.Port))
+		if cm[port] == nil {
+			cm[port] = make(map[string][]client.ObjectKey)
+		}
+		ftmap := cm[port]
+		for _, rule := range ft.Rules {
+			if rule.Domain == "" || rule.CertificateName == "" {
+				continue
+			}
+			ns, name, err := ParseCertificateName(rule.CertificateName)
+			if err != nil {
+				klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
+				continue
+			}
+			if ftmap[rule.Domain] == nil {
+				ftmap[rule.Domain] = []client.ObjectKey{}
+			}
+			ftmap[rule.Domain] = append(ftmap[rule.Domain], client.ObjectKey{Namespace: ns, Name: name})
+		}
+	}
+	return cm
+}
+
+func formatCertsmap(domainCertRaw map[string]map[string][]client.ObjectKey) map[string]client.ObjectKey {
+	domainFtCerts := map[string]map[string]client.ObjectKey{} // domain ft cert
+	domainCerts := map[string][]client.ObjectKey{}            // domain cert
+
+	for ft, domains := range domainCertRaw {
+		for domain, certs := range domains {
+			// 一个端口下一个域名只能有一个证书
+			sort.Slice(certs, func(i, j int) bool {
+				return certs[i].String() < certs[j].String()
+			})
+			cert := certs[0]
+			if domainFtCerts[domain] == nil {
+				domainFtCerts[domain] = map[string]client.ObjectKey{}
+			}
+			if domainCerts[domain] == nil {
+				domainCerts[domain] = []client.ObjectKey{}
+			}
+			domainFtCerts[domain][ft] = cert
+			domainCerts[domain] = append(domainCerts[domain], cert)
+		}
+	}
+	ret := map[string]client.ObjectKey{}
+	for domain, certs := range domainCerts {
+		if len(certs) == 1 {
+			ret[domain] = certs[0]
+			continue
+		}
+		for ft, cert := range domainFtCerts[domain] {
+			ret[fmt.Sprintf("%s/%s", domain, ft)] = cert
+		}
+	}
+	return ret
 }

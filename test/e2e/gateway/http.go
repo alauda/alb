@@ -44,7 +44,7 @@ var _ = ginkgo.Describe("Http", func() {
 
 	GIt("i want my app been access by http", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -60,7 +60,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -130,7 +130,7 @@ spec:
 
 	GIt("wildcard https should work", func() {
 		f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -152,7 +152,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -228,7 +228,7 @@ spec:
 		})
 		secret, _ := f.CreateTlsSecret("a.com", "secret-1", ns)
 		f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -257,7 +257,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -284,7 +284,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -375,7 +375,7 @@ spec:
 		_ = secretHarbor
 
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -410,7 +410,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h-harbor
@@ -432,7 +432,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h-init
@@ -476,7 +476,7 @@ spec:
 
 	GIt("http route attach to same port and same named listener", func() {
 		ret := f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -492,7 +492,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -508,7 +508,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -564,7 +564,7 @@ spec:
 
 	GIt("http rule with multiple match should work", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -580,7 +580,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -642,7 +642,7 @@ spec:
 
 	GIt("i should match most specific rule first bigger complexity_priority", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -658,7 +658,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -688,7 +688,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -770,7 +770,7 @@ spec:
 
 	GIt("support generic-host in listeners", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -786,7 +786,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -818,7 +818,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -894,7 +894,7 @@ spec:
 
 	GIt("http headermodify/redirect filter should work", func() {
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -910,7 +910,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -972,7 +972,7 @@ spec:
 
 	GIt("http route without matches", func() {
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -988,7 +988,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -1020,7 +1020,7 @@ spec:
 	GIt("http url rewrite filter should work", func() {
 		log.Info("x  http url rewrite filter should work")
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -1036,7 +1036,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1

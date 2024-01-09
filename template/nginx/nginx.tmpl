@@ -170,6 +170,7 @@ http {
         location / {
             set $upstream default;
             set $backend_protocol grpc;
+            set $rule_name "";
 
             rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             grpc_pass  $backend_protocol://http_backend;
@@ -206,6 +207,7 @@ http {
         location / {
             set $upstream default;
             set $backend_protocol grpc;
+            set $rule_name "";
 
             rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
             grpc_pass  $backend_protocol://http_backend;

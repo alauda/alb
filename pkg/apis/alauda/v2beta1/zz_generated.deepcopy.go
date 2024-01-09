@@ -398,6 +398,11 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.Interval != nil {
+		in, out := &in.Interval, &out.Interval
+		*out = new(int)
+		**out = **in
+	}
 	if in.ReloadTimeout != nil {
 		in, out := &in.ReloadTimeout, &out.ReloadTimeout
 		*out = new(int)

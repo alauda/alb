@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrcli "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type GatewayClassReconciler struct {
@@ -34,7 +34,7 @@ func NewGatewayClassReconciler(cli ctrcli.Client, cfg config.OperatorCfg, log lo
 func (r *GatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Log.Info("set up gatewayclass reconcile")
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gv1b1t.GatewayClass{}).Complete(r)
+		For(&gv1.GatewayClass{}).Complete(r)
 }
 
 func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -48,7 +48,7 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *GatewayClassReconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := r.Log
 	l.Info("reconcile gatewayclass", "class", req)
-	gc := &gv1b1t.GatewayClass{}
+	gc := &gv1.GatewayClass{}
 	err := r.cli.Get(ctx, ctrcli.ObjectKey{Name: req.Name}, gc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -58,7 +58,7 @@ func (r *GatewayClassReconciler) reconcile(ctx context.Context, req ctrl.Request
 	}
 	l.Info("reconcile gatewayclass", "class", PrettyCr(gc))
 	ctlName := fmt.Sprintf(FMT_STAND_ALONE_GATEWAY_CLASS_CTL_NAME, r.OperatorCf.BaseDomain)
-	if gc.Spec.ControllerName != gv1b1t.GatewayController(ctlName) {
+	if gc.Spec.ControllerName != gv1.GatewayController(ctlName) {
 		l.Info("not our class. ignore")
 		return ctrl.Result{}, nil
 	}
@@ -67,9 +67,9 @@ func (r *GatewayClassReconciler) reconcile(ctx context.Context, req ctrl.Request
 			{
 				LastTransitionTime: metav1.Now(),
 				ObservedGeneration: gc.Generation,
-				Type:               string(gv1b1t.GatewayClassConditionStatusAccepted),
+				Type:               string(gv1.GatewayClassConditionStatusAccepted),
 				Status:             metav1.ConditionTrue,
-				Reason:             string(gv1b1t.GatewayClassReasonAccepted),
+				Reason:             string(gv1.GatewayClassReasonAccepted),
 			},
 		}
 		err := r.cli.Status().Update(ctx, gc)
@@ -80,9 +80,9 @@ func (r *GatewayClassReconciler) reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func hasAccept(ss gv1b1t.GatewayClassStatus) bool {
+func hasAccept(ss gv1.GatewayClassStatus) bool {
 	for _, c := range ss.Conditions {
-		if c.Type == string(gv1b1t.GatewayClassConditionStatusAccepted) && c.Status == metav1.ConditionTrue {
+		if c.Type == string(gv1.GatewayClassConditionStatusAccepted) && c.Status == metav1.ConditionTrue {
 			return true
 		}
 	}

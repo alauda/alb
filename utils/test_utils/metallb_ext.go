@@ -20,14 +20,15 @@ type MetallbInstaller struct {
 	kt     *Kubectl
 }
 
-func NewMetallbInstaller(ctx context.Context, base string, cfg *rest.Config, kind *KindExt, docker *DockerExt, v4 []string, v6 []string, log logr.Logger) *MetallbInstaller {
+func NewMetallbInstaller(ctx context.Context, base string, cfg *rest.Config, kind *KindExt, v4 []string, v6 []string, log logr.Logger) *MetallbInstaller {
 	kt := NewKubectl(base, cfg, log)
+	docker := NewDockerExt(log)
 	return &MetallbInstaller{
 		cfg:    cfg,
 		log:    log,
 		ctx:    ctx,
 		kind:   kind,
-		docker: docker,
+		docker: &docker,
 		v4pool: mapset.NewSet(v4...),
 		v6pool: mapset.NewSet(v6...),
 		kt:     kt,

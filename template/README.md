@@ -13,7 +13,7 @@ it should be renamed as openresty or resty-app ..
 	1. nginx --with-debug
 	2. install some lua module
 		* lua-var-nginx-module            https://github.com/api7/lua-var-nginx-module/archive/v0.5.2
-		* thibaultcha/lua-resty-mlcache   opm install thibaultcha/lua-resty-mlcache    2.5.0
+		* thibaultcha/lua-resty-mlcache   opm install thibaultcha/lua-resty-mlcache    2.5.0       installed on /usr/local/openresty/site/lualib/resty
         * Kong/lua-resty-worker-events    2.0.0 clone in repo
 		* xiangnanscu/lua-resty-cookie    opm install xiangnanscu/lua-resty-cookie     0.0.1 https://github.com/xiangnanscu/lua-resty-cookie/commit/948b77f8a5f2c9f1cdc28b4c6cd5a60d64b4fab7
 		* lua-resty-balancer              https://github.com/openresty/lua-resty-balancer/archive/v0.04

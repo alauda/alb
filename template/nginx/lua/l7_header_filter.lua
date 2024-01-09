@@ -16,5 +16,5 @@ if ngx.ctx.is_alb_err then
 end
 local code = str.atoi(ngx.var.status)
 if code >= 400 then
-    e.backend_error(code, "read from backend " .. tostring(ngx.var.upstream_bytes_received))
+    e.http_backend_error(code, "read from backend " .. tostring(ngx.var.upstream_bytes_received))
 end

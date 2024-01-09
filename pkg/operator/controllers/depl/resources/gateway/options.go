@@ -1,8 +1,6 @@
 package gateway
 
-import (
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
-)
+import gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 
 type Option func(service *gv1b1t.GatewayClass)
 

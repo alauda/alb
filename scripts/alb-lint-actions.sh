@@ -8,7 +8,13 @@ function alb-lint-all() (
   echo "go ok"
   alb-lint-lua
   echo "lua ok"
+  # golangci-lint oom in ci
+  # golangci-lint -v run -c ./.golangci.yml
 )
+
+function alb-lint-golangci() {
+  golangci-lint -v run -c ./.golangci.yml
+}
 
 function alb-lint-in-ci() {
   alb-lint-bash

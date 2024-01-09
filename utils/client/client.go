@@ -15,8 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // init controller runtime client
@@ -28,7 +28,7 @@ func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = rbacv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = netv1.AddToScheme(scheme)
-	_ = gv1b1t.AddToScheme(scheme)
+	_ = gv1.AddToScheme(scheme)
 	_ = gv1a2t.AddToScheme(scheme)
 	_ = coov1.AddToScheme(scheme)
 
@@ -40,11 +40,11 @@ func GetDirectlyClient(ctx context.Context, cfg *rest.Config, scheme *runtime.Sc
 }
 
 func GetClient(ctx context.Context, cfg *rest.Config, scheme *runtime.Scheme) (client.Client, error) {
-	mapper, err := apiutil.NewDynamicRESTMapper(cfg)
+	hcli, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, err
 	}
-	c, err := client.New(cfg, client.Options{Scheme: scheme, Mapper: mapper})
+	mapper, err := apiutil.NewDynamicRESTMapper(cfg, hcli)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +56,11 @@ func GetClient(ctx context.Context, cfg *rest.Config, scheme *runtime.Scheme) (c
 		_ = cache.Start(ctx)
 	}()
 	cache.WaitForCacheSync(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader: cache,
-		Client:      c,
+	cli, err := client.New(cfg, client.Options{
+		Scheme: scheme,
+		Cache: &client.CacheOptions{
+			Reader: cache,
+		},
 	})
+	return cli, err
 }
