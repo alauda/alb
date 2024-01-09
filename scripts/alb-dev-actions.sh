@@ -4,6 +4,7 @@ source ./scripts/alb-test-actions.sh
 source ./scripts/alb-lint-actions.sh
 source ./scripts/alb-build-actions.sh
 source ./scripts/alb-deploy-actions.sh
+source ./scripts/alb-github-actions.sh
 source ./template/actions/alb-nginx.sh
 
 function alb-cleanup() {

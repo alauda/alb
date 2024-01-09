@@ -52,3 +52,4 @@ template/cert
 alb-kind-e2e
 test.test
 migrate/checklist/.kube/
+kubectl*

@@ -1,5 +1,9 @@
+
+ARG BUILD_BASE=build-harbor.alauda.cn/ops/golang:1.18-alpine3.16
+ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.22.0
+
 # build nignx/openresty base image
-FROM build-harbor.alauda.cn/ops/golang:1.18-alpine3.15 AS tweak_gen
+FROM ${BUILD_BASE} AS tweak_gen
 COPY ./ /alb/
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
@@ -10,7 +14,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositorie
 RUN cd cmd/utils/tweak_gen && go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /alb/out/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
 RUN ls -alh /alb/out/
 
-FROM build-harbor.alauda.cn/3rdparty/alb-nginx:v1.22.0
+FROM ${OPENRESTY_BASE} 
 
 # keep it as same as pkg/config/albrun.go
 ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
