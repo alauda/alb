@@ -1,5 +1,4 @@
 name: Build 
-
 on:
   pull_request:
     branches:
@@ -16,8 +15,6 @@ on:
     paths-ignore:
     - 'docs/**'
     - '**.md'
-    - '.github/VERSION'
-
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
@@ -33,17 +30,11 @@ jobs:
     name: Build alb
     runs-on: ubuntu-22.04
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
-
       - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
       - name: version
         uses: HardNorth/github-version-generate@v1.3.0
         with:
@@ -99,30 +90,37 @@ jobs:
         with:
           name: alb-chart
           path: alauda-alb2.tgz
-      - name: sync docker
+      - name: cr
+        if: github.event.pull_request.merged == true
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          install_only: true
+      - name: push
+        if: github.event.pull_request.merged == true
         env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
-        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
         run: |
+          # push docker
           source ./scripts/alb-dev-actions.sh
           export VERSION=$(alb-github-gen-version)
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           docker push $IMAGE_REPO/alb:$VERSION
           docker push $IMAGE_REPO/alb-nginx:$VERSION
-      - name: sync chart
-        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        uses: helm/chart-releaser-action@v1.6.0
-        with:
-          charts_dir: deploy/chart/alb
-          skip_packaging: true  # we build packages by ourself
-          config: .github/cr.yaml
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-      - name: bump version
-        # if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        run: |
-          source ./scripts/alb-dev-actions.sh
+
+          # push chart
+          owner=$(cut -d '/' -f 1 <<< "$GITHUB_REPOSITORY")
+          repo=$(cut -d '/' -f 2 <<< "$GITHUB_REPOSITORY")
+
+          args=(--owner "$owner" --repo "$repo" --charts-dir "./deploy/chart/alb" --skip-packaging "true" --pages-branch "gh-pages")
+
+          echo "sync chart"
           git status
-          git diff
+          git log | head -n 30
+          git remote -v
+          git remote update
+          git branch -r
+
+          .github/cr.sh "${args[@]}"
