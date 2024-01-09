@@ -3,6 +3,18 @@ entries:
   alauda-alb2:
   - annotations:
       branch: feat/gh-ci
+      commit: ddba95a0a48ec69d96553517cd085dfe0564114e
+      release: alpha
+    apiVersion: v2
+    created: "2024-01-09T07:40:52.119647173Z"
+    description: alauda loadbalancer version 2
+    digest: 9b953c6b14f03fff4c9dc2a3bd548b4035bb970bfcbfa57c61e3e9754b570936
+    name: alauda-alb2
+    urls:
+    - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.0.0-feat-gh-ci.11.1/alauda-alb2-v1.0.0-feat-gh-ci.11.1.tgz
+    version: v1.0.0-feat-gh-ci.11.1
+  - annotations:
+      branch: feat/gh-ci
       commit: 43f4421a07d5f73476775f601846442ccab6c7e9
       release: alpha
     apiVersion: v2
@@ -13,4 +25,4 @@ entries:
     urls:
     - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.0.0-feat-gh-ci.10.1/alauda-alb2-v1.0.0-feat-gh-ci.10.1.tgz
     version: v1.0.0-feat-gh-ci.10.1
-generated: "2024-01-09T07:35:18.473667857Z"
+generated: "2024-01-09T07:40:52.119664373Z"
