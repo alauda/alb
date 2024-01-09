@@ -1,6 +1,10 @@
 #!/bin/bash
 function alb-github-gen-version() {
   local branch=$(echo "$GITHUB_HEAD_REF" | sed 's|/|-|g')
+  if [[ "$branch" == "master" ]]; then
+    echo v$CURRENT_VERSION
+    return
+  fi
   echo "v$CURRENT_VERSION-$branch.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
 }
 
