@@ -1,13 +1,9 @@
 # Alauda Load Balancer v2
 
-# how to deploy in kind
+# how to deploy operator in kind
 1. create kind cluster
-2. download chart ( TODO create helm repo)
-3. load image in kind cluster
-4. helm install alb-operator 
-```
-helm install alb-operator -f ./values.yaml  --set operator.albImagePullPolicy=IfNotPresent --set defaultAlb=false --set global.namespace=kube-system --set operatorDeployMode=deployment  .
-```
+2. `helm repo add alb https://alauda.github.io/alb/;helm repo update;helm search repo|grep alb`
+3. `helm install alb-operator alb/alauda-alb2` 
 # how to create and use a alb as ingress controller
 ```bash
 cat <<EOF | kubectl apply -f -
