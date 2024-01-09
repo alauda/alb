@@ -42,6 +42,7 @@ func DefaultConfig() ExternalAlbConfig {
 		CleanMetricsInterval: pointer.Of(2592000),
 		Backlog:              pointer.Of(2048),
 		ReloadTimeout:        pointer.Of(rc.DEFAULT_RELOAD_TIMEOUT_VAL),
+		Interval:             pointer.Of(rc.INTERVAL_VAL),
 		MaxTermSeconds:       pointer.Of(30),
 		PolicyZip:            pointer.Of(false),
 		Gateway:              &ExternalGateway{},

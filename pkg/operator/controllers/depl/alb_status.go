@@ -78,6 +78,7 @@ func GenExpectStatus(cf cfg.Config, cur *AlbDeploy) albv2.ALB2Status {
 	return *status
 }
 
+// 检查status是否相同时忽略所有的probetime
 func SameStatus(old, latest albv2.ALB2Status, log logr.Logger) bool {
 	old.ProbeTime = 0
 	old.ProbeTimeStr = metav1.Time{}

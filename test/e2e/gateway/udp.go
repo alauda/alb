@@ -28,7 +28,7 @@ var _ = ginkgo.Describe("udp", func() {
 
 	GIt("i want my app been access by udp", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	c "alauda.io/alb2/config"
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
@@ -29,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // 当前集群上alb相关的cr
@@ -136,6 +137,8 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 	feature := d.FeatureCtl.GenUpdate(cur.Feature, d.Cfg, cur.Alb)
 	svcupdate := d.SvcCtl.GenUpdate(cur.Svc, d.Cfg, cur.Alb)
 	rbac := d.RbacCtl.GenUpdate(cur.Rbac)
+
+	alb.Status = GenExpectStatus(d.Cfg, cur)
 	expect := AlbDeployUpdate{
 		Alb:                alb,
 		Deploy:             depl,
@@ -168,13 +171,24 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 	}
 
 	alb.Labels = MergeMap(projectLabel, RemovePrefixKey(alb.Labels, projectPrefix))
+	{
 
-	key := fmt.Sprintf("%s/%s", labelBaseDomain, "role")
-	if conf.Project.EnablePortProject {
-		alb.Labels[key] = "port"
-	} else {
-		delete(alb.Labels, key)
+		key := fmt.Sprintf("%s/%s", labelBaseDomain, "role")
+		if conf.Project.EnablePortProject {
+			alb.Labels[key] = "port"
+		} else {
+			delete(alb.Labels, key)
+		}
 	}
+	{
+		key := c.NewNames(labelBaseDomain).GetOverwriteConfigmapLabelKey()
+		if len(conf.Overwrite.Configmap) != 0 {
+			alb.Labels[key] = "true"
+		} else {
+			delete(alb.Labels, key)
+		}
+	}
+
 	return alb, nil
 }
 
@@ -280,9 +294,8 @@ func Destroy(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	return nil
 }
 
-// 在将这个alb所以已有的cr和期望的cr都拿到后，我们就可以进行升级，如果需要reconcile return true，nil
-// 现在我们都是更新的，所以一次操作就可以升级完成，后续需要操作deployment做scale，可能要reconcile
-func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *AlbDeployUpdate) (reconcile bool, err error) {
+// 在将这个alb所以已有的cr和期望的cr都拿到后，我们就可以进行升级，如果需要reconcile return true，"reason",nil
+func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *AlbDeployUpdate) (reconcile bool, reason string, err error) {
 	// TODO 这个函数中需要特殊处理的和基本可以忽略的混在一起了 有点乱
 	l := d.Log
 
@@ -290,18 +303,17 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 	// 如果alb需要更新 可能是label或者annotation的变化 我们不会去改spec的内容，那个应该是只由用户操作的
 	sameAlb, _ := d.SameAlb(cur.Alb, expect.Alb)
 	if !sameAlb {
-		l.Info("alb change", "diff", cmp.Diff(cur.Alb, expect.Alb))
 		err := d.Cli.Update(ctx, expect.Alb)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
-		l.Info("alb update success", "ver", expect.Alb.ResourceVersion)
-		return true, nil
+		l.Info("alb change", "ver", expect.Alb.ResourceVersion, "diff", cmp.Diff(cur.Alb, expect.Alb))
+		return true, "alb updated", nil
 	}
 	// service account 需要在deployment之前创建
 	err = d.RbacCtl.DoUpdate(cur.Rbac, expect.Rbac)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Deploy, expect.Deploy, func(cur *appsv1.Deployment, expect *appsv1.Deployment) bool {
@@ -319,7 +331,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return false
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	// 我们已经通过patch生成了期望的configmap，所以这里可以直接更新
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.Common, expect.Common, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
@@ -330,7 +342,7 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return change
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	// 端口项目是完全从config生成的
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.PortInfo, expect.PortInfo, func(cur *corev1.ConfigMap, expect *corev1.ConfigMap) bool {
@@ -341,23 +353,23 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return change
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	// 更新svc
 	err = d.SvcCtl.DoUpdate(expect.Svc)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	err = d.FeatureCtl.DoUpdate(expect.Feature)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.IngressClass, expect.IngressClass, func(cur *netv1.IngressClass, expect *netv1.IngressClass) bool {
 		return !(reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Annotations, expect.Annotations) && reflect.DeepEqual(cur.Labels, expect.Labels))
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	// update gatewayclass
@@ -366,23 +378,19 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 		return !same
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	// alb 需要考虑status，自己做处理
-	expect.Alb.Status = GenExpectStatus(d.Cfg, cur)
 	if !SameStatus(cur.Alb.Status, expect.Alb.Status, l) {
 		err := d.Cli.Status().Update(ctx, expect.Alb)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 		l.Info("alb status update", "eq", reflect.DeepEqual(cur.Alb.Status, expect.Alb.Status), "newstatus", utils.PrettyJson(expect.Alb.Status), "diff", cmp.Diff(cur.Alb.Status, expect.Alb.Status))
-		// 更新status时不应该在reconcile了，否则每次的probetime都是不一样的，会无限循环了
-		return false, nil
-	} else {
-		l.Info("alb status not change", "alb", ShowMeta(cur.Alb))
+		return true, "alb status update", nil
 	}
-	return false, nil
+	l.Info("alb status not change", "alb", ShowMeta(cur.Alb))
+	return false, "", nil
 }
 
 func (d *AlbDeployCtl) SameAlb(origin *albv2.ALB2, latest *albv2.ALB2) (bool, string) {

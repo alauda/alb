@@ -8,10 +8,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-type Gateway gv1b1t.Gateway
+type Gateway gv1.Gateway
 
 func (g Gateway) WaittingController() bool {
 	Logf("wait controller %+v", PrettyJson(g.Status))
@@ -38,7 +38,7 @@ func (g Gateway) SameAddress(ips []string) bool {
 	}
 	ipMap := map[string]bool{}
 	for _, a := range g.Status.Addresses {
-		if a.Type != nil && *a.Type != gv1b1t.IPAddressType {
+		if a.Type != nil && *a.Type != gv1.IPAddressType {
 			Logf("invalid address type %v", *a.Type)
 			return false
 		}
@@ -75,7 +75,7 @@ func NewGatewayAssert(cli *K8sClient, ctx context.Context) *GatewayAssert {
 }
 
 func (ga *GatewayAssert) CheckGatewayStatus(key client.ObjectKey, ip []string) (bool, error) {
-	g, err := ga.Cli.GetGatewayClient().GatewayV1beta1().Gateways(key.Namespace).Get(ga.Ctx, key.Name, metav1.GetOptions{})
+	g, err := ga.Cli.GetGatewayClient().GatewayV1().Gateways(key.Namespace).Get(ga.Ctx, key.Name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -91,26 +91,26 @@ func (ga *GatewayAssert) CheckGatewayStatus(key client.ObjectKey, ip []string) (
 	return true, nil
 }
 
-func NewParentRef(ns, name, section string) gv1b1t.ParentReference {
-	gName := gv1b1t.ObjectName(name)
-	gNs := gv1b1t.Namespace(ns)
-	gSection := gv1b1t.SectionName(section)
-	return gv1b1t.ParentReference{
+func NewParentRef(ns, name, section string) gv1.ParentReference {
+	gName := gv1.ObjectName(name)
+	gNs := gv1.Namespace(ns)
+	gSection := gv1.SectionName(section)
+	return gv1.ParentReference{
 		Namespace:   &gNs,
 		Name:        gName,
 		SectionName: &gSection,
 	}
 }
 
-func (ga *GatewayAssert) WaitHttpRouteStatus(ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
+func (ga *GatewayAssert) WaitHttpRouteStatus(ns, name string, ref gv1.ParentReference, check func(status gv1.RouteParentStatus) (bool, error)) {
 	ga.WaitRouteStatus("http", ns, name, ref, check)
 }
 
-func (ga *GatewayAssert) WaitTcpRouteStatus(ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
+func (ga *GatewayAssert) WaitTcpRouteStatus(ns, name string, ref gv1.ParentReference, check func(status gv1.RouteParentStatus) (bool, error)) {
 	ga.WaitRouteStatus("tcp", ns, name, ref, check)
 }
 
-func (ga *GatewayAssert) WaitRouteStatus(kind string, ns, name string, ref gv1b1t.ParentReference, check func(status gv1b1t.RouteParentStatus) (bool, error)) {
+func (ga *GatewayAssert) WaitRouteStatus(kind string, ns, name string, ref gv1.ParentReference, check func(status gv1.RouteParentStatus) (bool, error)) {
 	Wait(func() (bool, error) {
 		status, err := ga.GetRouterStatus(ns, name, kind)
 		if err != nil {
@@ -137,9 +137,9 @@ func (ga *GatewayAssert) WaitRouteStatus(kind string, ns, name string, ref gv1b1
 	})
 }
 
-func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*gv1b1t.RouteStatus, error) {
+func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*gv1.RouteStatus, error) {
 	if kind == "http" {
-		route, err := ga.Cli.GetGatewayClient().GatewayV1beta1().HTTPRoutes(ns).Get(ga.Ctx, name, metav1.GetOptions{})
+		route, err := ga.Cli.GetGatewayClient().GatewayV1().HTTPRoutes(ns).Get(ga.Ctx, name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +158,7 @@ func (ga *GatewayAssert) GetRouterStatus(ns string, name string, kind string) (*
 func (ga *GatewayAssert) WaitGateway(ns, name string, check func(g Gateway) (bool, error)) {
 	Wait(func() (bool, error) {
 		return TestEq(func() bool {
-			g, err := ga.Cli.GetGatewayClient().GatewayV1beta1().Gateways(ns).Get(ga.Ctx, name, metav1.GetOptions{})
+			g, err := ga.Cli.GetGatewayClient().GatewayV1().Gateways(ns).Get(ga.Ctx, name, metav1.GetOptions{})
 			GinkgoAssert(err, "get gateway fail")
 			ret, err := check(Gateway(*g))
 			GinkgoAssert(err, "check fail")

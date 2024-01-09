@@ -7,15 +7,20 @@ import (
 	"os"
 	"time"
 
+	ctl "alauda.io/alb2/controller"
 	ct "alauda.io/alb2/controller/types"
 	tu "alauda.io/alb2/utils/test_utils"
+	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 	"github.com/thedevsaddam/gojsonq/v2"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	crcli "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -187,5 +192,35 @@ func MakeDeploymentReady(ctx context.Context, cli kubernetes.Interface, ns, name
 			break
 		}
 		fmt.Println("ok exit")
+	}
+}
+
+func MakeLbSvcReady(ctx context.Context, log logr.Logger, cli kubernetes.Interface, ns, name string, v4 string, v6 string) error {
+	for {
+		time.Sleep(time.Second * 1)
+		log.Info("make lb svc ready")
+		svc, err := ctl.GetLbSvc(ctx, cli, crcli.ObjectKey{Namespace: ns, Name: name}, "cpaas.io")
+		if k8serrors.IsNotFound(err) {
+			log.Error(err, "not found ignore")
+			continue
+		}
+		if err != nil {
+			log.Error(err, "get svc err")
+			continue
+		}
+		svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+			{
+				IP: v4,
+			},
+			{
+				IP: v6,
+			},
+		}
+		_, err = cli.CoreV1().Services(ns).UpdateStatus(ctx, svc, metav1.UpdateOptions{})
+		if err != nil {
+			log.Error(err, "update status err")
+			continue
+		}
+		log.Info("update status success")
 	}
 }

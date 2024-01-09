@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type GatewayReconciler struct {
@@ -48,7 +48,7 @@ type ListenerFilter interface {
 type RouteFilter interface {
 	// 1. you must call route.unAllowRoute(ref,msg) by yourself if route couldnt not match
 	// 2. you must return false if route is not match
-	FilteRoute(ref gv1b1t.ParentReference, route *Route, ls *Listener) bool
+	FilteRoute(ref gv1.ParentReference, route *Route, ls *Listener) bool
 	Name() string
 }
 
@@ -82,7 +82,7 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 
 func (g *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gv1b1t.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway)))
+		For(&gv1.Gateway{}, ctrlBuilder.WithPredicates(predicate.NewPredicateFuncs(g.filterSelectedGateway)))
 
 	b = g.watchRoutes(b)
 	b = g.watchAlb(b)
@@ -100,7 +100,7 @@ func (g *GatewayReconciler) filterSelectedGateway(o client.Object) (ret bool) {
 	if sel.GatewayClass != nil {
 		class := *sel.GatewayClass
 		switch g := o.(type) {
-		case *gv1b1t.Gateway:
+		case *gv1.Gateway:
 			return string(g.Spec.GatewayClassName) == class
 		}
 		return false
@@ -118,7 +118,7 @@ func (g *GatewayReconciler) Reconcile(ctx context.Context, request reconcile.Req
 
 	key := request.NamespacedName
 
-	gateway := &gv1b1t.Gateway{}
+	gateway := &gv1.Gateway{}
 	err := g.c.Get(g.ctx, key, gateway)
 	if errors.IsNotFound(err) {
 		log.Info("not found,ignore", "gateway", request.String())
@@ -243,9 +243,9 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	}
 }
 
-func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*Listener, alb *alb2v2.ALB2) (requene bool, msg string, err error) {
+func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1.Gateway, ls []*Listener, alb *alb2v2.ALB2) (requene bool, msg string, err error) {
 	origin := gateway.DeepCopy()
-	address := []gv1b1t.GatewayAddress{}
+	address := []gv1.GatewayStatusAddress{}
 	albaddress := alb.GetAllAddress()
 	ips, hosts := u.ParseAddressList(albaddress)
 
@@ -253,18 +253,18 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 		if host == "" {
 			continue
 		}
-		hostType := gv1b1t.HostnameAddressType
-		address = append(address, gv1b1t.GatewayAddress{Type: &hostType, Value: host})
+		hostType := gv1.HostnameAddressType
+		address = append(address, gv1.GatewayStatusAddress{Type: &hostType, Value: host})
 	}
 	for _, ip := range ips {
 		if ip == "" {
 			continue
 		}
-		ipType := gv1b1t.IPAddressType
-		address = append(address, gv1b1t.GatewayAddress{Type: &ipType, Value: ip})
+		ipType := gv1.IPAddressType
+		address = append(address, gv1.GatewayStatusAddress{Type: &ipType, Value: ip})
 	}
 	gateway.Status.Addresses = address
-	lsstatusList := []gv1b1t.ListenerStatus{}
+	lsstatusList := []gv1.ListenerStatus{}
 	listenerValid := true
 	for _, l := range ls {
 		if !l.status.valid {
@@ -274,10 +274,10 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 
 		conditions := l.status.toConditions(gateway)
 		log.V(2).Info("conditions of listener", "conditions", conditions)
-		lsstatus := gv1b1t.ListenerStatus{
+		lsstatus := gv1.ListenerStatus{
 			Name:           l.Name,
 			AttachedRoutes: l.status.attachedRoutes,
-			SupportedKinds: []gv1b1t.RouteGroupKind{},
+			SupportedKinds: []gv1.RouteGroupKind{},
 			Conditions:     conditions,
 		}
 		if !l.status.allKindInvalid {
@@ -289,18 +289,18 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	albReady := alb.Status.State == alb2v2.ALB2StateRunning
 	allReady := true
 	acceptCondition := metav1.Condition{
-		Type:               string(gv1b1t.GatewayConditionAccepted),
+		Type:               string(gv1.GatewayConditionAccepted),
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: gateway.Generation,
 	}
 	if albReady {
 		acceptCondition.Status = metav1.ConditionTrue
-		acceptCondition.Reason = string(gv1b1t.GatewayReasonReady)
+		acceptCondition.Reason = string(gv1.GatewayReasonReady)
 		acceptCondition.Message = ""
 	} else {
 		allReady = false
 		acceptCondition.Status = metav1.ConditionUnknown
-		acceptCondition.Reason = string(gv1b1t.GatewayReasonPending)
+		acceptCondition.Reason = string(gv1.GatewayReasonPending)
 		acceptCondition.Message = alb.Status.Reason
 	}
 
@@ -308,17 +308,17 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	var ready *metav1.Condition
 	if listenerValid {
 		ready = &metav1.Condition{
-			Type:               string(gv1b1t.GatewayConditionReady),
+			Type:               string(gv1.GatewayConditionReady),
 			Status:             metav1.ConditionTrue,
-			Reason:             string(gv1b1t.GatewayReasonReady),
+			Reason:             string(gv1.GatewayReasonAccepted),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 		}
 	} else {
 		ready = &metav1.Condition{
-			Type:               string(gv1b1t.GatewayConditionReady),
+			Type:               string(gv1.GatewayConditionReady),
 			Status:             metav1.ConditionFalse,
-			Reason:             string(gv1b1t.GatewayReasonListenersNotReady),
+			Reason:             string(gv1.GatewayReasonListenersNotReady),
 			Message:            "one or more listener not ready",
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
@@ -326,17 +326,17 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	}
 	if len(albaddress) != 0 {
 		program = &metav1.Condition{
-			Type:               string(gv1b1t.GatewayConditionProgrammed),
+			Type:               string(gv1.GatewayConditionProgrammed),
 			Status:             metav1.ConditionTrue,
-			Reason:             string(gv1b1t.GatewayReasonProgrammed),
+			Reason:             string(gv1.GatewayReasonProgrammed),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 		}
 	} else {
 		ready = &metav1.Condition{
-			Type:               string(gv1b1t.GatewayConditionReady),
+			Type:               string(gv1.GatewayConditionReady),
 			Status:             metav1.ConditionFalse,
-			Reason:             string(gv1b1t.GatewayReasonAddressNotAssigned),
+			Reason:             string(gv1.GatewayReasonAddressNotAssigned),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 		}
@@ -353,7 +353,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	}
 	gateway.Status.Conditions = conditions
 
-	if sameGatewayStatus(origin.Status, gateway.Status) {
+	if sameGatewayStatus(origin.Status, gateway.Status) && allReady {
 		g.log.Info("gateway status same ignore")
 		return
 	}
@@ -371,7 +371,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1b1t.Gateway, ls []*L
 	return false, "", err
 }
 
-func (g *GatewayReconciler) GetGatewayAlb(gw *gv1b1t.Gateway) (*alb2v2.ALB2, error) {
+func (g *GatewayReconciler) GetGatewayAlb(gw *gv1.Gateway) (*alb2v2.ALB2, error) {
 	// get ip from alb.
 	ns, name := config.GetConfig().GetAlbNsAndName()
 	return getAlb(g.ctx, g.c, ns, name)
@@ -379,8 +379,8 @@ func (g *GatewayReconciler) GetGatewayAlb(gw *gv1b1t.Gateway) (*alb2v2.ALB2, err
 
 func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 	// we must keep condition which ref to other gateway.
-	updateRoute := func(origin []gv1b1t.RouteParentStatus, r *Route) []gv1b1t.RouteParentStatus {
-		psMap := map[string]gv1b1t.RouteParentStatus{}
+	updateRoute := func(origin []gv1.RouteParentStatus, r *Route) []gv1.RouteParentStatus {
+		psMap := map[string]gv1.RouteParentStatus{}
 		for _, ss := range origin {
 			psMap[RefsToString(ss.ParentRef)] = ss
 		}
@@ -391,16 +391,16 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 			if !p.accept {
 				status = metav1.ConditionFalse
 			}
-			reason := string(gv1b1t.ListenerReasonReady)
+			reason := string(gv1.ListenerReasonReady)
 			if p.reason != "" {
 				reason = p.reason
 			}
-			psMap[key] = gv1b1t.RouteParentStatus{
+			psMap[key] = gv1.RouteParentStatus{
 				ParentRef:      p.ref,
-				ControllerName: gv1b1t.GatewayController(g.controllerName),
+				ControllerName: gv1.GatewayController(g.controllerName),
 				Conditions: []metav1.Condition{
 					{
-						Type:               "Ready",
+						Type:               string(gv1.ListenerConditionReady),
 						Status:             status,
 						Reason:             reason,
 						LastTransitionTime: metav1.Now(),
@@ -411,13 +411,14 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 			}
 		}
 
-		ret := []gv1b1t.RouteParentStatus{}
+		ret := []gv1.RouteParentStatus{}
 		for _, s := range psMap {
 			ret = append(ret, s)
 		}
 		return ret
 	}
 
+	// NOTE: alb现在是根据route的状态来生成policy的。所以必须要处理完所有的route。不能因为一个route出错而提前退出
 	for _, r := range rs {
 		log := g.log.WithValues("route", "route", GetObjectKey(r.route))
 		origin, err := GetRouteStatus(r.route)
@@ -425,12 +426,12 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 			log.Error(err, "invalid route")
 			continue
 		}
-		newStatus, err := UpdateRouteStatus(r.route, func(ss []gv1b1t.RouteParentStatus) []gv1b1t.RouteParentStatus {
+		newStatus, err := UpdateRouteStatus(r.route, func(ss []gv1.RouteParentStatus) []gv1.RouteParentStatus {
 			return updateRoute(ss, r)
 		})
 		if err != nil {
 			log.Error(err, "update route status fail")
-			return err
+			continue
 		}
 		if SameStatus(origin, newStatus) {
 			log.Info("same status ignore")
@@ -439,7 +440,8 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 		log.Info("update route status", "route", GetObjectKey(r.route), "status", newStatus, "diff", cmp.Diff(origin, newStatus))
 		err = g.c.Status().Update(g.ctx, r.route.GetObject())
 		if err != nil {
-			return err
+			log.Error(err, "k8s update route status fail")
+			continue
 		}
 	}
 	return nil
@@ -461,21 +463,21 @@ func SameCondition(left []metav1.Condition, right []metav1.Condition) bool {
 	return true
 }
 
-func sameAddress(origin []gv1b1t.GatewayAddress, latest []gv1b1t.GatewayAddress) bool {
-	orginset := sets.NewString(lo.Map(origin, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
-	statusset := sets.NewString(lo.Map(latest, func(s gv1b1t.GatewayAddress, _ int) string { return s.Value })...)
+func sameAddress(origin []gv1.GatewayStatusAddress, latest []gv1.GatewayStatusAddress) bool {
+	orginset := sets.NewString(lo.Map(origin, func(s gv1.GatewayStatusAddress, _ int) string { return s.Value })...)
+	statusset := sets.NewString(lo.Map(latest, func(s gv1.GatewayStatusAddress, _ int) string { return s.Value })...)
 	return orginset.Equal(statusset)
 }
 
-func sameGatewayStatus(origin gv1b1t.GatewayStatus, latest gv1b1t.GatewayStatus) bool {
+func sameGatewayStatus(origin gv1.GatewayStatus, latest gv1.GatewayStatus) bool {
 	return SameCondition(origin.Conditions, latest.Conditions) &&
 		sameAddress(origin.Addresses, latest.Addresses) &&
 		sameListenerStatus(origin.Listeners, latest.Listeners)
 }
 
-func sameListenerStatus(origin []gv1b1t.ListenerStatus, latest []gv1b1t.ListenerStatus) bool {
-	tomap := func(ls []gv1b1t.ListenerStatus) map[string]gv1b1t.ListenerStatus {
-		m := map[string]gv1b1t.ListenerStatus{}
+func sameListenerStatus(origin []gv1.ListenerStatus, latest []gv1.ListenerStatus) bool {
+	tomap := func(ls []gv1.ListenerStatus) map[string]gv1.ListenerStatus {
+		m := map[string]gv1.ListenerStatus{}
 		for _, s := range ls {
 			m[string(s.Name)] = s
 		}
@@ -499,7 +501,7 @@ func sameListenerStatus(origin []gv1b1t.ListenerStatus, latest []gv1b1t.Listener
 	return true
 }
 
-func SameStatus(origin []gv1b1t.RouteParentStatus, latest []gv1b1t.RouteParentStatus) bool {
+func SameStatus(origin []gv1.RouteParentStatus, latest []gv1.RouteParentStatus) bool {
 	if len(origin) != len(latest) {
 		return false
 	}

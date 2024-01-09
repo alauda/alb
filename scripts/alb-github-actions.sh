@@ -9,10 +9,25 @@ function alb-github-gen-version() {
 }
 
 function alb-github-sync() {
-  docker load <./alb/alb.tar
-  docker load <./alb-nginx/alb-nginx.tar
-  kind-load-image-in-current theseedoaa/alb-nginx:$(yq .global.images.alb2.tag ./alauda-alb2/values.yaml)
-  kind-load-image-in-current theseedoaa/alb:$(yq .global.images.alb2.tag ./alauda-alb2/values.yaml)
+  local runid=$1
+
+  if [ -z "$runid" ]; then
+    echo "runid is required"
+    return
+  fi
+  rm -rf gh-debug
+  gh run download "$runid" -D gh-debug
+
+  docker load <./gh-debug/alb/alb.tar
+  docker load <./gh-debug/alb/alb-nginx.tar
+  (
+    cd ./gh-debug/alb-chart
+    tar -xvzf ./alauda-alb2.tgz
+  )
+  kind-load-image-in-current theseedoaa/alb-nginx:$(yq4 eval .global.images.alb2.tag ./gh-debug/alb-chart/alauda-alb2/values.yaml)
+  kind-load-image-in-current theseedoaa/alb:$(yq4 eval .global.images.alb2.tag ./gh-debug/alb-chart/alauda-alb2/values.yaml)
+  helm install alb-operator ./gh-debug/alb-chart/alauda-alb2
+  # do some test
 }
 
 function alb-build-github-chart() {
@@ -25,7 +40,7 @@ function alb-build-github-chart() {
   local branch=$GITHUB_HEAD_REF
   local commit=$GITHUB_SHA
   cp ./.github/chart/alb/values.yaml $chart_dir
-  cp ./.github/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml $chart_dir/crds # do not served v1
+  cp ./deploy/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml $chart_dir/crds # do not served v1
   yq -i e ".global.images.alb2.tag |= \"$version\"" $chart_dir/values.yaml
   yq -i e ".global.registry.address |= \"$repo\"" $chart_dir/values.yaml
   yq -i e ".global.images.nginx.tag |= \"$version\"" $chart_dir/values.yaml

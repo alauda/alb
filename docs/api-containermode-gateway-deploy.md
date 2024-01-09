@@ -17,7 +17,7 @@
 ### 3.1.1 模块功能描述
 ### 3.1.6 API 设计
 总述API要实现的基本目标
-#### 3.1.6.1  GET  kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1alpha2/gatewayclasses
+#### 3.1.6.1  GET  kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1beta1/gatewayclasses
 ##### 3.1.6.1.1 说明 获取独享型网络类列表
 我们默认部署的独享型gatewayclass上会带有
 ```yaml
@@ -107,9 +107,9 @@ spec:
         name: g1
   type: nginx
 ```
-###### 创建gateway  /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1alpha2/namespaces/{NS}/gateways
+###### 创建gateway  /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1beta1/namespaces/{NS}/gateways
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
     name: g1
@@ -137,8 +137,8 @@ spec:
 ##### 3.1.6.3.1 说明
 如果是更新gateway相关的配置比如listener之类的，只更新gateway即可。如果是更新alb相关的，比如部署资源，lbsvcAnnotation只更新alb即可
 * 更新alb PUT /kubernetes/{cluster}/apis/crd.alauda.io/v2beta1/namespaces/{namespace}/alaudaloadbalancer2/{NAME}
-* 更新gateway PUT /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1alpha2/namespaces/{NS}/gateways/{NAME}
-#### 3.1.6.4 删除gateway DELETE  /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1alpha2/namespaces/{NS}/gateways/{NAME}
+* 更新gateway PUT /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1beta1/namespaces/{NS}/gateways/{NAME}
+#### 3.1.6.4 删除gateway DELETE  /kubernetes/{cluster}/apis/gateway.networking.k8s.io/v1beta1/namespaces/{NS}/gateways/{NAME}
 ##### 3.1.6.4.1 说明
 只用删除gateway即可，后端会自动删除相应的alb.
 ### 3.1.7 模块部署设计

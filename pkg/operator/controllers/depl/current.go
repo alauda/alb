@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/go-logr/logr"
 	perr "github.com/pkg/errors"

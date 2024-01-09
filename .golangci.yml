@@ -14,6 +14,9 @@ linters:
     - unused 
 issues:
   exclude-rules:
+    - linters:
+        - staticcheck
+      text: "SA1019:" # gateway status deprecated.  gv1.GatewayReasonReady is deprecated: Ready is reserved for future use 
     - path: _test\.go
       linters:
         - errcheck

@@ -6,13 +6,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	. "alauda.io/alb2/gateway"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type Listener struct {
-	gv1b1t.Listener
+	gv1.Listener
 	gateway    client.ObjectKey
 	createTime time.Time
 	version    int64
@@ -39,13 +39,13 @@ type Route struct {
 }
 
 type RouteStatus struct {
-	ref    gv1b1t.ParentReference
+	ref    gv1.ParentReference
 	accept bool
 	msg    string
 	reason string
 }
 
-func (r *Route) invalidSectionName(ref gv1b1t.ParentReference, msg string) {
+func (r *Route) invalidSectionName(ref gv1.ParentReference, msg string) {
 	key := RefsToString(ref)
 	status := RouteStatus{
 		ref:    ref,
@@ -55,7 +55,7 @@ func (r *Route) invalidSectionName(ref gv1b1t.ParentReference, msg string) {
 	r.status[key] = status
 }
 
-func (r *Route) accept(ref gv1b1t.ParentReference) {
+func (r *Route) accept(ref gv1.ParentReference) {
 	key := RefsToString(ref)
 	status := RouteStatus{
 		ref:    ref,
@@ -65,7 +65,7 @@ func (r *Route) accept(ref gv1b1t.ParentReference) {
 	r.status[key] = status
 }
 
-func (r *Route) unAllowRouteWithReason(ref gv1b1t.ParentReference, msg string, reason string) {
+func (r *Route) unAllowRouteWithReason(ref gv1.ParentReference, msg string, reason string) {
 	key := RefsToString(ref)
 	status := RouteStatus{
 		ref:    ref,
@@ -76,11 +76,11 @@ func (r *Route) unAllowRouteWithReason(ref gv1b1t.ParentReference, msg string, r
 	r.status[key] = status
 }
 
-func (r *Route) unAllowRoute(ref gv1b1t.ParentReference, msg string) {
+func (r *Route) unAllowRoute(ref gv1.ParentReference, msg string) {
 	r.unAllowRouteWithReason(ref, msg, "")
 }
 
-func (r *Route) invalidKind(ref gv1b1t.ParentReference, msg string) {
+func (r *Route) invalidKind(ref gv1.ParentReference, msg string) {
 	key := RefsToString(ref)
 	status := RouteStatus{
 		ref:    ref,
@@ -96,7 +96,7 @@ func (l *ListenerStatus) conflictProtocol(msg string) {
 		reason string
 		msg    string
 	}{
-		string(gv1b1t.ListenerReasonProtocolConflict),
+		string(gv1.ListenerReasonProtocolConflict),
 		msg,
 	}
 }
@@ -108,18 +108,18 @@ func (l *ListenerStatus) invalidKind(allinvalid bool, invalidkinds []string) {
 		reason string
 		msg    string
 	}{
-		reason: string(gv1b1t.ListenerReasonInvalidRouteKinds),
+		reason: string(gv1.ListenerReasonInvalidRouteKinds),
 		msg:    fmt.Sprintf("invalid kinds %v", invalidkinds),
 	}
 }
 
-func (l ListenerStatus) toConditions(gateway *gv1b1t.Gateway) []metav1.Condition {
+func (l ListenerStatus) toConditions(gateway *gv1.Gateway) []metav1.Condition {
 	if l.valid {
 		return []metav1.Condition{
 			{
-				Type:               string(gv1b1t.ListenerConditionReady),
+				Type:               string(gv1.ListenerConditionReady),
 				Status:             metav1.ConditionTrue,
-				Reason:             string(gv1b1t.ListenerReasonReady),
+				Reason:             string(gv1.ListenerReasonReady),
 				LastTransitionTime: metav1.Now(),
 				ObservedGeneration: gateway.Generation,
 			},
@@ -127,16 +127,16 @@ func (l ListenerStatus) toConditions(gateway *gv1b1t.Gateway) []metav1.Condition
 	}
 	conditions := make([]metav1.Condition, 0)
 	conditions = append(conditions, metav1.Condition{
-		Type:               string(gv1b1t.ListenerConditionReady),
+		Type:               string(gv1.ListenerConditionReady),
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: gateway.Generation,
 		Status:             metav1.ConditionFalse,
-		Reason:             string(gv1b1t.ListenerReasonInvalid),
+		Reason:             string(gv1.ListenerReasonInvalid),
 	})
 
 	if l.conflicted != nil {
 		conditions = append(conditions, metav1.Condition{
-			Type:               string(gv1b1t.ListenerConditionConflicted),
+			Type:               string(gv1.ListenerConditionConflicted),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 			Status:             metav1.ConditionTrue,
@@ -147,7 +147,7 @@ func (l ListenerStatus) toConditions(gateway *gv1b1t.Gateway) []metav1.Condition
 
 	if l.resolvedRefs != nil {
 		conditions = append(conditions, metav1.Condition{
-			Type:               string(gv1b1t.ListenerConditionResolvedRefs),
+			Type:               string(gv1.ListenerConditionResolvedRefs),
 			LastTransitionTime: metav1.Now(),
 			ObservedGeneration: gateway.Generation,
 			Status:             metav1.ConditionFalse,
@@ -159,7 +159,7 @@ func (l ListenerStatus) toConditions(gateway *gv1b1t.Gateway) []metav1.Condition
 }
 
 // TODO move to common
-func RefsToString(ref gv1b1t.ParentReference) string {
+func RefsToString(ref gv1.ParentReference) string {
 	kind := ""
 	if ref.Kind != nil {
 		kind = string(*ref.Kind)

@@ -18,6 +18,51 @@ use Test::Nginx::Socket::Lua::Stream -Base;
 # /policy.new
 
 # to knowing how/why those $block->set_value work, take a look at https://github.com/openresty/test-nginx/blob/be75f595236eef83e4274363e13affdf08b05737/lib/Test/Nginx/Util.pm#L968  
+
+sub gen_https_port_config {
+    my $ports = shift; 
+    my $base = shift; 
+    my @port_list = split(',', $ports);
+    my $result = '';
+    warn "ports is $ports\n";
+    warn "base is $base\n";
+    for (my $i = 0; $i < scalar @port_list; $i++) {
+        my $port = $port_list[$i];
+        $result .= <<__END;
+    server {
+        listen     0.0.0.0:$port ssl http2 backlog=2048;
+        listen     [::]:$port ssl http2 backlog=2048;
+
+        server_name _;
+
+        include       $base/tweak/http_server.conf;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        ssl_certificate $base/nginx/placeholder.crt;
+        ssl_certificate_key $base/nginx/placeholder.key;
+        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_dhparam $base/dhparam.pem;
+
+        location / {
+            set \$upstream default;
+            set \$rule_name "";
+            set \$backend_protocol http;
+
+            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            proxy_pass \$backend_protocol://http_backend;
+            header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
+
+            log_by_lua_block {
+                require("metrics").log()
+            }
+        }
+    }
+__END
+    }
+
+    return $result;
+}
+
 add_block_preprocessor(sub {
     my $block = shift;
     my $base = $ENV{'TEST_BASE'};
@@ -232,7 +277,11 @@ _END_
         $block->set_value("config","");
     }
 
+    my $extra_https_port_config = "";
 
+    if (defined $block->alb_https_port) {
+        $extra_https_port_config = gen_https_port_config("",$block->alb_https_port,$base);
+    }
     my $http_config;
     if (defined $block->http_config) {
         $http_config = $block->http_config;
@@ -398,6 +447,7 @@ _END_
             }
         }
     }
+    $extra_https_port_config
 
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
