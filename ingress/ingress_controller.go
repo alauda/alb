@@ -211,7 +211,6 @@ func (c *Controller) setUpEventHandler() error {
 			}
 		},
 	})
-
 	if err != nil {
 		return err
 	}

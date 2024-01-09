@@ -4,42 +4,32 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/ztrue/tracerr"
 	"k8s.io/client-go/rest"
-	"k8s.io/utils/env"
 
-	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils/log"
 	. "alauda.io/alb2/utils/test_utils"
 	. "alauda.io/alb2/utils/test_utils/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TODO 将部署k8s和部署alb分开
+type KindConfigExt struct {
+	kindcfg      KindConfig
+	workerlabels []string
+	stack        string
+	extraCrds    []string
+}
+
 type AlbK8sCfg struct {
-	kindcfg             KindConfig
-	base                string
-	chart               string
-	chartoverwrite      []string
-	KindName            string
-	DefaultAlbName      string
-	Ns                  string
-	version             string
-	nginx               string
-	extraCrs            []string
-	stack               string
-	mockmetallb         bool
-	metallb             bool
-	v4pool              []string
-	v6pool              []string
-	disableDefault      bool
-	defaultAlbOverwrite string
-	workerlabels        []string
+	Base           string
+	chart          string
+	kindcfg        KindConfigExt
+	Alboperatorcfg AlbOperatorCfg
+	lbsvccfg       LbsvcCtlCfg
 }
 
 func NewAlbK8sCfg() *AlbK8sCfg {
@@ -51,292 +41,334 @@ func (c *AlbK8sCfg) WithChart(chart string) *AlbK8sCfg {
 	return c
 }
 
-func (c *AlbK8sCfg) WithKindName(name string) *AlbK8sCfg {
-	c.KindName = name
-	return c
-}
-
 func (c *AlbK8sCfg) WithDefaultAlbName(name string) *AlbK8sCfg {
-	c.DefaultAlbName = name
+	c.Alboperatorcfg.DefaultAlbName = name
 	return c
 }
 
 func (c *AlbK8sCfg) UseMockLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
-	c.mockmetallb = true
-	c.v4pool = v4p
-	c.v6pool = v6p
+	c.lbsvccfg.mockmetallb = true
+	c.lbsvccfg.v4pool = v4p
+	c.lbsvccfg.v6pool = v6p
 	return c
 }
 
 func (c *AlbK8sCfg) UseMetalLBSvcCtl(v4p, v6p []string) *AlbK8sCfg {
-	c.metallb = true
-	c.v4pool = v4p
-	c.v6pool = v6p
-	return c
-}
-
-func (c *AlbK8sCfg) DualStack() *AlbK8sCfg {
-	c.stack = "dual"
+	c.lbsvccfg.metallb = true
+	c.lbsvccfg.v4pool = v4p
+	c.lbsvccfg.v6pool = v6p
 	return c
 }
 
 func (c *AlbK8sCfg) WithDefaultOverWrite(cfg string) *AlbK8sCfg {
-	c.defaultAlbOverwrite = cfg
+	c.Alboperatorcfg.chartCfgs = []string{cfg}
 	return c
 }
 
 func (c *AlbK8sCfg) WithWorkerLabels(lable []string) *AlbK8sCfg {
-	c.workerlabels = lable
+	c.kindcfg.workerlabels = lable
 	return c
 }
 
-func (c *AlbK8sCfg) Ipv6() *AlbK8sCfg {
-	c.stack = "ipv6"
+func (c *AlbK8sCfg) WithKindNode(image string) *AlbK8sCfg {
+	c.kindcfg.kindcfg.Image = image
 	return c
 }
 
 func (c *AlbK8sCfg) DisableDefaultAlb() *AlbK8sCfg {
-	c.disableDefault = true
+	c.Alboperatorcfg.DisableDefaultAlb = true
 	return c
 }
 
 func (c *AlbK8sCfg) Build() AlbK8sCfg {
 	base := InitBase()
-	c.base = base
-	if c.KindName == "" {
-		c.KindName = "ldev"
-	}
+	c.Base = base
+	kindName := "ldev"
 	if c.chart == "" {
 		chartFromenv := os.Getenv("ALB_KIND_E2E_CHART")
 		if chartFromenv != "" {
 			// CI 环境
 			c.chart = fmt.Sprintf("registry.alauda.cn:60080/acp/chart-alauda-alb2:%s", chartFromenv)
-		} else {
-			c.chart = fmt.Sprintf("%s/deploy/chart/alb", os.Getenv("ALB_ROOT"))
 		}
 	}
 
-	// add branch prefix
-	kindName := fmt.Sprintf("%s-%d", c.KindName, time.Now().Unix())
-	if os.Getenv("DEV_MODE") == "true" {
-		kindName = c.KindName
+	if os.Getenv("DEV_MODE") != "true" {
+		kindName = fmt.Sprintf("%s-%d", kindName, time.Now().Unix())
 	}
-
-	workers := ""
-	for range c.workerlabels {
-		workers = fmt.Sprintf("%s  - role: worker\n", workers)
+	if c.kindcfg.kindcfg.Name == "" {
+		c.kindcfg.kindcfg.Name = kindName
 	}
-
-	c.kindcfg = KindConfig{
-		Base:  c.base,
-		Name:  kindName,
-		Image: "kindest/node:v1.24.3",
-		ClusterYaml: Template(`
+	if c.kindcfg.stack == "" {
+		c.kindcfg.stack = "ipv4"
+	}
+	if c.kindcfg.kindcfg.Image == "" {
+		c.kindcfg.kindcfg.Image = "kindest/node:v1.24.3"
+	}
+	c.kindcfg = KindConfigExt{
+		kindcfg: KindConfig{
+			Base:  c.Base,
+			Name:  kindName,
+			Image: c.kindcfg.kindcfg.Image,
+			ClusterYaml: Template(`
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
-  ipFamily: {{.ipFamily}}
-  apiServerAddress: "127.0.0.1"
+    ipFamily: {{.ipFamily}}
+    apiServerAddress: "127.0.0.1"
 nodes:
-  - role: control-plane
-{{.workers}}
+   - role: control-plane
+   {{- range $w := .workers }}
+   {{ $w }}
+   {{- end }}
 containerdConfigPatches:
 - |-
-   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.alauda.cn:60080"] endpoint = ["http://registry.alauda.cn:60080"]
-`, map[string]interface{}{"ipFamily": c.stack, "workers": workers}),
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.alauda.cn:60080"] endpoint = ["http://registry.alauda.cn:60080"]
+`, map[string]interface{}{"ipFamily": c.kindcfg.stack, "workers": c.kindcfg.workerlabels}),
+		},
 	}
-	if c.DefaultAlbName == "" {
-		c.DefaultAlbName = "default-alb"
-	}
-	c.chartoverwrite = []string{
-		Template(`
-operator:
-  albImagePullPolicy: IfNotPresent
-operatorDeployMode: "deployment"
-defaultAlb: {{.defaultAlb}}
-operatorReplicas: 1
-projects: [ALL_ALL]
-displayName: ""
-global:
-    labelBaseDomain: cpaas.io
-    namespace: cpaas-system
-    registry:
-      address: registry.alauda.cn:60080
-loadbalancerName: {{.name}}
-replicas: 1
-`, map[string]interface{}{"name": c.DefaultAlbName, "defaultAlb": !c.disableDefault}),
-		c.defaultAlbOverwrite,
-	}
-	ns := "cpaas-system"
-	c.Ns = ns
-	root := os.Getenv("ALB_ROOT")
-	if root != "" {
-		albroot := env.GetString("ALB_ROOT", "")
-		c.extraCrs = append(c.extraCrs, path.Join(albroot, "scripts", "yaml", "crds", "extra", "v1"))
-	}
-	crs := os.Getenv("ALB_EXTRA_CRS")
-	if crs != "" {
-		c.extraCrs = append(c.extraCrs, crs)
-	}
-	c.nginx = "registry.alauda.cn:60080/acp/alb-nginx:v3.12.2"
 	return *c
 }
 
-type AlbK8sExt struct {
-	Kind         *KindExt
-	docker       *DockerExt
-	helm         *Helm
-	Kubectl      *Kubectl
-	Kubecliet    *K8sClient
-	albChart     *AlbChartExt
-	kubecfg      *rest.Config
-	Log          logr.Logger
-	deployAssert *DeploymentAssert
-}
-
 type AlbK8sCtx struct {
-	Ctx context.Context
-	Cfg AlbK8sCfg
-	AlbK8sExt
+	Cfg      AlbK8sCfg
+	Ctx      context.Context
+	Kind     *KindExt
+	Kubecfg  *rest.Config
+	opctl    *AlbOperatorCtl
+	albChart *AlbChartExt
+	Log      logr.Logger
 }
 
 func NewAlbK8sCtx(ctx context.Context, cfg AlbK8sCfg) *AlbK8sCtx {
 	return &AlbK8sCtx{Ctx: ctx, Cfg: cfg}
 }
 
-func (a *AlbK8sCtx) initExt() error {
-	l := a.Log
-	ctx := a.Ctx
-	base := a.Cfg.base
-	kubecfg, err := a.Kind.GetConfig()
-	a.kubecfg = kubecfg
-	if err != nil {
+func (a *AlbK8sCtx) Init() error {
+	l := log.L()
+	l.Info("init", "cfg", a.Cfg)
+	a.Log = l
+
+	if err := a.initKind(); err != nil {
 		return err
 	}
 
-	d := NewDockerExt(l.WithName("docker"))
-	a.docker = &d
-
-	kc := NewK8sClient(ctx, kubecfg)
-	a.Kubecliet = kc
-
-	k := NewKubectl(base, kubecfg, l)
-	a.Kubectl = k
-
-	helm := NewHelm(base, kubecfg, l)
-	a.helm = helm
-
-	albchart, err := NewAlbChart().WithBase(base).WithHelm(helm).WithLog(l).Load(a.Cfg.chart)
-	if err != nil {
+	if err := a.initChart(); err != nil {
 		return err
 	}
-	a.albChart = albchart
 
-	deployAssert := NewDeploymentAssert(kc, l)
-	a.deployAssert = deployAssert
+	if err := a.initAlbOperator(); err != nil {
+		return err
+	}
+
+	if err := a.initMetallb(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (a *AlbK8sCtx) Init() error {
-	l := log.L()
-	KindGC(l)
-	l.Info("init", "cfg", a.Cfg)
-	a.Log = l
-	base := a.Cfg.base
+type LbsvcCtlCfg struct {
+	mockmetallb bool
+	metallb     bool
+	v4pool      []string
+	v6pool      []string
+}
 
-	kind, err := DeployOrAdopt(a.Cfg.kindcfg, base, a.Cfg.kindcfg.Name, l)
+func (a *AlbK8sCtx) initMetallb() error {
+	cfg := a.Cfg.lbsvccfg
+	if cfg.mockmetallb {
+		m := NewMockMetallb(a.Ctx, a.Kubecfg, cfg.v4pool, cfg.v6pool, []string{}, a.Log)
+		go m.Start()
+	}
+	if cfg.metallb {
+		m := NewMetallbInstaller(a.Ctx, a.Cfg.Base, a.Kubecfg, a.Kind, cfg.v4pool, cfg.v6pool, a.Log)
+		m.Init()
+	}
+	return nil
+}
+
+func (a *AlbK8sCtx) initAlbOperator() error {
+	l := a.Log
+	opctl, err := NewAlbOperatorCtl(a.Ctx, a.Cfg.Base, a.Log, a.Kind, a.albChart)
+	if err != nil {
+		return err
+	}
+	a.opctl = opctl
+	l.Info("clean alb operator")
+	opctl.clean()
+	l.Info("deploy alb operator chart")
+	if err := opctl.init(a.Cfg.Alboperatorcfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *AlbK8sCtx) DeployEchoResty() error {
+	e := NewEchoResty(a.Cfg.Base, a.Kubecfg, a.Log)
+	_, nginx, err := a.albChart.GetImage()
+	if err != nil {
+		return err
+	}
+	a.Log.Info("nginx", "image", nginx)
+	return e.Deploy(EchoCfg{Name: "echo-resty", Image: nginx, Ip: "v4"})
+}
+
+func (a *AlbK8sCtx) Destroy() error {
+	if os.Getenv("DEV_MODE") != "true" {
+		KindDelete(a.Cfg.kindcfg.kindcfg.Name)
+	}
+	return nil
+}
+
+func (a *AlbK8sCtx) initKind() error {
+	l := a.Log
+	kind, err := DeployOrAdopt(a.Cfg.kindcfg.kindcfg, a.Cfg.Base, a.Cfg.kindcfg.kindcfg.Name, l)
+	if err != nil {
+		return err
+	}
+	cfg, err := kind.GetConfig()
+	a.Kubecfg = cfg
 	if err != nil {
 		return err
 	}
 	a.Kind = kind
+	kc := NewKubectl(a.Cfg.Base, cfg, l)
 	l.Info("kind", "name", kind.Name)
-	a.initExt()
-	for i, label := range a.Cfg.workerlabels {
+	for i, label := range a.Cfg.kindcfg.workerlabels {
 		i++
 		name := fmt.Sprintf("%d", i)
 		if i == 1 {
 			name = ""
 		}
-		a.Kubectl.Kubectl(fmt.Sprintf("label nodes %s-worker%s %s", kind.Name, name, label))
+		kc.Kubectl(fmt.Sprintf("label nodes %s-worker%s %s", kind.Name, name, label))
 	}
-	version, err := a.albChart.GetVersion()
-	if err != nil {
-		return err
-	}
-	a.Cfg.version = version
-	// check all nodes ready
-	out, err := a.Kubectl.Kubectl("get", "nodes")
-	if err != nil {
-		return err
-	}
-	l.Info("x nodes", "out", out)
-	{
-		// load basic image used for test
-		err := kind.LoadImage(a.Cfg.nginx)
+
+	l.Info("install extra crs ", "cr", a.Cfg.kindcfg.extraCrds)
+	for _, p := range a.Cfg.kindcfg.extraCrds {
+		_, err = kc.Kubectl("apply", "-R", "-f", p, "--force")
 		if err != nil {
-			return tracerr.Wrap(err)
+			return err
 		}
 	}
-	l.Info("x nodes", "out", out)
-
-	if err := a.DeployAlbOperator(); err != nil {
-		return err
-	}
-	if a.Cfg.mockmetallb {
-		m := NewMockMetallb(a.Ctx, a.kubecfg, a.Cfg.v4pool, a.Cfg.v6pool, []string{}, a.Log)
-		go m.Start()
-	}
-	if a.Cfg.metallb {
-		m := NewMetallbInstaller(a.Ctx, base, a.kubecfg, a.Kind, a.docker, a.Cfg.v4pool, a.Cfg.v6pool, a.Log)
-		m.Init()
-	}
-
 	return nil
 }
 
-// 给定kubecfg部署一个alb
-// 包括同步镜像之类的
-func (a *AlbK8sCtx) DeployAlbOperator() error {
-	l := a.Log
-	err := a.CleanUpAll()
+func (a *AlbK8sCtx) initChart() error {
+	albchart, err := NewAlbChart().WithBase(a.Cfg.Base).WithLog(a.Log).Load(a.Cfg.chart)
 	if err != nil {
 		return err
 	}
-	l.Info("deploy alb operator chart")
-	if err := a.DeployOperator(); err != nil {
-		return err
-	}
-
+	a.albChart = albchart
 	return nil
 }
 
-func (a *AlbK8sCtx) CleanUpAll() error {
-	a.Log.Info("clean up first")
+type AlbOperatorCtl struct {
+	log     logr.Logger
+	kind    *KindExt
+	chart   *AlbChartExt
+	docker  *DockerExt
+	Kubectl *Kubectl
+	Kubecli *K8sClient
+	helm    *Helm
+	cfg     AlbOperatorCfg
+	ctx     context.Context
+}
+
+func NewAlbOperatorCtl(ctx context.Context, base string, log logr.Logger, kind *KindExt, chart *AlbChartExt) (*AlbOperatorCtl, error) {
+	l := log
+	d := NewDockerExt(log.WithName("docker"))
+	cfg, err := kind.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	helm := NewHelm(base, cfg, l)
+	Kubectl := NewKubectl(base, cfg, l)
+	cli := NewK8sClient(ctx, cfg)
+	return &AlbOperatorCtl{ctx: ctx, log: l, kind: kind, chart: chart, docker: &d, helm: helm, Kubectl: Kubectl, Kubecli: cli}, nil
+}
+
+type AlbOperatorCfg struct {
+	chartCfgs         []string
+	OperatorNs        string
+	DefaultAlbName    string
+	DefaultAlbNS      string
+	DisableDefaultAlb bool
+}
+
+func (a *AlbOperatorCtl) init(cfg AlbOperatorCfg) error {
+	a.cfg = cfg
+	l := a.log
+	docker := a.docker
+	helm := a.helm
+	if cfg.OperatorNs == "" {
+		cfg.OperatorNs = "kube-system"
+	}
+	if cfg.DefaultAlbName == "" {
+		cfg.DefaultAlbName = ""
+	}
+	if cfg.DefaultAlbNS == "" {
+		cfg.DefaultAlbNS = "default"
+	}
+	// load image in kind
+	images, err := a.chart.ListImage()
+	if err != nil {
+		return err
+	}
+	err = docker.PullIfNotFound(images...)
+	if err != nil {
+		return err
+	}
+	l.Info("load images into kind", "images", images)
+	err = a.kind.LoadImage(images...)
+	if err != nil {
+		l.Error(err, "load image failed", "images", images)
+		return tracerr.Wrap(err)
+	}
+
+	chart := a.chart.GetChartDir()
+	out, err := helm.Install(cfg.chartCfgs, "alb-operator", chart, chart+"/values.yaml")
+	if err != nil {
+		return err
+	}
+	l.Info("chart install", "out", out)
+
+	assert := NewDeploymentAssert(a.Kubecli, l)
+	assert.WaitReady(a.ctx, "alb-operator", cfg.OperatorNs)
+	if !cfg.DisableDefaultAlb {
+		assert.WaitReady(a.ctx, cfg.DefaultAlbName, cfg.DefaultAlbNS)
+	}
+	return nil
+}
+
+func (a *AlbOperatorCtl) clean() error {
 	rs, err := a.Kubectl.Kubectl("api-resources")
+	l := a.log
+	ns := a.cfg.DefaultAlbNS
+	kcli := a.Kubecli
 	if err != nil {
 		return err
 	}
 	if strings.Contains(rs, "alaudaloadbalancer2") {
 		// delete all alb
-		a.Log.Info("delete all albs")
+		l.Info("delete all albs")
 		Wait(func() (bool, error) {
 			{
-				albs, err := a.Kubecliet.GetAlbClient().CrdV2beta1().ALB2s(a.Cfg.Ns).List(a.Ctx, metav1.ListOptions{})
+				albs, err := kcli.GetAlbClient().CrdV2beta1().ALB2s(ns).List(a.ctx, metav1.ListOptions{})
 				if err != nil {
 					return false, err
 				}
 				for _, alb := range albs.Items {
 					alb.Finalizers = nil
-					a.Kubecliet.GetAlbClient().CrdV2beta1().ALB2s(a.Cfg.Ns).Update(a.Ctx, &alb, metav1.UpdateOptions{})
-					a.Kubecliet.GetAlbClient().CrdV2beta1().ALB2s(a.Cfg.Ns).Delete(a.Ctx, alb.Name, metav1.DeleteOptions{})
+					kcli.GetAlbClient().CrdV2beta1().ALB2s(ns).Update(a.ctx, &alb, metav1.UpdateOptions{})
+					kcli.GetAlbClient().CrdV2beta1().ALB2s(ns).Delete(a.ctx, alb.Name, metav1.DeleteOptions{})
 				}
 			}
-			albs, err := a.Kubecliet.GetAlbClient().CrdV2beta1().ALB2s(a.Cfg.Ns).List(a.Ctx, metav1.ListOptions{})
+			albs, err := kcli.GetAlbClient().CrdV2beta1().ALB2s(ns).List(a.ctx, metav1.ListOptions{})
 			if err != nil {
 				return false, err
 			}
-			a.Log.Info("albs", "items", albs.Items)
+			l.Info("albs", "items", albs.Items)
 			if len(albs.Items) != 0 {
 				return false, nil
 			}
@@ -344,98 +376,10 @@ func (a *AlbK8sCtx) CleanUpAll() error {
 		})
 	}
 	// uninstall operator
-	a.Log.Info("uninstall helm")
+	l.Info("uninstall helm")
 	a.helm.UnInstallAll()
-	a.Log.Info("clean rbac")
+	l.Info("clean rbac")
 	a.Kubectl.Kubectl("delete clusterrolebindings.rbac.authorization.k8s.io alb-operator")
 	a.Kubectl.Kubectl("delete clusterroles.rbac.authorization.k8s.io alb-operator")
-	return nil
-}
-
-func (a *AlbK8sCtx) DeployOperator() error {
-	l := a.Log
-	helm := a.helm
-	ac := a.albChart
-	d := a.docker
-	kind := a.Kind
-	kc := a.Kubecliet
-	ns := a.Cfg.Ns
-	kubectl := a.Kubectl
-	name := a.Cfg.KindName
-	cfgs := a.Cfg.chartoverwrite
-	chartBase := ac.chart
-	images, err := ac.ListImage()
-	if err != nil {
-		return err
-	}
-	err = d.PullIfNotFound(images...)
-	if err != nil {
-		return err
-	}
-	err = kind.LoadImage(images...)
-	if err != nil {
-		l.Error(err, "load image failed", "images", images)
-		return tracerr.Wrap(err)
-	}
-
-	l.Info("create ns if not exist", "ns", ns)
-	err = kc.CreateNsIfNotExist(ns)
-	if err != nil {
-		return err
-	}
-	out, err := kubectl.Kubectl("get", "ns", "-A")
-	l.Info("ns", "ns", out)
-	if err != nil {
-		return err
-	}
-	l.Info("install extra crs ", "cr", a.Cfg.extraCrs)
-	for _, p := range a.Cfg.extraCrs {
-		_, err = kubectl.Kubectl("apply", "-R", "-f", p, "--force")
-		if err != nil {
-			return err
-		}
-	}
-	_, err = helm.UnInstall(name)
-	if err != nil {
-		return err
-	}
-	out, err = kubectl.Kubectl("get", "ns", "-A")
-	l.Info("ns", "ns", out)
-	if err != nil {
-		return err
-	}
-	out, err = helm.Install(cfgs, name, chartBase, chartBase+"/values.yaml")
-	if err != nil {
-		return err
-	}
-	l.Info("chart install", "out", out)
-	a.deployAssert.WaitReady(a.Ctx, "alb-operator", a.Cfg.Ns)
-	if !a.Cfg.disableDefault {
-		a.deployAssert.WaitReady(a.Ctx, a.Cfg.DefaultAlbName, a.Cfg.Ns)
-	}
-	return nil
-}
-
-func (a *AlbK8sCtx) DeployEchoResty() error {
-	e := NewEchoResty(a.Cfg.base, a.kubecfg, a.Log)
-	return e.Deploy(EchoCfg{Name: "echo-resty", Image: a.Cfg.nginx, Ip: "v4"})
-}
-
-func (a *AlbK8sCtx) DeployAlb(yaml string, name string, ns string) {
-	a.Kubectl.AssertKubectlApply(yaml)
-	Wait(func() (bool, error) {
-		alb, err := a.Kubecliet.GetAlbClient().CrdV2beta1().ALB2s(ns).Get(a.Ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		a.Log.Info("status", "alb", alb.Status)
-		return alb.Status.State == v2beta1.ALB2StateRunning, nil
-	})
-}
-
-func (a *AlbK8sCtx) Destroy() error {
-	if os.Getenv("DEV_MODE") != "true" {
-		KindDelete(a.Cfg.KindName)
-	}
 	return nil
 }

@@ -11,7 +11,7 @@ function alb-install-nginx-test-dependency-ubuntu() {
 }
 
 function alb-install-nginx-test-dependency-arch() {
-  yay -S openresty luarocks luacheck lua51 perl-app-cpanminus wget curl make base-devel perl git neovim bash yq jq tree fd openssl
+  yay -S luarocks luacheck lua51 perl-app-cpanminus wget curl make base-devel cpanminus perl git neovim bash yq jq tree fd openssl
   # export PATH=/opt/openresty/bin:$PATH
   # export PATH=/opt/openresty/nginx/sbin:$PATH
   # init the openresty

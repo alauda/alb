@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = ginkgo.Describe("SharedGateway", func() {
@@ -75,7 +75,7 @@ var _ = ginkgo.Describe("SharedGateway", func() {
 		// should create a gatewayclass, and mark it's as accept
 		f.Wait(func() (bool, error) {
 			Logf("wait gateway class")
-			c := f.GetGatewayClient().GatewayV1beta1().GatewayClasses()
+			c := f.GetGatewayClient().GatewayV1().GatewayClasses()
 			class, err := c.Get(ctx, f.AlbName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				Logf("gateway class not found")
@@ -90,7 +90,7 @@ var _ = ginkgo.Describe("SharedGateway", func() {
 		})
 		// our gateway controller controls all gateways, which has specified classname
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -106,7 +106,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g2
@@ -121,7 +121,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g3
@@ -136,14 +136,20 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g4
     namespace: {{.ns}}
 spec:
     gatewayClassName: alb-dev
-    listeners: []
+    listeners:
+    - name: http
+      port: 9236
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
 `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
 		assert.NoError(ginkgo.GinkgoT(), err)
 
@@ -163,7 +169,7 @@ spec:
 			return f.CheckGatewayStatus(client.ObjectKey{Name: "g4", Namespace: ns}, []string{f.GetAlbAddress()})
 		})
 		f.Wait(func() (bool, error) {
-			g, err := f.GetGatewayClient().GatewayV1beta1().Gateways(ns).Get(ctx, "g3", metav1.GetOptions{})
+			g, err := f.GetGatewayClient().GatewayV1().Gateways(ns).Get(ctx, "g3", metav1.GetOptions{})
 			assert.NoError(ginkgo.GinkgoT(), err)
 			return Gateway(*g).WaittingController(), nil
 		})
@@ -171,7 +177,7 @@ spec:
 
 	GIt("allowedRoutes should ok", func() {
 		gateway_router_status := func(key client.ObjectKey, desired_router int32) (bool, error) {
-			g, err := f.GetGatewayClient().GatewayV1beta1().Gateways(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
+			g, err := f.GetGatewayClient().GatewayV1().Gateways(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return false, nil
 			}
@@ -195,7 +201,7 @@ spec:
 		// HTTPRoute:h3不可以attach到gateway:g1的listeners:listener-test，
 		// 因为g1 listener.allowedRoutes.namespaces.from: Same，而h3 namespace: fake-ns不对应
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -221,7 +227,7 @@ spec:
 			Project: "project1",
 		})
 		_, err2 := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -247,7 +253,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -270,7 +276,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h3
@@ -310,7 +316,7 @@ spec:
 			},
 		})
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -329,7 +335,7 @@ spec:
               matchLabels:
                   a: b
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -352,7 +358,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -376,7 +382,7 @@ spec:
           weight: 1
 `, map[string]interface{}{"ns": ns, "ns1": ns1, "class": f.AlbName}))
 		pref := NewParentRef(ns, "g1", "l1")
-		f.WaitHttpRouteStatus(ns, "h1", pref, func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitHttpRouteStatus(ns, "h1", pref, func(status gv1.RouteParentStatus) (bool, error) {
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" &&
 				strings.Contains(condition.Message, "ns selector not match") &&
@@ -386,7 +392,7 @@ spec:
 			return ret, nil
 		})
 
-		f.WaitHttpRouteStatus(ns1, "h2", pref, func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitHttpRouteStatus(ns1, "h2", pref, func(status gv1.RouteParentStatus) (bool, error) {
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" &&
 				condition.Status == "True" &&
@@ -398,7 +404,7 @@ spec:
 
 	GIt("http route with uninterocp hostname with listener should mark as reject", func() {
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -414,7 +420,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -437,7 +443,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2
@@ -461,7 +467,7 @@ spec:
           weight: 1
 `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
 		pref := NewParentRef(ns, "g1", "l1")
-		f.WaitHttpRouteStatus(ns, "h1", pref, func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitHttpRouteStatus(ns, "h1", pref, func(status gv1.RouteParentStatus) (bool, error) {
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" &&
 				strings.Contains(condition.Message, "no intersection hostname") &&
@@ -471,7 +477,7 @@ spec:
 			return ret, nil
 		})
 
-		f.WaitHttpRouteStatus(ns, "h2", pref, func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitHttpRouteStatus(ns, "h2", pref, func(status gv1.RouteParentStatus) (bool, error) {
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" &&
 				condition.Status == "True" &&
@@ -483,7 +489,7 @@ spec:
 
 	GIt("ignore listener which is our default metrics port", func() {
 		_ = f.AssertKubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -521,7 +527,7 @@ spec:
             port: 80
             weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -546,14 +552,14 @@ spec:
 `, map[string]interface{}{"ns": ns, "class": f.AlbName}))
 		Logf("test for gateway with metrics")
 
-		f.WaitHttpRouteStatus(ns, "h1", NewParentRef(ns, "g1", "demo"), func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitHttpRouteStatus(ns, "h1", NewParentRef(ns, "g1", "demo"), func(status gv1.RouteParentStatus) (bool, error) {
 			Logf("h1 status %+v", PrettyJson(status))
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" && condition.Status == "True"
 			return ret, nil
 		})
 
-		f.WaitTcpRouteStatus(ns, "t1", NewParentRef(ns, "g1", "metrics"), func(status gv1b1t.RouteParentStatus) (bool, error) {
+		f.WaitTcpRouteStatus(ns, "t1", NewParentRef(ns, "g1", "metrics"), func(status gv1.RouteParentStatus) (bool, error) {
 			Logf("t1 status %+v", PrettyJson(status))
 			condition := status.Conditions[0]
 			ret := condition.Type == "Ready" && condition.Status == "False" && condition.Reason == "ReservedPortUsed"

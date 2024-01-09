@@ -46,6 +46,7 @@ type ControllerConfig struct {
 	DefaultSSLStrategy string
 	MaxTermSeconds     int
 	ReloadTimeout      int
+	Interval           int
 	CpuPreset          int
 	WorkerLimit        int
 	GoMonitorPort      int
@@ -153,7 +154,7 @@ const (
 	STATUS_FILE_PARENT_PATH_VAL string = "/etc/alb2/nginx/last_status"
 	TWEAK_DIR_VAL               string = "/alb/tweak/"
 	INTERVAL_VAL                int    = 5
-	DEFAULT_RELOAD_TIMEOUT_VAL  int    = 30
+	DEFAULT_RELOAD_TIMEOUT_VAL  int    = 600
 )
 
 func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
@@ -172,6 +173,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 		coreV1.EnvVar{Name: DEFAULT_SSL_CERTIFICATE, Value: a.Controller.SSLCert},
 		coreV1.EnvVar{Name: MAX_TERM_SECONDS, Value: IntToEnv(a.Controller.MaxTermSeconds)},
 		coreV1.EnvVar{Name: RELOAD_TIMEOUT, Value: IntToEnv(a.Controller.ReloadTimeout)},
+		coreV1.EnvVar{Name: INTERVAL, Value: IntToEnv(a.Controller.Interval)},
 		coreV1.EnvVar{Name: ENABLE_GC, Value: BoolToEnv(a.Controller.Flags.EnableGC)},
 		coreV1.EnvVar{Name: ENABLE_GC_APP_RULE, Value: BoolToEnv(a.Controller.Flags.EnableGCAppRule)},
 		coreV1.EnvVar{Name: ENABLE_PROMETHEUS, Value: BoolToEnv(a.Controller.Flags.EnablePrometheus)},
@@ -253,6 +255,7 @@ func controllerFromEnv(env map[string]string, c *ALBRunConfig) {
 	c.Controller.DefaultSSLStrategy = env[DEFAULT_SSL_STRATEGY]
 	c.Controller.MaxTermSeconds = ToInt(env[MAX_TERM_SECONDS])
 	c.Controller.ReloadTimeout = ToInt(env[RELOAD_TIMEOUT])
+	c.Controller.Interval = ToInt(env[INTERVAL])
 	c.Controller.CpuPreset = ToInt(env[CPU_PRESET])
 	c.Controller.WorkerLimit = ToInt(env[WORKER_LIMIT])
 	c.Controller.ResyncPeriod = ToInt(env[RESYNC_PERIOD])

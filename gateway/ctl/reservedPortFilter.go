@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const RouteNotReadyReasonReservedPort = "ReservedPortUsed"

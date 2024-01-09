@@ -20,6 +20,7 @@ type KindConfig struct {
 	Name        string
 	Image       string
 	ClusterYaml string
+	ExtraCrds   []string
 }
 
 func KindDelete(name string) error {

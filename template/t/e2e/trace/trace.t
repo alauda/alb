@@ -10,7 +10,7 @@ server {
     listen 1880;
     location / {
        content_by_lua_block {
-            require("e2e.trace.route").as_backend(1880)
+            require("e2e.trace.trace").as_backend(1880)
       }
     }
 }
@@ -30,6 +30,6 @@ __DATA__
 --- policy eval: ""
 --- http_config eval: $::http_config
 --- disable_init_worker
---- init_worker_eval: require("e2e.trace.route").init_worker()
+--- init_worker_eval: require("mock_worker_init").init_worker()
 --- timeout: 9999999
---- lua_test_eval: require("e2e.trace.route").test()
+--- lua_test_eval: require("e2e.trace.trace").test()

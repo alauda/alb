@@ -1,6 +1,8 @@
 package ctl
 
 import (
+	"context"
+
 	"alauda.io/alb2/utils"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlBuilder "sigs.k8s.io/controller-runtime/pkg/builder"
@@ -9,10 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Builder {
@@ -46,7 +47,7 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 	// ignore status change
 	options := ctrlBuilder.WithPredicates(routePredicate, predicate.GenerationChangedPredicate{})
 
-	eventhandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) []reconcile.Request {
+	eventhandler := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 		find, keys, err := findGatewayByRouteObject(ctx, c, o, g.cfg.GatewaySelector)
 		log.Info("find gateway by route", "find", find, "key", keys, "err", err)
 		if !find {
@@ -75,9 +76,9 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 	udpRoute := gv1a2t.UDPRoute{}
 	_ = utils.AddTypeInformationToObject(scheme, &udpRoute)
 
-	b = b.Watches(&source.Kind{Type: &httpRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &tcpRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &tlspRoute}, eventhandler, options)
-	b = b.Watches(&source.Kind{Type: &udpRoute}, eventhandler, options)
+	b = b.Watches(&httpRoute, eventhandler, options)
+	b = b.Watches(&tcpRoute, eventhandler, options)
+	b = b.Watches(&tlspRoute, eventhandler, options)
+	b = b.Watches(&udpRoute, eventhandler, options)
 	return b
 }

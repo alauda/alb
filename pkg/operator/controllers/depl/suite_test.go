@@ -137,7 +137,7 @@ spec:
 		assert.NoError(t, err)
 		exp, err := dep.GenExpectAlbDeploy(ctx, cur)
 		assert.NoError(t, err)
-		_, err = dep.DoUpdate(ctx, cur, exp)
+		_, _, err = dep.DoUpdate(ctx, cur, exp)
 		assert.NoError(t, err)
 	})
 

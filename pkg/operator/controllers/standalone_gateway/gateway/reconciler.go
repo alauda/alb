@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	. "alauda.io/alb2/pkg/operator/controllers/types"
 	. "alauda.io/alb2/pkg/operator/toolkit"
@@ -31,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlBuilder "sigs.k8s.io/controller-runtime/pkg/builder"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type GatewayReconciler struct {
@@ -56,7 +55,7 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Log.Info("set up gateway reconcile")
 
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&gv1b1t.Gateway{}, builder.WithPredicates(
+		For(&gv1.Gateway{}, builder.WithPredicates(
 			predicate.And(
 				r.ignoreNotSharedGateway(),
 			),
@@ -68,7 +67,7 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *GatewayReconciler) ignoreNotSharedGateway() predicate.Funcs {
 	ignore := func(object ctrcli.Object) bool {
-		g, ok := object.(*gv1b1t.Gateway)
+		g, ok := object.(*gv1.Gateway)
 		if !ok {
 			return false
 		}
@@ -81,8 +80,8 @@ func (r *GatewayReconciler) ignoreNotSharedGateway() predicate.Funcs {
 			return ignore(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldgw := e.ObjectOld.(*gv1b1t.Gateway)
-			newgw := e.ObjectNew.(*gv1b1t.Gateway)
+			oldgw := e.ObjectOld.(*gv1.Gateway)
+			newgw := e.ObjectNew.(*gv1.Gateway)
 			if oldgw.Spec.GatewayClassName != STAND_ALONE_GATEWAY_CLASS && newgw.Spec.GatewayClassName != STAND_ALONE_GATEWAY_CLASS {
 				return false
 			}
@@ -105,7 +104,7 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return res, err
 }
 
-func (r *GatewayReconciler) gatewayclassChange(ctx context.Context, g *gv1b1t.Gateway) (ctrl.Result, error) {
+func (r *GatewayReconciler) gatewayclassChange(ctx context.Context, g *gv1.Gateway) (ctrl.Result, error) {
 	_, err := r.gatewayDeleted(ctx, ctrl.Request{
 		NamespacedName: types.NamespacedName{Namespace: g.Namespace, Name: g.Name},
 	})
@@ -169,7 +168,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *GatewayReconciler) getAlbFromLabel(ctx context.Context, g *gv1b1t.Gateway) (alb *albv2.ALB2, err error) {
+func (r *GatewayReconciler) getAlbFromLabel(ctx context.Context, g *gv1.Gateway) (alb *albv2.ALB2, err error) {
 	albName := getRefedAlb(g.Labels, r.OperatorCf.BaseDomain)
 	r.log.Info("getalbfromlabel", "name", albName, "g", client.ObjectKeyFromObject(g))
 	if albName == "" {
@@ -192,7 +191,7 @@ func getRefedAlb(labels map[string]string, domain string) string {
 	return labels[fmt.Sprintf(FMT_ALB_REF, domain)]
 }
 
-func (r *GatewayReconciler) findOrbuildAlb(ctx context.Context, g *gv1b1t.Gateway) (*albv2.ALB2, bool, error) {
+func (r *GatewayReconciler) findOrbuildAlb(ctx context.Context, g *gv1.Gateway) (*albv2.ALB2, bool, error) {
 	// list all alb and find the one match the gateway
 	albs, err := r.findAlb(ctx, g.Namespace, g.Name)
 	if err != nil {
@@ -233,7 +232,7 @@ func (r *GatewayReconciler) findAlb(ctx context.Context, ns string, name string)
 	return albs, nil
 }
 
-func (r *GatewayReconciler) buildAlb(g *gv1b1t.Gateway) *albv2.ALB2 {
+func (r *GatewayReconciler) buildAlb(g *gv1.Gateway) *albv2.ALB2 {
 	mode := albv2.GatewayModeStandAlone
 	network := albv2.CONTAINER_MODE
 	return &albv2.ALB2{
@@ -293,7 +292,7 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 		defer cancel()
 		key := client.ObjectKey{Namespace: gcfg.GatewayNS, Name: gcfg.GatewayName}
-		g := &gv1b1t.Gateway{}
+		g := &gv1.Gateway{}
 		err = r.Get(ctx, key, g)
 		if k8serrors.IsNotFound(err) {
 			return false
@@ -335,7 +334,7 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 	}
 	options := ctrlBuilder.WithPredicates(predicate)
 
-	eventhandler := handler.EnqueueRequestsFromMapFunc(func(o client.Object) (ret []reconcile.Request) {
+	eventhandler := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) (ret []reconcile.Request) {
 		alb, ok := o.(*albv2.ALB2)
 		if !ok {
 			return ret
@@ -360,16 +359,16 @@ func (r *GatewayReconciler) watchAlb(b *ctrl.Builder) {
 			},
 		}
 	})
-	b.Watches(&source.Kind{Type: &alb}, eventhandler, options)
+	b.Watches(&alb, eventhandler, options)
 }
 
-func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, g *gv1b1t.Gateway, alb *albv2.ALB2) error {
+func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, g *gv1.Gateway, alb *albv2.ALB2) error {
 	albReady := alb.Status.State == albv2.ALB2StateRunning
 	albErrMsg := alb.Status.Reason
 	gwReady := false
 	gwOriginMsg := ""
 	cond, index, find := lo.FindIndexOf(g.Status.Conditions, func(c metav1.Condition) bool {
-		return c.Type == string(gv1b1t.GatewayConditionAccepted)
+		return c.Type == string(gv1.GatewayConditionAccepted)
 	})
 	if find {
 		gwReady = cond.Status == metav1.ConditionTrue
@@ -383,7 +382,7 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, g *gv1b1t.G
 		// 和前端保持兼容
 		g.Status.Conditions[index].LastTransitionTime = metav1.Now()
 		g.Status.Conditions[index].Status = metav1.ConditionUnknown
-		g.Status.Conditions[index].Reason = string(gv1b1t.GatewayReasonPending)
+		g.Status.Conditions[index].Reason = string(gv1.GatewayReasonPending)
 		g.Status.Conditions[index].Message = albErrMsg
 		return r.Status().Update(ctx, g)
 	}

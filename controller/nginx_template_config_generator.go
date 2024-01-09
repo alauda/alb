@@ -93,7 +93,12 @@ func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, 
 func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 bool) (ipv4Address []string, ipv6Address []string, err error) {
 	if len(bindNICConfig.Nic) == 0 {
 		klog.Info("[bind_nic] without config bind 0.0.0.0")
-		return []string{"0.0.0.0"}, []string{"[::]"}, nil
+		ipv4 := []string{"0.0.0.0"}
+		ipv6 := []string{"[::]"}
+		if !enableIpv6 {
+			ipv6 = []string{}
+		}
+		return ipv4, ipv6, nil
 	}
 
 	ipv4Address = []string{}
@@ -108,6 +113,9 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 			continue
 		}
 		ipv4Address = append(ipv4Address, iface.IpV4Address...)
+		if !enableIpv6 {
+			continue
+		}
 		for _, ipv6Addr := range iface.IpV6Address {
 			if !utils.IsIPv6Link(ipv6Addr) {
 				ipv6Address = append(ipv6Address, fmt.Sprintf("[%s]", ipv6Addr))

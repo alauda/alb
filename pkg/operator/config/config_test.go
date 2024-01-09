@@ -234,8 +234,12 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Value: "true",
 		},
 		{
+			Name:  "INTERVAL",
+			Value: "5",
+		},
+		{
 			Name:  "RELOAD_TIMEOUT",
-			Value: "30",
+			Value: "600",
 		},
 	}
 	t.Log(test_utils.PrettyJson(cfg))
