@@ -1,6 +1,8 @@
 package conformance
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	sets "github.com/deckarep/golang-set/v2"
@@ -14,63 +16,83 @@ import (
 
 var RT *testing.T
 
+func fakeIpv4Ips(size int) []string {
+	out := []string{}
+	for i := 0; i < 200; i++ {
+		out = append(out, fmt.Sprintf("111.111.111.%d", i))
+	}
+	return out
+}
+
+func fakeIpv6Ips(size int) []string {
+	out := []string{}
+	for i := 0; i < 200; i++ {
+		out = append(out, fmt.Sprintf("fe80::a8a1:97ff:fe91:%d", i))
+	}
+	return out
+}
+
 func TestAlbGatewayConformance(t *testing.T) {
 	RT = t
-
 	ctx, _ := CtxWithSignalAndTimeout(30 * 60)
+	// local dev chart
+	// gateway hostnetwork
+	chart := os.Getenv("ALB_GATEWAY_CONFORMANCE_TEST_CHART")
+
 	actx := NewAlbK8sCtx(ctx, NewAlbK8sCfg().
-		// UseMockLBSvcCtl([]string{"192.168.0.1"}, []string{"2004::192:168:128:235"}).
-		UseMetalLBSvcCtl([]string{"192.168.0.1"}, []string{"2004::192:168:128:235"}).
+		UseMockLBSvcCtl(fakeIpv4Ips(100), fakeIpv6Ips(100)).
+		// UseMetalLBSvcCtl([]string{"192.168.0.1"}, []string{"2004::192:168:128:235"}).
+		WithChart(chart).
 		DisableDefaultAlb().
 		Build(),
 	)
-	defer actx.Destroy()
 	err := actx.Init()
 	assert.NoError(t, err)
-
+	defer actx.Destroy()
+	cli := NewK8sClient(ctx, actx.Kubecfg)
 	l := actx.Log
 	t.Log("tlog ok")
 	l.Info("l log ok")
-	actx.Kind.LoadImage("gcr.io/k8s-staging-ingressconformance/echoserver:v20221109-7ee2f3e")
+	actx.Kind.LoadImage("gcr.io/k8s-staging-gateway-api/echo-basic:v20231024-v1.0.0-rc1-33-g9c830e50")
 	cSuite := suite.New(suite.Options{
-		Client:           actx.Kubecliet.GetClient(),
+		Client:           cli.GetClient(),
 		GatewayClassName: "exclusive-gateway",
 		Debug:            true,
 	})
 	cSuite.Setup(t)
 	cases := []string{
 		"GatewayInvalidRouteKind",
-		// "GatewayInvalidTLSConfiguration",
-		// "GatewayObservedGenerationBump",
-		// "GatewaySecretInvalidReferenceGrant",
-		// "GatewaySecretMissingReferenceGrant",
-		// "GatewaySecretReferenceGrantAllInNamespace",
-		// "GatewaySecretReferenceGrantSpecific",
+		// // "GatewayInvalidTLSConfiguration",
+		// // "GatewayObservedGenerationBump",
+		// // "GatewaySecretInvalidReferenceGrant",
+		// // "GatewaySecretMissingReferenceGrant",
+		// // "GatewaySecretReferenceGrantAllInNamespace",
+		// // "GatewaySecretReferenceGrantSpecific",
 		// "GatewayWithAttachedRoutes",
-		// "GatewayClassObservedGenerationBump",
+		//	// "GatewayClassObservedGenerationBump",
 		// "HTTPRouteCrossNamespace",
 		// "HTTPRouteDisallowedKind",
 		// "HTTPExactPathMatching",
 		// "HTTPRouteHeaderMatching",
 		// "HTTPRouteHostnameIntersection",
-		// "HTTPRouteInvalidNonExistentBackendRef",
-		// "HTTPRouteInvalidBackendRefUnknownKind",
-		// "HTTPRouteInvalidCrossNamespaceBackendRef",
-		// "HTTPRouteInvalidCrossNamespaceParentRef",
-		// "HTTPRouteInvalidParentRefNotMatchingListenerPort",
-		// "HTTPRouteInvalidParentRefNotMatchingSectionName",
+		// // "HTTPRouteInvalidNonExistentBackendRef",
+		// // "HTTPRouteInvalidBackendRefUnknownKind",
+		// // "HTTPRouteInvalidCrossNamespaceBackendRef",
+		// // "HTTPRouteInvalidCrossNamespaceParentRef",
+		// // "HTTPRouteInvalidParentRefNotMatchingListenerPort",
+		// // "HTTPRouteInvalidParentRefNotMatchingSectionName",
 		// "HTTPRouteListenerHostnameMatching",
 		// "HTTPRouteMatchingAcrossRoutes",
 		// "HTTPRouteMatching",
 		// "HTTPRouteMethodMatching",
-		// "HTTPRouteObservedGenerationBump",
-		// "HTTPRoutePartiallyInvalidViaInvalidReferenceGrant",
+		// // "HTTPRouteObservedGenerationBump",
+		// // "HTTPRoutePartiallyInvalidViaInvalidReferenceGrant",
 		// "HTTPRouteQueryParamMatching",
 		// "HTTPRouteRedirectHostAndStatus",
 		// "HTTPRouteRedirectPath",
 		// "HTTPRouteRedirectPort",
 		// "HTTPRouteRedirectScheme",
-		// "HTTPRouteReferenceGrant",
+		// // "HTTPRouteReferenceGrant",
 		// "HTTPRouteRequestHeaderModifier",
 		// "HTTPRouteResponseHeaderModifier",
 		// "HTTPRouteRewriteHost",

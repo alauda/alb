@@ -15,8 +15,8 @@ import (
 	networkingV1 "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	gatewayExternal "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
+	gv1b1i "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1"
 	gv1a2i "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1alpha2"
-	gv1b1i "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1beta1"
 )
 
 // Informers will be used by alb
@@ -94,13 +94,13 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
 
-	gatewayClassInformer := gatewayInformerFactory.Gateway().V1beta1().GatewayClasses()
+	gatewayClassInformer := gatewayInformerFactory.Gateway().V1().GatewayClasses()
 	gatewayClassSynced := gatewayClassInformer.Informer().HasSynced
 
-	gatewayInformer := gatewayInformerFactory.Gateway().V1beta1().Gateways()
+	gatewayInformer := gatewayInformerFactory.Gateway().V1().Gateways()
 	gatewaySynced := gatewayInformer.Informer().HasSynced
 
-	httpRouteInformer := gatewayInformerFactory.Gateway().V1beta1().HTTPRoutes()
+	httpRouteInformer := gatewayInformerFactory.Gateway().V1().HTTPRoutes()
 	httpRouteSynced := httpRouteInformer.Informer().HasSynced
 
 	tcpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TCPRoutes()

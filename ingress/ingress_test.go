@@ -327,7 +327,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 		cfg := config.DefaultMock()
 		cfg.Ns = "ns-1"
 		cfg.Name = "alb-1"
-		cfg.Domain = "alauda.io"
+		cfg.SetDomain("alauda.io")
 		config.UseMock(cfg)
 		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource)
 		informers := drv.Informers

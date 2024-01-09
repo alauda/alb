@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"os"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
@@ -30,10 +28,6 @@ var (
 	SUCCESS = "success"
 	FAILED  = "failed"
 )
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
 
 func generateServiceKey(ns string, name string, protocol apiv1.Protocol, svcPort int) string {
 	key := fmt.Sprintf("%s-%s-%s-%d", ns, name, protocol, svcPort)

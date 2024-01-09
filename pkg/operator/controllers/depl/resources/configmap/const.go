@@ -22,7 +22,7 @@ const HTTP = `
     lua_package_path '/usr/local/lib/lua/?.lua;/alb/nginx/lua/?.lua;/alb/nginx/lua/vendor/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
     lua_shared_dict http_policy   10m;
-    lua_shared_dict http_certs_cache   10m;
+    lua_shared_dict http_certs_cache   20m;
     lua_shared_dict http_backend_cache 5m;
     lua_shared_dict http_alb_cache     20m;
     lua_shared_dict http_raw     5m;
@@ -62,7 +62,7 @@ const HTTP = `
     ssl_prefer_server_ciphers on;
     ssl_protocols  TLSv1.2 TLSv1.3;
     ssl_early_data off;
-    ssl_ciphers TLS13-AES-256-GCM-SHA384:TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES-128-GCM-SHA256:TLS13-AES-128-CCM-8-SHA256:TLS13-AES-128-CCM-SHA256:EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA512:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:ECDH+AESGCM:DH+AESGCM:RSA+AESGCM:!aNULL:!eNULL:!LOW:!RC4:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS;
+    ssl_ciphers TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-DSS-AES128-GCM-SHA256:DHE-DSS-AES256-GCM-SHA384:DHE-PSK-AES128-GCM-SHA256:DHE-PSK-AES256-GCM-SHA384:DHE-PSK-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-PSK-CHACHA20-POLY1305:DHE-RSA-AES128-CCM:DHE-RSA-AES256-CCM:DHE-RSA-AES128-CCM8:DHE-RSA-AES256-CCM8:DHE-RSA-CHACHA20-POLY1305:DHE-PSK-AES128-CCM:DHE-PSK-AES256-CCM:DHE-PSK-AES128-CCM8:DHE-PSK-AES256-CCM8:ECDHE-ECDSA-AES128-CCM:ECDHE-ECDSA-AES256-CCM:ECDHE-ECDSA-AES128-CCM8:ECDHE-ECDSA-AES256-CCM8;
     ssl_dhparam /etc/alb2/nginx/dhparam.pem;
     ssl_ecdh_curve secp384r1;
 
@@ -95,6 +95,12 @@ const HTTPSERVER = `
 
     # fix http://jira.alauda.cn/browse/SGHL-142
     underscores_in_headers on;
+
+    error_page 500 502 503 504 404 /custom_error;
+    location /custom_error {
+        internal;
+        echo "X-Error: $status";
+    }
 `
 
 const GRPCSERVER = `

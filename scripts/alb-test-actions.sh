@@ -67,6 +67,8 @@ function alb-run-all-e2e-test() (
 
   local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
+  unset DEV_MODE                          # dev_mode 会导致k8s只启动一个 无法并行测试。。
+  rm ./test/e2e/ginkgo-node-*.log || true # clean old test log
   ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e -failFast -debug -p -nodes $concurrent ./test/e2e
   if [ -f ./debug ]; then
     while true; do
@@ -130,8 +132,10 @@ function alb-install-golang-test-dependency() {
   wget http://prod-minio.alauda.cn/acp/helm-v3.9.3 && chmod +x ./helm-v3.9.3 && mv ./helm-v3.9.3 /usr/local/bin/helm
 
   helm version
-
+  # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+  wget http://prod-minio.alauda.cn/acp/golangci-lint && chmod +x ./golangci-lint && mv ./golangci-lint /usr/local/bin/golangci-lint
   apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
+  rm -rf /usr/lib/python3.11/EXTERNALLY-MANAGED || true
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install
   git config --global --add safe.directory $PWD

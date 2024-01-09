@@ -12,8 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sScheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var scheme = runtime.NewScheme()
@@ -21,7 +23,7 @@ var scheme = runtime.NewScheme()
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
 	_ = gv1a2t.AddToScheme(scheme)
-	_ = gv1b1t.AddToScheme(scheme)
+	_ = gv1.AddToScheme(scheme)
 	_ = albType.AddToScheme(scheme)
 	_ = albv2Type.AddToScheme(scheme)
 }
@@ -45,10 +47,12 @@ func StartGatewayController(ctx context.Context) error {
 	l.Info("gateway cfg", "cfg", gatewayCfg)
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: "0",   // disable metrics
-		LeaderElection:     false, // disable leader election. we use alb's leader election
-		LeaderElectionID:   "",
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		LeaderElection:   false, // disable leader election. we use alb's leader election
+		LeaderElectionID: "",
 	})
 	if err != nil {
 		return err

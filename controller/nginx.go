@@ -130,7 +130,6 @@ func (nc *NginxController) GenerateConf() error {
 		return err
 	}
 	err = nc.WriteConfig(nginxConfig, ngxPolicies)
-
 	if err != nil {
 		return err
 	}
@@ -182,7 +181,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		log.Error(err, "merge config fail ")
 		return nil, err
 	}
-	log.Info("gen lb config ok", "lb-from-alb", lbFromAlb, "lb-from-gateway", lbFromGateway, "lb", lb)
+	log.V(3).Info("gen lb config ok", "lb-from-alb", lbFromAlb, "lb-from-gateway", lbFromGateway, "lb", lb)
 
 	return lb, err
 }

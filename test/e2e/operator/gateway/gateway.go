@@ -185,7 +185,7 @@ spec:
             name: "g1"
         replicas: 3
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: g1 
@@ -246,7 +246,7 @@ spec:
 	It("case 3. deploy standalone gateway ", func() {
 		kc.CreateNsIfNotExist("g1")
 		gw := `
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: g1 

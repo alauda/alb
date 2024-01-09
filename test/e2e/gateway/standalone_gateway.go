@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("StandAloneGateway", func() {
@@ -46,7 +46,7 @@ spec:
             mode: standalone
             name: "g1"
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1
@@ -91,7 +91,7 @@ spec:
 	// 当创建了一个独享模式的的gateway时,应该去找对应的alb,并把alb的获取到的地址写在gateway的地址上
 	GIt("when i create a standalone mode gateway, it should create alb related resource in this ns, and should reconcile this gateway normally", func() {
 		f.AssertKubectlApply(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: h1
@@ -119,7 +119,7 @@ spec:
 		// gateway的status 应该是从 notready ，然后deployment ready 然后alb ready 然后才ready的
 		EventuallySuccess(func(o Gomega) {
 			l.Info("wait gateway ok")
-			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+			g, err := kc.GetGatewayClient().GatewayV1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status))
 			accept, find := lo.Find(g.Status.Conditions, func(c metav1.Condition) bool { return c.Type == "Accepted" })
@@ -127,18 +127,18 @@ spec:
 			o.Expect(accept.Message).Should(ContainSubstring("wait workload ready spec"))
 		}, l)
 
-		gw, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+		gw, err := kc.GetGatewayClient().GatewayV1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 		g.Expect(err).ShouldNot(HaveOccurred())
 		depl := gw.Labels["alb.cpaas.io/alb-ref"]
 		MakeDeploymentReady(ctx, kc.GetK8sClient(), gw.Namespace, depl)
 		EventuallySuccess(func(o Gomega) {
-			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+			g, err := kc.GetGatewayClient().GatewayV1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status should ready", "status", PrettyJson(g.Status))
 			accept, find := lo.Find(g.Status.Conditions, func(c metav1.Condition) bool { return c.Type == "Accepted" })
 			o.Expect(find).Should(BeTrue())
 			o.Expect(accept.Reason).Should(Equal("Ready"))
-			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+			address := lo.Map(g.Status.Addresses, func(a gv1.GatewayStatusAddress, i int) string {
 				return a.Value
 			})
 
@@ -148,10 +148,10 @@ spec:
 
 		l.Info("gateway is ready now")
 		EventuallySuccess(func(o Gomega) {
-			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+			g, err := kc.GetGatewayClient().GatewayV1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status.Addresses))
-			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+			address := lo.Map(g.Status.Addresses, func(a gv1.GatewayStatusAddress, i int) string {
 				return a.Value
 			})
 			StringArrayEq(o, address, []string{"199.168.0.1", "2004::199:168:128:235", "a.com"})
@@ -172,10 +172,10 @@ spec:
 		}, l)
 
 		EventuallySuccess(func(o Gomega) {
-			g, err := kc.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
+			g, err := kc.GetGatewayClient().GatewayV1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 			o.Expect(err).ShouldNot(HaveOccurred())
 			l.Info("gateway status", "status", PrettyJson(g.Status))
-			address := lo.Map(g.Status.Addresses, func(a gv1b1t.GatewayAddress, i int) string {
+			address := lo.Map(g.Status.Addresses, func(a gv1.GatewayStatusAddress, i int) string {
 				return a.Value
 			})
 			StringArrayEq(o, address, []string{"127.0.0.2", "127.0.0.3", "199.168.0.1", "2004::199:168:128:235", "a.com"})

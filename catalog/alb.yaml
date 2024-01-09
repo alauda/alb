@@ -15,7 +15,7 @@ metadata:
 
     # harbor 仓库信息，格式：${project}/${repo}
     # 如果有多个仓库，用逗号分隔
-    goharbor.io/repository-slug: acp/alb2
+    goharbor.io/repository-slug: acp/alb2,acp/alb-nginx
 
     # sonarqube 项目信息(projectKey)。比如下面的 sonar 项目地址，projectKey 为 gitlab-ce.alauda.cn-developer-platform-octopus
     # https://build-sonar.alauda.cn/dashboard?id=gitlab-ce.alauda.cn-developer-platform-octopus

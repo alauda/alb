@@ -16,7 +16,7 @@ import (
 // 了解alb的chart的内容，给定一个alb的chart，可以从中获取信息
 
 type AlbChartExt struct {
-	Base              string
+	base              string
 	helm              *Helm
 	log               logr.Logger
 	chart             string
@@ -25,9 +25,7 @@ type AlbChartExt struct {
 }
 
 func NewAlbChart() *AlbChartExt {
-	return &AlbChartExt{
-		OverwriteRegistry: "registry.alauda.cn:60080",
-	}
+	return &AlbChartExt{}
 }
 
 func (a *AlbChartExt) WithHelm(helm *Helm) *AlbChartExt {
@@ -41,6 +39,9 @@ func (a *AlbChartExt) WithLog(l logr.Logger) *AlbChartExt {
 }
 
 func (a *AlbChartExt) Load(chart string) (*AlbChartExt, error) {
+	if a.helm == nil {
+		a.helm = NewHelm(a.base, nil, a.log)
+	}
 	a.log.Info("load chart", "chart", chart)
 	if _, err := os.Stat(chart); err == nil {
 		a.log.Info("load chart from dir", "chart", chart)
@@ -56,7 +57,7 @@ func (a *AlbChartExt) Load(chart string) (*AlbChartExt, error) {
 }
 
 func (a *AlbChartExt) WithBase(base string) *AlbChartExt {
-	a.Base = BaseWithDir(base, "alb-chart")
+	a.base = BaseWithDir(base, "alb-chart")
 	return a
 }
 
@@ -91,7 +92,7 @@ func (ac *AlbChartExt) LoadFromUrl(chart string) error {
 
 func (ac *AlbChartExt) LoadFromDir(chart string) error {
 	name := filepath.Base(chart)
-	ac.chart = path.Join(ac.Base, name)
+	ac.chart = path.Join(ac.base, name)
 	err := cp.Copy(chart, ac.chart)
 	if err != nil {
 		return err
@@ -120,29 +121,38 @@ func (a *AlbChartExt) GetVersion() (string, error) {
 	return strings.TrimSpace(version), nil
 }
 
-func (a *AlbChartExt) ListImage() ([]string, error) {
+func (a *AlbChartExt) GetImage() (albImage string, nginxImage string, err error) {
 	chartDir := a.chart
 	// TODO do not depend on yq
 	registry, err := Command("yq", ".global.registry.address", chartDir+"/values.yaml")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	nginx, err := Command("yq", ".global.images.nginx.tag", chartDir+"/values.yaml")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	alb, err := Command("yq", ".global.images.alb2.tag", chartDir+"/values.yaml")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	registry = strings.TrimFunc(registry, IsNotAlphabetic)
 	if a.OverwriteRegistry != "" {
 		registry = a.OverwriteRegistry
 	}
-	return []string{
-		registry + "/acp/alb-nginx:" + strings.TrimFunc(nginx, IsNotAlphabetic),
-		registry + "/acp/alb2:" + strings.TrimFunc(alb, IsNotAlphabetic),
-	}, nil
+	return registry + "/acp/alb-nginx:" + strings.TrimFunc(nginx, IsNotAlphabetic), registry + "/acp/alb2:" + strings.TrimFunc(alb, IsNotAlphabetic), nil
+}
+
+func (a *AlbChartExt) ListImage() ([]string, error) {
+	alb, nginx, err := a.GetImage()
+	if err != nil {
+		return nil, err
+	}
+	return []string{alb, nginx}, err
+}
+
+func (a *AlbChartExt) GetChartDir() string {
+	return a.chart
 }
 
 func IsNotAlphabetic(r rune) bool {

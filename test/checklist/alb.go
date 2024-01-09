@@ -141,10 +141,51 @@ spec:
     projects:
       - ALL_ALL
     replicas: 1
+---
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+    name: p1-test-1
+    namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    projects:
+      - ALL_ALL
+    replicas: 1
+---
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+    name: p11-test
+    namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p11
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    projects:
+      - ALL_ALL
+    replicas: 1
 `,
 		}
 		crinproduct := []string{
 			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  labels:
+    project.cpaas.io/ALL_ALL: "true"
+  name: test-1
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
 apiVersion: crd.alauda.io/v1
 kind: ALB2
 metadata:
@@ -164,7 +205,6 @@ spec:
 				Call("bash", "run.sh", "check_alb_project", "v3.10.1", "v3.12.1")
 			GinkgoAssert(err, "")
 			GinkgoAssertTrue(strings.Contains(out, "p1 alb test  hr与alb资源上的项目不一致, hr资源上的为: ALL_ALL, alb资源上的为: cpaas-system, 请检查"), "")
-
 			c.Product.Kubectl().AssertKubectlApply(`
 apiVersion: crd.alauda.io/v1
 kind: ALB2

@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayType "sigs.k8s.io/gateway-api/apis/v1"
 
 	"alauda.io/alb2/config"
 	albType "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/gateway"
 	"alauda.io/alb2/gateway/nginx/types"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func MockCtx() HttpCtx {
@@ -33,8 +33,8 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
 	err := h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 		{
-			Type: gv1b1t.HTTPRouteFilterRequestHeaderModifier,
-			RequestHeaderModifier: &gv1b1t.HTTPHeaderFilter{
+			Type: gv1.HTTPRouteFilterRequestHeaderModifier,
+			RequestHeaderModifier: &gv1.HTTPHeaderFilter{
 				Add: []gatewayType.HTTPHeader{
 					{
 						Name:  "a",
@@ -87,7 +87,7 @@ func TestHttpFilterRedirect(t *testing.T) {
 		rule := albType.Rule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 			{
-				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				Type: gv1.HTTPRouteFilterRequestRedirect,
 				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 					Scheme:     pointy.String("https"),
 					Hostname:   &host,
@@ -106,12 +106,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 		rule := albType.Rule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
 			{
-				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				Type: gv1.HTTPRouteFilterRequestRedirect,
 				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 					Scheme:   pointy.String("https"),
 					Hostname: &host,
 					Port:     &port,
-					Path: &gv1b1t.HTTPPathModifier{
+					Path: &gv1.HTTPPathModifier{
 						ReplaceFullPath: pointy.String("/abc"),
 					},
 					StatusCode: pointy.Int(302),
@@ -127,12 +127,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 	}
 	{
 		ctx := MockCtx()
-		prefix := gv1b1t.PathMatchPathPrefix
-		ctx.httpRoute.Spec.Rules = []gv1b1t.HTTPRouteRule{
+		prefix := gv1.PathMatchPathPrefix
+		ctx.httpRoute.Spec.Rules = []gv1.HTTPRouteRule{
 			{
-				Matches: []gv1b1t.HTTPRouteMatch{
+				Matches: []gv1.HTTPRouteMatch{
 					{
-						Path: &gv1b1t.HTTPPathMatch{
+						Path: &gv1.HTTPPathMatch{
 							Type:  &prefix,
 							Value: pointy.String("/abc"),
 						},
@@ -143,12 +143,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 		rule := albType.Rule{}
 		h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
 			{
-				Type: gv1b1t.HTTPRouteFilterRequestRedirect,
+				Type: gv1.HTTPRouteFilterRequestRedirect,
 				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
 					Scheme:   pointy.String("https"),
 					Hostname: &host,
 					Port:     &port,
-					Path: &gv1b1t.HTTPPathModifier{
+					Path: &gv1.HTTPPathModifier{
 						ReplacePrefixMatch: pointy.String("/xxx"),
 					},
 					StatusCode: pointy.Int(302),
@@ -168,12 +168,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 func TestHttpFilterRewrite(t *testing.T) {
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
 	ctx := MockCtx()
-	prefix := gv1b1t.PathMatchPathPrefix
-	ctx.httpRoute.Spec.Rules = []gv1b1t.HTTPRouteRule{
+	prefix := gv1.PathMatchPathPrefix
+	ctx.httpRoute.Spec.Rules = []gv1.HTTPRouteRule{
 		{
-			Matches: []gv1b1t.HTTPRouteMatch{
+			Matches: []gv1.HTTPRouteMatch{
 				{
-					Path: &gv1b1t.HTTPPathMatch{
+					Path: &gv1.HTTPPathMatch{
 						Type:  &prefix,
 						Value: pointy.String("/abc"),
 					},
@@ -184,9 +184,9 @@ func TestHttpFilterRewrite(t *testing.T) {
 	rule := albType.Rule{}
 	h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
 		{
-			Type: gv1b1t.HTTPRouteFilterURLRewrite,
+			Type: gv1.HTTPRouteFilterURLRewrite,
 			URLRewrite: &gatewayType.HTTPURLRewriteFilter{
-				Path: &gv1b1t.HTTPPathModifier{
+				Path: &gv1.HTTPPathModifier{
 					ReplacePrefixMatch: pointy.String("/xxx"),
 				},
 			},

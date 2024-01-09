@@ -36,9 +36,10 @@ var _ = Describe("gateway", func() {
 			l.Error(err, "init env fail")
 			Expect(err).Should(BeNil())
 			domain = "cpaas.io"
-			cli = actx.Kubecliet
+			cfg := actx.Kubecfg
+			cli = NewK8sClient(ctx, cfg)
 			l = actx.Log
-			kubectl = actx.Kubectl
+			kubectl = NewKubectl(actx.Cfg.Base, cfg, l)
 			g = NewGomegaWithT(GinkgoT())
 			_ = g
 			l.Info("init ok")

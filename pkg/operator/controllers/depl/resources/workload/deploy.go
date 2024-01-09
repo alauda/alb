@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	pointer "k8s.io/utils/ptr"
 )
 
 var (
@@ -206,7 +206,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 					Operator: corev1.TolerationOperator("Exists"),
 				},
 			},
-			Shareprocess:   pointer.Bool(true),
+			Shareprocess:   pointer.To(true),
 			Affinity:       d.GenExpectAffinity(),
 			SerivceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
 		},
@@ -218,13 +218,13 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
-				ReadOnlyRootFilesystem: pointer.Bool(true),
+				ReadOnlyRootFilesystem: pointer.To(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE",
 					},
 				},
-				AllowPrivilegeEscalation: pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.To(true),
 			},
 			Env:      conf.GetALBContainerEnvs(),
 			Resource: toResource(conf.Deploy.ALbResource),
@@ -237,14 +237,14 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
-				ReadOnlyRootFilesystem: pointer.Bool(true),
+				ReadOnlyRootFilesystem: pointer.To(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE",
 						"NET_BIND_SERVICE",
 					},
 				},
-				AllowPrivilegeEscalation: pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.To(true),
 			},
 			Env: conf.GetNginxContainerEnvs(),
 			Probe: &corev1.Probe{
@@ -416,7 +416,7 @@ func (b *DeplTemplate) configmapVolume(cmName string) corev1.Volume {
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: cmName,
 				},
-				DefaultMode: pointer.Int32(420), // 0644
+				DefaultMode: pointer.To(int32(420)), // 0644
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "http",

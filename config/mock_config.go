@@ -20,6 +20,9 @@ func DefaultMock() *Config {
 				NetworkMode: "host",
 				MetricsPort: 1936,
 				BackLog:     100,
+				Flags: ControllerFlags{
+					EnableIPV6: true,
+				},
 			},
 			Gateway: GatewayConfig{},
 		},
@@ -31,6 +34,7 @@ func DefaultMock() *Config {
 				SkipExit:      true,
 			},
 		},
+		Names: NewNames("cpaas.io"),
 	}
 }
 

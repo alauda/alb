@@ -8,7 +8,8 @@ import (
 
 	. "alauda.io/alb2/gateway"
 	. "alauda.io/alb2/gateway/nginx/types"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func getCert(l *Listener) (secret *client.ObjectKey, certDomain *string, err error) {
@@ -48,10 +49,10 @@ func (c *HttpCtx) ToAttachRef() gatewayPolicyType.Ref {
 }
 
 func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
-	prefix := gv1b1t.PathMatchPathPrefix
+	prefix := gv1.PathMatchPathPrefix
 	value := "/"
-	defaultHttpMatch := gv1b1t.HTTPRouteMatch{
-		Path: &gv1b1t.HTTPPathMatch{Type: &prefix, Value: &value},
+	defaultHttpMatch := gv1.HTTPRouteMatch{
+		Path: &gv1.HTTPPathMatch{Type: &prefix, Value: &value},
 	}
 	for _, listener := range listenerList {
 		for routeIndex, route := range listener.Routes {
@@ -61,7 +62,7 @@ func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
 			}
 			for ruleIndex, rule := range httpRoute.Spec.Rules {
 				if len(rule.Matches) == 0 {
-					httpRoute.Spec.Rules[ruleIndex].Matches = []gv1b1t.HTTPRouteMatch{
+					httpRoute.Spec.Rules[ruleIndex].Matches = []gv1.HTTPRouteMatch{
 						defaultHttpMatch,
 					}
 					listener.Routes[routeIndex] = httpRoute
@@ -102,8 +103,8 @@ func IterHttpListener[T any, F func(HttpCtx) *T](listenerList []*Listener, f F) 
 	return retList
 }
 
-func pickHttpBackendRefs(refs []gv1b1t.HTTPBackendRef) []gv1b1t.BackendRef {
-	ret := []gv1b1t.BackendRef{}
+func pickHttpBackendRefs(refs []gv1.HTTPBackendRef) []gv1.BackendRef {
+	ret := []gv1.BackendRef{}
 	for _, r := range refs {
 		ret = append(ret, r.BackendRef)
 	}
@@ -125,7 +126,7 @@ func GroupListener[K comparable, F func(ls *Listener) (k *K)](lss []*Listener, f
 	return portListenerMap
 }
 
-func GroupListenerByProtocol(lss []*Listener, protocol gv1b1t.ProtocolType) map[int][]*Listener {
+func GroupListenerByProtocol(lss []*Listener, protocol gv1.ProtocolType) map[int][]*Listener {
 	plsMap := GroupListener(lss, func(ls *Listener) *int {
 		if !SameProtocol(ls.Protocol, protocol) {
 			return nil

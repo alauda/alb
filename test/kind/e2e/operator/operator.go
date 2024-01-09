@@ -38,10 +38,11 @@ var _ = Describe("operator", func() {
 			err := actx.Init()
 			l = actx.Log
 			Expect(err).NotTo(HaveOccurred())
-			ns = actx.Cfg.Ns
-			cli = actx.Kubecliet
+			ns = actx.Cfg.Alboperatorcfg.DefaultAlbNS
+			cfg := actx.Kubecfg
+			cli = NewK8sClient(ctx, cfg)
 			l = actx.Log
-			kubectl = actx.Kubectl
+			kubectl = NewKubectl(actx.Cfg.Base, cfg, l)
 			l.Info("init ok")
 		})
 
@@ -111,7 +112,7 @@ spec:
     session_affinity_policy: ""
 `)
 			Wait(func() (bool, error) {
-				svc, err := GetLbSvc(ctx, actx.Kubecliet.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: "c-lb-1"}, "cpaas.io")
+				svc, err := GetLbSvc(ctx, cli.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: "c-lb-1"}, "cpaas.io")
 				if k8serrors.IsNotFound(err) {
 					l.Info("not found")
 					return false, nil
@@ -129,7 +130,7 @@ spec:
 			kubectl.AssertKubectl("delete ft -n cpaas-system c-lb-1-12234")
 
 			Wait(func() (bool, error) {
-				svc, err := GetLbSvc(ctx, actx.Kubecliet.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: "c-lb-1"}, "cpaas.io")
+				svc, err := GetLbSvc(ctx, cli.GetK8sClient(), crcli.ObjectKey{Namespace: ns, Name: "c-lb-1"}, "cpaas.io")
 				if k8serrors.IsNotFound(err) {
 					l.Info("not found")
 					return false, nil

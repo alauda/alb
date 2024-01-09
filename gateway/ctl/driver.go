@@ -11,8 +11,8 @@ import (
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func ListListener(ctx context.Context, c client.Client, sel config.GatewaySelector) ([]*Listener, error) {
@@ -26,11 +26,11 @@ func ListListener(ctx context.Context, c client.Client, sel config.GatewaySelect
 	return ret, nil
 }
 
-func getGatewayList(ctx context.Context, c client.Client, sel config.GatewaySelector) []gv1b1t.Gateway {
-	gs := make([]gv1b1t.Gateway, 0)
+func getGatewayList(ctx context.Context, c client.Client, sel config.GatewaySelector) []gv1.Gateway {
+	gs := make([]gv1.Gateway, 0)
 	if sel.GatewayClass != nil {
 		class := *sel.GatewayClass
-		gateways := gv1b1t.GatewayList{}
+		gateways := gv1.GatewayList{}
 		if err := c.List(ctx, &gateways, &client.ListOptions{}); err != nil {
 			return nil
 		}
@@ -41,12 +41,12 @@ func getGatewayList(ctx context.Context, c client.Client, sel config.GatewaySele
 		}
 	}
 	if sel.GatewayName != nil {
-		gateway := gv1b1t.Gateway{}
+		gateway := gv1.Gateway{}
 		err := c.Get(ctx, *sel.GatewayName, &gateway)
 		if err != nil {
 			return nil
 		}
-		gs = []gv1b1t.Gateway{gateway}
+		gs = []gv1.Gateway{gateway}
 	}
 	return gs
 }
@@ -54,7 +54,7 @@ func getGatewayList(ctx context.Context, c client.Client, sel config.GatewaySele
 func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.ObjectKey) ([]*Route, error) {
 	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithValues("gateway", gateway.String())
 	// TODO !!!! use client.object instead of xxroute
-	httpRouteList := &gv1b1t.HTTPRouteList{}
+	httpRouteList := &gv1.HTTPRouteList{}
 	tcpRouteList := &gv1a2t.TCPRouteList{}
 	tlsRouteList := &gv1a2t.TLSRouteList{}
 	udpRouteList := &gv1a2t.UDPRouteList{}
@@ -133,9 +133,9 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 func findGatewayByRouteObject(ctx context.Context, c client.Client, object client.Object, sel config.GatewaySelector) (bool, []client.ObjectKey, error) {
 	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithName("findgatewaybyroute").WithValues("route", client.ObjectKeyFromObject(object))
 	// TODO a better way
-	var refs []gv1b1t.ParentReference
+	var refs []gv1.ParentReference
 	switch object := object.(type) {
-	case *gv1b1t.HTTPRoute:
+	case *gv1.HTTPRoute:
 		refs = object.Spec.ParentRefs
 	case *gv1a2t.TCPRoute:
 		refs = object.Spec.ParentRefs
@@ -164,7 +164,7 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 		}
 		if sel.GatewayClass != nil {
 			class := *sel.GatewayClass
-			gateway := gv1b1t.Gateway{}
+			gateway := gv1.Gateway{}
 			err := c.Get(ctx, key, &gateway)
 
 			if errors.IsNotFound(err) {

@@ -30,7 +30,7 @@ func TimeoutEq(timeout gatewayPolicy.TimeoutPolicyConfig, connect *uint, read *u
 
 func initDefaultGateway(f *GatewayF) {
 	_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 
@@ -65,7 +65,7 @@ spec:
         namespaces:
             from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g2
@@ -81,7 +81,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h1
@@ -113,7 +113,7 @@ spec:
           port: 80
           weight: 1
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
     name: h2

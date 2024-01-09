@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -47,10 +48,11 @@ func AddTypeInformationToObject(scheme *runtime.Scheme, obj runtime.Object) erro
 }
 
 func RandomStr(prefix string, length int) string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	result := make([]byte, length)
 	for i := 0; i < length; i++ {
-		result[i] = ALPHANUM[rand.Intn(len(ALPHANUM))]
+		result[i] = ALPHANUM[r.Intn(len(ALPHANUM))]
 	}
 	if prefix != "" {
 		return prefix + "-" + string(result)

@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 // a wrapper of alb operator
@@ -130,9 +131,11 @@ func (a *AlbOperatorExt) Start(ctx context.Context) {
 	scheme := runtime.NewScheme()
 	controllers.InitScheme(scheme)
 	mgr, err := ctrl.NewManager(a.operatorKubeCfg, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		LeaderElection: false,
 	})
 	if err != nil {
 		os.Exit(1)
@@ -181,10 +184,13 @@ func (a *AlbOperatorExt) DeployAlb(name types.NamespacedName, operatorEnv *confi
 		log.Error(err, "gen err")
 		return false, err
 	}
-	redo, err := dctl.DoUpdate(ctx, cur, expect)
+	redo, reason, err := dctl.DoUpdate(ctx, cur, expect)
 	if err != nil {
 		log.Error(err, "update err")
 		return false, err
+	}
+	if redo {
+		log.Info("redo", "reason", reason)
 	}
 	return redo, nil
 }

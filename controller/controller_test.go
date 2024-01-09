@@ -781,7 +781,7 @@ func TestGCRule(t *testing.T) {
 		a := assert.New(t)
 		defer cancel()
 		cfg := config.DefaultMock()
-		cfg.Domain = "alauda.io"
+		cfg.SetDomain("alauda.io")
 		cfg.Ns = "ns-1"
 		cfg.Name = "alb-1"
 		config.UseMock(cfg)
