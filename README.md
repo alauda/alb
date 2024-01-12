@@ -129,16 +129,18 @@ spec:
 ### supported annotation
 #### alb only 
 ##### rewrite request
-headers_add  will only be added if there is no header
+headers_remove: remove the header
+headers_add: append to header instead of overwrite it.
+headers: set the header
 ```yaml
 alb.ingress.cpaas.io/rewrite-request: |
-{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
 ##### rewrite response
 as same as rewrite request
 ```yaml
 alb.ingress.cpaas.io/rewrite-response: |
-{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
 
 #### compatiable with ingress-nginx
