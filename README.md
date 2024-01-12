@@ -11,7 +11,7 @@ ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https
 
 # Architecture
 
-![](docs/architecture.svg)
+![](docs/architecture.png)
 
 # Quick Start
 
@@ -149,36 +149,41 @@ spec:
       port: 80
       weight: 100
 ```
-
 ## Ingress Annotations
 
 ### Rewrite Request
 
 ```yaml
 alb.ingress.cpaas.io/rewrite-request: |
-{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
 
-`headers_add` will only be added if there is no header.
+`headers_remove`: remove the header.
+`headers_add`: append to the header instead of overwrite it.
+`headers`: set the header.
 
 ### Rewrite Response
 
 ```yaml
 alb.ingress.cpaas.io/rewrite-response: |
-{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa","bb"}}
+{"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
+
+`headers_remove`: remove the header.
+`headers_add`: append to the header instead of overwrite it.
+`headers`: set the header.
 
 ### Annotations Compatible with ingress-nginx
 
 ```yaml
-	nginx.ingress.kubernetes.io/rewrite-target
-	nginx.ingress.kubernetes.io/enable-cors
-	nginx.ingress.kubernetes.io/cors-allow-headers
-	nginx.ingress.kubernetes.io/cors-allow-origin
-	nginx.ingress.kubernetes.io/backend-protocol
-	nginx.ingress.kubernetes.io/temporal-redirect
-	nginx.ingress.kubernetes.io/permanent-redirect
-	nginx.ingress.kubernetes.io/upstream-vhost
+nginx.ingress.kubernetes.io/rewrite-target
+nginx.ingress.kubernetes.io/enable-cors
+nginx.ingress.kubernetes.io/cors-allow-headers
+nginx.ingress.kubernetes.io/cors-allow-origin
+nginx.ingress.kubernetes.io/backend-protocol
+nginx.ingress.kubernetes.io/temporal-redirect
+nginx.ingress.kubernetes.io/permanent-redirect
+nginx.ingress.kubernetes.io/upstream-vhost
 ```
 
 ## Container Network
