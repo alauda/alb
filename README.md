@@ -149,6 +149,7 @@ spec:
       port: 80
       weight: 100
 ```
+
 ## Ingress Annotations
 
 ### Rewrite Request
