@@ -206,6 +206,10 @@ type ALB2Status struct {
 	Detail ALB2StatusDetail `json:"detail,omitempty"`
 }
 
+func (s ALB2Status) Ready() bool {
+	return s.State == ALB2StateRunning
+}
+
 type ALB2StatusDetail struct {
 	// status set by operator
 	// +optional

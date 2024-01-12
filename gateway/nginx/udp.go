@@ -12,8 +12,8 @@ import (
 	. "alauda.io/alb2/gateway/nginx/types"
 	. "alauda.io/alb2/gateway/nginx/utils"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type UdpProtocolTranslate struct {
@@ -26,10 +26,10 @@ func NewUdpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger) UdpP
 }
 
 func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
-	portMap := make(map[gv1a2t.PortNumber][]*UDPRoute)
+	portMap := make(map[gv1.PortNumber][]*UDPRoute)
 	{
 		for _, l := range ls {
-			if l.Protocol != gv1b1t.UDPProtocolType {
+			if l.Protocol != gv1.UDPProtocolType {
 				continue
 			}
 			if _, ok := portMap[l.Port]; !ok {

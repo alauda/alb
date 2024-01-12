@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var (
@@ -172,13 +171,14 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if err != nil {
 		return ctrl.Result{}, perr.Wrapf(err, "gen expect alb deploy fail")
 	}
-	isReconcile, err := dctl.DoUpdate(ctx, cur, expect)
+	reconcile, reason, err := dctl.DoUpdate(ctx, cur, expect)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if isReconcile {
-		l.Info("update need reconcile")
-		return ctrl.Result{Requeue: true}, nil
+	ready := expect.Alb.Status.Ready()
+	if reconcile || !ready {
+		l.Info("update need reconcile", "reason", reason, "ready", ready)
+		return ctrl.Result{Requeue: true, RequeueAfter: 3 * time.Second}, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -222,7 +222,7 @@ func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 		)).
 		// 当alb的svc变化时(分配了ip)，应该去更新alb的状态
-		Watches(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
+		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
 			builder.WithPredicates(
 				predicate.And(
 					r.ignoreNonAlbObj(),
@@ -246,7 +246,7 @@ func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			),
 		).
 		// 当alb的deployment变化时(replicas变化)，应该去更新alb的状态
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
+		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
 			builder.WithPredicates(
 				predicate.And(
 					r.ignoreNonAlbObj(),
@@ -298,7 +298,7 @@ func (r *ALB2Reconciler) ignoreNonAlbObj() predicate.Funcs {
 	})
 }
 
-func (r *ALB2Reconciler) ObjToALbKey(obj client.Object) []reconcile.Request {
+func (r *ALB2Reconciler) ObjToALbKey(ctx context.Context, obj client.Object) []reconcile.Request {
 	empty := []reconcile.Request{}
 	// not alb-operator managed deployment, ignore.
 	ns, name, version, err := GetAlbKeyFromObject(obj)

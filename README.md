@@ -181,7 +181,7 @@ spec:
 ### gatewayapi
 alb supports gatewayapi natively, just specify the gatewayclass as `exclusive-gateway` when creating the gateway.
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: g1 

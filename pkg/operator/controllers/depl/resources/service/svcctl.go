@@ -309,6 +309,7 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 	if albcfg.Vip.AllocateLoadBalancerNodePorts != nil {
 		enable = *albcfg.Vip.AllocateLoadBalancerNodePorts
 	}
+	// svc.Spec.SessionAffinityConfig
 	svc.Spec.AllocateLoadBalancerNodePorts = &enable
 	return !reflect.DeepEqual(origin, svc)
 }

@@ -62,7 +62,8 @@ var _ = Describe("test qps", func() {
 			// 测一分钟
 			dur := time.Duration(60*1) * time.Second
 			sctx, scancel = context.WithTimeout(ctx, dur)
-			go tweak_ingress(sctx, actx.Kubectl, actx.Log, ing)
+			kt := NewKubectl(actx.Cfg.Base, actx.Kubecfg, actx.Log)
+			go tweak_ingress(sctx, kt, actx.Log, ing)
 		})
 
 		AfterEach(func() {
@@ -103,8 +104,8 @@ func tweak_ingress(ctx context.Context, kubectl *Kubectl, l logr.Logger, ing str
 }
 
 func GetAlbPodIp(ctx *AlbK8sCtx, name string) ([]string, error) {
-	cli := ctx.Kubecliet
-	pods, err := cli.GetK8sClient().CoreV1().Pods(ctx.Cfg.Ns).List(ctx.Ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("service.cpaas.io/name=deployment-%s", name)})
+	cli := NewK8sClient(ctx.Ctx, ctx.Kubecfg)
+	pods, err := cli.GetK8sClient().CoreV1().Pods(ctx.Cfg.Alboperatorcfg.DefaultAlbNS).List(ctx.Ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("service.cpaas.io/name=deployment-%s", name)})
 	if err != nil {
 		return nil, err
 	}

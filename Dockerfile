@@ -1,4 +1,4 @@
-ARG BUILD_BASE=build-harbor.alauda.cn/ops/golang:1.18-alpine3.16
+ARG BUILD_BASE=docker-mirrors.alauda.cn/library/golang:1.21.6-alpine
 ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.17
 
 FROM ${BUILD_BASE}  AS builder

@@ -4,7 +4,7 @@ import (
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/toolkit"
 	"github.com/go-logr/logr"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type Template struct {
@@ -12,11 +12,11 @@ type Template struct {
 	name       string
 	baseDomain string
 	alb2       *albv2.ALB2
-	cur        *gv1b1t.GatewayClass
+	cur        *gv1.GatewayClass
 	log        logr.Logger
 }
 
-func NewTemplate(namespace, name, baseDomain string, alb2 *albv2.ALB2, gc *gv1b1t.GatewayClass, log logr.Logger) *Template {
+func NewTemplate(namespace, name, baseDomain string, alb2 *albv2.ALB2, gc *gv1.GatewayClass, log logr.Logger) *Template {
 	return &Template{
 		namespace:  namespace,
 		name:       name,
@@ -27,20 +27,20 @@ func NewTemplate(namespace, name, baseDomain string, alb2 *albv2.ALB2, gc *gv1b1
 	}
 }
 
-func (t *Template) Generate(options ...Option) *gv1b1t.GatewayClass {
+func (t *Template) Generate(options ...Option) *gv1.GatewayClass {
 	gvk := t.alb2.GroupVersionKind()
-	group := gv1b1t.Group(gvk.Group)
-	kind := gv1b1t.Kind(gvk.Kind)
+	group := gv1.Group(gvk.Group)
+	kind := gv1.Kind(gvk.Kind)
 	name := t.alb2.Name
-	ns := gv1b1t.Namespace(t.namespace)
+	ns := gv1.Namespace(t.namespace)
 	gc := t.cur
 	if gc == nil {
-		gc = &gv1b1t.GatewayClass{}
+		gc = &gv1.GatewayClass{}
 	}
 	gc.Name = t.name
-	gc.Spec = gv1b1t.GatewayClassSpec{
-		ControllerName: gv1b1t.GatewayController("alb2.gateway." + toolkit.FmtKeyBySep("/", t.baseDomain, t.name)),
-		ParametersRef: &gv1b1t.ParametersReference{
+	gc.Spec = gv1.GatewayClassSpec{
+		ControllerName: gv1.GatewayController("alb2.gateway." + toolkit.FmtKeyBySep("/", t.baseDomain, t.name)),
+		ParametersRef: &gv1.ParametersReference{
 			Group:     group,
 			Kind:      kind,
 			Name:      name,
@@ -63,7 +63,7 @@ func defaultLabel(baseDomain, name string) Option {
 	labels := map[string]string{
 		"alb2." + baseDomain + "/gatewayclass": name,
 	}
-	return func(gc *gv1b1t.GatewayClass) {
+	return func(gc *gv1.GatewayClass) {
 		if gc == nil {
 			return
 		}

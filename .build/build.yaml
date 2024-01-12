@@ -38,7 +38,7 @@ spec:
           - name: source
             workspace: source
         steps:
-          - image: build-harbor.alauda.cn/ops/golang:1.18-alpine3.16  # keep it as same as alb docker builder.
+          - image: docker-mirrors.alauda.cn/library/golang:1.21.6-alpine  # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
@@ -79,7 +79,7 @@ spec:
           - name: source
             workspace: source
         steps:
-          - image: build-harbor.alauda.cn/ops/golang:1.18-alpine3.15 # keep it as same as alb docker builder.
+          - image: docker-mirrors.alauda.cn/library/golang:1.21.6-alpine # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'

@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("tcp", func() {
 
 	GIt("i want my app been access by tcp", func() {
 		_, err := f.KubectlApply(Template(`
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
     name: g1 

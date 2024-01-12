@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
-	gatewayLister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1alpha2"
+	gv1l "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/modules"
@@ -78,7 +78,7 @@ type KubernetesDriver struct {
 	RuleLister     v1.RuleLister
 	ServiceLister  corev1lister.ServiceLister
 	EndpointLister corev1lister.EndpointsLister
-	GatewayLister  gatewayLister.GatewayLister
+	GatewayLister  gv1l.GatewayLister
 	Ctx            context.Context
 }
 

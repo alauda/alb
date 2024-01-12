@@ -20,8 +20,7 @@ import (
 
 	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type HttpProtocolTranslate struct {
@@ -65,7 +64,7 @@ type HttpCtx struct {
 	listener   *Listener
 	httpRoute  *HTTPRoute
 	ruleIndex  uint
-	rule       *gatewayType.HTTPRouteRule
+	rule       *gv1.HTTPRouteRule
 	matchIndex uint
 }
 
@@ -73,7 +72,7 @@ func (c *HttpCtx) ToString() string {
 	return fmt.Sprintf("%s-%s-%s-%s-%s", c.listener.Gateway.Namespace, c.listener.Gateway.Name, c.listener.Listener.Name, c.httpRoute.Namespace, c.httpRoute.Name)
 }
 
-func (c *HttpCtx) GetMatcher() gv1b1t.HTTPRouteMatch {
+func (c *HttpCtx) GetMatcher() gv1.HTTPRouteMatch {
 	return c.httpRoute.Spec.Rules[c.ruleIndex].Matches[c.matchIndex]
 }
 
@@ -84,7 +83,7 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 
 	portMap := make(map[int][]HttpCtx)
 	{
-		plsMap := GroupListenerByProtocol(lss, gv1b1t.HTTPProtocolType)
+		plsMap := GroupListenerByProtocol(lss, gv1.HTTPProtocolType)
 		for port, lss := range plsMap {
 			ctxList := IterHttpListener(lss, func(ctx HttpCtx) *HttpCtx {
 				return &ctx
@@ -137,7 +136,7 @@ func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*Rule, error) {
 	rule.Type = RuleTypeGateway
 	rule.RuleID = genRuleIdViaCtx(ctx)
 	rule.Priority = h.getRulePriority(ctx)
-	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gatewayType.Hostname, _ int) string {
+	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gv1.Hostname, _ int) string {
 		return string(h)
 	}))
 	// gen rule dsl
@@ -170,7 +169,7 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) err
 
 	portMap := make(map[int][]HttpsCtx)
 	{
-		plsMap := GroupListenerByProtocol(lss, gv1b1t.HTTPSProtocolType)
+		plsMap := GroupListenerByProtocol(lss, gv1.HTTPSProtocolType)
 		for port, lss := range plsMap {
 			ctxList := IterHttpListener(lss, func(ctx HttpCtx) *HttpsCtx {
 				cert, domain, err := getCert(ctx.listener)
@@ -234,7 +233,7 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	rule.Domain = ctx.certDomain
 	rule.CertificateName = fmt.Sprintf("%s/%s", ctx.cert.Namespace, ctx.cert.Name)
 
-	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gatewayType.Hostname, _ int) string { return string(h) }))
+	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gv1.Hostname, _ int) string { return string(h) }))
 	// gen rule dsl
 	dslx, err := HttpRuleMatchToDSLX(hostnames, match)
 	if err != nil {
@@ -251,7 +250,7 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	return rule, nil
 }
 
-func HttpRuleMatchToDSLX(hostnameStrs []string, m gatewayType.HTTPRouteMatch) (albType.DSLX, error) {
+func HttpRuleMatchToDSLX(hostnameStrs []string, m gv1.HTTPRouteMatch) (albType.DSLX, error) {
 	dslx := albType.DSLX{}
 
 	// match hostname
@@ -277,7 +276,7 @@ func HttpRuleMatchToDSLX(hostnameStrs []string, m gatewayType.HTTPRouteMatch) (a
 			if err != nil {
 				return nil, fmt.Errorf("invalid query params match err %v", err)
 			}
-			exp := albType.DSLXTerm{Type: utils.KEY_PARAM, Values: [][]string{{op, q.Value}}, Key: q.Name}
+			exp := albType.DSLXTerm{Type: utils.KEY_PARAM, Values: [][]string{{op, q.Value}}, Key: string(q.Name)}
 			dslx = append(dslx, exp)
 		}
 	}

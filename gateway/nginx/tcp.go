@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type TcpProtocolTranslate struct {
@@ -39,7 +39,7 @@ func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 		var tcproute *TCPRoute
 		// filter invalid listener
 		{
-			if l.Protocol != gv1b1t.TCPProtocolType {
+			if l.Protocol != gv1.TCPProtocolType {
 				continue
 			}
 			if len(l.Routes) == 0 {
