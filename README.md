@@ -1,10 +1,28 @@
-# Alauda Load Balancer v2
+ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https://github.com/openresty/) with years of production experience from Alauda.
 
-# how to deploy operator in kind
-1. create kind cluster
+*Note*: We are in the process of preparing the necessary documentation and refactoring the code for open source. More information and detailed usage will be made available soon.
+
+# Advantages
+
+- *Isolation and Multi-Tenant*: With ALB operator, multiple ALB instances can be created and managed in one cluster. Each tenant can has a group of dedicated ALB instances.
+- *Ingress and Gateway API Support*: Users can flexibly choose between Ingress and Gateway API according to their own preferences.
+- *Flexible User Defined Traffic Rule*: ALB provides a traffic rule DSL that can support more complex traffic matching and distribution scenarios that beyond the capabilities of standard Ingress and Gateway API.
+- *Multiple Protocol Support*: ALB can manage HTTP, HTTPS, TCP and UDP traffic.
+
+# Architecture
+
+![](docs/architecture.png)
+
+# Quick Start
+
+## Deploy the ALB Operator
+
+1. Create a kind cluster
 2. `helm repo add alb https://alauda.github.io/alb/;helm repo update;helm search repo|grep alb`
 3. `helm install alb-operator alb/alauda-alb2` 
-# how to create and use a alb as ingress controller
+
+## Deploy an ALB instance
+
 ```bash
 cat <<EOF | kubectl apply -f -
 apiVersion: crd.alauda.io/v2beta1
@@ -25,7 +43,9 @@ spec:
         replicas: 1
 EOF
 ```
-prepare the demo app
+
+## Rua a demo application
+
 ```bash
 cat <<EOF | kubectl apply -f -
 apiVersion: apps/v1
@@ -81,42 +101,47 @@ spec:
               number: 80
 EOF
 ```
-now you could `curl http://${ip}`
-# more advance config
-## ft and rule
-in addition to ingress, routing rules for alb can be configed by ft and rule
+
+Now you visit the app by `curl http://${ip}`
+
+# Advanced Features
+
+## `Frontend` and `Rule`
+
+Complex traffic matching and distribution patterns can be configured by `Frontend` and `Rule`.
+
 ```yaml
 apiVersion: crd.alauda.io/v1
 kind: Frontend
 metadata:
   labels:
-    alb2.cpaas.io/name: alb-demo # required, indicate the alb to which this ft belongs
+    alb2.cpaas.io/name: alb-demo # required, indicate the ALB instance to which this Frontend belongs to
   name: alb-demo-00080
   namespace: kube-system
 spec:
   backendProtocol: ""   # http|https 
   certificate_name: ""  # $secret_ns/$secret_name
   port: 80              
-  protocol: http        # protocol of this ft itself
+  protocol: http        # protocol of this Frontend itself
 ---
 apiVersion: crd.alauda.io/v1
 kind: Rule
 metadata:
   labels:
-    alb2.cpaas.io/frontend: alb-demo-00080  # required, indicate the ft to which this rule belongs
-    alb2.cpaas.io/name: alb-demo            # required, indicate the alb to which this rule belongs
+    alb2.cpaas.io/frontend: alb-demo-00080  # required, indicate the Frontend to which this rule belongs
+    alb2.cpaas.io/name: alb-demo            # required, indicate the ALB to which this rule belongs
   name: alb-demo-00080-topu
   namespace: kube-system
 spec:
-  backendProtocol: ""                       # as same as ft
-  certificate_name: ""                      # as same as ft
-  dslx:                                     # 匹配规则，详细配置见 TODO 匹置规则
+  backendProtocol: ""                       # as same as Frontend
+  certificate_name: ""                      # as same as Frontend
+  dslx:                                     # matching rule DSL
   - type: URL
     values:
     - - STARTS_WITH
       - /
   enableCORS: false
-  priority: 5                              # Rule Prioritization, the smaller it is the more it will match first则优先级，越小越会优先匹配
+  priority: 5                              # the lower the number, the higher the priority
   serviceGroup:
     services:
     - name: hello-world
@@ -124,43 +149,49 @@ spec:
       port: 80
       weight: 100
 ```
-## ingress 
-### ingress with other port
-### supported annotation
-#### alb only 
-##### rewrite request
-headers_remove: remove the header
-headers_add: append to header instead of overwrite it.
-headers: set the header
+
+## Ingress Annotations
+
+### Rewrite Request
+
 ```yaml
 alb.ingress.cpaas.io/rewrite-request: |
 {"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
-##### rewrite response
-as same as rewrite request
+
+`headers_remove`: remove the header.
+`headers_add`: append to the header instead of overwrite it.
+`headers`: set the header.
+
+### Rewrite Response
+
 ```yaml
 alb.ingress.cpaas.io/rewrite-response: |
 {"headers_remove":["h1"],"headers":{"a":"b"},"headers_add":{"aa": ["bb","cc"]}}
 ```
 
-#### compatiable with ingress-nginx
-##### rewrite
-	nginx.ingress.kubernetes.io/rewrite-target
-##### cors
-	nginx.ingress.kubernetes.io/enable-cors
-	nginx.ingress.kubernetes.io/cors-allow-headers
-	nginx.ingress.kubernetes.io/cors-allow-origin
-##### backend
-	nginx.ingress.kubernetes.io/backend-protocol
-##### redirect
-	nginx.ingress.kubernetes.io/temporal-redirect
-	nginx.ingress.kubernetes.io/permanent-redirect
-##### vhost
-	nginx.ingress.kubernetes.io/upstream-vhost"
-## alb
-### container network
-By default, alb is deployed as a host network, which has the advantage of direct access via node ip, and the disadvantage that each alb can only have exclusive access to the node, or you need to manually manage the alb's ports.
-But, alb also supports container network mode deployment and provides external access through lbsvc.
+`headers_remove`: remove the header.
+`headers_add`: append to the header instead of overwrite it.
+`headers`: set the header.
+
+### Annotations Compatible with ingress-nginx
+
+```yaml
+nginx.ingress.kubernetes.io/rewrite-target
+nginx.ingress.kubernetes.io/enable-cors
+nginx.ingress.kubernetes.io/cors-allow-headers
+nginx.ingress.kubernetes.io/cors-allow-origin
+nginx.ingress.kubernetes.io/backend-protocol
+nginx.ingress.kubernetes.io/temporal-redirect
+nginx.ingress.kubernetes.io/permanent-redirect
+nginx.ingress.kubernetes.io/upstream-vhost
+```
+
+## Container Network
+
+By default, ALB is deployed as a host network, which has the advantage of direct access via node ip, and the disadvantage that each ALB can only have exclusive access to the node, or you need to manually manage the ALB's ports.
+But, ALB also supports container network mode deployment and provides external access through Loadbalancer type Service.
+
 ```yaml
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
@@ -172,7 +203,7 @@ spec:
     config:
         networkMode: container           # use container networkmode
         vip:
-            enableLbSvc: true            # automatically creates an svc of type loadbalancer and treats the address assigned to the svc as the address of the alb
+            enableLbSvc: true            # automatically creates a Service of type LoadBalancer and treats the address assigned to the Service as the address of the ALB
         loadbalancerName: alb-demo
         nodeSelector:
           alb-demo: "true"
@@ -180,8 +211,11 @@ spec:
         - ALL_ALL
         replicas: 1
 ```
-### gatewayapi
-alb supports gatewayapi natively, just specify the gatewayclass as `exclusive-gateway` when creating the gateway.
+
+### Gateway API
+
+ALB supports Gateway out of box, just set the `gatewayClassName` to `exclusive-gateway` when creating gateways.
+
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
