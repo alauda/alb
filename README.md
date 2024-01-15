@@ -1,27 +1,29 @@
+# ALB -- Another Load Balancer
+
 ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https://github.com/openresty/) with years of production experience from Alauda.
 
-*Note*: We are in the process of preparing the necessary documentation and refactoring the code for open source. More information and detailed usage will be made available soon.
+> *Note*: We are in the process of preparing the necessary documentation and refactoring the code for open source. More information and detailed usage will be made available soon.
 
-# Advantages
+## Advantages
 
-- *Isolation and Multi-Tenant*: With ALB operator, multiple ALB instances can be created and managed in one cluster. Each tenant can has a group of dedicated ALB instances.
-- *Ingress and Gateway API Support*: Users can flexibly choose between Ingress and Gateway API according to their own preferences.
-- *Flexible User Defined Traffic Rule*: ALB provides a traffic rule DSL that can support more complex traffic matching and distribution scenarios that beyond the capabilities of standard Ingress and Gateway API.
-- *Multiple Protocol Support*: ALB can manage HTTP, HTTPS, TCP and UDP traffic.
+- **Isolation and Multi-Tenant**: With ALB operator, multiple ALB instances can be created and managed in one cluster. Each tenant can has a group of dedicated ALB instances.
+- **Ingress and Gateway API Support**: Users can flexibly choose between Ingress and Gateway API according to their own preferences.
+- **Flexible User Defined Traffic Rule**: ALB provides a traffic rule DSL that can support more complex traffic matching and distribution scenarios that beyond the capabilities of standard Ingress and Gateway API.
+- **Multiple Protocol Support**: ALB can manage HTTP, HTTPS, TCP and UDP traffic.
 
-# Architecture
+## Architecture
 
 ![](docs/architecture.png)
 
-# Quick Start
+## Quick Start
 
-## Deploy the ALB Operator
+### Deploy the ALB Operator
 
 1. Create a kind cluster
 2. `helm repo add alb https://alauda.github.io/alb/;helm repo update;helm search repo|grep alb`
 3. `helm install alb-operator alb/alauda-alb2` 
 
-## Deploy an ALB instance
+### Deploy an ALB Instance
 
 ```bash
 cat <<EOF | kubectl apply -f -
@@ -44,7 +46,7 @@ spec:
 EOF
 ```
 
-## Rua a demo application
+### Rua a Demo Application
 
 ```bash
 cat <<EOF | kubectl apply -f -
@@ -104,9 +106,9 @@ EOF
 
 Now you visit the app by `curl http://${ip}`
 
-# Advanced Features
+## Advanced Features
 
-## `Frontend` and `Rule`
+### `Frontend` and `Rule`
 
 Complex traffic matching and distribution patterns can be configured by `Frontend` and `Rule`.
 
@@ -150,9 +152,9 @@ spec:
       weight: 100
 ```
 
-## Ingress Annotations
+### Ingress Annotations
 
-### Rewrite Request
+#### Rewrite Request
 
 ```yaml
 alb.ingress.cpaas.io/rewrite-request: |
@@ -163,7 +165,7 @@ alb.ingress.cpaas.io/rewrite-request: |
 `headers_add`: append to the header instead of overwrite it.
 `headers`: set the header.
 
-### Rewrite Response
+#### Rewrite Response
 
 ```yaml
 alb.ingress.cpaas.io/rewrite-response: |
@@ -174,7 +176,7 @@ alb.ingress.cpaas.io/rewrite-response: |
 `headers_add`: append to the header instead of overwrite it.
 `headers`: set the header.
 
-### Annotations Compatible with ingress-nginx
+#### Annotations Compatible with ingress-nginx
 
 ```yaml
 nginx.ingress.kubernetes.io/rewrite-target
@@ -187,7 +189,7 @@ nginx.ingress.kubernetes.io/permanent-redirect
 nginx.ingress.kubernetes.io/upstream-vhost
 ```
 
-## Container Network
+### Container Network
 
 By default, ALB is deployed as a host network, which has the advantage of direct access via node ip, and the disadvantage that each ALB can only have exclusive access to the node, or you need to manually manage the ALB's ports.
 But, ALB also supports container network mode deployment and provides external access through Loadbalancer type Service.
