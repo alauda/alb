@@ -13,12 +13,4 @@ entries:
     urls:
     - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.0.0/alauda-alb2-v1.0.0.tgz
     version: v1.0.0
-  - annotations:
-      branch: feat/gh-ci
-      commit: b62b277ff8d93a8f5b01c87fb9aa9464947b3a27
-      release: alpha
-    apiVersion: v2
-    created: "2024-01-09T07:58:47.691649087Z"
-    description: alauda loadbalancer version 2
-    digest: 769907275acffc798e34d14c055a560a616241fc3296bfd511a840fb6b04a706
 generated: "2024-01-09T09:18:24.401551654Z"
