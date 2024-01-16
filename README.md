@@ -110,7 +110,8 @@ Now you visit the app by `curl http://${ip}`
 
 ### `Frontend` and `Rule`
 
-Complex traffic matching and distribution patterns can be configured by `Frontend` and `Rule`.
+Complex traffic matching and distribution patterns can be configured by `Frontend` and `Rule`.  
+[syntax of rule's dslx](./docs/rules.md)
 
 ```yaml
 apiVersion: crd.alauda.io/v1
@@ -137,11 +138,41 @@ metadata:
 spec:
   backendProtocol: ""                       # as same as Frontend
   certificate_name: ""                      # as same as Frontend
-  dslx:                                     # matching rule DSL
+  dslx:                                     # this rule matches url starts with /app-a or /app-b and method is post,and url param's group is vip, and host is *.app.com, and header's location is east-1 or east-2 and has a cookie name is uid, and source IPs come from 1.1.1.1-1.1.1.100
+  - type: METHOD
+    values:
+    - - EQ
+      - POST
   - type: URL
     values:
     - - STARTS_WITH
-      - /
+      - /app-a
+    - - STARTS_WITH
+      - /app-b
+  - type: PARAM
+    key: group
+    values:
+    - - EQ
+      - vip
+  - type: HOST 
+    values:
+    - - ENDS_WITH
+      - .app.com
+  - type: HEADER
+    key: LOCATION 
+    values:
+    - - IN
+      - east-1
+      - east-2
+  - type: COOKIE
+    key: uid
+    values:
+    - - EXIST 
+  - type: SRC_IP
+    values:
+    - - RANGE
+      - "1.1.1.1"
+      - "1.1.1.100"
   enableCORS: false
   priority: 5                              # the lower the number, the higher the priority
   serviceGroup:
@@ -216,10 +247,10 @@ spec:
 
 ### Gateway API
 
-ALB supports Gateway out of box, just set the `gatewayClassName` to `exclusive-gateway` when creating gateways.
+ALB supports GatewayAPI(v0.6.2) out of box, just set the `gatewayClassName` to `exclusive-gateway` when creating gateways. GatewayAPI 1.0 support is on the way.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: g1 
