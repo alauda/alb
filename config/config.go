@@ -92,7 +92,7 @@ func ExtraFlagsFromEnv(env map[string]string) ExtraConfig {
 		OldConfigPath:               ToStrOr(env[OLD_CONFIG_PATH], OLD_CONFIG_PATH_VAL),
 		NewPolicyPath:               ToStrOr(env[NEW_POLICY_PATH], NEW_POLICY_PATH_VAL),
 		TweakDir:                    TWEAK_DIR_VAL,
-		Interval:                    INTERVAL_VAL,
+		Interval:                    ToIntOr(env[INTERVAL], INTERVAL_VAL),
 		ReloadTimeout:               ToIntOr(env[RELOAD_TIMEOUT], DEFAULT_RELOAD_TIMEOUT_VAL),
 		Pod:                         env[MY_POD_NAME],
 		DebugRuleSync:               ToBoolOr(env[DEBUG_RULESYNC], false),

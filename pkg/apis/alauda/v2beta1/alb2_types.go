@@ -100,6 +100,7 @@ type ExternalAlbConfig struct {
 	CleanMetricsInterval *int               `yaml:"cleanMetricsInterval" json:"cleanMetricsInterval,omitempty"` // 可以删掉 用默认值就行 还没遇到过需要配置的
 	Backlog              *int               `yaml:"backlog" json:"backlog,omitempty"`                           // 可以删掉 用默认值就行 还没遇到过需要配置的
 	MaxTermSeconds       *int               `yaml:"maxTermSeconds" json:"maxTermSeconds,omitempty"`             // 可以删掉 用默认值就行 还没遇到过需要配置的
+	Interval             *int               `yaml:"interval" json:"interval,omitempty"`                         // 每次生成policy的时间间隔
 	ReloadTimeout        *int               `yaml:"reloadtimeout" json:"reloadtimeout,omitempty"`               // 每次生成配置的最大超时时间
 	PolicyZip            *bool              `yaml:"policyZip" json:"policyZip,omitempty"`                       // zip policy.new 规避安全审查 防止明文policy
 	Gateway              *ExternalGateway   `yaml:"gateway" json:"gateway,omitempty"`

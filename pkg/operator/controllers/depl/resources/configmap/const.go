@@ -22,7 +22,7 @@ const HTTP = `
     lua_package_path '/usr/local/lib/lua/?.lua;/alb/nginx/lua/?.lua;/alb/nginx/lua/vendor/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
     lua_shared_dict http_policy   10m;
-    lua_shared_dict http_certs_cache   10m;
+    lua_shared_dict http_certs_cache   20m;
     lua_shared_dict http_backend_cache 5m;
     lua_shared_dict http_alb_cache     20m;
     lua_shared_dict http_raw     5m;

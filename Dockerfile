@@ -32,7 +32,6 @@ RUN umask 027 && \
     mkdir -p /alb/ctl/tools
 
 COPY run-alb.sh /alb/ctl/run-alb.sh
-RUN chmod +x /alb/ctl/run-alb.sh
 COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
 COPY --from=builder /out/alb /alb/ctl/alb
 COPY --from=builder /out/operator /alb/ctl/operator
@@ -40,11 +39,12 @@ COPY --from=builder /out/migrate/init-port-info /alb/ctl/tools/init-port-info
 COPY --from=builder /out/albctl /alb/ctl/tools/albctl
 
 RUN chown -R nonroot:nonroot /alb && \
+    chmod +x /alb/ctl/run-alb.sh && \
     setcap CAP_SYS_PTRACE=+eip /sbin/ss && \
     chmod -R o-rwx /alb; chmod -R g-w /alb  && \
     chmod 550 /alb/ctl/run-alb.sh && \
     chmod 550 /alb/ctl/tools/init-port-info && \
     chmod 550 /alb/ctl/tools/albctl && \
-    chmod 550 /alb/ctl/alb 
-RUN ls /usr/bin |grep nc
+    chmod 550 /alb/ctl/alb && \
+    ls /usr/bin |grep nc
 USER nonroot

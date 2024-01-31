@@ -124,6 +124,7 @@ func MergeController(ec ExternalAlbConfig, a *ALB2Config) {
 	c.DefaultSSLStrategy = *ec.DefaultSSLStrategy
 	c.MaxTermSeconds = *ec.MaxTermSeconds
 	c.ReloadTimeout = *ec.ReloadTimeout
+	c.Interval = *ec.Interval
 	c.CpuPreset = CpuPresetToCore(ec.Resources.Limits.CPU)
 	c.WorkerLimit = *ec.WorkerLimit
 	c.ResyncPeriod = *ec.ResyncPeriod
