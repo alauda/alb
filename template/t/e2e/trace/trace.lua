@@ -240,9 +240,6 @@ function _M.test()
 
     s.set_policy_lua(default_policy())
     s.test_error_reason()
-    do
-        return
-    end
     s.set_policy_lua(default_policy())
     s.test_policy_cache()
 

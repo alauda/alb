@@ -418,6 +418,7 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 		return ret
 	}
 
+	// NOTE: alb现在是根据route的状态来生成policy的。所以必须要处理完所有的route。不能因为一个route出错而提前退出
 	for _, r := range rs {
 		log := g.log.WithValues("route", "route", GetObjectKey(r.route))
 		origin, err := GetRouteStatus(r.route)
@@ -430,7 +431,7 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 		})
 		if err != nil {
 			log.Error(err, "update route status fail")
-			return err
+			continue
 		}
 		if SameStatus(origin, newStatus) {
 			log.Info("same status ignore")
@@ -439,7 +440,8 @@ func (g *GatewayReconciler) updateRouteStatus(rs []*Route) error {
 		log.Info("update route status", "route", GetObjectKey(r.route), "status", newStatus, "diff", cmp.Diff(origin, newStatus))
 		err = g.c.Status().Update(g.ctx, r.route.GetObject())
 		if err != nil {
-			return err
+			log.Error(err, "k8s update route status fail")
+			continue
 		}
 	}
 	return nil

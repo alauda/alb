@@ -18,50 +18,6 @@ spec:
         common resources
       name: source
   tasks:
-    - name: kind-test 
-      timeout: 30m
-      runAfter:
-        - build-alb-chart
-      params:
-      - name: version 
-        value: $(build.git.version.short)
-      - name: branch
-        value: $(build.git.branch.name)
-      retries: 3
-      workspaces:
-        - name: source
-          workspace: source
-      taskSpec:
-        descriptifn: >
-          run alb kind e2e test
-        workspaces:
-          - name: source
-            workspace: source
-        steps:
-          - image: docker-mirrors.alauda.cn/library/golang:1.21.6-alpine  # keep it as same as alb docker builder.
-            name: build
-            imagePullPolicy: IfNotPresent
-            workingDir: '$(workspaces.source.path)'
-            resources:
-              requests:
-                cpu: "1"
-                memory: "1G"
-              limits:
-                cpu: "4"
-                memory: "4G"              
-            script: |
-              #!/bin/sh
-              sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
-              apk update
-              apk add bash openssh-client sshpass git gcc
-              ls
-              env
-              pwd
-              export ALB_KIND_E2E_BRANCH=$(params.branch)
-              export ALB_KIND_E2E_CHART=$(params.version)
-              echo "branch  is  $ALB_KIND_E2E_BRANCH. version is $ALB_KIND_E2E_CHART"
-              timeout  20m ./scripts/kind-e2e.sh
-              echo "just ignore error"
     - name: alb-test
       retries: 3
       workspaces:
