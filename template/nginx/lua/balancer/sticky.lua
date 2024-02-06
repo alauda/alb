@@ -94,19 +94,25 @@ function _M.balance(self)
     local upstream_from_key
 
     local key = self:get_key()
+    -- 当没有这个key的时候，upstream_from_key 就不会被设置，就是nil
     if key then
         upstream_from_key = self.instance:find(key)
     end
     local should_pick_new_upstream = upstream_from_key == nil
 
     if not should_pick_new_upstream then
+        -- 使用请求中的key 来hash到对应的upstream
         return upstream_from_key
     end
 
+    -- 请求中没有key，我们自己设置一个,并用这个key来做hash 找到对应的upstream
     local new_upstream, key = self:pick_new_upstream(get_failed_upstreams())
     if not new_upstream then
         ngx.log(ngx.WARN, string.format("failed to get new upstream; using upstream %s", new_upstream))
-    elseif self:is_sticky_cookie() and should_set_cookie() then
+        return nil
+    end
+    if self:is_sticky_cookie() and should_set_cookie() then
+        --  如果是stick cookie，我们要自己设置下
         self:set_cookie(key)
     end
 

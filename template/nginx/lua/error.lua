@@ -1,6 +1,7 @@
 -- format:on
 local _M = {}
 local ngx = ngx
+local subsys = require "utils.subsystem"
 
 local ErrReason = "X-ALB-ERR-REASON"
 
@@ -23,20 +24,19 @@ function _M.exit_with_code(reason, msg, code)
     if msg ~= nil then
         reason = reason .. " : " .. tostring(msg)
     end
-    ngx.header[ErrReason] = reason
-    ngx.ctx.is_alb_err = true
-    ngx.exit(code)
+    if subsys.is_http_subsystem() then
+        ngx.header[ErrReason] = reason
+        ngx.ctx.is_alb_err = true
+        ngx.status = code
+        ngx.say("Error: " .. tostring(code)) -- custom error message when alb itself error
+        ngx.exit(ngx.HTTP_OK)
+    end
+    if subsys.is_stream_subsystem() then
+        ngx.exit(ngx.ERROR)
+    end
 end
 
-function _M.timeout_via_alb()
-    ngx.header[ErrReason] = _M.TimeoutViaAlb
-end
-
-function _M.timeout_via_backend()
-    ngx.header[ErrReason] = _M.TimeoutViaBackend
-end
-
-function _M.backend_error(_, msg)
+function _M.http_backend_error(_, msg)
     ngx.header[ErrReason] = _M.BackendError .. " : " .. tostring(msg)
 end
 

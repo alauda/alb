@@ -95,6 +95,12 @@ const HTTPSERVER = `
 
     # fix http://jira.alauda.cn/browse/SGHL-142
     underscores_in_headers on;
+
+    error_page 500 502 503 504 404 /custom_error;
+    location /custom_error {
+        internal;
+        echo "X-Error: $status";
+    }
 `
 
 const GRPCSERVER = `

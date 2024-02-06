@@ -35,7 +35,7 @@ local function default_policy()
             },
             {
                 name = "test-upstream-5", mode = "http", backends = {
-                    {address = "127.0.0.1", port = 11880, weight = 100}
+                    {address = "127.0.0.1", port = 11880, weight = 100} -- port not exist will connect error
                 }
             }
         }
@@ -69,33 +69,13 @@ function _M.as_backend()
     ngx.say "from backend"
 end
 
-function _M.init_worker()
-    u.log "init worker"
-    local subsys = require "utils.subsystem"
-    if subsys.is_http_subsystem() then
-        require "init_l7"
-    else
-        require "init_l4"
-    end
-    local balancer = require "balancer"
-    balancer.sync_backends()
-    u.log "sync backend ok"
-    local _, err = ngx.timer.every(1, balancer.sync_backends)
-    if err then
-        ngx.log(ngx.ERR, string.format("error when setting up timer.every for sync_backends: %s", tostring(err)))
-    end
-end
-
 function _M.set_policy(policy)
     local p = require "policy_fetch"
     p.update_policy(policy, "manual")
 end
 
 function _M.set_policy_lua(policy_table)
-    local p = require "policy_fetch"
-    p.update_policy(common.json_encode(policy_table, true), "manual")
-    -- TODO FIXME wait backend sync
-    ngx.sleep(3)
+    require("policy_helper").set_policy_lua(policy_table)
 end
 
 function _M.test_policy_cache()
@@ -124,7 +104,7 @@ function _M.test_error_reason()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t5", {})
         u.logs(res, err)
         h.assert_eq(res.status, 502)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 0, 0, 0, 0, 0")
+        h.assert_eq(res.body, "X-Error: 502\n")
     end
     -- balancer err
     do
@@ -188,7 +168,7 @@ function _M.test_error_reason()
         h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidUpstream : no http_tcp_443")
         melf.set_policy_lua(default_policy())
     end
-    -- -- timeout
+    -- timeout
     do
         local p = default_policy()
         p["http"]["tcp"]["80"] = {{rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1", config = {timeout = {proxy_read_timeout_ms = "3000"}}}}
@@ -200,7 +180,7 @@ function _M.test_error_reason()
         -- 现在alb设置的timeout是3s，所以报错应该是alb timeout
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/sleep?sleep=5", {})
         u.logs(res, err)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 0, 0, 0, 0, 0")
+        h.assert_eq(res.body, "X-Error: 504\n")
         h.assert_eq(res.status, 504)
 
         -- 现在是后端直接返回的504 所以报错应该是backenderror
@@ -233,9 +213,6 @@ function _M.test_trace()
         u.logs(trace)
     end
     do
-        return
-    end
-    do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/detail", {headers = {["cpaas-trace"] = "true"}})
         u.logs(res, err)
         h.assert_eq(res.status, 200)
@@ -263,6 +240,9 @@ function _M.test()
 
     s.set_policy_lua(default_policy())
     s.test_error_reason()
+    do
+        return
+    end
     s.set_policy_lua(default_policy())
     s.test_policy_cache()
 

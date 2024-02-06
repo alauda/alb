@@ -1,6 +1,7 @@
 -- format:on
 local _M = {}
 local h = require "test-helper"
+local u = require "util"
 local shell = require "resty.shell"
 
 function _M.as_backend()
@@ -13,7 +14,8 @@ function _M.test()
 end
 
 local function get_cert_issuer(host, name)
-    local ok, stdout, stderr = shell.run("openssl s_client -connect " .. host .. " -servername " .. name .. " | grep 'subject=CN ='")
+    local cmd = "echo | openssl s_client -showcerts -connect " .. host .. " -servername " .. name
+    local ok, stdout, stderr = shell.run(cmd)
     if not ok then
         return nil, stderr
     end
@@ -21,6 +23,8 @@ local function get_cert_issuer(host, name)
 end
 local function assert_cert_issuer(host, name, issuer)
     local stdout, err = get_cert_issuer(host, name)
+    u.logs(stdout, err)
+    u.logs(err == nil)
     h.assert_is_nil(err)
     h.assert_contains(stdout, issuer)
 end
