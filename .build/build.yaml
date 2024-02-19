@@ -42,11 +42,6 @@ spec:
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
-            params:
-              - name: version 
-                value: "$(params.version)"
-              - name: branch
-                value: "$(params.branch)"
             resources:
               requests:
                 cpu: "1"
