@@ -1,6 +1,22 @@
 #!/bin/bash
 
-function alb-lint-all() {
+function alb-lint-all() (
+  set -e
+  alb-lint-bash
+  echo "bash ok"
+  alb-lint-go
+  echo "go ok"
+  #   alb-lint-lua
+  #   echo "lua ok"
+  # golangci-lint oom in ci
+  # golangci-lint -v run -c ./.golangci.yml
+)
+
+function alb-lint-golangci() {
+  golangci-lint -v run -c ./.golangci.yml
+}
+
+function alb-lint-in-ci() {
   alb-lint-bash
   echo "bash ok"
   alb-lint-go

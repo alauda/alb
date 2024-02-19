@@ -199,10 +199,52 @@ const (
 	FMT_SOURCE_INGRESS_RULE_INDEX = "alb2.%s/source-ingress-rule-index"
 	FMT_SOURCE_INGRESS_PATH_INDEX = "alb2.%s/source-ingress-path-index"
 	FMT_INGRESS_ADDRESS_NAME      = "alb2.%s/%s_address"
+	OVERWRITE_CONFIGMAP           = "alb2.operator.%s/overwrite-configmap"
 )
 
-func (c *Config) GetLabelLeader() string {
-	return fmt.Sprintf(FMT_LEADER, c.GetDomain())
+type Names struct {
+	domain string
+}
+
+func NewNames(domain string) Names {
+	return Names{domain: domain}
+}
+
+func (n Names) GetLabelLeader() string {
+	return fmt.Sprintf(FMT_LEADER, n.domain)
+}
+
+func (n Names) GetLabelSourceIngressVer() string {
+	sourceIngressVersion := fmt.Sprintf(FMT_SOURCE_INGRESS_VERSION, n.domain)
+	return sourceIngressVersion
+}
+
+func (n Names) GetLabelSourceIngressPathIndex() string {
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_PATH_INDEX, n.domain)
+}
+
+func (n Names) GetLabelBindKey() string {
+	return fmt.Sprintf(FMT_BINDKEY, n.domain)
+}
+
+func (n Names) GetLabelSourceIngressRuleIndex() string {
+	return fmt.Sprintf(FMT_SOURCE_INGRESS_RULE_INDEX, n.domain)
+}
+
+func (n Names) GetLabelAlbName() string {
+	return fmt.Sprintf(FMT_NAME, n.domain)
+}
+
+func (n Names) GetLabelFt() string {
+	return fmt.Sprintf(FMT_FT, n.domain)
+}
+
+func (n Names) GetLabelSourceType() string {
+	return fmt.Sprintf(FMT_SOURCE_TYPE, n.domain)
+}
+
+func (n Names) GetOverwriteConfigmapLabelKey() string {
+	return fmt.Sprintf(OVERWRITE_CONFIGMAP, n.domain)
 }
 
 type Flags struct {

@@ -2,7 +2,6 @@ package alb
 
 import (
 	"context"
-	"time"
 
 	. "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
@@ -19,7 +18,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -300,34 +298,54 @@ spec:
 		}
 	})
 
-})
+	GIt("configmap should update when overwrite configmap change", func() {
+		log.Info("hello")
+		kt.AssertKubectlApply(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cfg-1
+  namespace: cpaas-system
+data:
+  http: '{}'
+---
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+    name: alb-1
+    namespace: cpaas-system
+spec:
+    address: "127.0.0.1"
+    type: "nginx" 
+    config:
+        overwrite:
+          configmap:
+             - name: cpaas-system/cfg-1
+        replicas: 1
+`)
+		EventuallySuccess(func(g gomega.Gomega) {
+			cm := &corev1.ConfigMap{}
+			err := kc.GetClient().Get(ctx, crcli.ObjectKey{Namespace: "cpaas-system", Name: "alb-1"}, cm)
+			GNoErr(g, err)
+			log.Info("cm is ", "cm", PrettyCr(cm), "http", cm.Data["http"])
+			GEqual(g, cm.Data["http"], "{}")
+		}, log)
 
-func MakeLbSvcReady(ctx context.Context, log logr.Logger, cli kubernetes.Interface, ns, name string, v4 string, v6 string) error {
-	for {
-		time.Sleep(time.Second * 1)
-		log.Info("make lb svc ready")
-		svc, err := ctl.GetLbSvc(ctx, cli, crcli.ObjectKey{Namespace: ns, Name: name}, "cpaas.io")
-		if k8serrors.IsNotFound(err) {
-			log.Error(err, "not found ignore")
-			continue
-		}
-		if err != nil {
-			log.Error(err, "get svc err")
-			continue
-		}
-		svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
-			{
-				IP: v4,
-			},
-			{
-				IP: v6,
-			},
-		}
-		_, err = cli.CoreV1().Services(ns).UpdateStatus(ctx, svc, metav1.UpdateOptions{})
-		if err != nil {
-			log.Error(err, "update status err")
-			continue
-		}
-		log.Info("update status success")
-	}
-}
+		kt.AssertKubectlApply(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cfg-1
+  namespace: cpaas-system
+data:
+  http: '{"xx":"xx"}'
+`)
+		EventuallySuccess(func(g gomega.Gomega) {
+			cm := &corev1.ConfigMap{}
+			err := kc.GetClient().Get(ctx, crcli.ObjectKey{Namespace: "cpaas-system", Name: "alb-1"}, cm)
+			GNoErr(g, err)
+			log.Info("updated cm is ", "cm", PrettyCr(cm))
+			GEqual(g, cm.Data["http"], `{"xx":"xx"}`)
+		}, log)
+	})
+})

@@ -147,6 +147,12 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	l.Info("config", "alb conf", utils.PrettyJson(albconf))
 	cfg := config.Config{Operator: r.OperatorCf, ALB: *albconf}
+
+	err = r.updateOverwriteConfigmapIfNeed(ctx, cfg)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	dctl := NewAlbDeployCtl(ctx, r.Client, cfg, r.Log)
 	expect, err := dctl.GenExpectAlbDeploy(ctx, cur)
 	if err != nil {
@@ -166,103 +172,104 @@ func (r *ALB2Reconciler) reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 // SetupWithManager sets up the controller with the Manager.
 func (r *ALB2Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Log.Info("set up alb reconcile")
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&albv2.ALB2{}, builder.WithPredicates(
-			predicate.Funcs{
-				CreateFunc: func(event event.CreateEvent) bool {
-					return true
-				},
-				DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-					return true
-				},
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldObj, oldok := e.ObjectOld.(*albv2.ALB2)
-					newObj, newok := e.ObjectNew.(*albv2.ALB2)
-					if !oldok || !newok {
-						return false
-					}
-
-					log := r.Log.WithName("filter").WithValues("name", oldObj.Name, "old-version", oldObj.ResourceVersion, "new-version", newObj.ResourceVersion)
-					if !newObj.GetDeletionTimestamp().IsZero() {
-						return true
-					}
-					sameSpec := reflect.DeepEqual(oldObj.Spec, newObj.Spec)
-					sameLabel := reflect.DeepEqual(oldObj.Labels, newObj.Labels)
-					sameAnnotation := reflect.DeepEqual(oldObj.Annotations, newObj.Annotations)
-					sameStatus := SameStatus(oldObj.Status, newObj.Status, log)
-					if sameSpec && sameLabel && sameAnnotation && sameStatus {
-						return false
-					}
-					log.Info("alb change", "diff", cmp.Diff(oldObj, newObj))
-					return true
-				},
-				GenericFunc: func(genericEvent event.GenericEvent) bool {
-					return true
-				},
+	b := ctrl.NewControllerManagedBy(mgr)
+	b = b.For(&albv2.ALB2{}, builder.WithPredicates(
+		predicate.Funcs{
+			CreateFunc: func(event event.CreateEvent) bool {
+				return true
 			},
-		)).
-		// 当alb的svc变化时(分配了ip)，应该去更新alb的状态
-		Watches(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
-			builder.WithPredicates(
-				predicate.And(
-					r.ignoreNonAlbObj(),
-					predicate.Funcs{
-						CreateFunc: func(event event.CreateEvent) bool {
-							return false
-						},
-						DeleteFunc: func(e event.DeleteEvent) bool {
-							r.Log.Info("find svc delete", "svc", toolkit.PrettyCr(e.Object))
-							return true
-						},
-						UpdateFunc: func(e event.UpdateEvent) bool {
-							r.Log.Info("find svc update", "name", e.ObjectNew.GetName(), "diff", cmp.Diff(e.ObjectOld, e.ObjectNew))
-							return true
-						},
-						GenericFunc: func(genericEvent event.GenericEvent) bool {
-							return false
-						},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldObj, oldok := e.ObjectOld.(*albv2.ALB2)
+				newObj, newok := e.ObjectNew.(*albv2.ALB2)
+				if !oldok || !newok {
+					return false
+				}
+
+				log := r.Log.WithName("filter").WithValues("name", oldObj.Name, "old-version", oldObj.ResourceVersion, "new-version", newObj.ResourceVersion)
+				if !newObj.GetDeletionTimestamp().IsZero() {
+					return true
+				}
+				sameSpec := reflect.DeepEqual(oldObj.Spec, newObj.Spec)
+				sameLabel := reflect.DeepEqual(oldObj.Labels, newObj.Labels)
+				sameAnnotation := reflect.DeepEqual(oldObj.Annotations, newObj.Annotations)
+				sameStatus := SameStatus(oldObj.Status, newObj.Status, log)
+				if sameSpec && sameLabel && sameAnnotation && sameStatus {
+					return false
+				}
+				log.Info("alb change", "diff", cmp.Diff(oldObj, newObj))
+				return true
+			},
+			GenericFunc: func(genericEvent event.GenericEvent) bool {
+				return true
+			},
+		},
+	))
+	// 当alb的svc变化时(分配了ip)，应该去更新alb的状态
+	b = b.Watches(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
+		builder.WithPredicates(
+			predicate.And(
+				r.ignoreNonAlbObj(),
+				predicate.Funcs{
+					CreateFunc: func(event event.CreateEvent) bool {
+						return false
 					},
-				),
+					DeleteFunc: func(e event.DeleteEvent) bool {
+						r.Log.Info("find svc delete", "svc", toolkit.PrettyCr(e.Object))
+						return true
+					},
+					UpdateFunc: func(e event.UpdateEvent) bool {
+						r.Log.Info("find svc update", "name", e.ObjectNew.GetName(), "diff", cmp.Diff(e.ObjectOld, e.ObjectNew))
+						return true
+					},
+					GenericFunc: func(genericEvent event.GenericEvent) bool {
+						return false
+					},
+				},
 			),
-		).
-		// 当alb的deployment变化时(replicas变化)，应该去更新alb的状态
-		Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
-			builder.WithPredicates(
-				predicate.And(
-					r.ignoreNonAlbObj(),
-					predicate.Funcs{
-						CreateFunc: func(event event.CreateEvent) bool {
-							// deployment可能就是这里创建的，不关心
+		),
+	)
+	// 当alb的deployment变化时(replicas变化)，应该去更新alb的状态
+	b = b.Watches(&source.Kind{Type: &appsv1.Deployment{}}, handler.EnqueueRequestsFromMapFunc(r.ObjToALbKey),
+		builder.WithPredicates(
+			predicate.And(
+				r.ignoreNonAlbObj(),
+				predicate.Funcs{
+					CreateFunc: func(event event.CreateEvent) bool {
+						// deployment可能就是这里创建的，不关心
+						return false
+					},
+					DeleteFunc: func(e event.DeleteEvent) bool {
+						r.Log.Info("find deployment delete", "depl", toolkit.ShowMeta(e.Object))
+						return true
+					},
+					UpdateFunc: func(e event.UpdateEvent) bool {
+						odepl, ok := e.ObjectOld.(*appsv1.Deployment)
+						if !ok {
 							return false
-						},
-						DeleteFunc: func(e event.DeleteEvent) bool {
-							r.Log.Info("find deployment delete", "depl", toolkit.ShowMeta(e.Object))
-							return true
-						},
-						UpdateFunc: func(e event.UpdateEvent) bool {
-							odepl, ok := e.ObjectOld.(*appsv1.Deployment)
-							if !ok {
-								return false
-							}
-							edepl, ok := e.ObjectNew.(*appsv1.Deployment)
-							if !ok {
-								return false
-							}
-							ns, name, version, err := GetAlbKeyFromObject(edepl)
-							if err != nil {
-								return false
-							}
-							key := types.NamespacedName{Namespace: ns, Name: name}
-							r.Log.Info("find deployment update", "key", key, "version", version, "depl", toolkit.ShowMeta(e.ObjectNew), "old-ver", odepl.ResourceVersion, "new-ver", edepl.ResourceVersion)
-							return true
-						},
-						GenericFunc: func(genericEvent event.GenericEvent) bool {
+						}
+						edepl, ok := e.ObjectNew.(*appsv1.Deployment)
+						if !ok {
 							return false
-						},
-					}),
-			),
-		).
-		Complete(r)
+						}
+						ns, name, version, err := GetAlbKeyFromObject(edepl)
+						if err != nil {
+							return false
+						}
+						key := types.NamespacedName{Namespace: ns, Name: name}
+						r.Log.Info("find deployment update", "key", key, "version", version, "depl", toolkit.ShowMeta(e.ObjectNew), "old-ver", odepl.ResourceVersion, "new-ver", edepl.ResourceVersion)
+						return true
+					},
+					GenericFunc: func(genericEvent event.GenericEvent) bool {
+						return false
+					},
+				}),
+		),
+	)
+	r.setUpWatchConfigmap(b)
+	return b.Complete(r)
 }
 
 func (r *ALB2Reconciler) ignoreNonAlbObj() predicate.Funcs {
