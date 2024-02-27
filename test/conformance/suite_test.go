@@ -23,6 +23,7 @@ func fakeIpv4Ips(size int) []string {
 	}
 	return out
 }
+
 func fakeIpv6Ips(size int) []string {
 	out := []string{}
 	for i := 0; i < 200; i++ {

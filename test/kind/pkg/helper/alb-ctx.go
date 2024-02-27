@@ -340,6 +340,7 @@ func (a *AlbOperatorCtl) init(cfg AlbOperatorCfg) error {
 	}
 	return nil
 }
+
 func (a *AlbOperatorCtl) clean() error {
 	rs, err := a.Kubectl.Kubectl("api-resources")
 	l := a.log

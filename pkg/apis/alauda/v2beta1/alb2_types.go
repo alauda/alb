@@ -26,6 +26,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -285,4 +287,23 @@ func (alb *ALB2) GetAllAddress() []string {
 		ret = append(ret, addr)
 	}
 	return ret
+}
+
+func (alb *ALB2) UseConfigmap(key client.ObjectKey) bool {
+	if alb.Spec.Config == nil {
+		return false
+	}
+	if alb.Spec.Config.Overwrite == nil {
+		return false
+	}
+	for _, cm := range alb.Spec.Config.Overwrite.Configmap {
+		ns, name, err := cache.SplitMetaNamespaceKey(cm.Name)
+		if err != nil {
+			continue
+		}
+		if name == key.Name && ns == key.Namespace {
+			return true
+		}
+	}
+	return false
 }

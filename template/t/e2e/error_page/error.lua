@@ -55,7 +55,6 @@ function _M.test()
         local res, err = u.curl("http://127.0.0.1/xx")
         u.logs(res, err)
         h.assert_eq(res.status, 404)
-        h.assert_eq(res.body, "Error: 404\n")
     end
 
     do

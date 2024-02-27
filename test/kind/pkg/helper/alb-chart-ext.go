@@ -142,6 +142,7 @@ func (a *AlbChartExt) GetImage() (albImage string, nginxImage string, err error)
 	}
 	return registry + "/acp/alb-nginx:" + strings.TrimFunc(nginx, IsNotAlphabetic), registry + "/acp/alb2:" + strings.TrimFunc(alb, IsNotAlphabetic), nil
 }
+
 func (a *AlbChartExt) ListImage() ([]string, error) {
 	alb, nginx, err := a.GetImage()
 	if err != nil {

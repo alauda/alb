@@ -12,6 +12,10 @@ function alb-lint-all() (
   # golangci-lint -v run -c ./.golangci.yml
 )
 
+function alb-lint-golangci() {
+  golangci-lint -v run -c ./.golangci.yml
+}
+
 function alb-lint-in-ci() {
   alb-lint-bash
   echo "bash ok"

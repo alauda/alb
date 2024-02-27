@@ -62,7 +62,6 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 		return false, err
 	}
 	_, err = c.doUpdate(ingress, alb, expect, false)
-
 	if err != nil {
 		return false, err
 	}

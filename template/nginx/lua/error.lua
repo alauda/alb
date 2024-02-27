@@ -28,7 +28,6 @@ function _M.exit_with_code(reason, msg, code)
         ngx.header[ErrReason] = reason
         ngx.ctx.is_alb_err = true
         ngx.status = code
-        ngx.say("Error: " .. tostring(code)) -- custom error message when alb itself error
         ngx.exit(ngx.HTTP_OK)
     end
     if subsys.is_stream_subsystem() then

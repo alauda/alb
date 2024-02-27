@@ -130,7 +130,6 @@ func (nc *NginxController) GenerateConf() error {
 		return err
 	}
 	err = nc.WriteConfig(nginxConfig, ngxPolicies)
-
 	if err != nil {
 		return err
 	}

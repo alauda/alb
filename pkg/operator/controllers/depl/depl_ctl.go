@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	c "alauda.io/alb2/config"
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
@@ -170,13 +171,24 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 	}
 
 	alb.Labels = MergeMap(projectLabel, RemovePrefixKey(alb.Labels, projectPrefix))
+	{
 
-	key := fmt.Sprintf("%s/%s", labelBaseDomain, "role")
-	if conf.Project.EnablePortProject {
-		alb.Labels[key] = "port"
-	} else {
-		delete(alb.Labels, key)
+		key := fmt.Sprintf("%s/%s", labelBaseDomain, "role")
+		if conf.Project.EnablePortProject {
+			alb.Labels[key] = "port"
+		} else {
+			delete(alb.Labels, key)
+		}
 	}
+	{
+		key := c.NewNames(labelBaseDomain).GetOverwriteConfigmapLabelKey()
+		if len(conf.Overwrite.Configmap) != 0 {
+			alb.Labels[key] = "true"
+		} else {
+			delete(alb.Labels, key)
+		}
+	}
+
 	return alb, nil
 }
 
