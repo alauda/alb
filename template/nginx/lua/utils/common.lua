@@ -19,6 +19,11 @@ local _M = {}
 
 _M.null = json.null
 
+--- lua table to json string.
+--- if error, return nil
+---@param data table
+---@param empty_table_as_object boolean
+---@return string|nil
 function _M.json_encode(data, empty_table_as_object)
     local json_value = nil
     if json.encode_empty_table_as_object then

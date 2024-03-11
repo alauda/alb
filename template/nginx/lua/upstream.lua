@@ -49,15 +49,17 @@ function _M.get_upstream(subsystem, protocol, port)
         return nil, nil, "empty policy"
     end
     if subsystem == "http" then
+        --[[ ngx.log(ngx.ERR, "try find a matched policy len ", #policies) ]]
         for i, policy in ipairs(policies) do
             if (policy ~= nil and policy["dsl"] ~= nil) then
                 local match, err = dsl.eval(policy["dsl"])
+                --[[ ngx.log(ngx.ERR, "try find a matched policy ", policy["rule"]) ]]
                 if (match) then
                     local trace = ngx.ctx.alb_ctx.trace
                     trace.rule = policy["rule"]
                     trace.index = tostring(i)
                     trace.upstream = policy["upstream"]
-                    -- ngx.log(ngx.ERR,"find a matched policy ",policy["rule"])
+                    --[[ ngx.log(ngx.ERR, "find a matched policy ", policy["rule"]) ]]
                     return policy["upstream"], policy, nil
                 end
                 if (err ~= nil) then

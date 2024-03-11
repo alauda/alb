@@ -282,6 +282,27 @@ _END_
     if (defined $block->alb_https_port) {
         $extra_https_port_config = gen_https_port_config("",$block->alb_https_port,$base);
     }
+
+
+    if (defined $block->mock_backend) {
+        my $mock_backend = $block->mock_backend;
+        my @array = split ' ', $mock_backend;
+        my $port = $array[0];
+        my $module = $array[1];
+        warn "get mock backend $port | $module";
+        my $cfg= <<__END;
+server {
+    listen $port;
+    location / {
+       content_by_lua_block {
+            require("$module").as_backend($port)
+      }
+    }
+}
+__END
+        $block->set_value("http_config",$cfg);
+    }
+
     my $http_config;
     if (defined $block->http_config) {
         $http_config = $block->http_config;

@@ -274,8 +274,10 @@ type RewriteResponseConfig struct {
 
 type RewriteRequestConfig struct {
 	Headers       map[string]string   `json:"headers,omitempty"`
+	HeadersVar    map[string]string   `json:"headers_var,omitempty"`
 	HeadersRemove []string            `json:"headers_remove,omitempty"`
 	HeadersAdd    map[string][]string `json:"headers_add,omitempty"`
+	HeadersAddVar map[string][]string `json:"headers_add_var,omitempty"`
 }
 
 func (r RewriteResponseConfig) IsEmpty() bool {

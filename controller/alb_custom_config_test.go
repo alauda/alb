@@ -11,6 +11,8 @@ import (
 
 func TestRuleConfig(t *testing.T) {
 	config.UseMock(config.DefaultMock())
+	ALBIngressRewriteRequestAnnotation := GetAlbIngressRewriteRequestAnnotation()
+	RuleRewriteRequestAnnotation := GetAlbRuleRewriteRequestAnnotation()
 	ALBIngressRewriteResponseAnnotation := GetAlbIngressRewriteResponseAnnotation()
 	RuleRewriteResponseAnnotation := GetAlbRuleRewriteResponseAnnotation()
 	type TestCase struct {
@@ -57,6 +59,20 @@ func TestRuleConfig(t *testing.T) {
 		case2,
 		case3,
 		case4,
+		{
+			map[string]string{ALBIngressRewriteRequestAnnotation: `{"headers_var":{"a":"cookie_b"},"headers_add_var":{"aa":["cookie_b"]}}`},
+			map[string]string{RuleRewriteRequestAnnotation: `{"headers_var":{"a":"cookie_b"},"headers_add_var":{"aa":["cookie_b"]}}`},
+			&RuleConfig{
+				RewriteRequest: &RewriteRequestConfig{
+					HeadersVar: map[string]string{
+						"a": "cookie_b",
+					},
+					HeadersAddVar: map[string][]string{
+						"aa": {"cookie_b"},
+					},
+				},
+			},
+		},
 	}
 	for i, c := range cases {
 		ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation("xx", c.ingressAnnotation)
