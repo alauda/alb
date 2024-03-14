@@ -25,7 +25,7 @@ function alb-build-github-chart() {
   local branch=$GITHUB_HEAD_REF
   local commit=$GITHUB_SHA
   cp ./.github/chart/alb/values.yaml $chart_dir
-  cp ./.github/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml $chart_dir/crds # do not served v1
+  cp ./deploy/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml $chart_dir/crds # do not served v1
   yq -i e ".global.images.alb2.tag |= \"$version\"" $chart_dir/values.yaml
   yq -i e ".global.registry.address |= \"$repo\"" $chart_dir/values.yaml
   yq -i e ".global.images.nginx.tag |= \"$version\"" $chart_dir/values.yaml
