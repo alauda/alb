@@ -99,8 +99,7 @@ func GetAndInitDriver(ctx context.Context) (*KubernetesDriver, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = InitDriver(drv, ctx)
-	if err != nil {
+	if err = InitDriver(drv, ctx); err != nil {
 		return nil, err
 	}
 	return drv, nil
@@ -202,13 +201,13 @@ func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
 	driver.Informers = *informers
 	driver.ServiceLister = informers.K8s.Service.Lister()
 	driver.EndpointLister = informers.K8s.Endpoint.Lister()
-	driver.ALB2Lister = driver.Informers.Alb.Alb.Lister()
-	driver.FrontendLister = driver.Informers.Alb.Ft.Lister()
-	driver.RuleLister = driver.Informers.Alb.Rule.Lister()
+	driver.ALB2Lister = informers.Alb.Alb.Lister()
+	driver.FrontendLister = informers.Alb.Ft.Lister()
+	driver.RuleLister = informers.Alb.Rule.Lister()
 	return nil
 }
 
-// GetClusterIPAddress return addresses of a clusterip service by using cluster ip and service port
+// GetClusterIPAddress return addresses of a cluster ip service by using cluster ip and service port
 func (kd *KubernetesDriver) GetClusterIPAddress(svc *v1types.Service, port int) (*Service, error) {
 	service := &Service{
 		Name:        svc.Name,
@@ -402,7 +401,7 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePor
 		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	default:
 		klog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
-		return nil, errors.New("Unknown Service Type")
+		return nil, errors.New("unknown service type")
 	}
 }
 
