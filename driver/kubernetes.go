@@ -186,8 +186,7 @@ func InitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*Kuberne
 	if err != nil {
 		return nil, err
 	}
-	err = InitDriver(drv, ctx)
-	if err != nil {
+	if err := InitDriver(drv, ctx); err != nil {
 		return nil, err
 	}
 	return drv, nil
@@ -199,11 +198,12 @@ func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
 		return err
 	}
 	driver.Informers = *informers
-	driver.ServiceLister = informers.K8s.Service.Lister()
-	driver.EndpointLister = informers.K8s.Endpoint.Lister()
 	driver.ALB2Lister = informers.Alb.Alb.Lister()
 	driver.FrontendLister = informers.Alb.Ft.Lister()
 	driver.RuleLister = informers.Alb.Rule.Lister()
+	driver.ServiceLister = informers.K8s.Service.Lister()
+	driver.EndpointLister = informers.K8s.Endpoint.Lister()
+	driver.GatewayLister = informers.Gateway.Gateway.Lister()
 	return nil
 }
 

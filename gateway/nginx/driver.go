@@ -50,7 +50,7 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 		if sel.GatewayName != nil {
 			ns := sel.GatewayName.Namespace
 			name := sel.GatewayName.Name
-			gateway, err := kd.Informers.Gateway.Gateway.Lister().Gateways(ns).Get(name)
+			gateway, err := kd.GatewayLister.Gateways(ns).Get(name)
 			// NOTE: gateway not exist is accept.
 			if k8serrors.IsNotFound(err) {
 				log.Info("gateway not found")
@@ -153,15 +153,15 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 }
 
 // ListGatewayByClassName list gateway in all ns
-func listGatewayByClassName(kd *driver.KubernetesDriver, classname string) ([]*gv1.Gateway, error) {
+func listGatewayByClassName(kd *driver.KubernetesDriver, className string) ([]*gv1.Gateway, error) {
 	var ret []*gv1.Gateway
-	gateways, err := kd.Informers.Gateway.Gateway.Lister().List(labels.Everything())
+	gateways, err := kd.GatewayLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
 	for _, gateway := range gateways {
 		_ = utils.AddTypeInformationToObject(scheme, gateway)
-		if string(gateway.Spec.GatewayClassName) == classname {
+		if string(gateway.Spec.GatewayClassName) == className {
 			ret = append(ret, gateway)
 		}
 	}

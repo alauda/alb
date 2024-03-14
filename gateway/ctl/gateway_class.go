@@ -23,7 +23,7 @@ type GatewayClassReconciler struct {
 	log            logr.Logger
 }
 
-// TODO gateway claas 由operator来reconcile
+// TODO gateway class 由operator来reconcile
 func NewGatewayClassReconciler(ctx context.Context, c client.Client, log logr.Logger) GatewayClassReconciler {
 	return GatewayClassReconciler{
 		c:              c,
