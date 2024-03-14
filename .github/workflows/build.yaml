@@ -1,5 +1,11 @@
 name: Build 
 on:
+  workflow_dispatch:
+    inputs:
+      do_release:
+        type: boolean
+        description: do release 
+        required: true
   pull_request:
     branches:
     - master
@@ -95,13 +101,14 @@ jobs:
         with:
           install_only: true
       - name: release
-        if: ${{ contains(github.event.head_commit.message, '#release') }} 
+        if: ${{ inputs.do_release }} 
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
+          echo "in release"
           # push docker
           source ./scripts/alb-dev-actions.sh
           export VERSION=$(alb-github-gen-version)
