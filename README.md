@@ -38,8 +38,6 @@ spec:
     config:
         networkMode: host
         loadbalancerName: alb-demo
-        nodeSelector:
-          alb-demo: "true"
         projects:
         - ALL_ALL
         replicas: 1
@@ -247,10 +245,10 @@ spec:
 
 ### Gateway API
 
-ALB supports GatewayAPI(v0.6.2) out of box, just set the `gatewayClassName` to `exclusive-gateway` when creating gateways. GatewayAPI 1.0 support is on the way.
+ALB supports GatewayAPI(v1.0.0) out of box, just set the `gatewayClassName` to `exclusive-gateway` when creating gateways. 
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: g1 

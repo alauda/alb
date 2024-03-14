@@ -1,5 +1,11 @@
 name: Build 
 on:
+  workflow_dispatch:
+    inputs:
+      do_release:
+        type: boolean
+        description: do release 
+        required: true
   pull_request:
     branches:
     - master
@@ -52,7 +58,7 @@ jobs:
           export VERSION=$(alb-github-gen-version)
 
           OPENRESTY_BASE=theseedoaa/alb-nginx-base:v1.22.0
-          GO_BUILD_BASE=golang:1.18.10-alpine3.16
+          GO_BUILD_BASE=golang:1.21.6-alpine
           RUN_BASE=theseedoaa/ops-alpine:3.17 # we need nonroot user
 
           #  build images
@@ -95,13 +101,14 @@ jobs:
         with:
           install_only: true
       - name: release
-        if: ${{ contains(github.event.head_commit.message, '#release') }} 
+        if: ${{ inputs.do_release }}
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
+          echo "in release"
           # push docker
           source ./scripts/alb-dev-actions.sh
           export VERSION=$(alb-github-gen-version)
