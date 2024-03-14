@@ -170,7 +170,7 @@ func (a *Env) Start() error {
 		RetryPeriod:   time.Second * time.Duration(1000),
 	}
 	log.InTestSetLogger(a.Log)
-	config.InTestSetCofnig(cfg)
+	config.InTestSetConfig(cfg)
 	ctlchan := make(chan AlbCtl, 10)
 	a.ctlChan = ctlchan
 	albctx, albcancel := context.WithCancel(ctx)
@@ -207,9 +207,8 @@ func (a *AlbEnv) StartTestAlbLoop(rest *rest.Config, cfg *config.Config, log log
 	// 本质上是一个alb的运行环境
 	for {
 		ctx := a.albCtx
-		alb := albCtl.NewAlb(ctx, rest, cfg, log)
-		lc := ctl.NewLeaderElection(ctx, cfg, rest, log)
-		alb.WithLc(lc)
+		le := ctl.NewLeaderElection(ctx, cfg, rest, log)
+		alb := albCtl.NewAlb(ctx, rest, cfg, le, log)
 		alb.Start()
 		ctl := <-ctlchan
 		if ctl.kind == "stop" {
@@ -218,7 +217,7 @@ func (a *AlbEnv) StartTestAlbLoop(rest *rest.Config, cfg *config.Config, log log
 		if ctl.kind == "restart" {
 			continue
 		}
-		panic(fmt.Sprintf("unknow event %v", ctl))
+		panic(fmt.Sprintf("unknown event %v", ctl))
 	}
 }
 

@@ -26,36 +26,33 @@ type Alb struct {
 	ctx       context.Context
 	cfg       *rest.Config
 	albcfg    *config.Config
-	lc        *ctl.LeaderElection
+	le        *ctl.LeaderElection
 	portProbe *ctl.PortProbe
 	log       logr.Logger
 }
 
-func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg *config.Config, log logr.Logger) *Alb {
+func NewAlb(ctx context.Context, restCfg *rest.Config, albCfg *config.Config, le *ctl.LeaderElection, log logr.Logger) *Alb {
 	return &Alb{
 		ctx:    ctx,
-		cfg:    restcfg,
+		cfg:    restCfg,
 		albcfg: albCfg,
+		le:     le,
 		log:    log,
 	}
 }
 
-func (a *Alb) WithLc(lc *ctl.LeaderElection) {
-	a.lc = lc
-}
-
 func (a *Alb) Start() error {
 	ctx := a.ctx
-	lc := a.lc
+	lc := a.le
 	l := log.L().WithName("lifecycle")
 	l.Info("ALB start.")
 
 	albCfg := config.GetConfig()
 	state.GetState().SetPhase(modules.PhaseStarting)
-	leaderctx := a.lc.GetCtx()
+	leaderctx := a.le.GetCtx()
 	go func() {
 		l.Info("start leaderelection")
-		err := a.lc.StartLeaderElectionLoop()
+		err := a.le.StartLeaderElectionLoop()
 		if err != nil {
 			l.Error(err, "leader election fail")
 		}
@@ -86,7 +83,7 @@ func (a *Alb) Start() error {
 		ingressController := ingress.NewController(drv, informers, albCfg, log.L().WithName("ingress"))
 		go func() {
 			l.Info("ingress loop, start wait leader")
-			a.lc.WaitUtilIMLeader()
+			a.le.WaitUtilIMLeader()
 			l.Info("ingress loop, im leader now")
 			err := ingressController.StartIngressLoop(leaderctx)
 			if err != nil {
@@ -95,7 +92,7 @@ func (a *Alb) Start() error {
 		}()
 		go func() {
 			l.Info("ingress-resync loop, start wait leader")
-			a.lc.WaitUtilIMLeader()
+			a.le.WaitUtilIMLeader()
 			l.Info("ingress-resync loop, im leader now")
 			err := ingressController.StartResyncLoop(leaderctx)
 			if err != nil {
@@ -150,10 +147,10 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()
 
-		nctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"), a.lc)
+		nctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"), a.le)
 		nctl.PortProber = a.portProbe
 		// do leader stuff
-		if a.lc.AmILeader() {
+		if a.le.AmILeader() {
 			if a.portProbe != nil {
 				err := a.portProbe.LeaderUpdateAlbPortStatus()
 				if err != nil {
@@ -163,7 +160,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 			nctl.GC()
 		}
 
-		if config.GetConfig().GetFlags().DisablePeroidGenNginxConfig {
+		if config.GetConfig().GetFlags().DisablePeriodGenNginxConfig {
 			klog.Infof("reload: period regenerated config disabled")
 			return
 		}

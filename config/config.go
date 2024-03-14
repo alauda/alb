@@ -38,7 +38,7 @@ type ExtraConfig struct {
 	Pod                         string
 	ReloadNginx                 bool
 	FullSync                    bool
-	DisablePeroidGenNginxConfig bool
+	DisablePeriodGenNginxConfig bool
 	E2eTestControllerOnly       bool
 
 	Interval             int
@@ -84,7 +84,7 @@ func k8sFromEnv(env map[string]string) K8sConfig {
 func ExtraFlagsFromEnv(env map[string]string) ExtraConfig {
 	return ExtraConfig{
 		ReloadNginx:                 ToBoolOr(env[RELOAD_NGINX], true),
-		DisablePeroidGenNginxConfig: ToBoolOr(env[DISABLE_PERIOD_GEN_NGINX_CONFIG], false),
+		DisablePeriodGenNginxConfig: ToBoolOr(env[DISABLE_PERIOD_GEN_NGINX_CONFIG], false),
 		E2eTestControllerOnly:       ToBoolOr(env[E2E_TEST_CONTROLLER_ONLY], false),
 		FullSync:                    ToBoolOr(env[FULL_SYNC], true),
 		NginxTemplatePath:           ToStrOr(env[NGINX_TEMPLATE_PATH], NGINX_TEMPLATE_PATH_VAL),
@@ -143,7 +143,7 @@ func InitFromEnv(env map[string]string) *Config {
 	return cfg
 }
 
-func InTestSetCofnig(c Config) {
+func InTestSetConfig(c Config) {
 	cfg = &c
 	log.L().Info("init test mode cfg", "cfg", utils.PrettyJson(GetConfig()))
 }
@@ -274,7 +274,7 @@ func (c *Config) GetStatusFile() string {
 	return c.StatusFileParentPath
 }
 
-func (c *Config) GetDefaultSSLSCert() string {
+func (c *Config) GetDefaultSSLCert() string {
 	return c.Controller.SSLCert
 }
 

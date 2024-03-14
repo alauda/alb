@@ -83,7 +83,7 @@ func GFIt(text string, body interface{}, timeout ...float64) bool {
 
 func listen(network, addr string, stopCh chan struct{}) {
 	go func() {
-		listener, err := net.Listen("tcp", addr)
+		listener, err := net.Listen(network, addr)
 		if err != nil {
 			fmt.Println(err.Error())
 		}

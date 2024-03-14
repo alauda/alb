@@ -80,7 +80,7 @@ func (p *PortProbe) LeaderUpdateAlbPortStatus() error {
 	if err != nil {
 		return err
 	}
-	dirty, msg, err := p.cleanUpOldPodSatus(fts)
+	dirty, msg, err := p.cleanUpOldPodStatus(fts)
 	if err != nil {
 		return err
 	}
@@ -285,8 +285,8 @@ func GetListenTCPPorts() (map[int]bool, error) {
 	return ports, nil
 }
 
-func (p *PortProbe) initPodClientWithLabel(podLables map[string]string, ns string) (corev1lister.PodLister, error) {
-	labelSelector := labels.Set(podLables).AsSelector()
+func (p *PortProbe) initPodClientWithLabel(podLabels map[string]string, ns string) (corev1lister.PodLister, error) {
+	labelSelector := labels.Set(podLabels).AsSelector()
 
 	filteredFactory := informers.NewSharedInformerFactoryWithOptions(p.kd.Client, 0, informers.WithNamespace(ns), informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 		options.LabelSelector = labelSelector.String()
@@ -311,7 +311,7 @@ func (p *PortProbe) getAlbPod() (sets.Set[string], error) {
 	return sets.New(lo.Map(pods, func(p *corev1.Pod, _ int) string { return p.Name })...), nil
 }
 
-func (p *PortProbe) cleanUpOldPodSatus(fts []*alb2v1.Frontend) (dirty bool, msg string, err error) {
+func (p *PortProbe) cleanUpOldPodStatus(fts []*alb2v1.Frontend) (dirty bool, msg string, err error) {
 	curPods, err := p.getAlbPod()
 	if err != nil {
 		return false, "", err
