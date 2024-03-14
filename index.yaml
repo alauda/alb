@@ -3,6 +3,18 @@ entries:
   alauda-alb2:
   - annotations:
       branch: ""
+      commit: 068a840a97ada3f4d537b32c22e6aeb0d96f8fde
+      release: alpha
+    apiVersion: v2
+    created: "2024-03-14T12:57:48.633743849Z"
+    description: alauda loadbalancer version 2
+    digest: a29f64e2f8fc969efd6f9e61786f36201329077eadaae7bae670f99c71365730
+    name: alauda-alb2
+    urls:
+    - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.1.0/alauda-alb2-v1.1.0.tgz
+    version: v1.1.0
+  - annotations:
+      branch: ""
       commit: 6194357dc2af140ab6c04c8e2780cc4713d16d80
       release: alpha
     apiVersion: v2
@@ -13,4 +25,4 @@ entries:
     urls:
     - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.0.0/alauda-alb2-v1.0.0.tgz
     version: v1.0.0
-generated: "2024-01-09T09:18:24.401551654Z"
+generated: "2024-03-14T12:57:48.63375492Z"
