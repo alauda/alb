@@ -40,7 +40,7 @@ func run() error {
 	leCtx, leCancel := context.WithCancel(ctx)
 	le := ctl.NewLeaderElection(leCtx, albCfg, restCfg, log.L().WithName("le"))
 
-	a := NewAlb(ctx, restCfg, albCfg, le, log.L())
+	alb := NewAlb(ctx, restCfg, albCfg, le, log.L())
 
 	go StartSignalLoop(cancel, SignalCallBack{
 		OnSigInt: func() {
@@ -59,7 +59,7 @@ func run() error {
 		},
 	}, log.L().WithName("signal"))
 
-	if err = a.Start(); err != nil {
+	if err = alb.Start(); err != nil {
 		l.Error(err, "alb run fail")
 		return err
 	}

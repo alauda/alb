@@ -18,7 +18,6 @@ import (
 	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 )
 
 type Alb struct {
@@ -41,7 +40,7 @@ func NewAlb(ctx context.Context, restCfg *rest.Config, albCfg *config.Config, le
 }
 
 func (a *Alb) Start() error {
-	l := log.L().WithName("lifecycle")
+	l := a.log.WithName("lifecycle")
 	l.Info("ALB start.")
 
 	state.GetState().SetPhase(modules.PhaseStarting)
@@ -78,8 +77,7 @@ func (a *Alb) Start() error {
 			l.Info("ingress loop, start wait leader")
 			a.le.WaitUtilIMLeader()
 			l.Info("ingress loop, im leader now")
-			err := ingressController.StartIngressLoop(leaderCtx)
-			if err != nil {
+			if err := ingressController.StartIngressLoop(leaderCtx); err != nil {
 				l.Error(err, "ingress loop fail", "ctx", leaderCtx.Err())
 			}
 		}()
@@ -87,8 +85,7 @@ func (a *Alb) Start() error {
 			l.Info("ingress-resync loop, start wait leader")
 			a.le.WaitUtilIMLeader()
 			l.Info("ingress-resync loop, im leader now")
-			err := ingressController.StartResyncLoop(leaderCtx)
-			if err != nil {
+			if err := ingressController.StartResyncLoop(leaderCtx); err != nil {
 				l.Error(err, "ingress resync loop fail", "ctx", leaderCtx.Err())
 			}
 		}()
@@ -106,7 +103,7 @@ func (a *Alb) Start() error {
 	}
 
 	flags := a.albCfg.GetFlags()
-	klog.Infof("reload nginx %v", flags.ReloadNginx)
+	l.Info("reload nginx", flags.ReloadNginx)
 
 	if flags.ReloadNginx {
 		go a.StartReloadLoadBalancerLoop(drv, a.ctx)
@@ -117,7 +114,7 @@ func (a *Alb) Start() error {
 
 	// wait util ctx is cancel(signal)
 	<-a.ctx.Done()
-	klog.Infof("lifecycle: ctx is done")
+	l.Info("lifecycle: ctx is done")
 	return nil
 }
 
@@ -128,51 +125,51 @@ func (a *Alb) Start() error {
 func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx context.Context) {
 	interval := time.Duration(a.albCfg.GetInterval()) * time.Second
 	reloadTimeout := time.Duration(a.albCfg.GetReloadTimeout()) * time.Second
-	log := a.log
-	klog.Infof("reload: interval is %v  reload timeout is %v", interval, reloadTimeout)
+	l := a.log
+	l.Info("reload: interval is", interval, "reload timeout is", reloadTimeout)
 
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()
 
-		nctl := ctl.NewNginxController(drv, ctx, a.albCfg, log.WithName("nginx"), a.le)
+		nctl := ctl.NewNginxController(drv, ctx, a.albCfg, l.WithName("nginx"), a.le)
 		nctl.PortProber = a.portProbe
 		// do leader stuff
 		if a.le.AmILeader() {
 			if a.portProbe != nil {
 				err := a.portProbe.LeaderUpdateAlbPortStatus()
 				if err != nil {
-					log.Error(err, "leader update alb status fail")
+					l.Error(err, "leader update alb status fail")
 				}
 			}
 			nctl.GC()
 		}
 
 		if a.albCfg.GetFlags().DisablePeriodGenNginxConfig {
-			klog.Infof("reload: period regenerated config disabled")
+			l.Info("reload: period regenerated config disabled")
 			return
 		}
-		err := nctl.GenerateConf()
-		if err != nil {
-			klog.Error(err.Error())
+
+		if err := nctl.GenerateConf(); err != nil {
+			l.Error(err, "generate conf failed")
 			return
 		}
-		err = nctl.ReloadLoadBalancer()
-		if err != nil {
-			klog.Error(err.Error())
+
+		if err := nctl.ReloadLoadBalancer(); err != nil {
+			l.Error(err, "reload load balancer failed")
 		}
-		klog.Infof("reload: End update reload loop, cost %s", time.Since(startTime))
+
+		l.Info("reload: End update reload loop, cost", time.Since(startTime))
 	}, reloadTimeout, interval)
 
 	// TODO did we ready need this?
 	// just crash if timeout
 	if isTimeout {
-		klog.Error("reload timeout")
-		klog.Flush()
+		l.Error(nil, "reload timeout")
 		// TODO release leader..
 		panic(fmt.Sprintf("reach the timeout %v", reloadTimeout))
 	}
 
-	klog.Infof("reload: end of reload loop")
+	l.Info("reload: end of reload loop")
 }
 
 func (a *Alb) StartGoMonitorLoop(ctx context.Context) {
