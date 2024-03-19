@@ -582,9 +582,6 @@ func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.K
 		return
 	}
 	for _, ft := range alb.Frontends {
-		if ft.Conflict {
-			continue
-		}
 		if GetAlbRoleType(alb.Labels) == RolePort && portInfo != nil {
 			// current projects
 			portProjects := GetOwnProjectsFromLabel(ft.FtName, ft.Labels)
