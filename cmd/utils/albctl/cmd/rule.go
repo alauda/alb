@@ -106,7 +106,7 @@ func listRule(ctx context.Context, opt RuleOpt) ([]Rule, error) {
 			raw:   &ur,
 			Ns:    rule.Namespace,
 			Name:  rule.Name,
-			Match: rule.Spec.DSLX.ToSearchbleString(),
+			Match: rule.Spec.DSLX.ToSearchableString(),
 			Svcs:  svcs,
 		}
 		if r.raw.Spec.Source.Type == "ingress" {
@@ -126,8 +126,8 @@ func listRule(ctx context.Context, opt RuleOpt) ([]Rule, error) {
 		rrp := rr.raw.Spec.Priority
 		ldslp := lr.raw.Spec.DSLX.Priority()
 		rdslp := rr.raw.Spec.DSLX.Priority()
-		llen := len(lr.raw.Spec.DSLX.ToSearchbleString())
-		rlen := len(rr.raw.Spec.DSLX.ToSearchbleString())
+		llen := len(lr.raw.Spec.DSLX.ToSearchableString())
+		rlen := len(rr.raw.Spec.DSLX.ToSearchableString())
 		if lrp != rrp {
 			return lrp < rrp
 		}

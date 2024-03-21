@@ -634,7 +634,7 @@ func (c *Controller) generateRule(
 	ruleSpec := alb2v1.RuleSpec{
 		Domain:           host,
 		URL:              url,
-		DSL:              dslx.ToSearchbleString(),
+		DSL:              dslx.ToSearchableString(),
 		DSLX:             dslx,
 		Priority:         priority, // TODO ability to set priority in ingress.
 		RewriteBase:      url,

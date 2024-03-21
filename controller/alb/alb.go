@@ -103,7 +103,7 @@ func (a *Alb) Start() error {
 	}
 
 	flags := a.albCfg.GetFlags()
-	l.Info("reload nginx", flags.ReloadNginx)
+	l.Info("reload nginx", "reload flag", flags.ReloadNginx)
 
 	if flags.ReloadNginx {
 		go a.StartReloadLoadBalancerLoop(drv, a.ctx)
@@ -126,7 +126,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 	interval := time.Duration(a.albCfg.GetInterval()) * time.Second
 	reloadTimeout := time.Duration(a.albCfg.GetReloadTimeout()) * time.Second
 	l := a.log
-	l.Info("reload: interval is", interval, "reload timeout is", reloadTimeout)
+	l.Info("start reload loop", "interval", interval, "reload timeout", reloadTimeout)
 
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()

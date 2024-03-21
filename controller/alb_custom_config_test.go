@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
-	_ "alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,9 +60,9 @@ func TestRuleConfig(t *testing.T) {
 	}
 	for i, c := range cases {
 		ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation("xx", c.ingressAnnotation)
-		assert.Equal(t, ruleAnnotation, c.expectRuleAnnotation, fmt.Sprintf("case %v fial", i+1))
+		assert.Equal(t, ruleAnnotation, c.expectRuleAnnotation, fmt.Sprintf("case %v fail", i+1))
 		cfg := RuleConfigFromRuleAnnotation("", ruleAnnotation)
-		assert.Equal(t, cfg, c.expectRuleConfig, fmt.Sprintf("case %v fial", i+1))
+		assert.Equal(t, cfg, c.expectRuleConfig, fmt.Sprintf("case %v fail", i+1))
 	}
 
 	type RuleTestCase struct {

@@ -49,7 +49,7 @@ type ALB2Spec struct {
 	Domains []string `json:"domains"` // deprecated
 	// iaas_id is deprecated, default ""
 	IaasID string `json:"iaas_id"` // deprecated
-	// type defines the loadbalance alb2 uses, now only support nginx
+	// type defines the loadbalancer alb2 uses, now only support nginx
 	// +kubebuilder:validation:Enum=nginx
 	Type string `json:"type"`
 }
@@ -177,7 +177,7 @@ type DSLXTerm struct {
 
 type DSLX []DSLXTerm
 
-func (d DSLX) ToSearchbleString() string {
+func (d DSLX) ToSearchableString() string {
 	return fmt.Sprintf("%v", d)
 }
 
@@ -283,7 +283,7 @@ func (dslx DSLX) Priority() int {
 }
 
 // TODO use code generator
-// converting rules to deterministic strings,since that we could hash/diff rulespec.
+// converting rules to deterministic strings,since that we could hash/diff rule spec.
 func (r *RuleSpec) Identity() string {
 	var b bytes.Buffer
 	b.WriteString(r.Domain)

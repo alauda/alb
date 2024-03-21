@@ -129,11 +129,7 @@ func (nc *NginxController) GenerateConf() error {
 	if err != nil {
 		return err
 	}
-	err = nc.WriteConfig(nginxConfig, ngxPolicies)
-	if err != nil {
-		return err
-	}
-	return nil
+	return nc.WriteConfig(nginxConfig, ngxPolicies)
 }
 
 func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
@@ -191,8 +187,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
-	err = nc.fillUpBackends(alb)
-	if err != nil {
+	if err = nc.fillUpBackends(alb); err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, err
 	}
 
@@ -209,8 +204,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	}
 	if nc.albcfg.IsEnableVIP() && nc.lc.AmILeader() {
 		nc.log.Info("enable vip and imleader")
-		err := nc.SyncLbSvcPort(alb.Frontends)
-		if err != nil {
+		if err := nc.SyncLbSvcPort(alb.Frontends); err != nil {
 			nc.log.Error(err, "sync lb svc fail")
 		}
 	}
@@ -347,7 +341,7 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 		protocol := m.FtProtocolToServiceProtocol(ft.Protocol)
 		for _, rule := range ft.Rules {
 			if len(rule.Services) == 0 {
-				klog.Warningf("rule %s has no active service.", rule.RuleID)
+				nc.log.Info("no active service", "ruleID", rule.RuleID)
 			}
 			rule.BackendGroup = &BackendGroup{
 				Name:                     rule.RuleID,
@@ -374,7 +368,7 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 		}
 
 		if len(ft.Services) == 0 {
-			klog.Warningf("frontend %s has no default service.", ft.String())
+			nc.log.Info("frontend has no default service", "ft", ft.String())
 		}
 		if len(ft.Services) != 0 {
 			// set ft default services group.
@@ -382,7 +376,6 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 			ft.BackendGroup.Mode = FtProtocolToBackendMode(ft.Protocol)
 		}
 	}
-	klog.V(3).Infof("Get alb : %s", cAlb.String())
 	return nil
 }
 
@@ -500,7 +493,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 
 	for _, rule := range ft.Rules {
 		if rule.DSLX == nil {
-			klog.Warningf("rule %s has no matcher, skip", rule.RuleID)
+			nc.log.V(3).Info("no matcher for rule, skip", "ruleID", rule.RuleID)
 			continue
 		}
 
@@ -510,7 +503,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.Rule = rule.RuleID
 		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 		if err != nil {
-			klog.Error("convert dslx to internal failed", err)
+			nc.log.Error(err, "convert dslx to internal failed", "ruleID", rule.RuleID)
 			continue
 		}
 		policy.InternalDSL = internalDSL
@@ -539,7 +532,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	sort.Sort(ngxPolicy.Http.Tcp[ft.Port])
 }
 
-// fetch cert and backend info that lb config neeed, constructs a "dynamic config" used by openresty.
+// fetch cert and backend info that lb config need, constructs a "dynamic config" used by openresty.
 func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	certificateMap := getCertMap(alb, nc.Driver)
 	backendGroup := pickAllBackendGroup(alb)
