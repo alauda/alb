@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/informers"
 	corev1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 )
 
 type PortProbe struct {
@@ -73,14 +72,14 @@ func (p *PortProbe) LeaderUpdateAlbPortStatus() error {
 	namespace := cfg.GetNs()
 	albRes, err := kd.LoadAlbResource(namespace, name)
 	if err != nil {
-		klog.Errorf("Get alb %s.%s failed: %s", name, namespace, err.Error())
+		log.Error(err, "Get alb failed", "ns", namespace, "name", name)
 		return err
 	}
 	fts, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
 		return err
 	}
-	dirty, msg, err := p.cleanUpOldPodSatus(fts)
+	dirty, msg, err := p.cleanUpOldPodStatus(fts)
 	if err != nil {
 		return err
 	}
@@ -107,20 +106,20 @@ func (p *PortProbe) WorkerDetectAndMaskConflictPort(alb *LoadBalancer) {
 	}
 	listenTCPPorts, err := p.listTcpPort()
 	if err != nil {
-		klog.Error(err)
+		p.log.Error(err, "list tcp port fail")
 		return
 	}
-	klog.V(2).Info("finish port probe, listen tcp ports: ", listenTCPPorts)
+	p.log.V(2).Info("finish port probe", "tcp ports: ", listenTCPPorts)
 
 	for _, ft := range alb.Frontends {
 		conflict := false
 		if ft.IsTcpBaseProtocol() && listenTCPPorts[int(ft.Port)] {
 			conflict = true
 			ft.Conflict = true
-			klog.Errorf("skip port: %d has conflict", ft.Port)
+			p.log.Error(nil, "skip conflict port", "port", ft.Port)
 		}
 		if err := p.UpdateFrontendStatus(kd, ft.FtName, conflict); err != nil {
-			klog.Error(err)
+			p.log.Error(err, "update frontend status fail", "ft", ft.FtName)
 		}
 	}
 }
@@ -230,7 +229,7 @@ func (p *PortProbe) patchFtStatus(old *alb2v1.Frontend, latest *alb2v1.Frontend)
 	if string(patch) == "{}" {
 		return nil
 	}
-	klog.Infof("patch ft status %v", string(patch))
+	p.log.Info("patch ft status", "patch", patch)
 	if _, err := p.kd.ALBClient.CrdV1().Frontends(ns).Patch(ctx, latest.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "status"); err != nil {
 		return err
 	}
@@ -285,17 +284,17 @@ func GetListenTCPPorts() (map[int]bool, error) {
 	return ports, nil
 }
 
-func (p *PortProbe) initPodClientWithLabel(podLables map[string]string, ns string) (corev1lister.PodLister, error) {
-	labelSelector := labels.Set(podLables).AsSelector()
+func (p *PortProbe) initPodClientWithLabel(podLabels map[string]string, ns string) (corev1lister.PodLister, error) {
+	labelSelector := labels.Set(podLabels).AsSelector()
 
 	filteredFactory := informers.NewSharedInformerFactoryWithOptions(p.kd.Client, 0, informers.WithNamespace(ns), informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 		options.LabelSelector = labelSelector.String()
 	}))
-	filteredFactory.Start(p.ctx.Done())
 
 	pods := filteredFactory.Core().V1().Pods()
 	podInformer := pods.Informer()
 	filteredFactory.Start(p.ctx.Done())
+
 	ok := cache.WaitForNamedCacheSync("portprobe", p.ctx.Done(), podInformer.HasSynced)
 	if !ok {
 		return nil, fmt.Errorf("init portprobe client fail ")
@@ -311,7 +310,7 @@ func (p *PortProbe) getAlbPod() (sets.Set[string], error) {
 	return sets.New(lo.Map(pods, func(p *corev1.Pod, _ int) string { return p.Name })...), nil
 }
 
-func (p *PortProbe) cleanUpOldPodSatus(fts []*alb2v1.Frontend) (dirty bool, msg string, err error) {
+func (p *PortProbe) cleanUpOldPodStatus(fts []*alb2v1.Frontend) (dirty bool, msg string, err error) {
 	curPods, err := p.getAlbPod()
 	if err != nil {
 		return false, "", err
@@ -332,8 +331,7 @@ func (p *PortProbe) cleanUpOldPodSatus(fts []*alb2v1.Frontend) (dirty bool, msg 
 		}
 		if ftDirty {
 			p.log.Info("find dirty", "key", msg, "ft", ft.Name)
-			err := p.patchFtStatus(origin, ft)
-			if err != nil {
+			if err := p.patchFtStatus(origin, ft); err != nil {
 				p.log.Error(err, "clean up pod status fail")
 			}
 		}

@@ -42,5 +42,5 @@ func UseMock(cfg *Config) {
 	if cfg == nil {
 		cfg = DefaultMock()
 	}
-	InTestSetCofnig(*cfg)
+	InTestSetConfig(*cfg)
 }

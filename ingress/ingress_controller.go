@@ -97,11 +97,11 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
 	log.Info("Creating event broadcaster")
-	eventlog := log.WithName("event")
+	eventLog := log.WithName("event")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(func(fmts string, args ...interface{}) {
 		msg := fmt.Sprintf(fmts, args...)
-		eventlog.Info(msg)
+		eventLog.Info(msg)
 	})
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{Interface: d.Client.CoreV1().Events("")},

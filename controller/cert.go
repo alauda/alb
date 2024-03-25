@@ -41,7 +41,7 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	}
 
 	portDefaultCert := getPortDefaultCert(alb, d)
-	certFromRule := formatCertsmap(getCertsFromRule(alb, certProtocol, d))
+	certFromRule := formatCertsMap(getCertsFromRule(alb, certProtocol, d))
 
 	secretMap := make(map[string]client.ObjectKey)
 
@@ -61,19 +61,19 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	certCache := make(map[string]Certificate)
 
 	for domain, secret := range secretMap {
-		secretkey := secret.String()
-		if cert, ok := certCache[secretkey]; ok {
+		secretKey := secret.String()
+		if cert, ok := certCache[secretKey]; ok {
 			certMap[domain] = cert
 			continue
 		}
-		klog.V(3).Infof("get cert for domain %v %v", secretkey, domain)
+		klog.V(3).Infof("get cert for domain %v %v", secretKey, domain)
 		cert, err := getCertificateFromSecret(d, secret.Namespace, secret.Name)
 		if err != nil {
 			klog.Errorf("get cert %s failed, %+v", secret, err)
 			continue
 		}
 		certMap[domain] = *cert
-		certCache[secretkey] = *cert
+		certCache[secretKey] = *cert
 	}
 	return certMap
 }
@@ -148,7 +148,7 @@ func getCertsFromRule(alb *LoadBalancer, certProtocol map[albv1.FtProtocol]bool,
 		if cm[port] == nil {
 			cm[port] = make(map[string][]client.ObjectKey)
 		}
-		ftmap := cm[port]
+		ftMap := cm[port]
 		for _, rule := range ft.Rules {
 			if rule.Domain == "" || rule.CertificateName == "" {
 				continue
@@ -158,16 +158,16 @@ func getCertsFromRule(alb *LoadBalancer, certProtocol map[albv1.FtProtocol]bool,
 				klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
 				continue
 			}
-			if ftmap[rule.Domain] == nil {
-				ftmap[rule.Domain] = []client.ObjectKey{}
+			if ftMap[rule.Domain] == nil {
+				ftMap[rule.Domain] = []client.ObjectKey{}
 			}
-			ftmap[rule.Domain] = append(ftmap[rule.Domain], client.ObjectKey{Namespace: ns, Name: name})
+			ftMap[rule.Domain] = append(ftMap[rule.Domain], client.ObjectKey{Namespace: ns, Name: name})
 		}
 	}
 	return cm
 }
 
-func formatCertsmap(domainCertRaw map[string]map[string][]client.ObjectKey) map[string]client.ObjectKey {
+func formatCertsMap(domainCertRaw map[string]map[string][]client.ObjectKey) map[string]client.ObjectKey {
 	domainFtCerts := map[string]map[string]client.ObjectKey{} // domain ft cert
 	domainCerts := map[string][]client.ObjectKey{}            // domain cert
 

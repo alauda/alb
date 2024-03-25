@@ -24,7 +24,7 @@ func TestDslString(t *testing.T) {
 			Type:   utils.KEY_URL,
 		},
 	}
-	assert.Equal(t, dslx.ToSearchbleString(), "[{[[STARTS_WITH /k8s] [REGEX ^/v1/*]] URL }]")
+	assert.Equal(t, dslx.ToSearchableString(), "[{[[STARTS_WITH /k8s] [REGEX ^/v1/*]] URL }]")
 }
 
 func TestRuleOrder(t *testing.T) {

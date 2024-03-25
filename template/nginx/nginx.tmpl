@@ -23,10 +23,10 @@ events {
 # Hash: {{.TweakHash}}
 
 http {
-    include       /usr/local/openresty/nginx/conf/mime.types;
-    include       /alb/tweak/http.conf;
+    include    /usr/local/openresty/nginx/conf/mime.types;
+    include    /alb/tweak/http.conf;
 
-    {{ if $cfg.EnableGzip }}
+    {{ if $cfg.EnableGzip -}}
     gzip on;
     gzip_comp_level {{ $cfg.GzipLevel }};
     gzip_http_version 1.1;
@@ -34,30 +34,28 @@ http {
     gzip_types {{ $cfg.GzipTypes }};
     gzip_proxied any;
     gzip_vary on;
-    {{ end }}
+    {{- end }}
 
     init_by_lua_block {
-            require "resty.core"
-            ok, res = pcall(require, "balancer")
-            if not ok then
-                error("require failed: " .. tostring(res))
-            else
-                balancer = res
-            end
-            require("metrics").init()
+        require "resty.core"
+        ok, res = pcall(require, "balancer")
+        if not ok then
+            error("require failed: " .. tostring(res))
+        else
+            balancer = res
+        end
+        require("metrics").init()
     }
     init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
-    {{if eq $.Phase "running"}}
+    {{ if eq $.Phase "running" -}}
     server {
-        {{range $address := .Metrics.IpV4BindAddress}}
-            listen     {{$address}}:{{$.Metrics.Port}};
-        {{end}}
-
-        {{range $address := .Metrics.IpV6BindAddress}}
-            listen     {{$address}}:{{$.Metrics.Port}};
-        {{end}}
-
+        {{ range $address := .Metrics.IpV4BindAddress -}}
+        listen    {{$address}}:{{$.Metrics.Port}};
+        {{- end}}
+        {{ range $address := .Metrics.IpV6BindAddress -}}
+        listen    {{$address}}:{{$.Metrics.Port}};
+        {{- end }}
 
         access_log off;
 
@@ -77,21 +75,20 @@ http {
             }
         }
     }
-    {{end}}
+    {{- end }}
 
-    {{range $_, $ft := .Frontends}}
-    {{if eq $ft.Protocol "http"}}
+    {{ range $_, $ft := .Frontends -}}
+    {{ if eq $ft.Protocol "http" -}}
     server {
-        {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
-        {{end}}
-
-        {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
-        {{end}}
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        {{- end }}
         server_name _;
 
-        include       /alb/tweak/http_server.conf;
+        include    /alb/tweak/http_server.conf;
 
         location / {
             set $upstream default;
@@ -102,32 +99,29 @@ http {
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
-            {{if $cfg.EnablePrometheus}}
+            {{ if $cfg.EnablePrometheus -}}
             log_by_lua_block {
                 require("metrics").log()
             }
-            {{end}}
+            {{- end }}
         }
     }
+    {{- end }}
+    {{- end }}
 
-    {{end}}
-    {{end}}
-
-    {{range $_, $ft := .Frontends}}
-    {{if eq $ft.Protocol "https"}}
+    {{ range $_, $ft := .Frontends -}}
+    {{ if eq $ft.Protocol "https" -}}
     server {
-
-        {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
-        {{end}}
-
-        {{range $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
-        {{end}}
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+        {{- end }}
+        {{ range $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+        {{- end }}
 
         server_name _;
 
-        include       /alb/tweak/http_server.conf;
+        include    /alb/tweak/http_server.conf;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
         ssl_certificate /alb/nginx/placeholder.crt;
@@ -144,28 +138,27 @@ http {
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
-            {{if $cfg.EnablePrometheus}}
+            {{ if $cfg.EnablePrometheus -}}
             log_by_lua_block {
                 require("metrics").log()
             }
-            {{end}}
+            {{- end }}
         }
     }
-    {{end}}
-    {{end}}
+    {{- end }}
+    {{- end }}
 
-    {{range $_, $ft := .Frontends}}
-    {{if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) }}
+    {{ range $_, $ft := .Frontends -}}
+    {{ if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) -}}
     server {
-        {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} http2;
-        {{end}}
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} http2;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} http2;
+        {{- end }}
 
-        {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} http2;
-        {{end}}
-
-        include       /alb/tweak/grpc_server.conf;
+        include    /alb/tweak/grpc_server.conf;
 
         location / {
             set $upstream default;
@@ -176,28 +169,27 @@ http {
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
-            {{if $cfg.EnablePrometheus}}
+            {{ if $cfg.EnablePrometheus -}}
             log_by_lua_block {
                 require("metrics").log()
             }
-            {{end}}
+            {{- end }}
         }
     }
-    {{end}}
-    {{end}}
+    {{- end }}
+    {{- end }}
 
-    {{range $_, $ft := .Frontends}}
-    {{if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) }}
+    {{ range $_, $ft := .Frontends -}}
+    {{ if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) -}}
     server {
-        {{range $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl http2;
-        {{end}}
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl http2;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl http2;
+        {{- end }}
 
-        {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ssl http2;
-        {{end}}
-
-        include       /alb/tweak/grpc_server.conf;
+        include    /alb/tweak/grpc_server.conf;
 
         ssl_certificate /alb/nginx/placeholder.crt;
         ssl_certificate_key /alb/nginx/placeholder.key;
@@ -213,15 +205,15 @@ http {
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
-            {{if $cfg.EnablePrometheus}}
+            {{ if $cfg.EnablePrometheus -}}
             log_by_lua_block {
                 require("metrics").log()
             }
-            {{end}}
+            {{- end }}
         }
     }
-    {{end}}
-    {{end}}
+    {{- end }}
+    {{- end }}
 
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
@@ -229,13 +221,12 @@ http {
         balancer_by_lua_block {
             balancer.balance()
         }
-        include       /alb/tweak/upstream.conf;
+        include    /alb/tweak/upstream.conf;
     }
-
 }
 
 stream {
-    include       /alb/tweak/stream-common.conf;
+    include    /alb/tweak/stream-common.conf;
 
     lua_add_variable $upstream;
 
@@ -250,43 +241,39 @@ stream {
     }
     init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 
-    {{range $_, $ft := .Frontends}}
-    {{if eq $ft.Protocol "tcp"}}
+    {{ range $_, $ft := .Frontends -}}
+    {{ if eq $ft.Protocol "tcp" -}}
     server {
-        include       /alb/tweak/stream-tcp.conf;
-        {{range  $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}};
-        {{end}}
-
-        {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} ;
-        {{end}}
+        include   /alb/tweak/stream-tcp.conf;
+        {{ range  $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
 
         preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
-    {{end}}
-    {{end}}
+    {{- end }}
+    {{- end }}
 
-
-    {{range $port, $ft := .Frontends}}
-    {{if eq $ft.Protocol "udp"}}
+    {{ range $port, $ft := .Frontends -}}
+    {{ if eq $ft.Protocol "udp" -}}
     server {
-        include       /alb/tweak/stream-udp.conf;
-        {{range  $address := $ft.IpV4BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} udp;
-        {{end}}
-
-        {{range  $address := $ft.IpV6BindAddress}}
-            listen     {{$address}}:{{$ft.Port}} udp;
-        {{end}}
+        include   /alb/tweak/stream-udp.conf;
+        {{ range  $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} udp;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} udp;
+        {{- end }}
 
         preread_by_lua_file /alb/nginx/lua/l4_preread.lua;
         proxy_pass stream_backend;
     }
-    {{end}}
-    {{end}}
-
+    {{- end }}
+    {{- end }}
 
     upstream stream_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder

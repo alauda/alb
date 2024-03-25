@@ -9,7 +9,7 @@ import (
 
 func TestCert(t *testing.T) {
 	assert.Equal(t,
-		formatCertsmap(map[string]map[string][]client.ObjectKey{
+		formatCertsMap(map[string]map[string][]client.ObjectKey{
 			"80": {
 				"a.com": {
 					{Namespace: "a", Name: "a2"},

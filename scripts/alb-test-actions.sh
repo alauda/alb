@@ -141,7 +141,7 @@ function alb-install-golang-test-dependency() {
   git config --global --add safe.directory $PWD
   go version
   go env -w GO111MODULE=on
-  go env -w GOPROXY=https://goproxy.cn,direct
+  go env -w GOPROXY=https://goproxy.io,direct
   cd /tmp
   go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
   go install -v github.com/onsi/ginkgo/ginkgo@latest

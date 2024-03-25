@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
-	_ "alauda.io/alb2/config"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albFake "alauda.io/alb2/pkg/client/clientset/versioned/fake"

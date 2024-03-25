@@ -117,8 +117,8 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	// gateway policyattachment could used in any ns.
 	albGatewayInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0)
 
-	timeoutPoliccyInformer := albGatewayInformerFactory.Gateway().V1alpha1().TimeoutPolicies()
-	timeoutPolicySynced := timeoutPoliccyInformer.Informer().HasSynced
+	timeoutPolicyInformer := albGatewayInformerFactory.Gateway().V1alpha1().TimeoutPolicies()
+	timeoutPolicySynced := timeoutPolicyInformer.Informer().HasSynced
 
 	albGatewayInformerFactory.Start(ctx.Done())
 
@@ -158,7 +158,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 			Alb:           alb2Informer,
 			Ft:            frontendInformer,
 			Rule:          ruleInformer,
-			TimeoutPolicy: timeoutPoliccyInformer,
+			TimeoutPolicy: timeoutPolicyInformer,
 		},
 		Gateway: GatewayInformers{
 			GatewayClass: gatewayClassInformer,

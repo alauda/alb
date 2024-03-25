@@ -951,10 +951,10 @@ func TestRenderNginxConfig(t *testing.T) {
 	}
 	configStr, err := renderNginxConfig(config)
 	assert.Nil(t, err)
-	assert.Contains(t, configStr, "listen     192.168.0.1:8081")
-	assert.Contains(t, configStr, "listen     192.168.0.3:8081")
-	assert.Contains(t, configStr, "listen     [::1]:8081")
-	assert.Contains(t, configStr, "listen     [::2]:8081")
+	assert.Contains(t, configStr, "listen    192.168.0.1:8081")
+	assert.Contains(t, configStr, "listen    192.168.0.3:8081")
+	assert.Contains(t, configStr, "listen    [::1]:8081")
+	assert.Contains(t, configStr, "listen    [::2]:8081")
 }
 
 func renderNginxConfig(config NginxTemplateConfig) (string, error) {

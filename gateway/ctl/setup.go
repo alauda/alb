@@ -65,12 +65,10 @@ func StartGatewayController(ctx context.Context) error {
 	}
 	if gatewayCfg.Mode == albv2Type.GatewayModeShared {
 		gc := NewGatewayClassReconciler(ctx, mgr.GetClient(), l.WithName("gatewayclass"))
-		err = gc.SetupWithManager(mgr)
-		if err != nil {
+		if err = gc.SetupWithManager(mgr); err != nil {
 			return err
 		}
 	}
 
-	err = mgr.Start(ctx)
-	return err
+	return mgr.Start(ctx)
 }

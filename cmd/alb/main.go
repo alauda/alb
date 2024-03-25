@@ -19,8 +19,7 @@ import (
 
 func main() {
 	defer log.Flush()
-	err := run()
-	if err != nil {
+	if err := run(); err != nil {
 		log.L().Error(err, "run fail")
 		log.Flush()
 	}
@@ -28,24 +27,20 @@ func main() {
 
 func run() error {
 	l := log.L().WithName("lifecycle")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	restcfg, err := driver.GetKubeCfg(config.GetConfig().K8s)
+	albCfg := config.GetConfig()
+	restCfg, err := driver.GetKubeCfg(albCfg.K8s)
 	if err != nil {
 		l.Error(err, "get rest cfg fail")
 		return err
 	}
-	albCfg := config.GetConfig()
-	if err != nil {
-		l.Error(err, "get alb cfg fail")
-		return err
-	}
 
-	a := NewAlb(ctx, restcfg, albCfg, log.L())
-	lcctx, lcCancel := context.WithCancel(ctx)
-	lc := ctl.NewLeaderElection(lcctx, albCfg, restcfg, log.L().WithName("lc"))
-	a.WithLc(lc)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	leCtx, leCancel := context.WithCancel(ctx)
+	le := ctl.NewLeaderElection(leCtx, albCfg, restCfg, log.L().WithName("le"))
+
+	alb := NewAlb(ctx, restCfg, albCfg, le, log.L())
 
 	go StartSignalLoop(cancel, SignalCallBack{
 		OnSigInt: func() {
@@ -56,16 +51,15 @@ func run() error {
 		OnSigTerm: func() {
 			l.Info("receive SIGTERM(graceful-shutdown), close nginx port")
 			state.GetState().SetPhase(modules.PhaseTerminating)
-			lcCancel()
+			leCancel()
 			l.Info("receive SIGTERM(graceful-shutdown), cancel leader")
-			//  could not cancel here. waitting f5 healthcheck to remove this port.
+			//  could not cancel here. waiting f5 healthcheck to remove this port.
 			//  wait nginx close 1936 metrics port
 			//  then we could stop alb.
 		},
 	}, log.L().WithName("signal"))
 
-	err = a.Start()
-	if err != nil {
+	if err = alb.Start(); err != nil {
 		l.Error(err, "alb run fail")
 		return err
 	}

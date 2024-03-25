@@ -409,7 +409,7 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *networkingv1.Ingress) (http *alb2v1.Frontend, https *alb2v1.Frontend, err error) {
 	IngressHTTPPort := c.GetIngressHttpPort()
 	IngressHTTPSPort := c.GetIngressHttpsPort()
-	defaultSSLCert := strings.ReplaceAll(c.GetDefaultSSLSCert(), "/", "_")
+	defaultSSLCert := strings.ReplaceAll(c.GetDefaultSSLCert(), "/", "_")
 
 	alblabelKey := config.GetConfig().GetLabelAlbName()
 	need := getIngressFtTypes(ingress, c.Config)
@@ -634,7 +634,7 @@ func (c *Controller) generateRule(
 	ruleSpec := alb2v1.RuleSpec{
 		Domain:           host,
 		URL:              url,
-		DSL:              dslx.ToSearchbleString(),
+		DSL:              dslx.ToSearchableString(),
 		DSLX:             dslx,
 		Priority:         priority, // TODO ability to set priority in ingress.
 		RewriteBase:      url,

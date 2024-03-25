@@ -12,128 +12,108 @@ import (
 	"alauda.io/alb2/controller/modules"
 	"alauda.io/alb2/controller/state"
 	"alauda.io/alb2/driver"
-	gateway "alauda.io/alb2/gateway"
 	gctl "alauda.io/alb2/gateway/ctl"
 	"alauda.io/alb2/ingress"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 )
 
 type Alb struct {
 	ctx       context.Context
 	cfg       *rest.Config
-	albcfg    *config.Config
-	lc        *ctl.LeaderElection
+	albCfg    *config.Config
+	le        *ctl.LeaderElection
 	portProbe *ctl.PortProbe
 	log       logr.Logger
 }
 
-func NewAlb(ctx context.Context, restcfg *rest.Config, albCfg *config.Config, log logr.Logger) *Alb {
+func NewAlb(ctx context.Context, restCfg *rest.Config, albCfg *config.Config, le *ctl.LeaderElection, log logr.Logger) *Alb {
 	return &Alb{
 		ctx:    ctx,
-		cfg:    restcfg,
-		albcfg: albCfg,
+		cfg:    restCfg,
+		albCfg: albCfg,
+		le:     le,
 		log:    log,
 	}
 }
 
-func (a *Alb) WithLc(lc *ctl.LeaderElection) {
-	a.lc = lc
-}
-
 func (a *Alb) Start() error {
-	ctx := a.ctx
-	lc := a.lc
-	l := log.L().WithName("lifecycle")
+	l := a.log.WithName("lifecycle")
 	l.Info("ALB start.")
 
-	albCfg := config.GetConfig()
 	state.GetState().SetPhase(modules.PhaseStarting)
-	leaderctx := a.lc.GetCtx()
+
 	go func() {
 		l.Info("start leaderelection")
-		err := a.lc.StartLeaderElectionLoop()
-		if err != nil {
+		if err := a.le.StartLeaderElectionLoop(); err != nil {
 			l.Error(err, "leader election fail")
 		}
 	}()
 
-	drv, err := driver.GetDriver(ctx)
-	if err != nil {
-		return err
-	}
-	err = driver.InitDriver(drv, ctx)
+	drv, err := driver.GetAndInitDriver(a.ctx)
 	if err != nil {
 		return err
 	}
 
-	if albCfg.Controller.Flags.EnablePortProbe {
-		port, err := ctl.NewPortProbe(ctx, drv, l.WithName("portprobe"), albCfg)
+	if a.albCfg.Controller.Flags.EnablePortProbe {
+		port, err := ctl.NewPortProbe(a.ctx, drv, l.WithName("portprobe"), a.albCfg)
 		if err != nil {
 			l.Error(err, "init portprobe fail")
 		}
 		a.portProbe = port
 	}
 
-	enableIngress := albCfg.EnableIngress()
+	leaderCtx := a.le.GetCtx()
+	enableIngress := a.albCfg.EnableIngress()
 	// start ingress loop
 	l.Info("SERVE_INGRESS", "enable", enableIngress)
 	if enableIngress {
 		informers := drv.Informers
-		ingressController := ingress.NewController(drv, informers, albCfg, log.L().WithName("ingress"))
+		ingressController := ingress.NewController(drv, informers, a.albCfg, log.L().WithName("ingress"))
 		go func() {
 			l.Info("ingress loop, start wait leader")
-			a.lc.WaitUtilIMLeader()
+			a.le.WaitUtilIMLeader()
 			l.Info("ingress loop, im leader now")
-			err := ingressController.StartIngressLoop(leaderctx)
-			if err != nil {
-				l.Error(err, "ingress loop fail", "ctx", leaderctx.Err())
+			if err := ingressController.StartIngressLoop(leaderCtx); err != nil {
+				l.Error(err, "ingress loop fail", "ctx", leaderCtx.Err())
 			}
 		}()
 		go func() {
 			l.Info("ingress-resync loop, start wait leader")
-			a.lc.WaitUtilIMLeader()
+			a.le.WaitUtilIMLeader()
 			l.Info("ingress-resync loop, im leader now")
-			err := ingressController.StartResyncLoop(leaderctx)
-			if err != nil {
-				l.Error(err, "ingress resync loop fail", "ctx", leaderctx.Err())
+			if err := ingressController.StartResyncLoop(leaderCtx); err != nil {
+				l.Error(err, "ingress resync loop fail", "ctx", leaderCtx.Err())
 			}
 		}()
 	}
 
 	// start gateway loop
-	{
-		gcfg := config.GetConfig().GetGatewayCfg()
-		l := log.L().WithName(gateway.ALB_GATEWAY_CONTROLLER)
-		enableGateway := gcfg.Enable
-		l.Info("init gateway ", "enable", enableGateway)
-
-		if enableGateway {
-			go func() {
-				l.Info("wait leader")
-				lc.WaitUtilIMLeader()
-				l.Info("im leader,start gateway controller")
-				gctl.Run(leaderctx)
-			}()
-		}
+	l.Info("init gateway ", "enable", a.albCfg.Gateway.Enable)
+	if a.albCfg.Gateway.Enable {
+		go func() {
+			l.Info("wait leader")
+			a.le.WaitUtilIMLeader()
+			l.Info("im leader,start gateway controller")
+			gctl.Run(leaderCtx)
+		}()
 	}
 
-	flags := config.GetConfig().GetFlags()
-	klog.Infof("reload nginx %v", flags.ReloadNginx)
+	flags := a.albCfg.GetFlags()
+	l.Info("reload nginx", "reload flag", flags.ReloadNginx)
 
 	if flags.ReloadNginx {
-		go a.StartReloadLoadBalancerLoop(drv, ctx)
+		go a.StartReloadLoadBalancerLoop(drv, a.ctx)
 	}
 	if flags.EnableGoMonitor {
-		go a.StartGoMonitorLoop(ctx)
+		go a.StartGoMonitorLoop(a.ctx)
 	}
 
 	// wait util ctx is cancel(signal)
-	<-ctx.Done()
-	klog.Infof("lifecycle: ctx is done")
+	<-a.ctx.Done()
+	l.Info("lifecycle: ctx is done")
 	return nil
 }
 
@@ -142,67 +122,67 @@ func (a *Alb) Start() error {
 // it will gc rules, generate nginx config and reload nginx, assume that those cr really take effect.
 // TODO add a work queue.
 func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx context.Context) {
-	interval := time.Duration(config.GetConfig().GetInterval()) * time.Second
-	reloadTimeout := time.Duration(config.GetConfig().GetReloadTimeout()) * time.Second
-	log := a.log
-	klog.Infof("reload: interval is %v  reloadtimeout is %v", interval, reloadTimeout)
+	interval := time.Duration(a.albCfg.GetInterval()) * time.Second
+	reloadTimeout := time.Duration(a.albCfg.GetReloadTimeout()) * time.Second
+	l := a.log
+	l.Info("start reload loop", "interval", interval, "reload timeout", reloadTimeout)
 
 	isTimeout := utils.UtilWithContextAndTimeout(ctx, func() {
 		startTime := time.Now()
 
-		nctl := ctl.NewNginxController(drv, ctx, a.albcfg, log.WithName("nginx"), a.lc)
+		nctl := ctl.NewNginxController(drv, ctx, a.albCfg, l.WithName("nginx"), a.le)
 		nctl.PortProber = a.portProbe
 		// do leader stuff
-		if a.lc.AmILeader() {
+		if a.le.AmILeader() {
 			if a.portProbe != nil {
 				err := a.portProbe.LeaderUpdateAlbPortStatus()
 				if err != nil {
-					log.Error(err, "leader update alb status fail")
+					l.Error(err, "leader update alb status fail")
 				}
 			}
 			nctl.GC()
 		}
 
-		if config.GetConfig().GetFlags().DisablePeroidGenNginxConfig {
-			klog.Infof("reload: period regenerated config disabled")
+		if a.albCfg.GetFlags().DisablePeriodGenNginxConfig {
+			l.Info("reload: period regenerated config disabled")
 			return
 		}
-		err := nctl.GenerateConf()
-		if err != nil {
-			klog.Error(err.Error())
+
+		if err := nctl.GenerateConf(); err != nil {
+			l.Error(err, "generate conf failed")
 			return
 		}
-		err = nctl.ReloadLoadBalancer()
-		if err != nil {
-			klog.Error(err.Error())
+
+		if err := nctl.ReloadLoadBalancer(); err != nil {
+			l.Error(err, "reload load balancer failed")
 		}
-		klog.Infof("reload: End update reload loop, cost %s", time.Since(startTime))
+
+		l.Info("reload: End update reload loop, cost", time.Since(startTime))
 	}, reloadTimeout, interval)
 
 	// TODO did we ready need this?
 	// just crash if timeout
 	if isTimeout {
-		klog.Error("reload timeout")
-		klog.Flush()
+		l.Error(nil, "reload timeout")
 		// TODO release leader..
 		panic(fmt.Sprintf("reach the timeout %v", reloadTimeout))
 	}
 
-	klog.Infof("reload: end of reload loop")
+	l.Info("reload: end of reload loop")
 }
 
 func (a *Alb) StartGoMonitorLoop(ctx context.Context) {
 	// TODO fixme
 	// TODO how to stop it? use http server with ctx.
 	log := a.log.WithName("monitor")
-	flags := config.GetConfig().GetFlags()
+	flags := a.albCfg.GetFlags()
 	if !flags.EnableGoMonitor {
 		log.Info("disable, ignore")
 	}
-	port := config.GetConfig().GetGoMonitorPort()
+	port := a.albCfg.GetGoMonitorPort()
 	if port == 0 {
 		port = 1937
-		log.Info("not specific port find, use default", "port", port)
+		log.Info("no specific port found, use default", "port", port)
 	}
 
 	log.Info("init", "port", port)
@@ -216,8 +196,7 @@ func (a *Alb) StartGoMonitorLoop(ctx context.Context) {
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux)
-	if err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
 		log.Error(err, "init metrics http handle fail")
 	}
 }

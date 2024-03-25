@@ -124,8 +124,8 @@ func (a *Env) Start() error {
 	os.WriteFile(nginxCfgPath, []byte(""), os.ModePerm) // give it a default empty nginx.conf
 	l.Info("apiserver", "host", a.cfg.Host, "token", a.cfg.BearerToken)
 
-	twekDir := base + "/tweak"
-	os.MkdirAll(twekDir, os.ModePerm)
+	tweakDir := base + "/tweak"
+	os.MkdirAll(tweakDir, os.ModePerm)
 	nginxTemplatePath, err := filepath.Abs(filepath.Join(root, "template/nginx/nginx.tmpl"))
 	assert.Nil(GinkgoT(), err, "nginx template")
 	assert.FileExists(GinkgoT(), nginxTemplatePath, "nginx template")
@@ -134,7 +134,7 @@ func (a *Env) Start() error {
 	os.MkdirAll(statusDir, os.ModePerm)
 	alb := a
 
-	albwait := NewAlbWaitFileExt(&DefaultReadFile{}, AlbInfo{
+	albWait := NewAlbWaitFileExt(&DefaultReadFile{}, AlbInfo{
 		AlbName:      a.AlbName,
 		AlbNs:        a.AlbNs,
 		Domain:       a.Opext.operatorCfg.GetLabelBaseDomain(),
@@ -142,7 +142,7 @@ func (a *Env) Start() error {
 		PolicyPath:   nginxPolicyPath,
 	}, l)
 	l.Info("init wait file ext")
-	a.AlbWaitFileExt = albwait
+	a.AlbWaitFileExt = albWait
 
 	openv, err := kc.GetDeploymentEnv(alb.AlbNs, alb.AlbName, "alb2")
 	if err != nil {
@@ -161,7 +161,7 @@ func (a *Env) Start() error {
 	cfg.K8s.K8sServer = a.albkubecfg.Host
 	cfg.K8s.K8sToken = a.albkubecfg.BearerToken
 	cfg.E2eTestControllerOnly = true
-	cfg.TweakDir = twekDir
+	cfg.TweakDir = tweakDir
 	cfg.Pod = "p1"
 	cfg.StatusFileParentPath = statusDir
 	cfg.Leader = config.LeaderConfig{
@@ -170,7 +170,7 @@ func (a *Env) Start() error {
 		RetryPeriod:   time.Second * time.Duration(1000),
 	}
 	log.InTestSetLogger(a.Log)
-	config.InTestSetCofnig(cfg)
+	config.InTestSetConfig(cfg)
 	ctlchan := make(chan AlbCtl, 10)
 	a.ctlChan = ctlchan
 	albctx, albcancel := context.WithCancel(ctx)
@@ -207,9 +207,8 @@ func (a *AlbEnv) StartTestAlbLoop(rest *rest.Config, cfg *config.Config, log log
 	// 本质上是一个alb的运行环境
 	for {
 		ctx := a.albCtx
-		alb := albCtl.NewAlb(ctx, rest, cfg, log)
-		lc := ctl.NewLeaderElection(ctx, cfg, rest, log)
-		alb.WithLc(lc)
+		le := ctl.NewLeaderElection(ctx, cfg, rest, log)
+		alb := albCtl.NewAlb(ctx, rest, cfg, le, log)
 		alb.Start()
 		ctl := <-ctlchan
 		if ctl.kind == "stop" {
@@ -218,7 +217,7 @@ func (a *AlbEnv) StartTestAlbLoop(rest *rest.Config, cfg *config.Config, log log
 		if ctl.kind == "restart" {
 			continue
 		}
-		panic(fmt.Sprintf("unknow event %v", ctl))
+		panic(fmt.Sprintf("unknown event %v", ctl))
 	}
 }
 

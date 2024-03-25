@@ -85,7 +85,7 @@ func TestBindIp(t *testing.T) {
 		}}, false)
 	assert.NoError(t, err)
 	assert.Equal(t, len(v6), 0)
-	// must be sorted,otherwise it will reload nginx everytime.
+	// must be sorted,otherwise it will reload nginx every time.
 	assert.Equal(t, v4[0], "192.168.0.1")
 	assert.Equal(t, v4[1], "192.168.0.2")
 	assert.Equal(t, len(v4), 2)
