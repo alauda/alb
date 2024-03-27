@@ -45,7 +45,7 @@ spec:
                 serviceAccountName: alb-operator
                 nodeSelector:
                   kubernetes.io/os: linux
-                  {{- range $key, $value := .Values.nodeSelector }}
+                  {{- range $key, $value := .Values.global.nodeSelector }}
                   {{ $key | quote }}: {{ $value | quote  }}
                   {{- end }}
                 affinity:
