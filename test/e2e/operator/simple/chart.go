@@ -41,6 +41,8 @@ var _ = Describe("chart", func() {
             address: "192.168.134.195"
             projects: ["a","b"]
             global:
+              nodeSelector:
+                kubernetes.io/hostname: 192.168.134.195
               labelBaseDomain: cpaas.io
               namespace: cpaas-system
               registry:
@@ -110,6 +112,11 @@ var _ = Describe("chart", func() {
             displayName: "x"
             address: "192.168.134.195"
             global:
+              nodeSelector:
+                kubernetes.io/hostname: 192.168.134.195
+                alb: "true"
+                "1": "true"
+                "xtrue": "true"
               labelBaseDomain: cpaas.io
               namespace: cpaas-system
               registry:
