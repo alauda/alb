@@ -12,6 +12,7 @@ metadata:
     alb.{{ $global.labelBaseDomain}}/managed-by: alb-operator
     alb.{{ $global.labelBaseDomain}}/migrate-from: sentry 
     alb.{{ $global.labelBaseDomain}}/deploy-by: sentry 
+    alb.{{ $global.labelBaseDomain}}/default-alb: "true"
     {{- range $fullProjects }}
     {{ if . }}
     project.{{ $global.labelBaseDomain }}/{{ . }}: "true"
