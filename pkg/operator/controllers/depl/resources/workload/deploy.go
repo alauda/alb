@@ -182,6 +182,37 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 	if hostnetwork {
 		dns = corev1.DNSClusterFirstWithHostNet
 	}
+	defaultTolerations := []corev1.Toleration{
+		{
+			Effect:   corev1.TaintEffect("NoSchedule"),
+			Key:      "node-role.kubernetes.io/master",
+			Operator: corev1.TolerationOperator("Exists"),
+		},
+		{
+			Effect:   corev1.TaintEffect("NoSchedule"),
+			Key:      "node-role.kubernetes.io/control-plane",
+			Operator: corev1.TolerationOperator("Exists"),
+		},
+		{
+			Effect:   corev1.TaintEffect("NoSchedule"),
+			Key:      "node-role.kubernetes.io/cpaas-system",
+			Operator: corev1.TolerationOperator("Exists"),
+		},
+		{
+			Effect:   corev1.TaintEffect("NoSchedule"),
+			Key:      "node.kubernetes.io/not-ready",
+			Operator: corev1.TolerationOperator("Exists"),
+		},
+	}
+
+	if _, ok := d.alb.Annotations["tolerate-all"]; ok {
+		defaultTolerations = []corev1.Toleration{
+			{
+				Operator: corev1.TolerationOperator("Exists"),
+			},
+		}
+	}
+
 	return DeployCfg{
 		Spec: DeploySpec{
 			Name:         d.name,
@@ -201,11 +232,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 					MaxUnavailable: &defaultMaxUnavailable,
 				},
 			},
-			Tolerations: []corev1.Toleration{
-				{
-					Operator: corev1.TolerationOperator("Exists"),
-				},
-			},
+			Tolerations:    defaultTolerations,
 			Shareprocess:   pointer.To(true),
 			Affinity:       d.GenExpectAffinity(),
 			SerivceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
