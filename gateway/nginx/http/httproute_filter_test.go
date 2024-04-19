@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	gatewayType "sigs.k8s.io/gateway-api/apis/v1"
 
 	"alauda.io/alb2/config"
 	albType "alauda.io/alb2/controller/types"
@@ -23,7 +22,7 @@ func MockCtx() HttpCtx {
 		},
 		httpRoute:  &gateway.HTTPRoute{},
 		ruleIndex:  0,
-		rule:       &gatewayType.HTTPRouteRule{},
+		rule:       &gv1.HTTPRouteRule{},
 		matchIndex: 0,
 	}
 }
@@ -31,11 +30,11 @@ func MockCtx() HttpCtx {
 func TestHttpFilterHeaderModify(t *testing.T) {
 	rule := albType.Rule{}
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
-	err := h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+	err := h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 		{
 			Type: gv1.HTTPRouteFilterRequestHeaderModifier,
 			RequestHeaderModifier: &gv1.HTTPHeaderFilter{
-				Add: []gatewayType.HTTPHeader{
+				Add: []gv1.HTTPHeader{
 					{
 						Name:  "a",
 						Value: "a1",
@@ -45,7 +44,7 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 						Value: "a2",
 					},
 				},
-				Set: []gatewayType.HTTPHeader{
+				Set: []gv1.HTTPHeader{
 					{
 						Name:  "sa",
 						Value: "sa1",
@@ -80,15 +79,15 @@ func TestHttpFilterHeaderModify(t *testing.T) {
 
 func TestHttpFilterRedirect(t *testing.T) {
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
-	host := gatewayType.PreciseHostname("a.com")
-	port := gatewayType.PortNumber(90)
+	host := gv1.PreciseHostname("a.com")
+	port := gv1.PortNumber(90)
 
 	{
 		rule := albType.Rule{}
-		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+		h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
-				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+				RequestRedirect: &gv1.HTTPRequestRedirectFilter{
 					Scheme:     pointy.String("https"),
 					Hostname:   &host,
 					Port:       &port,
@@ -104,10 +103,10 @@ func TestHttpFilterRedirect(t *testing.T) {
 	}
 	{
 		rule := albType.Rule{}
-		h.applyHttpFilterOnRule(MockCtx(), &rule, []gatewayType.HTTPRouteFilter{
+		h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
-				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+				RequestRedirect: &gv1.HTTPRequestRedirectFilter{
 					Scheme:   pointy.String("https"),
 					Hostname: &host,
 					Port:     &port,
@@ -141,10 +140,10 @@ func TestHttpFilterRedirect(t *testing.T) {
 			},
 		}
 		rule := albType.Rule{}
-		h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
+		h.applyHttpFilterOnRule(ctx, &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
-				RequestRedirect: &gatewayType.HTTPRequestRedirectFilter{
+				RequestRedirect: &gv1.HTTPRequestRedirectFilter{
 					Scheme:   pointy.String("https"),
 					Hostname: &host,
 					Port:     &port,
@@ -182,10 +181,10 @@ func TestHttpFilterRewrite(t *testing.T) {
 		},
 	}
 	rule := albType.Rule{}
-	h.applyHttpFilterOnRule(ctx, &rule, []gatewayType.HTTPRouteFilter{
+	h.applyHttpFilterOnRule(ctx, &rule, []gv1.HTTPRouteFilter{
 		{
 			Type: gv1.HTTPRouteFilterURLRewrite,
-			URLRewrite: &gatewayType.HTTPURLRewriteFilter{
+			URLRewrite: &gv1.HTTPURLRewriteFilter{
 				Path: &gv1.HTTPPathModifier{
 					ReplacePrefixMatch: pointy.String("/xxx"),
 				},

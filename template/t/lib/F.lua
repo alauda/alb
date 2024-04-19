@@ -1,3 +1,4 @@
+---@diagnostic disable: deprecated
 -- COPY FROM https://github.com/hishamhm/f-strings/blob/0f623a323b7c37c9b6c94357c929069278b95ef0/F.lua
 local F = {}
 

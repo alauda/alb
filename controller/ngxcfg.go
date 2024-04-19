@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 )
 
 const (
@@ -17,9 +17,9 @@ type Config struct {
 	Address        string
 	BindAddress    string
 	LoadBalancerID string
-	Frontends      map[int]*Frontend
-	BackendGroup   BackendGroups
-	CertificateMap map[string]Certificate
+	Frontends      map[int]*types.Frontend
+	BackendGroup   types.BackendGroups
+	CertificateMap map[string]types.Certificate
 	TweakHash      string
 	Phase          string
 	NginxParam

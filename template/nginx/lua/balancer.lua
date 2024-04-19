@@ -106,7 +106,7 @@ function _M.sync_backends()
 end
 
 local function get_balancer()
-    local backend_name = ngx_var.upstream
+    local backend_name = ngx.ctx.upstream
     local balancer = balancers[backend_name]
     if not balancer then
         return
@@ -127,7 +127,7 @@ function _M.balance()
     local balancer = get_balancer()
     local policy = get_policy()
     if not balancer then
-        local msg = "no balancer found for " .. ngx_var.upstream
+        local msg = "no balancer found for " .. ngx.ctx.upstream
         ngx_log(ngx.ERR, msg)
         e.exit(e.InvalidBalancer, msg)
         return

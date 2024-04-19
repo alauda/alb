@@ -1,3 +1,4 @@
+---@diagnostic disable: undefined-global, lowercase-global
 local counter = 1
 local threads = {}
 

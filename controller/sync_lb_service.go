@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	opsvc "alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/samber/lo"
-	apiv1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,24 +22,24 @@ import (
 )
 
 // in container mode, we want to create/update loadbalancer tcp/udp service,use it as high available solution.
-func (nc *NginxController) SyncLbSvcPort(frontends []*Frontend) error {
+func (nc *NginxController) SyncLbSvcPort(frontends []*types.Frontend) error {
 	return MixProtocolLbSvc{nc: nc}.sync(nc.Ctx, frontends)
 }
 
 // LoadBalancer Service could only have one protocol.
-var Ft2SvcProtocolMap = map[albv1.FtProtocol]apiv1.Protocol{
-	albv1.FtProtocolHTTP:  apiv1.ProtocolTCP,
-	albv1.FtProtocolHTTPS: apiv1.ProtocolTCP,
-	albv1.FtProtocolgRPC:  apiv1.ProtocolTCP,
-	albv1.FtProtocolTCP:   apiv1.ProtocolTCP,
-	albv1.FtProtocolUDP:   apiv1.ProtocolUDP,
+var Ft2SvcProtocolMap = map[albv1.FtProtocol]corev1.Protocol{
+	albv1.FtProtocolHTTP:  corev1.ProtocolTCP,
+	albv1.FtProtocolHTTPS: corev1.ProtocolTCP,
+	albv1.FtProtocolgRPC:  corev1.ProtocolTCP,
+	albv1.FtProtocolTCP:   corev1.ProtocolTCP,
+	albv1.FtProtocolUDP:   corev1.ProtocolUDP,
 }
 
 type MixProtocolLbSvc struct {
 	nc *NginxController
 }
 
-// TODO 现在 operator和alb内使用的client还没有统一
+// TODO 现在 operator 和 alb 内使用的 client 还没有统一
 func GetLbSvc(ctx context.Context, cli kubernetes.Interface, key crcli.ObjectKey, domain string) (*corev1.Service, error) {
 	sel := labels.SelectorFromSet(opsvc.LbSvcLabel(key, domain)).String()
 	ls, err := cli.CoreV1().Services(key.Namespace).List(ctx, metav1.ListOptions{LabelSelector: sel})
@@ -54,7 +53,7 @@ func GetLbSvc(ctx context.Context, cli kubernetes.Interface, key crcli.ObjectKey
 	return &ls.Items[0], nil
 }
 
-func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*Frontend) error {
+func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*types.Frontend) error {
 	nc := s.nc
 	cli := nc.Driver
 	log := s.nc.log
@@ -63,7 +62,7 @@ func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*Frontend) error
 	ns := cfg.GetNs()
 	name := cfg.GetAlbName()
 	svc, err := GetLbSvc(ctx, cli.Client, crcli.ObjectKey{Namespace: ns, Name: name}, cfg.GetDomain())
-	// 当lb svc不存在时，不做任何事
+	// 当 lb svc 不存在时，不做任何事
 	if svc == nil || k8serrors.IsNotFound(err) {
 		log.Info("svc not find. ignore")
 		return nil

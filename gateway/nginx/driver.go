@@ -5,8 +5,8 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-	. "alauda.io/alb2/gateway"
-	. "alauda.io/alb2/gateway/nginx/types"
+	"alauda.io/alb2/gateway"
+	"alauda.io/alb2/gateway/nginx/types"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +34,7 @@ func NewDriver(kd *driver.KubernetesDriver, log logr.Logger) *Driver {
 	}
 }
 
-func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
+func (d *Driver) ListListener(sel config.GatewaySelector) ([]*types.Listener, error) {
 	log := d.log.WithValues("sel", sel.String())
 	kd := d.kd
 	gatewayList := []*gv1.Gateway{}
@@ -71,18 +71,18 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 
 	// merge gateway and route into listener
 
-	lsMap := map[ListenerKey]*Listener{}
+	lsMap := map[ListenerKey]*types.Listener{}
 	{
 		for _, g := range gatewayList {
 			key := client.ObjectKeyFromObject(g)
 			d.log.V(5).Info("list listener ", "gateway", key)
 			for _, l := range g.Spec.Listeners {
 				if IsListenerReady(g.Status.Listeners, key, string(l.Name), g.Generation) {
-					ls := &Listener{
+					ls := &types.Listener{
 						Listener:   l,
 						Gateway:    client.ObjectKeyFromObject(g),
 						Generation: g.Generation,
-						Routes:     []CommonRoute{},
+						Routes:     []gateway.CommonRoute{},
 					}
 					key := ListenerToKey(ls)
 					lsMap[key] = ls
@@ -118,21 +118,21 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 			ready := false
 			reason := ""
 			{
-				cfind := false
-				cready := false
+				conditionFind := false
+				conditionReady := false
 
 				for _, c := range status.Conditions {
 					if c.ObservedGeneration != r.GetObject().GetGeneration() {
 						continue
 					}
-					cfind = true
+					conditionFind = true
 					if c.Type == "Ready" && c.Status == "True" {
 						ready = true
-						cready = true
+						conditionReady = true
 						break
 					}
 				}
-				reason = fmt.Sprintf("condition find %v ready %v", cfind, cready)
+				reason = fmt.Sprintf("condition find %v ready %v", conditionFind, conditionReady)
 			}
 
 			if ready {
@@ -144,7 +144,7 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*Listener, error) {
 		}
 	}
 
-	lsList := []*Listener{}
+	lsList := []*types.Listener{}
 	for _, ls := range lsMap {
 		lsList = append(lsList, ls)
 	}
@@ -168,8 +168,8 @@ func listGatewayByClassName(kd *driver.KubernetesDriver, className string) ([]*g
 	return ret, nil
 }
 
-func listRoutes(kd *driver.KubernetesDriver) ([]CommonRoute, error) {
-	ret := []CommonRoute{}
+func listRoutes(kd *driver.KubernetesDriver) ([]gateway.CommonRoute, error) {
+	ret := []gateway.CommonRoute{}
 	httpList, err := kd.Informers.Gateway.HttpRoute.Lister().List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -188,22 +188,22 @@ func listRoutes(kd *driver.KubernetesDriver) ([]CommonRoute, error) {
 	}
 	for _, http := range httpList {
 		_ = utils.AddTypeInformationToObject(scheme, http)
-		r := HTTPRoute(*http)
+		r := gateway.HTTPRoute(*http)
 		ret = append(ret, &r)
 	}
 	for _, tcp := range tcpList {
 		_ = utils.AddTypeInformationToObject(scheme, tcp)
-		r := TCPRoute(*tcp)
+		r := gateway.TCPRoute(*tcp)
 		ret = append(ret, &r)
 	}
 	for _, tls := range tlsList {
 		_ = utils.AddTypeInformationToObject(scheme, tls)
-		r := TLSRoute(*tls)
+		r := gateway.TLSRoute(*tls)
 		ret = append(ret, &r)
 	}
 	for _, udp := range udpList {
 		_ = utils.AddTypeInformationToObject(scheme, udp)
-		r := UDPRoute(*udp)
+		r := gateway.UDPRoute(*udp)
 		ret = append(ret, &r)
 	}
 	return ret, nil
@@ -211,7 +211,7 @@ func listRoutes(kd *driver.KubernetesDriver) ([]CommonRoute, error) {
 
 func IsRouteReady(status []gv1.RouteParentStatus, key client.ObjectKey, name string, generation int64) (bool, string) {
 	for _, s := range status {
-		if IsRefToListener(s.ParentRef, key, name) {
+		if gateway.IsRefToListener(s.ParentRef, key, name) {
 			for _, c := range s.Conditions {
 				if c.ObservedGeneration == generation && c.Type == "Ready" && c.Status == "True" {
 					return true, ""
@@ -230,7 +230,7 @@ func RefToKey(ref gv1.ParentReference) ListenerKey {
 	return ListenerKey(key)
 }
 
-func ListenerToKey(ls *Listener) ListenerKey {
+func ListenerToKey(ls *types.Listener) ListenerKey {
 	key := fmt.Sprintf("%s/%s/%s", ls.Gateway.Namespace, ls.Gateway.Name, ls.Listener.Name)
 	return ListenerKey(key)
 }
@@ -248,15 +248,15 @@ func IsListenerReady(status []gv1.ListenerStatus, key client.ObjectKey, name str
 	return false
 }
 
-func GetStatus(r CommonRoute) []gv1.RouteParentStatus {
+func GetStatus(r gateway.CommonRoute) []gv1.RouteParentStatus {
 	switch route := r.(type) {
-	case *HTTPRoute:
+	case *gateway.HTTPRoute:
 		return route.Status.Parents
-	case *TCPRoute:
+	case *gateway.TCPRoute:
 		return route.Status.Parents
-	case *TLSRoute:
+	case *gateway.TLSRoute:
 		return route.Status.Parents
-	case *UDPRoute:
+	case *gateway.UDPRoute:
 		return route.Status.Parents
 	}
 	return nil

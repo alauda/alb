@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	. "alauda.io/alb2/pkg/config"
+	pkgcfg "alauda.io/alb2/pkg/config"
 	"k8s.io/klog/v2"
 )
 
@@ -34,8 +34,8 @@ func generateServiceKey(ns string, name string, protocol apiv1.Protocol, svcPort
 	return strings.ToLower(key)
 }
 
-// 找到service 对应的后端
-func generateBackend(backendMap map[string][]*driver.Backend, services []*BackendService, protocol apiv1.Protocol) Backends {
+// 找到 service 对应的后端
+func generateBackend(backendMap map[string][]*driver.Backend, services []*types.BackendService, protocol apiv1.Protocol) types.Backends {
 	totalWeight := 0
 	for _, svc := range services {
 		if svc.Weight > 100 {
@@ -50,7 +50,7 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 		// all service has zero weight
 		totalWeight = 100
 	}
-	bes := []*Backend{}
+	bes := []*types.Backend{}
 	for _, svc := range services {
 		name := generateServiceKey(svc.ServiceNs, svc.ServiceName, protocol, svc.ServicePort)
 		backends, ok := backendMap[name]
@@ -70,7 +70,7 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 				continue
 			}
 			bes = append(bes,
-				&Backend{
+				&types.Backend{
 					Address:           be.IP,
 					Port:              port,
 					Weight:            weight,
@@ -80,7 +80,7 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 				})
 		}
 	}
-	sortedBackends := Backends(bes)
+	sortedBackends := types.Backends(bes)
 	sort.Sort(sortedBackends)
 	return sortedBackends
 }
@@ -172,7 +172,7 @@ func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
 		return nil, err
 	}
 	if cm.Data["range"] != "" {
-		var body PortProject
+		var body pkgcfg.PortProject
 		if err := json.Unmarshal([]byte(cm.Data["range"]), &body); err != nil {
 			return nil, err
 		}

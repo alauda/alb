@@ -13,7 +13,7 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/utils"
 	"k8s.io/klog/v2"
 )
@@ -44,7 +44,7 @@ type NginxTemplateConfig struct {
 	NginxParam
 }
 
-func GenerateNginxTemplateConfig(alb *LoadBalancer, phase string, nginxParam NginxParam, cfg *config.Config) (*NginxTemplateConfig, error) {
+func GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, nginxParam NginxParam, cfg *config.Config) (*NginxTemplateConfig, error) {
 	ipv4, ipv6, err := GetBindIp(cfg)
 	if err != nil {
 		return nil, err

@@ -1,3 +1,4 @@
+---@diagnostic disable: different-requires
 local _M = {}
 local zlib = require('lua-ffi-zlib.lib.ffi-zlib')
 -- decompress zlib format data from file

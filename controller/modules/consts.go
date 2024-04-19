@@ -9,8 +9,11 @@ const (
 )
 
 const (
-	TypeBind    = "bind"
-	TypeIngress = "ingress"
+	TypeBind      = "bind"
+	TypeIngress   = "ingress"
+	TypeHttpRoute = "httpRoute"
+	TypeTCPRoute  = "tcpRoute"
+	TypeUDPRoute  = "udpRoute"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	ctltype "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -62,7 +62,7 @@ func NewPortProbe(ctx context.Context, kd *driver.KubernetesDriver, log logr.Log
 	return p, nil
 }
 
-// 统计ft上的异常端口信息到alb的cr上，清理之前旧的pod的异常端口的信息
+// 统计 ft 上的异常端口信息到 alb 的 cr 上，清理之前旧的 pod 的异常端口的信息
 func (p *PortProbe) LeaderUpdateAlbPortStatus() error {
 	cfg := p.cfg
 	kd := p.kd
@@ -98,7 +98,7 @@ func (p *PortProbe) LeaderUpdateAlbPortStatus() error {
 	return err
 }
 
-func (p *PortProbe) WorkerDetectAndMaskConflictPort(alb *LoadBalancer) {
+func (p *PortProbe) WorkerDetectAndMaskConflictPort(alb *ctltype.LoadBalancer) {
 	kd := p.kd
 	enablePortProbe := p.cfg.GetFlags().EnablePortProbe
 	if !enablePortProbe {

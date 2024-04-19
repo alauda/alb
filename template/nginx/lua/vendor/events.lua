@@ -1,3 +1,4 @@
+---@diagnostic disable: deprecated, cast-local-type
 local ngx = ngx
 local log = ngx.log
 local ERR = ngx.ERR

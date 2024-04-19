@@ -26,7 +26,7 @@ const HTTP = `
     lua_shared_dict http_backend_cache 5m;
     lua_shared_dict http_alb_cache     20m;
     lua_shared_dict http_raw     5m;
-    lua_shared_dict prometheus_metrics 10m;
+    lua_shared_dict prometheus_metrics 20m;
     lua_shared_dict http_ipc_shared_dict 1m;
 
     proxy_connect_timeout      5s;

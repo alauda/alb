@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	apiv1 "k8s.io/api/core/v1"
@@ -18,13 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certificate {
+func getCertMap(alb *types.LoadBalancer, d *driver.KubernetesDriver) map[string]types.Certificate {
 	certProtocol := map[albv1.FtProtocol]bool{
 		albv1.FtProtocolHTTPS: true,
 		albv1.FtProtocolgRPC:  true,
 	}
 
-	getPortDefaultCert := func(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]client.ObjectKey {
+	getPortDefaultCert := func(alb *types.LoadBalancer) map[string]client.ObjectKey {
 		cm := make(map[string]client.ObjectKey)
 		for _, ft := range alb.Frontends {
 			if ft.Conflict || !certProtocol[ft.Protocol] || ft.CertificateName == "" {
@@ -40,8 +40,8 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 		return cm
 	}
 
-	portDefaultCert := getPortDefaultCert(alb, d)
-	certFromRule := formatCertsMap(getCertsFromRule(alb, certProtocol, d))
+	portDefaultCert := getPortDefaultCert(alb)
+	certFromRule := formatCertsMap(getCertsFromRule(alb, certProtocol))
 
 	secretMap := make(map[string]client.ObjectKey)
 
@@ -57,8 +57,8 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	}
 	klog.Infof("secretMap %v", secretMap)
 
-	certMap := make(map[string]Certificate)
-	certCache := make(map[string]Certificate)
+	certMap := make(map[string]types.Certificate)
+	certCache := make(map[string]types.Certificate)
 
 	for domain, secret := range secretMap {
 		secretKey := secret.String()
@@ -78,7 +78,7 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 	return certMap
 }
 
-func getCertificateFromSecret(driver *driver.KubernetesDriver, namespace, name string) (*Certificate, error) {
+func getCertificateFromSecret(driver *driver.KubernetesDriver, namespace, name string) (*types.Certificate, error) {
 	secret, err := driver.Client.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func getCertificateFromSecret(driver *driver.KubernetesDriver, namespace, name s
 	}
 	key := string(secret.Data[apiv1.TLSPrivateKeyKey])
 	cert := string(secret.Data[apiv1.TLSCertKey])
-	caCert := string(secret.Data[CaCert])
+	caCert := string(secret.Data[types.CaCert])
 	if len(caCert) != 0 {
 		trimNewLine := func(s string) string {
 			return strings.Trim(s, "\n")
@@ -100,7 +100,7 @@ func getCertificateFromSecret(driver *driver.KubernetesDriver, namespace, name s
 		cert = trimNewLine(cert) + "\n" + trimNewLine(caCert)
 	}
 
-	return &Certificate{
+	return &types.Certificate{
 		Key:  key,
 		Cert: cert,
 	}, nil
@@ -138,7 +138,7 @@ func SameCertificateName(left, right string) (bool, error) {
 }
 
 // domain / ft / cert
-func getCertsFromRule(alb *LoadBalancer, certProtocol map[albv1.FtProtocol]bool, d *driver.KubernetesDriver) map[string]map[string][]client.ObjectKey {
+func getCertsFromRule(alb *types.LoadBalancer, certProtocol map[albv1.FtProtocol]bool) map[string]map[string][]client.ObjectKey {
 	cm := make(map[string]map[string][]client.ObjectKey)
 	for _, ft := range alb.Frontends {
 		if ft.Conflict || !certProtocol[ft.Protocol] {

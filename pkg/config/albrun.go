@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	. "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	coreV1 "k8s.io/api/core/v1"
 )
 
@@ -23,7 +23,7 @@ type ALBRunConfig struct {
 
 type GatewayConfig struct {
 	Enable     bool                     `json:"enable"`
-	Mode       GatewayMode              `json:"mode"`
+	Mode       v2beta1.GatewayMode      `json:"mode"`
 	StandAlone *GatewayStandAloneConfig `json:"standAlone"`
 	Shared     *GatewaySharedConfig     `json:"shared"`
 }
@@ -130,7 +130,7 @@ const (
 	FULL_SYNC                       string = "FULL_SYNC"
 	E2E_TEST_CONTROLLER_ONLY        string = "E2E_TEST_CONTROLLER_ONLY"
 
-	// alb 自己知道的配置,不应该由oprator来设置
+	// alb 自己知道的配置，不应该由 operator 来设置
 	DEBUG_RULESYNC string = "DEBUG_RULESYNC"
 )
 
@@ -162,7 +162,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 
 	envs = append(envs,
 		coreV1.EnvVar{Name: NAME, Value: a.Name},
-		coreV1.EnvVar{Name: NAMESPACE, Value: a.Ns}, // 在测试中要读ns的环境变量 这里就直接设置string而不是valuesfrom
+		coreV1.EnvVar{Name: NAMESPACE, Value: a.Ns}, // 在测试中要读 ns 的环境变量 这里就直接设置 string 而不是 valuesfrom
 		coreV1.EnvVar{Name: DOMAIN, Value: a.Domain},
 
 		coreV1.EnvVar{Name: NETWORK_MODE, Value: a.Controller.NetworkMode},
@@ -190,7 +190,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 		coreV1.EnvVar{Name: SERVE_INGRESS, Value: BoolToEnv(a.Controller.Flags.EnableIngress)},
 		coreV1.EnvVar{Name: METRICS_PORT, Value: IntToEnv(a.Controller.MetricsPort)},
 		coreV1.EnvVar{Name: RESYNC_PERIOD, Value: IntToEnv(a.Controller.ResyncPeriod)},
-		coreV1.EnvVar{Name: WORKER_LIMIT, Value: IntToEnv(a.Controller.WorkerLimit)}, // nginx 真正使用的worker process 是min(cpupreset,worklimit)
+		coreV1.EnvVar{Name: WORKER_LIMIT, Value: IntToEnv(a.Controller.WorkerLimit)}, // nginx 真正使用的 worker process 是 min(cpupreset,worklimit)
 		coreV1.EnvVar{Name: CPU_PRESET, Value: IntToEnv(a.Controller.CpuPreset)},
 		coreV1.EnvVar{Name: INGRESS_HTTP_PORT, Value: IntToEnv(a.Controller.HttpPort)},
 		coreV1.EnvVar{Name: INGRESS_HTTPS_PORT, Value: IntToEnv(a.Controller.HttpsPort)},
@@ -288,15 +288,15 @@ func gatewayFromEnv(env map[string]string, a *ALBRunConfig) {
 		return
 	}
 	mode := env[GATEWAY_MODE]
-	if mode == string(GatewayModeStandAlone) {
-		a.Gateway.Mode = GatewayModeStandAlone
+	if mode == string(v2beta1.GatewayModeStandAlone) {
+		a.Gateway.Mode = v2beta1.GatewayModeStandAlone
 		a.Gateway.StandAlone = &GatewayStandAloneConfig{
 			env[GATEWAY_NAME],
 			env[GATEWAY_NS],
 		}
 	}
-	if mode == string(GatewayModeShared) {
-		a.Gateway.Mode = GatewayModeShared
+	if mode == string(v2beta1.GatewayModeShared) {
+		a.Gateway.Mode = v2beta1.GatewayModeShared
 		a.Gateway.Shared = &GatewaySharedConfig{
 			env[GATEWAY_CLASSNAME],
 		}

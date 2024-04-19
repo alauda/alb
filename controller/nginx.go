@@ -20,7 +20,7 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/state"
-	. "alauda.io/alb2/controller/types"
+	ctltype "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	gateway "alauda.io/alb2/gateway/nginx"
 	"alauda.io/alb2/utils"
@@ -43,38 +43,39 @@ type NginxController struct {
 
 // keep it as same as rule
 type Policy struct {
-	Rule                  string        `json:"rule"` // the name of rule, corresponding with k8s rule cr
-	Config                *RuleConfig   `json:"config,omitempty"`
-	InternalDSL           []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
-	InternalDSLLen        int           `json:"-"`            // the len of jsonstringify internal dsl, used to sort policy
-	Upstream              string        `json:"upstream"`     // name in backend group
-	URL                   string        `json:"url"`
-	RewriteBase           string        `json:"rewrite_base"`
-	RewriteTarget         string        `json:"rewrite_target"`
-	RewritePrefixMatch    *string       `json:"rewrite_prefix_match,omitempty"`
-	RewriteReplacePrefix  *string       `json:"rewrite_replace_prefix,omitempty"`
-	Priority              int           `json:"complexity_priority"` // priority calculated by the complex of dslx, used to sort policy after user_priority
-	RawPriority           int           `json:"user_priority"`       // priority set by user, used to sort policy which is rule's priority
-	Subsystem             string        `json:"subsystem"`
-	EnableCORS            bool          `json:"enable_cors"`
-	CORSAllowHeaders      string        `json:"cors_allow_headers"`
-	CORSAllowOrigin       string        `json:"cors_allow_origin"`
-	BackendProtocol       string        `json:"backend_protocol"`
-	RedirectScheme        *string       `json:"redirect_scheme,omitempty"`
-	RedirectHost          *string       `json:"redirect_host,omitempty"`
-	RedirectPort          *int          `json:"redirect_port,omitempty"`
-	RedirectURL           string        `json:"redirect_url"`
-	RedirectCode          int           `json:"redirect_code"`
-	RedirectPrefixMatch   *string       `json:"redirect_prefix_match,omitempty"`
-	RedirectReplacePrefix *string       `json:"redirect_replace_prefix,omitempty"`
-	VHost                 string        `json:"vhost"`
+	Rule                  string              `json:"rule"` // the name of rule, corresponding with k8s rule cr
+	Config                *ctltype.RuleConfig `json:"config,omitempty"`
+	InternalDSL           []interface{}       `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
+	InternalDSLLen        int                 `json:"-"`            // the len of jsonstringify internal dsl, used to sort policy
+	Upstream              string              `json:"upstream"`     // name in backend group
+	URL                   string              `json:"url"`
+	RewriteBase           string              `json:"rewrite_base"`
+	RewriteTarget         string              `json:"rewrite_target"`
+	RewritePrefixMatch    *string             `json:"rewrite_prefix_match,omitempty"`
+	RewriteReplacePrefix  *string             `json:"rewrite_replace_prefix,omitempty"`
+	Priority              int                 `json:"complexity_priority"` // priority calculated by the complex of dslx, used to sort policy after user_priority
+	RawPriority           int                 `json:"user_priority"`       // priority set by user, used to sort policy which is rule's priority
+	Subsystem             string              `json:"subsystem"`
+	EnableCORS            bool                `json:"enable_cors"`
+	CORSAllowHeaders      string              `json:"cors_allow_headers"`
+	CORSAllowOrigin       string              `json:"cors_allow_origin"`
+	BackendProtocol       string              `json:"backend_protocol"`
+	RedirectScheme        *string             `json:"redirect_scheme,omitempty"`
+	RedirectHost          *string             `json:"redirect_host,omitempty"`
+	RedirectPort          *int                `json:"redirect_port,omitempty"`
+	RedirectURL           string              `json:"redirect_url"`
+	RedirectCode          int                 `json:"redirect_code"`
+	RedirectPrefixMatch   *string             `json:"redirect_prefix_match,omitempty"`
+	RedirectReplacePrefix *string             `json:"redirect_replace_prefix,omitempty"`
+	VHost                 string              `json:"vhost"`
+	Source                *albv1.Source       `json:"source,omitempty"`
 }
 
 type NgxPolicy struct {
-	CertificateMap map[string]Certificate `json:"certificate_map"`
-	Http           HttpPolicy             `json:"http"`
-	Stream         StreamPolicy           `json:"stream"`
-	BackendGroup   []*BackendGroup        `json:"backend_group"`
+	CertificateMap map[string]ctltype.Certificate `json:"certificate_map"`
+	Http           HttpPolicy                     `json:"http"`
+	Stream         StreamPolicy                   `json:"stream"`
+	BackendGroup   []*ctltype.BackendGroup        `json:"backend_group"`
 }
 
 type HttpPolicy struct {
@@ -132,7 +133,7 @@ func (nc *NginxController) GenerateConf() error {
 	return nc.WriteConfig(nginxConfig, ngxPolicies)
 }
 
-func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
+func (nc *NginxController) GetLBConfig() (*ctltype.LoadBalancer, error) {
 	log := nc.log
 	cfg := nc.albcfg
 	ns := cfg.GetNs()
@@ -146,7 +147,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 	if !albEnable && !gatewayEnable {
 		return nil, fmt.Errorf("must enable at least one [gateway,alb]")
 	}
-	var lbFromAlb *LoadBalancer
+	var lbFromAlb *ctltype.LoadBalancer
 	if albEnable {
 		lb, err := nc.GetLBConfigFromAlb(ns, name)
 		if err != nil {
@@ -158,7 +159,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 		migratePortProject(nc.Ctx, lb, nc.Driver)
 		lbFromAlb = lb
 	}
-	var lbFromGateway *LoadBalancer
+	var lbFromGateway *ctltype.LoadBalancer
 	var err error
 	if gatewayEnable {
 		lbFromGateway, err = gateway.GetLBConfig(context.Background(), nc.Driver, cfg)
@@ -203,7 +204,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 		phase = m.PhaseRunning
 	}
 	if nc.albcfg.IsEnableVIP() && nc.lc.AmILeader() {
-		nc.log.Info("enable vip and imleader")
+		nc.log.Info("enable vip and I am the leader")
 		if err := nc.SyncLbSvcPort(alb.Frontends); err != nil {
 			nc.log.Error(err, "sync lb svc fail")
 		}
@@ -216,7 +217,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	return *cfg, nginxPolicy, nil
 }
 
-func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*LoadBalancer, error) {
+func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*ctltype.LoadBalancer, error) {
 	// mAlb LoadBalancer struct from modules package.
 	// cAlb LoadBalancer struct from controller package.
 	mAlb, err := kd.LoadALBbyName(ns, name)
@@ -225,22 +226,22 @@ func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*Lo
 		return nil, err
 	}
 
-	cAlb := &LoadBalancer{
+	cAlb := &ctltype.LoadBalancer{
 		Name:      mAlb.Name,
 		Address:   mAlb.Spec.Address,
-		Frontends: []*Frontend{},
+		Frontends: []*ctltype.Frontend{},
 		TweakHash: mAlb.TweakHash,
 		Labels:    mAlb.Labels,
 	}
 
 	// mft frontend struct from modules package.
 	for _, mft := range mAlb.Frontends {
-		ft := &Frontend{
+		ft := &ctltype.Frontend{
 			FtName:          mft.Name,
 			AlbName:         mAlb.Name,
 			Port:            mft.Spec.Port,
 			Protocol:        mft.Spec.Protocol,
-			Rules:           RuleList{},
+			Rules:           ctltype.RuleList{},
 			CertificateName: mft.Spec.CertificateName,
 			BackendProtocol: mft.Spec.BackendProtocol,
 			Labels:          mft.Labels,
@@ -259,7 +260,7 @@ func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*Lo
 		for _, marl := range mft.Rules {
 			arl := marl.Spec
 			ruleConfig := RuleConfigFromRuleAnnotation(marl.Name, marl.Annotations)
-			rule := &Rule{
+			rule := &ctltype.Rule{
 				Config:           ruleConfig,
 				RuleID:           marl.Name,
 				Priority:         arl.Priority,
@@ -278,15 +279,16 @@ func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*Lo
 				RedirectURL:      arl.RedirectURL,
 				RedirectCode:     arl.RedirectCode,
 				VHost:            arl.VHost,
+				Source:           arl.Source,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
 				rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
 				if rule.Services == nil {
-					rule.Services = []*BackendService{}
+					rule.Services = []*ctltype.BackendService{}
 				}
 				for _, svc := range arl.ServiceGroup.Services {
-					rule.Services = append(rule.Services, &BackendService{
+					rule.Services = append(rule.Services, &ctltype.BackendService{
 						ServiceNs:   svc.Namespace,
 						ServiceName: svc.Name,
 						ServicePort: svc.Port,
@@ -298,15 +300,15 @@ func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*Lo
 		}
 
 		if mft.Spec.ServiceGroup != nil {
-			ft.Services = []*BackendService{}
-			ft.BackendGroup = &BackendGroup{
+			ft.Services = []*ctltype.BackendService{}
+			ft.BackendGroup = &ctltype.BackendGroup{
 				Name:                     ft.String(),
 				SessionAffinityAttribute: mft.Spec.ServiceGroup.SessionAffinityAttribute,
 				SessionAffinityPolicy:    mft.Spec.ServiceGroup.SessionAffinityPolicy,
 			}
 
 			for _, svc := range mft.Spec.ServiceGroup.Services {
-				ft.Services = append(ft.Services, &BackendService{
+				ft.Services = append(ft.Services, &ctltype.BackendService{
 					ServiceNs:   svc.Namespace,
 					ServiceName: svc.Name,
 					ServicePort: svc.Port,
@@ -321,11 +323,11 @@ func GetLBConfigFromAlb(kd driver.KubernetesDriver, ns string, name string) (*Lo
 }
 
 // GetLBConfigFromAlb get lb config from alb/ft/rule.
-func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*LoadBalancer, error) {
+func (nc *NginxController) GetLBConfigFromAlb(ns string, name string) (*ctltype.LoadBalancer, error) {
 	return GetLBConfigFromAlb(*nc.Driver, ns, name)
 }
 
-func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
+func (nc *NginxController) fillUpBackends(cAlb *ctltype.LoadBalancer) error {
 	services := nc.LoadServices(cAlb)
 
 	backendMap := make(map[string][]*driver.Backend)
@@ -337,15 +339,15 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 	}
 
 	for _, ft := range cAlb.Frontends {
-		var rules RuleList
+		var rules ctltype.RuleList
 		protocol := m.FtProtocolToServiceProtocol(ft.Protocol)
 		for _, rule := range ft.Rules {
 			if len(rule.Services) == 0 {
 				nc.log.Info("no active service", "ruleID", rule.RuleID)
 			}
-			rule.BackendGroup = &BackendGroup{
+			rule.BackendGroup = &ctltype.BackendGroup{
 				Name:                     rule.RuleID,
-				Mode:                     FtProtocolToBackendMode(ft.Protocol),
+				Mode:                     ctltype.FtProtocolToBackendMode(ft.Protocol),
 				SessionAffinityPolicy:    rule.SessionAffinityPolicy,
 				SessionAffinityAttribute: rule.SessionAffinityAttr,
 			}
@@ -364,7 +366,7 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 		if len(rules) > 0 {
 			ft.Rules = rules
 		} else {
-			ft.Rules = RuleList{}
+			ft.Rules = ctltype.RuleList{}
 		}
 
 		if len(ft.Services) == 0 {
@@ -373,13 +375,13 @@ func (nc *NginxController) fillUpBackends(cAlb *LoadBalancer) error {
 		if len(ft.Services) != 0 {
 			// set ft default services group.
 			ft.BackendGroup.Backends = generateBackend(backendMap, ft.Services, protocol)
-			ft.BackendGroup.Mode = FtProtocolToBackendMode(ft.Protocol)
+			ft.BackendGroup.Mode = ctltype.FtProtocolToBackendMode(ft.Protocol)
 		}
 	}
 	return nil
 }
 
-func (nc *NginxController) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+func (nc *NginxController) initStreamModeFt(ft *ctltype.Frontend, ngxPolicy *NgxPolicy) {
 	// create a default rule for stream mode ft.
 	if len(ft.Rules) == 0 {
 		if ft.BackendGroup == nil || ft.BackendGroup.Backends == nil {
@@ -387,14 +389,14 @@ func (nc *NginxController) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) 
 		}
 		if ft.Protocol == albv1.FtProtocolTCP {
 			policy := Policy{}
-			policy.Subsystem = SubsystemStream
+			policy.Subsystem = ctltype.SubsystemStream
 			policy.Upstream = ft.BackendGroup.Name
 			policy.Rule = ft.BackendGroup.Name
 			ngxPolicy.Stream.Tcp[ft.Port] = append(ngxPolicy.Stream.Tcp[ft.Port], &policy)
 		}
 		if ft.Protocol == albv1.FtProtocolUDP {
 			policy := Policy{}
-			policy.Subsystem = SubsystemStream
+			policy.Subsystem = ctltype.SubsystemStream
 			policy.Upstream = ft.BackendGroup.Name
 			policy.Rule = ft.BackendGroup.Name
 			ngxPolicy.Stream.Udp[ft.Port] = append(ngxPolicy.Stream.Udp[ft.Port], &policy)
@@ -407,7 +409,7 @@ func (nc *NginxController) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) 
 	}
 	rule := ft.Rules[0]
 	policy := Policy{}
-	policy.Subsystem = SubsystemStream
+	policy.Subsystem = ctltype.SubsystemStream
 	policy.Upstream = rule.BackendGroup.Name
 	policy.Rule = rule.RuleID
 	policy.Config = rule.Config
@@ -419,7 +421,7 @@ func (nc *NginxController) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) 
 	}
 }
 
-func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+func (nc *NginxController) initHttpModeFt(ft *ctltype.Frontend, ngxPolicy *NgxPolicy) {
 	if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
 		ngxPolicy.Http.Tcp[ft.Port] = Policies{}
 	}
@@ -433,7 +435,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		klog.V(3).Infof("Rule is %v", rule)
 		// translate our rule struct to policy (the json file)
 		policy := Policy{}
-		policy.Subsystem = SubsystemHTTP
+		policy.Subsystem = ctltype.SubsystemHTTP
 		policy.Rule = rule.RuleID
 		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 		if err != nil {
@@ -445,7 +447,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.Priority = rule.GetPriority()
 		policy.RawPriority = rule.GetRawPriority()
 		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
-		// policy-gen 设置rule的upstream
+		// policy-gen 设置 rule 的 upstream
 		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
 		// for rewrite
 		policy.URL = rule.URL
@@ -468,6 +470,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 
 		policy.VHost = rule.VHost
 		policy.Config = rule.Config
+		policy.Source = rule.Source
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
 	}
 
@@ -477,7 +480,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		defaultPolicy.Rule = ft.FtName
 		defaultPolicy.Priority = -1     // default rule should have the minimum priority
 		defaultPolicy.RawPriority = 999 // minimum number means higher priority
-		defaultPolicy.Subsystem = SubsystemHTTP
+		defaultPolicy.Subsystem = ctltype.SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 		defaultPolicy.BackendProtocol = ft.BackendProtocol
 		defaultPolicy.Upstream = ft.BackendGroup.Name
@@ -486,7 +489,7 @@ func (nc *NginxController) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
 }
 
-func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
+func (nc *NginxController) initGRPCModeFt(ft *ctltype.Frontend, ngxPolicy *NgxPolicy) {
 	if _, ok := ngxPolicy.Http.Tcp[ft.Port]; !ok {
 		ngxPolicy.Http.Tcp[ft.Port] = Policies{}
 	}
@@ -499,7 +502,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 
 		klog.V(3).Infof("Rule is %v", rule)
 		policy := Policy{}
-		policy.Subsystem = SubsystemHTTP
+		policy.Subsystem = ctltype.SubsystemHTTP
 		policy.Rule = rule.RuleID
 		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 		if err != nil {
@@ -509,7 +512,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		policy.InternalDSL = internalDSL
 		policy.RawPriority = rule.GetRawPriority()
 		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
-		// policy-gen 设置rule的upstream
+		// policy-gen 设置 rule 的 upstream
 		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
 		// for rewrite
 		policy.URL = rule.URL
@@ -523,7 +526,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		defaultPolicy := Policy{}
 		defaultPolicy.Rule = ft.FtName
 		defaultPolicy.RawPriority = 999 // default backend has the lowest priority
-		defaultPolicy.Subsystem = SubsystemHTTP
+		defaultPolicy.Subsystem = ctltype.SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 		defaultPolicy.BackendProtocol = ft.BackendProtocol
 		defaultPolicy.Upstream = ft.BackendGroup.Name
@@ -533,7 +536,7 @@ func (nc *NginxController) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 }
 
 // fetch cert and backend info that lb config need, constructs a "dynamic config" used by openresty.
-func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
+func (nc *NginxController) generateAlbPolicy(alb *ctltype.LoadBalancer) NgxPolicy {
 	certificateMap := getCertMap(alb, nc.Driver)
 	backendGroup := pickAllBackendGroup(alb)
 
@@ -564,7 +567,7 @@ func (nc *NginxController) generateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	return ngxPolicy
 }
 
-func migratePortProject(ctx context.Context, alb *LoadBalancer, driver *driver.KubernetesDriver) {
+func migratePortProject(ctx context.Context, alb *ctltype.LoadBalancer, driver *driver.KubernetesDriver) {
 	var portInfo map[string][]string
 	if GetAlbRoleType(alb.Labels) != RolePort {
 		return
@@ -613,8 +616,8 @@ func SameProject(left, right []string) bool {
 	return true
 }
 
-func pickAllBackendGroup(alb *LoadBalancer) BackendGroups {
-	backendGroup := BackendGroups{}
+func pickAllBackendGroup(alb *ctltype.LoadBalancer) ctltype.BackendGroups {
+	backendGroup := ctltype.BackendGroups{}
 	for _, ft := range alb.Frontends {
 		if ft.Conflict {
 			continue
@@ -635,11 +638,11 @@ func pickAllBackendGroup(alb *LoadBalancer) BackendGroups {
 	return backendGroup
 }
 
-func (nc *NginxController) LoadServices(alb *LoadBalancer) map[string]*driver.Service {
+func (nc *NginxController) LoadServices(alb *ctltype.LoadBalancer) map[string]*driver.Service {
 	kd := nc.Driver
 	svcMap := make(map[string]*driver.Service)
 
-	getServiceWithCache := func(svc *BackendService, protocol corev1.Protocol, svcMap map[string]*driver.Service) error {
+	getServiceWithCache := func(svc *ctltype.BackendService, protocol corev1.Protocol, svcMap map[string]*driver.Service) error {
 		svcKey := generateServiceKey(svc.ServiceNs, svc.ServiceName, protocol, svc.ServicePort)
 		if _, ok := svcMap[svcKey]; !ok {
 			service, err := kd.GetServiceByName(svc.ServiceNs, svc.ServiceName, svc.ServicePort, protocol)
@@ -789,7 +792,7 @@ func (nc *NginxController) GC() {
 }
 
 // alb or gateway could be nil
-func (nc *NginxController) MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, error) {
+func (nc *NginxController) MergeLBConfig(alb *ctltype.LoadBalancer, gateway *ctltype.LoadBalancer) (*ctltype.LoadBalancer, error) {
 	if alb == nil && gateway == nil {
 		return nil, fmt.Errorf("alb and gateway are both nil")
 	}
@@ -800,7 +803,7 @@ func (nc *NginxController) MergeLBConfig(alb *LoadBalancer, gateway *LoadBalance
 		return alb, nil
 	}
 
-	ftInAlb := make(map[string]*Frontend)
+	ftInAlb := make(map[string]*ctltype.Frontend)
 	for _, ft := range alb.Frontends {
 		key := fmt.Sprintf("%v/%v", ft.Protocol, ft.Port)
 		ftInAlb[key] = ft

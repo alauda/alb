@@ -6,13 +6,13 @@ import (
 	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	. "alauda.io/alb2/gateway"
-	. "alauda.io/alb2/gateway/nginx/types"
+	"alauda.io/alb2/gateway"
+	"alauda.io/alb2/gateway/nginx/types"
 
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func getCert(l *Listener) (secret *client.ObjectKey, certDomain *string, err error) {
+func getCert(l *types.Listener) (secret *client.ObjectKey, certDomain *string, err error) {
 	if l.TLS == nil {
 		return nil, nil, fmt.Errorf("must have tls config")
 	}
@@ -48,7 +48,7 @@ func (c *HttpCtx) ToAttachRef() gatewayPolicyType.Ref {
 	}
 }
 
-func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
+func PatchHttpRouteDefaultMatch(listenerList []*types.Listener) {
 	prefix := gv1.PathMatchPathPrefix
 	value := "/"
 	defaultHttpMatch := gv1.HTTPRouteMatch{
@@ -56,7 +56,7 @@ func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
 	}
 	for _, listener := range listenerList {
 		for routeIndex, route := range listener.Routes {
-			httpRoute, ok := route.(*HTTPRoute)
+			httpRoute, ok := route.(*gateway.HTTPRoute)
 			if !ok {
 				continue
 			}
@@ -72,12 +72,12 @@ func PatchHttpRouteDefualtMatch(listenerList []*Listener) {
 	}
 }
 
-func IterHttpListener[T any, F func(HttpCtx) *T](listenerList []*Listener, f F) []T {
+func IterHttpListener[T any, F func(HttpCtx) *T](listenerList []*types.Listener, f F) []T {
 	// 4-level for loop T_T
 	retList := []T{}
 	for _, listener := range listenerList {
 		for _, route := range listener.Routes {
-			httpRoute, ok := route.(*HTTPRoute)
+			httpRoute, ok := route.(*gateway.HTTPRoute)
 			if !ok {
 				continue
 			}
@@ -111,24 +111,24 @@ func pickHttpBackendRefs(refs []gv1.HTTPBackendRef) []gv1.BackendRef {
 	return ret
 }
 
-func GroupListener[K comparable, F func(ls *Listener) (k *K)](lss []*Listener, f F) map[K][]*Listener {
-	portListenerMap := make(map[K][]*Listener)
+func GroupListener[K comparable, F func(ls *types.Listener) (k *K)](lss []*types.Listener, f F) map[K][]*types.Listener {
+	portListenerMap := make(map[K][]*types.Listener)
 	for _, l := range lss {
 		key := f(l)
 		if key == nil {
 			continue
 		}
 		if portListenerMap[*key] == nil {
-			portListenerMap[*key] = make([]*Listener, 0)
+			portListenerMap[*key] = make([]*types.Listener, 0)
 		}
 		portListenerMap[*key] = append(portListenerMap[*key], l)
 	}
 	return portListenerMap
 }
 
-func GroupListenerByProtocol(lss []*Listener, protocol gv1.ProtocolType) map[int][]*Listener {
-	plsMap := GroupListener(lss, func(ls *Listener) *int {
-		if !SameProtocol(ls.Protocol, protocol) {
+func GroupListenerByProtocol(lss []*types.Listener, protocol gv1.ProtocolType) map[int][]*types.Listener {
+	plsMap := GroupListener(lss, func(ls *types.Listener) *int {
+		if !gateway.SameProtocol(ls.Protocol, protocol) {
 			return nil
 		}
 		port := int(ls.Port)

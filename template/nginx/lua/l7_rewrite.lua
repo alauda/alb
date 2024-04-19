@@ -103,8 +103,7 @@ if matched_policy == nil then
 end
 
 ngx.ctx.matched_policy = matched_policy
-ngx_var.upstream = t_upstream
-ngx_var.rule_name = matched_policy["rule"]
+ngx.ctx.upstream = t_upstream
 
 if redirect.need() then
     redirect.redirect()

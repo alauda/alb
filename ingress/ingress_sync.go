@@ -45,7 +45,7 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("ingress been deleted, cleanup")
-			return false, c.cleanUpThisIngress(alb, key, nil)
+			return false, c.cleanUpThisIngress(alb, key)
 		}
 		log.Error(err, "Handle failed")
 		return false, err
@@ -54,7 +54,7 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 	should, reason := c.shouldHandleIngress(alb, ingress)
 	if !should {
 		log.Info("should not handle this ingress. clean up", "reason", reason)
-		return false, c.cleanUpThisIngress(alb, key, ingress)
+		return false, c.cleanUpThisIngress(alb, key)
 	}
 
 	expect, err := c.generateExpect(alb, ingress)
@@ -283,7 +283,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 	}, nil
 }
 
-func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey, ing *networkingv1.Ingress) error {
+func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey) error {
 	IngressHTTPPort := config.GetConfig().GetIngressHttpPort()
 	IngressHTTPSPort := config.GetConfig().GetIngressHttpsPort()
 	log := c.log.WithName("cleanup").WithValues("ingress", key)
@@ -292,9 +292,9 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 	for _, f := range alb.Frontends {
 		if int(f.Spec.Port) == IngressHTTPPort || int(f.Spec.Port) == IngressHTTPSPort {
 			ft = f
-			// 如果这个ft是因为这个ingress创建起来的,当ingress被删除时,要更新这个ft
+			// 如果这个 ft 是因为这个 ingress 创建起来的，当 ingress 被删除时，要更新这个 ft
 			createBythis := ft.IsCreateByThisIngress(key.Namespace, key.Name)
-			log.Info("find ft", "createBythis", createBythis, "backend", ft.Spec.ServiceGroup, "souce", ft.Spec.Source)
+			log.Info("find ft", "createBythis", createBythis, "backend", ft.Spec.ServiceGroup, "source", ft.Spec.Source)
 			if createBythis {
 				// wipe default backend
 				ft.Spec.ServiceGroup = nil
@@ -303,7 +303,7 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 				log.Info("wipe ft default backend cause of ingres been delete", "nft-ver", ft.ResourceVersion, "ft", ft.Name, "ingress", key)
 				nft, err := c.kd.UpdateFt(ft.Frontend)
 				if err != nil {
-					log.Error(nil, fmt.Sprintf("upsert ft failed: %s", err))
+					log.Error(nil, fmt.Sprintf("update ft failed: %s", err))
 					return err
 				}
 				log.Info("after update", "nft-ver", nft.ResourceVersion, "svc", nft.Spec.ServiceGroup)
@@ -314,7 +314,7 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 					log.Info(fmt.Sprintf("delete-rules  ingress key: %s  rule name %s reason: ingress-delete", key, rule.Name))
 					err := c.kd.DeleteRule(rule.Key())
 					if err != nil && !errors.IsNotFound(err) {
-						log.Error(err, "delete rule fial", "rule", rule.Name)
+						log.Error(err, "delete rule fail", "rule", rule.Name)
 						return err
 					}
 				}
@@ -359,7 +359,7 @@ func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *network
 	IngressHTTPPort := c.GetIngressHttpPort()
 	IngressHTTPSPort := c.GetIngressHttpsPort()
 	if !c.CheckShouldHandleViaIngressClass(ing) {
-		reason = fmt.Sprintf("ingresclass is not our %v", c.Name)
+		reason = fmt.Sprintf("ingressclass is not our %v", c.Name)
 		return false, reason
 	}
 
@@ -458,7 +458,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 			},
 		}
 	}
-	// TODO 当alb的默认证书变化时，已经创建的ft的默认证书不会变化,需要用户自己在去更新ft上的证书
+	// TODO 当 alb 的默认证书变化时，已经创建的 ft 的默认证书不会变化，需要用户自己在去更新 ft 上的证书
 	if need.NeedHttps() && albhttpsFt == nil {
 		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPSPort)
 		c.log.Info("need https ft and ft not exist create one", "name", name)
@@ -494,7 +494,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	// for default backend, we will not create rules but save services to frontends' service-group
 	if HasDefaultBackend(ingress) {
 		c.log.Info("ingress has default backend", "ing", ingress.Name)
-		// just update it, let the resolver decide should we really upate it.
+		// just update it, let the resolver decide should we really update it.
 		annotations := ingress.GetAnnotations()
 		backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
 		defaultBackendService := ingress.Spec.DefaultBackend.Service
@@ -664,10 +664,7 @@ func (c *Controller) generateRule(
 			Name:      ingress.Name,
 		},
 	}
-	if err != nil {
-		c.log.Error(err, "")
-		return nil, err
-	}
+
 	cfg := config.GetConfig()
 	ruleRes := &alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
@@ -711,7 +708,7 @@ func (c *Controller) doUpdateRule(r *SyncRule) error {
 		return nil
 	}
 
-	// we want create rule first. since that if this pod crash, it will not lossing rule at least.
+	// we want create rule first. since that if this pod crash, it will not loss rule at least.
 	c.log.Info("update rule", "create", len(r.Create), "delete", len(r.Delete), "update", len(r.Update))
 	for _, r := range r.Create {
 		crule, err := c.kd.CreateRule(r)
@@ -770,7 +767,7 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 	expectRuleHash := map[string]bool{}
 	existRuleIndex := map[string]*alb2v1.Rule{}
 	expectRuleIndex := map[string]*alb2v1.Rule{}
-	// we need a layerdmap  ingress/ver/rule-indx/path-index/exist|expect/hash: v
+	// we need a layered map  ingress/ver/rule-index/path-index/exist|expect/hash: v
 	for _, r := range expectRules {
 		hash := ruleHash(r)
 		index := c.GenRuleIndex(r)
@@ -845,7 +842,7 @@ func (c *Controller) genSyncRuleAction(kind string, ing *networkingv1.Ingress, e
 
 // rule which have same identity considered as same rule
 // we may add some label/annotation in rule,such as creator/update time, etc
-// we do not care about ingress resourceversion
+// we do not care about ingress resource version
 // if two rule has same identify,they are same.
 func ruleIdentify(r *alb2v1.Rule) string {
 	label := []string{}

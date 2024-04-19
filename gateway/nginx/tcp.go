@@ -3,12 +3,13 @@ package nginx
 import (
 	"fmt"
 
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/modules"
+	ctltype "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
-	. "alauda.io/alb2/gateway"
+	"alauda.io/alb2/gateway"
 	gatewayPolicyType "alauda.io/alb2/gateway/nginx/policyattachment/types"
-	. "alauda.io/alb2/gateway/nginx/types"
-	. "alauda.io/alb2/gateway/nginx/utils"
+	ngxtype "alauda.io/alb2/gateway/nginx/types"
+	"alauda.io/alb2/gateway/nginx/utils"
 	"github.com/go-logr/logr"
 
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -29,21 +30,21 @@ func (t *TcpProtocolTranslate) SetPolicyAttachmentHandle(handle gatewayPolicyTyp
 	t.handle = handle
 }
 
-// TODO add testcase: 当listener没有route时，不应该影响到其他的listener
-func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
-	// tcp listener could never be overlaped. each listener is a rule.
+// TODO add test case: 当 listener 没有 route 时，不应该影响到其他的 listener
+func (t *TcpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.FtMap) error {
+	// tcp listener could never be overlapped. each listener is a rule.
 	for _, l := range ls {
 		port := l.Port
 		log := t.log.WithValues("listener", l.Name, "gateway", l.Gateway, "port", l.Port)
-		var route CommonRoute
-		var tcproute *TCPRoute
+		var route gateway.CommonRoute
+		var tcpRoute *gateway.TCPRoute
 		// filter invalid listener
 		{
 			if l.Protocol != gv1.TCPProtocolType {
 				continue
 			}
 			if len(l.Routes) == 0 {
-				log.Info("could not found vaild route", "error", true)
+				log.Info("could not found valid route", "error", true)
 				continue
 			}
 			if len(l.Routes) > 1 {
@@ -51,33 +52,38 @@ func (t *TcpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 				continue
 			}
 			route = l.Routes[0]
-			tcprouteNew, ok := route.(*TCPRoute)
+			tcpRouteNew, ok := route.(*gateway.TCPRoute)
 			if !ok {
 				log.Info("only tcp route could attach to tcp listener")
 				continue
 			}
-			tcproute = tcprouteNew
-			if len(tcproute.Spec.Rules) != 1 {
+			tcpRoute = tcpRouteNew
+			if len(tcpRoute.Spec.Rules) != 1 {
 				log.Info("route rule more than 1")
 				continue
 			}
 		}
 
-		ft := &Frontend{
+		ft := &ctltype.Frontend{
 			Port:     albv1.PortNumber(port),
 			Protocol: albv1.FtProtocolTCP,
 		}
-		// TODO we donot support multiple tcp rules
-		svcs, err := BackendRefsToService(tcproute.Spec.Rules[0].BackendRefs)
+		// TODO we do not support multiple tcp rules
+		svcs, err := utils.BackendRefsToService(tcpRoute.Spec.Rules[0].BackendRefs)
 		if err != nil {
 			return nil
 		}
-		name := fmt.Sprintf("%v-%v-%v", port, tcproute.Namespace, tcproute.Name)
-		backendGroup := &BackendGroup{
+		name := fmt.Sprintf("%v-%v-%v", port, tcpRoute.Namespace, tcpRoute.Name)
+		backendGroup := &ctltype.BackendGroup{
 			Name: name,
 		}
-		rule := Rule{}
-		rule.Type = RuleTypeGateway
+		rule := ctltype.Rule{}
+		rule.Type = ctltype.RuleTypeGateway
+		rule.Source = &albv1.Source{
+			Type:      modules.TypeTCPRoute,
+			Namespace: tcpRoute.Namespace,
+			Name:      tcpRoute.Name,
+		}
 		rule.Services = svcs
 		rule.RuleID = name
 		rule.BackendGroup = backendGroup

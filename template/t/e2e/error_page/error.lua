@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil
 local _M = {}
 local u = require "util"
 local h = require "test-helper"

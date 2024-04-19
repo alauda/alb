@@ -1,3 +1,4 @@
+---@diagnostic disable: deprecated, cast-local-type
 local http_headers = require "resty.http_headers"
 
 local ngx = ngx

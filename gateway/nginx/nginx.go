@@ -6,17 +6,17 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
-	. "alauda.io/alb2/utils/log"
+	"alauda.io/alb2/utils/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	. "alauda.io/alb2/controller/types"
-	. "alauda.io/alb2/gateway"
+	ctltype "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/gateway"
 	httproute "alauda.io/alb2/gateway/nginx/http"
 	pm "alauda.io/alb2/gateway/nginx/policyattachment"
 	"alauda.io/alb2/gateway/nginx/types"
 )
 
-func filterMetircsListener(lss []*types.Listener, cfg *config.Config) []*types.Listener {
+func filterMetricsListener(lss []*types.Listener, cfg *config.Config) []*types.Listener {
 	metricsPort := sets.NewInt(cfg.GetMetricsPort(), 1936, 11782)
 	ret := []*types.Listener{}
 	for _, l := range lss {
@@ -28,20 +28,20 @@ func filterMetircsListener(lss []*types.Listener, cfg *config.Config) []*types.L
 	return ret
 }
 
-func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.Config) (*LoadBalancer, error) {
-	log := L().WithName(ALB_GATEWAY_NGINX)
-	ret := &LoadBalancer{}
-	ret.Frontends = []*Frontend{}
+func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.Config) (*ctltype.LoadBalancer, error) {
+	log := log.L().WithName(gateway.ALB_GATEWAY_NGINX)
+	ret := &ctltype.LoadBalancer{}
+	ret.Frontends = []*ctltype.Frontend{}
 	ret.Name = config.GetConfig().GetAlbName()
 	d := NewDriver(drv, log)
 	gcfg := cfg.GetGatewayCfg()
 	log.Info("get lb config start", "cfg", gcfg)
-	ftMap := map[string]*Frontend{}
+	ftMap := map[string]*ctltype.Frontend{}
 	lss, err := d.ListListener(gcfg.GatewaySelector)
 	if err != nil {
 		return nil, err
 	}
-	lss = filterMetircsListener(lss, cfg)
+	lss = filterMetricsListener(lss, cfg)
 	log.Info("listener", "total", len(lss), "status", showListenerList(lss))
 	if len(lss) == 0 {
 		return ret, nil
@@ -71,7 +71,7 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 		return nil, err
 	}
 
-	fts := []*Frontend{}
+	fts := []*ctltype.Frontend{}
 	for _, ft := range ftMap {
 		fts = append(fts, ft)
 	}
@@ -90,7 +90,7 @@ func showListenerList(lss []*types.Listener) string {
 		lsName := fmt.Sprintf("%s/%s/%v/%v/%d", ls.Gateway, ls.Name, ls.Port, ls.Protocol, len(ls.Routes))
 		rList := []string{}
 		for _, r := range ls.Routes {
-			key := GetObjectKey(r)
+			key := gateway.GetObjectKey(r)
 			kind := r.GetObject().GetObjectKind().GroupVersionKind().Kind
 			rList = append(rList, fmt.Sprintf("%s/%s", key, kind))
 		}

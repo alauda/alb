@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil, undefined-doc-param, deprecated
 local _M = {}
 
 local inspect = require "inspect"
@@ -29,7 +30,7 @@ function _M.log(msg, opt)
 end
 
 ---comment
----@param arg []any  # will be combine and wrapped with inspect
+---@param arg table  -- will be combined and wrapped with inspect
 function _M.logs(...)
     local callerinfo = debug.getinfo(2)
     local caller = callerinfo.source .. " " .. tostring(callerinfo.currentline)

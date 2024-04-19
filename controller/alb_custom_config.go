@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	"k8s.io/klog/v2"
 )
 
@@ -25,8 +25,8 @@ func GetAlbRuleRewriteRequestAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-request", config.GetConfig().GetDomain())
 }
 
-func rewriteResponseConfigFromJson(jsonStr string) (*RewriteResponseConfig, error) {
-	cfg := RewriteResponseConfig{}
+func rewriteResponseConfigFromJson(jsonStr string) (*types.RewriteResponseConfig, error) {
+	cfg := types.RewriteResponseConfig{}
 	err := json.Unmarshal([]byte(jsonStr), &cfg)
 	if err != nil {
 		return nil, err
@@ -37,8 +37,8 @@ func rewriteResponseConfigFromJson(jsonStr string) (*RewriteResponseConfig, erro
 	return &cfg, err
 }
 
-func rewriteRequestConfigFromJson(jsonStr string) (*RewriteRequestConfig, error) {
-	cfg := RewriteRequestConfig{}
+func rewriteRequestConfigFromJson(jsonStr string) (*types.RewriteRequestConfig, error) {
+	cfg := types.RewriteRequestConfig{}
 	err := json.Unmarshal([]byte(jsonStr), &cfg)
 	if err != nil {
 		return nil, err
@@ -68,8 +68,8 @@ func GenerateRuleAnnotationFromIngressAnnotation(ingressName string, annotation 
 	return ruleAnnotation
 }
 
-func RuleConfigFromRuleAnnotation(ruleName string, annotation map[string]string) *RuleConfig {
-	cfg := RuleConfig{}
+func RuleConfigFromRuleAnnotation(ruleName string, annotation map[string]string) *types.RuleConfig {
+	cfg := types.RuleConfig{}
 
 	if val, ok := annotation[GetAlbRuleRewriteResponseAnnotation()]; ok {
 		rewriteCfg, err := rewriteResponseConfigFromJson(val)

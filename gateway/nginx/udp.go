@@ -6,11 +6,11 @@ import (
 	"alauda.io/alb2/driver"
 	"github.com/go-logr/logr"
 
-	. "alauda.io/alb2/controller/types"
-	. "alauda.io/alb2/gateway"
+	ctltype "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/gateway"
 
-	. "alauda.io/alb2/gateway/nginx/types"
-	. "alauda.io/alb2/gateway/nginx/utils"
+	ngxtype "alauda.io/alb2/gateway/nginx/types"
+	"alauda.io/alb2/gateway/nginx/utils"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -25,22 +25,22 @@ func NewUdpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger) UdpP
 	return UdpProtocolTranslate{drv: drv, log: log}
 }
 
-func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
-	portMap := make(map[gv1.PortNumber][]*UDPRoute)
+func (t *UdpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.FtMap) error {
+	portMap := make(map[gv1.PortNumber][]*gateway.UDPRoute)
 	{
 		for _, l := range ls {
 			if l.Protocol != gv1.UDPProtocolType {
 				continue
 			}
 			if _, ok := portMap[l.Port]; !ok {
-				portMap[l.Port] = []*UDPRoute{}
+				portMap[l.Port] = []*gateway.UDPRoute{}
 			}
 			for _, r := range l.Routes {
-				udproute, ok := r.(*UDPRoute)
+				udpRoute, ok := r.(*gateway.UDPRoute)
 				if !ok {
 					continue
 				}
-				portMap[l.Port] = append(portMap[l.Port], udproute)
+				portMap[l.Port] = append(portMap[l.Port], udpRoute)
 			}
 		}
 		t.log.V(2).Info("translate udp protocol rule", "ls-len", len(ls), "udp-ports-len", len(portMap))
@@ -48,7 +48,7 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 
 	for port, rs := range portMap {
 		if len(rs) == 0 {
-			t.log.Info("could not found vaild route", "error", true)
+			t.log.Info("could not found valid route", "error", true)
 			continue
 		}
 		if len(rs) > 1 {
@@ -58,21 +58,21 @@ func (t *UdpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
 		route := rs[0]
 		t.log.Info("generated rule ", "port", port, "route", route)
 
-		ft := &Frontend{
+		ft := &ctltype.Frontend{
 			Port:     albv1.PortNumber(port),
 			Protocol: albv1.FtProtocolUDP,
 		}
-		// TODO we donot support multiple udp rules
+		// TODO we do not support multiple udp rules
 		if len(route.Spec.Rules) != 1 {
-			t.log.Error(fmt.Errorf("we do not support multiple udp rules"), "port", port, "route", GetObjectKey(route))
+			t.log.Error(fmt.Errorf("we do not support multiple udp rules"), "port", port, "route", gateway.GetObjectKey(route))
 			continue
 		}
-		svcs, err := BackendRefsToService(route.Spec.Rules[0].BackendRefs)
+		svcs, err := utils.BackendRefsToService(route.Spec.Rules[0].BackendRefs)
 		if err != nil {
 			continue
 		}
 		ft.Services = svcs
-		ft.BackendGroup = &BackendGroup{
+		ft.BackendGroup = &ctltype.BackendGroup{
 			Name: fmt.Sprintf("%v-%v-%v", port, route.Namespace, route.Name),
 		}
 

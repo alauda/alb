@@ -3,12 +3,12 @@ package http
 import (
 	"strings"
 
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/types"
 	"github.com/xorcare/pointer"
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *Rule, filters []gv1.HTTPRouteFilter) error {
+func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *types.Rule, filters []gv1.HTTPRouteFilter) error {
 	log := h.log.WithValues("ctx", ctx.ToString())
 
 	headerModifyFilter := []gv1.HTTPHeaderFilter{}
@@ -53,7 +53,7 @@ func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *Rule, f
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gv1.HTTPHeaderFilter) error {
+func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.Rule, filters []gv1.HTTPHeaderFilter) error {
 	if len(filters) == 0 {
 		return nil
 	}
@@ -72,9 +72,9 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gv
 	}
 
 	if rule.Config == nil {
-		rule.Config = &RuleConfig{}
+		rule.Config = &types.RuleConfig{}
 	}
-	rule.Config.RewriteRequest = &RewriteRequestConfig{
+	rule.Config.RewriteRequest = &types.RewriteRequestConfig{
 		Headers:       set,
 		HeadersAdd:    add,
 		HeadersRemove: remove,
@@ -82,7 +82,7 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *Rule, filters []gv
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *Rule, redirect gv1.HTTPRequestRedirectFilter) error {
+func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *types.Rule, redirect gv1.HTTPRequestRedirectFilter) error {
 	if redirect.StatusCode != nil {
 		rule.RedirectCode = *redirect.StatusCode
 	}
@@ -94,13 +94,13 @@ func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *Rule, red
 		rule.RedirectHost = &host
 	}
 	if redirect.Path != nil && redirect.Path.ReplaceFullPath != nil && strings.TrimSpace(*redirect.Path.ReplaceFullPath) != "" {
-		fullpath := *redirect.Path.ReplaceFullPath
-		rule.RedirectURL = fullpath
+		fullPath := *redirect.Path.ReplaceFullPath
+		rule.RedirectURL = fullPath
 	}
 
 	if redirect.Path != nil && redirect.Path.ReplacePrefixMatch != nil && strings.TrimSpace(*redirect.Path.ReplacePrefixMatch) != "" {
-		prefixpath := *redirect.Path.ReplacePrefixMatch
-		rule.RedirectReplacePrefix = pointer.String(prefixpath)
+		prefixPath := *redirect.Path.ReplacePrefixMatch
+		rule.RedirectReplacePrefix = pointer.String(prefixPath)
 		match := ctx.GetMatcher()
 		path := match.Path
 		if path != nil && path.Type != nil && *path.Type == gv1.PathMatchPathPrefix {
@@ -115,7 +115,7 @@ func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *Rule, red
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, rule *Rule, rewrite gv1.HTTPURLRewriteFilter) error {
+func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, rule *types.Rule, rewrite gv1.HTTPURLRewriteFilter) error {
 	if rewrite.Hostname != nil {
 		rule.VHost = string(*rewrite.Hostname)
 	}
@@ -131,10 +131,9 @@ func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, rule *Rule, rewr
 
 	if path.ReplacePrefixMatch != nil && *path.ReplacePrefixMatch != "" {
 		rule.RewriteReplacePrefix = path.ReplacePrefixMatch
-		match := ctx.GetMatcher()
-		mpath := match.Path
-		if mpath != nil && mpath.Type != nil && *mpath.Type == gv1.PathMatchPathPrefix {
-			rule.RewritePrefixMatch = match.Path.Value
+		matchPath := ctx.GetMatcher().Path
+		if matchPath != nil && matchPath.Type != nil && *matchPath.Type == gv1.PathMatchPathPrefix {
+			rule.RewritePrefixMatch = matchPath.Value
 		}
 	}
 	return nil

@@ -44,8 +44,6 @@ sub gen_https_port_config {
         ssl_dhparam $base/dhparam.pem;
 
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
@@ -230,9 +228,6 @@ stream {
     access_log $base/servroot/logs/access.stream.log stream;
     error_log $base/servroot/logs/error.stream.log info;
 
-
-    lua_add_variable \$upstream;
-
     init_by_lua_block {
             require "resty.core"
             ok, res = pcall(require, "balancer")
@@ -349,8 +344,6 @@ __END
         server_name _;
         include       $base/tweak/http_server.conf;
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
@@ -369,8 +362,6 @@ __END
         server_name _;
         include       $base/tweak/http_server.conf;
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
  
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
@@ -398,8 +389,6 @@ __END
         ssl_dhparam $base/dhparam.pem;
 
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
@@ -426,8 +415,6 @@ __END
         ssl_dhparam $base/dhparam.pem;
 
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
@@ -455,8 +442,6 @@ __END
         ssl_dhparam $base/dhparam.pem;
 
         location / {
-            set \$upstream default;
-            set \$rule_name "";
             set \$backend_protocol http;
 
             rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;

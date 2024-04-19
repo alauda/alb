@@ -61,12 +61,12 @@ type Frontend struct {
 	FtName          string            `json:"-"`        // ft name
 	AlbName         string            `json:"alb_name"` // alb name
 	Port            v1.PortNumber     `json:"port"`
-	Protocol        v1.FtProtocol     `json:"protocol"` // ft支持的协议 http/https/tcp/udp/grpc tcp和udp代表stream mode
+	Protocol        v1.FtProtocol     `json:"protocol"` // ft 支持的协议 http/https/tcp/udp/grpc tcp 和 udp 代表 stream mode
 	Rules           RuleList          `json:"rules"`
-	Services        []*BackendService `json:"services"`         // ft默认后端路由组
-	BackendProtocol string            `json:"backend_protocol"` // ft默认后端路由组对应的协议
-	BackendGroup    *BackendGroup     `json:"-"`                // ft默认后端路由组对应的endpoint权重、均衡算法等相关信息
-	CertificateName string            `json:"certificate_name"` // ft默认证书
+	Services        []*BackendService `json:"services"`         // ft 默认后端路由组
+	BackendProtocol string            `json:"backend_protocol"` // ft 默认后端路由组对应的协议
+	BackendGroup    *BackendGroup     `json:"-"`                // ft 默认后端路由组对应的 endpoint 权重、均衡算法等相关信息
+	CertificateName string            `json:"certificate_name"` // ft 默认证书
 	Conflict        bool              `json:"-"`
 }
 
@@ -208,7 +208,7 @@ type Rule struct {
 	RedirectPrefixMatch   *string     `json:"redirect_prefix_match,omitempty"`
 	RedirectReplacePrefix *string     `json:"redirect_replace_prefix,omitempty"`
 	VHost                 string      `json:"vhost"`
-	// CertificateName = namespace_secretname
+	// CertificateName = namespace_secretName
 	CertificateName      string  `json:"certificate_name"`
 	RewriteBase          string  `json:"rewrite_base"`
 	RewriteTarget        string  `json:"rewrite_target"`
@@ -220,7 +220,8 @@ type Rule struct {
 	SessionAffinityAttr   string            `json:"session_affinity_attribute"`
 	Services              []*BackendService `json:"services"` // 这条规则对应的后端服务
 
-	BackendGroup *BackendGroup `json:"-"` // 这条规则对应的后端pod的ip
+	BackendGroup *BackendGroup `json:"-"` // 这条规则对应的后端 pod 的 ip
+	Source       *v1.Source    `json:"source"`
 }
 
 func (rl Rule) AllowNoAddr() bool {

@@ -93,14 +93,14 @@ func GetControllerName() string {
 	return fmt.Sprintf("alb2.gateway.%s/%s", config.GetConfig().GetDomain(), config.GetConfig().GetAlbName())
 }
 
-func IsSupported(protocol string, routekind string) bool {
+func IsSupported(protocol string, routeKind string) bool {
 	protocol = strings.ToUpper(protocol)
-	routekind = strings.ToUpper(routekind)
+	routeKind = strings.ToUpper(routeKind)
 
 	kinds := SUPPORT_KIND_MAP[protocol]
 	find := false
 	for _, k := range kinds {
-		if routekind == strings.ToUpper(k) {
+		if routeKind == strings.ToUpper(k) {
 			find = true
 			break
 		}

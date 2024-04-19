@@ -1,10 +1,11 @@
+---@diagnostic disable: need-check-nil, unreachable-code, undefined-global
 local httpc = require("resty.http").new()
 local function curl(url, cfg)
     if cfg == nil then
         cfg = {}
         cfg["headers"] = {}
     end
-    local res, err = httpc:request_uri(url,{method = "GET", headers = cfg.headers})
+    local res, err = httpc:request_uri(url, {method = "GET", headers = cfg and cfg.headers})
     if not res then
         ngx.log(ngx.ERR, "request failed: ", err)
         return

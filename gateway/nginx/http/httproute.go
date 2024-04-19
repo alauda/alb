@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/controller/modules"
+	ctltype "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
-	. "alauda.io/alb2/gateway"
-	. "alauda.io/alb2/gateway/nginx/types"
-	. "alauda.io/alb2/gateway/nginx/utils"
+	"alauda.io/alb2/gateway"
+	ngxtype "alauda.io/alb2/gateway/nginx/types"
+	nu "alauda.io/alb2/gateway/nginx/utils"
 	u "alauda.io/alb2/gateway/utils"
-	albType "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
@@ -34,8 +34,8 @@ func NewHttpProtocolTranslate(drv *driver.KubernetesDriver, log logr.Logger, cfg
 	return HttpProtocolTranslate{drv: drv, log: log, cfg: cfg}
 }
 
-func (h *HttpProtocolTranslate) TransLate(ls []*Listener, ftMap FtMap) error {
-	PatchHttpRouteDefualtMatch(ls) // if http route has empty matches, add a prefix / as default match
+func (h *HttpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.FtMap) error {
+	PatchHttpRouteDefaultMatch(ls) // if http route has empty matches, add a prefix / as default match
 	err := h.translateHttp(ls, ftMap)
 	if err != nil {
 		return err
@@ -51,18 +51,18 @@ func (h *HttpProtocolTranslate) SetPolicyAttachmentHandle(handle gatewayPolicyTy
 	h.handle = handle
 }
 
-func (h *HttpProtocolTranslate) applyPolicyAttachmentOnRule(ft *Frontend, ref gatewayPolicyType.Ref, rule *Rule) error {
+func (h *HttpProtocolTranslate) applyPolicyAttachmentOnRule(ft *ctltype.Frontend, ref gatewayPolicyType.Ref, rule *ctltype.Rule) error {
 	if h.handle == nil {
 		return nil
 	}
 	return h.handle.OnRule(ft, rule, ref)
 }
 
-// ctx is sth that contain enough infomanation to identify a rule.
+// ctx is sth that contain enough information to identify a rule.
 // now, each 'match' correspond to a alb rule.
 type HttpCtx struct {
-	listener   *Listener
-	httpRoute  *HTTPRoute
+	listener   *ngxtype.Listener
+	httpRoute  *gateway.HTTPRoute
 	ruleIndex  uint
 	rule       *gv1.HTTPRouteRule
 	matchIndex uint
@@ -77,7 +77,7 @@ func (c *HttpCtx) GetMatcher() gv1.HTTPRouteMatch {
 }
 
 // http route attach to http listener
-func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) error {
+func (h *HttpProtocolTranslate) translateHttp(lss []*ngxtype.Listener, ftMap ngxtype.FtMap) error {
 	log := h.log.WithName("http")
 	_ = log // make go happy
 
@@ -94,10 +94,10 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 
 	// now, we could generate alb rule
 	for port, ctxList := range portMap {
-		ft := &Frontend{}
+		ft := &ctltype.Frontend{}
 		ft.Port = albv1.PortNumber(port)
 		ft.Protocol = albv1.FtProtocolHTTP
-		rules := []*Rule{}
+		rules := []*ctltype.Rule{}
 		// TODO now each match will generate a rule, that seems odd.
 		// the essence of this problem is : how could we sort policy without dslx?
 		for _, ctx := range ctxList {
@@ -127,13 +127,18 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*Listener, ftMap FtMap) erro
 	return nil
 }
 
-func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*Rule, error) {
+func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*ctltype.Rule, error) {
 	route := ctx.httpRoute
 	gRule := route.Spec.Rules[ctx.ruleIndex]
 	match := gRule.Matches[ctx.matchIndex]
 
-	rule := &Rule{}
-	rule.Type = RuleTypeGateway
+	rule := &ctltype.Rule{}
+	rule.Source = &albv1.Source{
+		Type:      modules.TypeHttpRoute,
+		Namespace: ctx.httpRoute.Namespace,
+		Name:      ctx.httpRoute.Name,
+	}
+	rule.Type = ctltype.RuleTypeGateway
 	rule.RuleID = genRuleIdViaCtx(ctx)
 	rule.Priority = h.getRulePriority(ctx)
 	hostnames := JoinHostnames((*string)(ctx.listener.Hostname), lo.Map(route.Spec.Hostnames, func(h gv1.Hostname, _ int) string {
@@ -147,7 +152,7 @@ func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*Rule, error) {
 	rule.DSLX = dslx
 
 	rule.BackendProtocol = "$http_backend_protocol"
-	svcs, err := BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
+	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +169,7 @@ type HttpsCtx struct {
 
 // http route attach to https listener
 // https listener hostname is the hostname of it certref, a route who attach to https listener, it's hostname must contains listener's hostname.
-func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) error {
+func (h *HttpProtocolTranslate) translateHttps(lss []*ngxtype.Listener, ftMap ngxtype.FtMap) error {
 	log := h.log.WithName("https")
 
 	portMap := make(map[int][]HttpsCtx)
@@ -188,10 +193,10 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) err
 	}
 
 	for port, ctxList := range portMap {
-		ft := &Frontend{}
+		ft := &ctltype.Frontend{}
 		ft.Port = albv1.PortNumber(port)
 		ft.Protocol = albv1.FtProtocolHTTPS
-		rules := []*Rule{}
+		rules := []*ctltype.Rule{}
 		for _, ctx := range ctxList {
 			rule, err := h.generateHttpsRule(ctx)
 			if err != nil {
@@ -221,13 +226,18 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*Listener, ftMap FtMap) err
 	return nil
 }
 
-func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
+func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*ctltype.Rule, error) {
 	route := ctx.httpRoute
 	gRule := route.Spec.Rules[ctx.ruleIndex]
 	match := gRule.Matches[ctx.matchIndex]
 
-	rule := &Rule{}
-	rule.Type = RuleTypeGateway
+	rule := &ctltype.Rule{}
+	rule.Source = &albv1.Source{
+		Type:      modules.TypeHttpRoute,
+		Namespace: ctx.httpRoute.Namespace,
+		Name:      ctx.httpRoute.Name,
+	}
+	rule.Type = ctltype.RuleTypeGateway
 	// gen rule id
 	rule.RuleID = genRuleIdViaCtx(ctx.HttpCtx)
 	rule.Domain = ctx.certDomain
@@ -242,7 +252,7 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	rule.DSLX = dslx
 
 	rule.BackendProtocol = "$http_backend_protocol"
-	svcs, err := BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
+	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
 	if err != nil {
 		return nil, err
 	}
@@ -250,20 +260,20 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*Rule, error) {
 	return rule, nil
 }
 
-func HttpRuleMatchToDSLX(hostnameStrs []string, m gv1.HTTPRouteMatch) (albType.DSLX, error) {
-	dslx := albType.DSLX{}
+func HttpRuleMatchToDSLX(hostnameStrs []string, m gv1.HTTPRouteMatch) (albv1.DSLX, error) {
+	dslx := albv1.DSLX{}
 
 	// match hostname
 	// generic domain name
 	if len(hostnameStrs) == 1 && strings.HasPrefix(hostnameStrs[0], "*.") {
-		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
+		exp := albv1.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
 			{utils.OP_ENDS_WITH, hostnameStrs[0]},
 		}}
 		dslx = append(dslx, exp)
 	} else if len(hostnameStrs) != 0 {
 		vals := []string{utils.OP_IN}
 		vals = append(vals, hostnameStrs...)
-		exp := albType.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
+		exp := albv1.DSLXTerm{Type: utils.KEY_HOST, Values: [][]string{
 			vals,
 		}}
 		dslx = append(dslx, exp)
@@ -272,11 +282,11 @@ func HttpRuleMatchToDSLX(hostnameStrs []string, m gv1.HTTPRouteMatch) (albType.D
 	// match query
 	if m.QueryParams != nil {
 		for _, q := range m.QueryParams {
-			op, err := ToOP((*string)(q.Type))
+			op, err := nu.ToOP((*string)(q.Type))
 			if err != nil {
 				return nil, fmt.Errorf("invalid query params match err %v", err)
 			}
-			exp := albType.DSLXTerm{Type: utils.KEY_PARAM, Values: [][]string{{op, q.Value}}, Key: string(q.Name)}
+			exp := albv1.DSLXTerm{Type: utils.KEY_PARAM, Values: [][]string{{op, q.Value}}, Key: string(q.Name)}
 			dslx = append(dslx, exp)
 		}
 	}
@@ -288,28 +298,28 @@ func HttpRuleMatchToDSLX(hostnameStrs []string, m gv1.HTTPRouteMatch) (albType.D
 		if path.Value != nil {
 			matchValue = *path.Value
 		}
-		op, err := ToOP((*string)(path.Type))
+		op, err := nu.ToOP((*string)(path.Type))
 		if err != nil {
 			return nil, fmt.Errorf("invalid path match err %v", err)
 		}
-		exp := albType.DSLXTerm{Type: utils.KEY_URL, Values: [][]string{{op, matchValue}}}
+		exp := albv1.DSLXTerm{Type: utils.KEY_URL, Values: [][]string{{op, matchValue}}}
 		dslx = append(dslx, exp)
 	}
 
 	// match headers
 	if m.Headers != nil {
 		for _, h := range m.Headers {
-			op, err := ToOP((*string)(h.Type))
+			op, err := nu.ToOP((*string)(h.Type))
 			if err != nil {
 				return nil, fmt.Errorf("invalid header match err %v", err)
 			}
-			exp := albType.DSLXTerm{Type: utils.KEY_HEADER, Values: [][]string{{op, h.Value}}, Key: string(h.Name)}
+			exp := albv1.DSLXTerm{Type: utils.KEY_HEADER, Values: [][]string{{op, h.Value}}, Key: string(h.Name)}
 			dslx = append(dslx, exp)
 		}
 	}
 
 	if m.Method != nil {
-		exp := albType.DSLXTerm{Type: utils.KEY_METHOD, Values: [][]string{{utils.OP_EQ, string(*m.Method)}}}
+		exp := albv1.DSLXTerm{Type: utils.KEY_METHOD, Values: [][]string{{utils.OP_EQ, string(*m.Method)}}}
 		dslx = append(dslx, exp)
 	}
 
