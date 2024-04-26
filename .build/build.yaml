@@ -30,7 +30,7 @@ spec:
           - name: source
             workspace: source
         steps:
-          - image: docker-mirrors.alauda.cn/library/golang:1.21.6-alpine # keep it as same as alb docker builder.
+          - image: docker.mirrors.sjtug.sjtu.edu.cn/library/golang:1.21.6-alpine # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
@@ -113,8 +113,6 @@ spec:
           value:
             - linux/amd64
             - linux/arm64
-        - name: tools-image
-          value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
         - name: verbose
           value: "true"
         - name: labels
@@ -124,6 +122,8 @@ spec:
     - name: nginx-build
       timeout: 30m
       retries: 3
+      runAfter:
+        - alb-build
       taskRef:
         kind: ClusterTask
         name: alauda-build-image
@@ -136,13 +136,11 @@ spec:
         - name: container-image-tag
           value: $(build.git.version.docker)
         - name: dockerfile
-          value: ./template/Dockerfile
+          value: ./Dockerfile
         - name: platform
           value:
             - linux/amd64
             - linux/arm64
-        - name: tools-image
-          value: registry.alauda.cn:60080/devops/builder-tools:v3.8-0-g377a3f9
         - name: verbose
           value: "true"
         - name: labels
@@ -177,6 +175,12 @@ spec:
             securityContext:
               runAsNonRoot: false
               runAsUser: 0
+              capabilities:
+                add:
+                - SYS_PTRACE
+                - NET_BIND_SERVICE
+                - NET_ADMIN
+                - NET_RAW
             runAs: root
             resources:
               requests:

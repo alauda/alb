@@ -4,7 +4,7 @@ import (
 	ct "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -10,7 +10,7 @@ import (
 	. "alauda.io/alb2/utils/test_utils/assert"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"

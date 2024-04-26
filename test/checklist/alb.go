@@ -10,7 +10,7 @@ import (
 	alog "alauda.io/alb2/utils/log"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 func MockCluster(global *EnvtestExt, cluster *EnvtestExt, l logr.Logger) error {

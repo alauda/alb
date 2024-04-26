@@ -11,7 +11,7 @@ import (
 	ct "alauda.io/alb2/controller/types"
 	tu "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/thedevsaddam/gojsonq/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -71,14 +71,14 @@ func PolicyHasRule(policyRaw string, port int, ruleName string) bool {
 }
 
 func GIt(text string, body interface{}, timeout ...float64) bool {
-	return ginkgo.It("alb-test-case "+text, body, timeout...)
+	return ginkgo.It("alb-test-case "+text, body)
 }
 
 func GFIt(text string, body interface{}, timeout ...float64) bool {
 	if os.Getenv("ALB_IGNORE_FOCUS") == "true" {
 		return GIt(text, body, timeout...)
 	}
-	return ginkgo.FIt("alb-test-case "+text, body, timeout...)
+	return ginkgo.FIt("alb-test-case "+text, body)
 }
 
 func listen(network, addr string, stopCh chan struct{}) {

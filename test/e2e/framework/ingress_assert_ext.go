@@ -7,7 +7,7 @@ import (
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"

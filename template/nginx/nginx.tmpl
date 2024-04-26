@@ -111,12 +111,15 @@ http {
     {{ if eq $ft.Protocol "https" -}}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+        listen    {{$address}}:{{$ft.Port}} ssl  backlog={{$cfg.Backlog}};
         {{- end }}
         {{ range $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl {{ if $cfg.EnableHTTP2 }}http2{{ end }} backlog={{$cfg.Backlog}};
+        listen    {{$address}}:{{$ft.Port}} ssl backlog={{$cfg.Backlog}};
         {{- end }}
 
+        {{ if $cfg.EnableHTTP2 }}
+        http2 on;
+        {{ end }}
         server_name _;
 
         include    /alb/tweak/http_server.conf;
@@ -148,11 +151,12 @@ http {
     {{ if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) -}}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} http2;
+        listen    {{$address}}:{{$ft.Port}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} http2;
+        listen    {{$address}}:{{$ft.Port}};
         {{- end }}
+        http2 on;
 
         include    /alb/tweak/grpc_server.conf;
 
@@ -177,11 +181,12 @@ http {
     {{ if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) -}}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl http2;
+        listen    {{$address}}:{{$ft.Port}} ssl;
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl http2;
+        listen    {{$address}}:{{$ft.Port}} ssl;
         {{- end }}
+        http2 on;
 
         include    /alb/tweak/grpc_server.conf;
 

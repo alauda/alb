@@ -38,7 +38,7 @@ func OperatorCfgFromEnv() (OperatorCfg, error) {
 	imagepull := os.Getenv("IMAGE_PULL_POLICY")
 	secrets := utils.SplitAndRemoveEmpty(os.Getenv("IMAGE_PULL_SECRETS"), ",")
 	if imagepull == "" {
-		imagepull = "Always"
+		imagepull = "IfNotPresent"
 	}
 	if alb == "" || nginx == "" || version == "" || base == "" {
 		return OperatorCfg{}, fmt.Errorf("env not set %v %v %v %v", alb, nginx, version, base)

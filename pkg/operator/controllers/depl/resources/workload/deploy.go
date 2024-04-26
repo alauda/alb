@@ -74,6 +74,7 @@ type DeployContainerCfg struct {
 	Image       string
 	Resource    a2t.ExternalResource
 	Probe       *corev1.Probe
+	ReadyProbe  *corev1.Probe
 	Name        string
 	Command     []string
 	Pullpolicy  corev1.PullPolicy
@@ -143,6 +144,7 @@ func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
 			Securityctx: c.SecurityContext,
 			Env:         c.Env,
 			Probe:       c.LivenessProbe,
+			ReadyProbe:  c.ReadinessProbe,
 			Resource:    toResource(c.Resources),
 		}
 	}
@@ -248,10 +250,15 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				ReadOnlyRootFilesystem: pointer.To(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
-						"SYS_PTRACE",
+						"SYS_PTRACE", // 向其他process 发信号需要ptrace
+						"NET_ADMIN",  // ss 需要 netadmin 和netraw
+						"NET_RAW",
+						"NET_BIND_SERVICE",
 					},
 				},
-				AllowPrivilegeEscalation: pointer.To(true),
+				RunAsNonRoot:             pointer.To(true),
+				RunAsUser:                pointer.To(int64(697)),
+				AllowPrivilegeEscalation: pointer.To(false),
 			},
 			Env:      conf.GetALBContainerEnvs(),
 			Resource: toResource(conf.Deploy.ALbResource),
@@ -267,13 +274,31 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				ReadOnlyRootFilesystem: pointer.To(true),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
-						"SYS_PTRACE",
+						"SYS_PTRACE", // 向其他process 发信号需要ptrace
+						"NET_ADMIN",  // ss 需要 netadmin 和netraw
+						"NET_RAW",
 						"NET_BIND_SERVICE",
 					},
 				},
-				AllowPrivilegeEscalation: pointer.To(true),
+				RunAsNonRoot:             pointer.To(true),
+				RunAsUser:                pointer.To(int64(697)),
+				AllowPrivilegeEscalation: pointer.To(false),
 			},
 			Env: conf.GetNginxContainerEnvs(),
+			ReadyProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/status",
+						Port:   intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 3,
+				TimeoutSeconds:      5,
+				PeriodSeconds:       5,
+				SuccessThreshold:    1,
+				FailureThreshold:    5,
+			},
 			Probe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
@@ -413,6 +438,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			SecurityContext:          nginx.Securityctx,
 			Resources:                fromResource(nginx.Resource),
 			LivenessProbe:            nginx.Probe,
+			ReadinessProbe:           nginx.ReadyProbe,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",
 			VolumeMounts:             nginxMounts,
@@ -427,6 +453,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			SecurityContext:          alb.Securityctx,
 			Resources:                fromResource(alb.Resource),
 			LivenessProbe:            alb.Probe,
+			ReadinessProbe:           alb.ReadyProbe,
 			VolumeMounts:             albMounts,
 			TerminationMessagePath:   "/dev/termination-log",
 			TerminationMessagePolicy: "File",

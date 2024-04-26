@@ -9,7 +9,7 @@ function alb-lint-all() (
   alb-lint-lua
   echo "lua ok"
   # golangci-lint oom in ci
-  # golangci-lint -v run -c ./.golangci.yml
+  golangci-lint -v run -c ./.golangci.yml
 )
 
 function alb-lint-golangci() {
@@ -118,6 +118,8 @@ function alb-lua-list-all-app-file() {
 }
 
 function alb-lua-list-all-needformat-file() {
+  # TODO install luaformatter in ci
+  if ! command -v lua-formadt; then return; fi
   while read -r f; do
     if [[ "false" == "$(alb-lint-lua-need-format $f)" ]]; then
       continue

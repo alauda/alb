@@ -7,7 +7,7 @@ function alb-debug-e2e-test() {
 }
 
 function alb-build-e2e-test() {
-  ginkgo -dryRun -v ./test/e2e
+  ginkgo -dry-run -v ./test/e2e
 }
 
 function alb-go-test-all-with-coverage() {
@@ -26,7 +26,7 @@ function alb-go-test-all-with-coverage() {
   echo "end_e2e $end_e2e"
   echo "end_checklist $end_checklist"
 
-  tail -n +2 ./test/e2e/coverage.e2e >>./coverage.txt
+  tail -n +2 ./coverage.e2e >>./coverage.txt
 
   sed -e '1i\mode: atomic' ./coverage.txt >./coverage.txt.all
   mv ./coverage.txt.all ./coverage.txt
@@ -49,19 +49,19 @@ function alb-run-all-e2e-test() (
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
   if [[ "$filter" != "" ]]; then
-    ginkgo -failFast -focus "$filter" ./test/e2e
+    ginkgo --fail-fast -focus "$filter" ./test/e2e
     return
   fi
   if [[ "$concurrent" == "1" ]]; then
-    local all=$(ginkgo -dryRun -v ./test/e2e | grep alb-test-case | wc -l)
+    local all=$(ginkgo -dry-run -v ./test/e2e | grep alb-test-case | wc -l)
     local i=0
     while read tcase; do
       tcase=$(echo $tcase | xargs)
       echo "run case $tcase"
       echo "$tcase $i/$all" >./.current-test
-      ginkgo -failFast -focus "$tcase" ./test/e2e
+      ginkgo --fail-fast -focus "$tcase" ./test/e2e
       i=$((i + 1))
-    done < <(ginkgo -dryRun -noColor -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort)
+    done < <(ginkgo -dry-run --no-color -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort)
     return
   fi
 
@@ -69,7 +69,7 @@ function alb-run-all-e2e-test() (
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
   unset DEV_MODE                          # dev_mode 会导致k8s只启动一个 无法并行测试。。
   rm ./test/e2e/ginkgo-node-*.log || true # clean old test log
-  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e -failFast -debug -p -nodes $concurrent ./test/e2e
+  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e --fail-fast -p -nodes $concurrent ./test/e2e
   if [ -f ./debug ]; then
     while true; do
       echo "debug"
@@ -144,7 +144,7 @@ function alb-install-golang-test-dependency() {
   go env -w GOPROXY=https://goproxy.io,direct
   cd /tmp
   go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
-  go install -v github.com/onsi/ginkgo/ginkgo@latest
+  go install -v github.com/onsi/ginkgo/v2/ginkgo@latest
   cd -
   export GOFLAGS=-buildvcs=false
 }
@@ -171,11 +171,11 @@ function alb-test-all-in-ci-golang() {
 }
 
 function alb-list-kind-e2e() {
-  ginkgo -debug -v -dryRun ./test/kind/e2e
+  ginkgo -v -dry-run ./test/kind/e2e
 }
 
 function alb-list-e2e() {
-  ginkgo -dryRun -noColor -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort
+  ginkgo -dry-run --no-color -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort
 }
 
 function alb-debug-e2e() {
@@ -186,5 +186,5 @@ function alb-debug-e2e() {
 }
 
 function alb-test-kind() {
-  ginkgo -debug -v -dryRun ./test/kind/e2e
+  ginkgo -debug -v -dry-run ./test/kind/e2e
 }

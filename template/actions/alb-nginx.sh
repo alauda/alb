@@ -1,5 +1,6 @@
 #!/bin/bash
 source ./template/actions/dev.actions.sh
+source ./scripts/alb-lint-actions.sh
 
 function alb-install-nginx-test-dependency() {
   apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
@@ -99,7 +100,9 @@ function test-nginx-local() {
 function test-nginx-in-ci() (
   set -x
   set -e
+
   echo "test-nginx-in-ci" alb is $ALB
+  alb-lint-lua
   # struct of a nginx test
   # /
   # /nginx

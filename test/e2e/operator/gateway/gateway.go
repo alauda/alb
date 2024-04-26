@@ -12,7 +12,7 @@ import (
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	"github.com/kr/pretty"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appv1 "k8s.io/api/apps/v1"

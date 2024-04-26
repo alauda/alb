@@ -10,7 +10,7 @@ import (
 	f "alauda.io/alb2/test/e2e/framework"
 	"github.com/go-logr/logr"
 	_ "github.com/kr/pretty"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"

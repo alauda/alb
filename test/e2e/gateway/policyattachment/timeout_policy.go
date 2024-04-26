@@ -8,7 +8,7 @@ import (
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/openlyinc/pointy"
 	"github.com/stretchr/testify/assert"
 

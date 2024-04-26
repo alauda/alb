@@ -14,45 +14,46 @@ local _prometheus
 function _M.init()
     ngx_log(ngx.INFO, "init metrics")
     table_clear(_metrics)
+    -- LuaFormatter off
     _prometheus = prometheus.init("prometheus_metrics")
 
     _metrics.connection = _prometheus:gauge("nginx_http_connections", "Number of HTTP connections", {"state"})
 
     _metrics.mismatch_rule_requests = _prometheus:counter(
-        "nginx_http_mismatch_rule_requests", 
+        "nginx_http_mismatch_rule_requests",
         "Number of mistach rule requests",
         { "port", "method" }
     )
 
     _metrics.status = _prometheus:counter(
-        "nginx_http_status", 
+        "nginx_http_status",
         "HTTP status code per rule",
         { "port", "rule", "status", "method", "source_type", "source_namespace", "source_name" }
     )
     _metrics.request_sizes = _prometheus:counter(
-        "nginx_http_request_size_bytes", 
+        "nginx_http_request_size_bytes",
         "Size of HTTP requests",
         { "port", "rule", "status", "method", "source_type", "source_namespace", "source_name" }
     )
     _metrics.response_sizes = _prometheus:counter(
-        "nginx_http_response_size_bytes", 
+        "nginx_http_response_size_bytes",
         "Size of HTTP responses",
         { "port", "rule", "status", "method", "source_type", "source_namespace", "source_name" }
     )
     _metrics.latency = _prometheus:histogram(
-        "nginx_http_request_duration_seconds", 
+        "nginx_http_request_duration_seconds",
         "HTTP request latency",
         { "port", "rule", "source_type", "source_namespace", "source_name" },
         {.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
     )
 
     _metrics.upstream_requests_status = _prometheus:counter(
-        "nginx_http_upstream_requests_status", 
-        "HTTP status code per rule per upstream", 
+        "nginx_http_upstream_requests_status",
+        "HTTP status code per rule per upstream",
         { "port", "rule", "upstream_ip", "status", "method", "source_type", "source_namespace", "source_name" }
     )
     _metrics.upstream_latency = _prometheus:histogram(
-        "nginx_http_upstream_request_duration_seconds", 
+        "nginx_http_upstream_request_duration_seconds",
         "HTTP request latency per upstream",
         { "port", "rule", "upstream_ip", "source_type", "source_namespace", "source_name" },
         {.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
@@ -60,6 +61,7 @@ function _M.init()
 
     _metrics.alb_error = _prometheus:counter("alb_error", "error cause by alb itself", { "port" })
     _metrics.metrics_free_cache_size = _prometheus:gauge("metrics_cache_size", "size of metrics cache")
+    -- LuaFormatter on
 end
 
 function _M.log()
@@ -78,7 +80,7 @@ function _M.log()
     local source_name = source.name or ""
 
     _metrics.status:inc(1, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
-    _metrics.request_sizes:inc(request_length, server_port,rule_name, status, request_method, source_type, source_namespace, source_name)
+    _metrics.request_sizes:inc(request_length, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
     _metrics.response_sizes:inc(bytes_sent, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
     _metrics.latency:observe(request_time, server_port, rule_name, source_type, source_namespace, source_name)
 

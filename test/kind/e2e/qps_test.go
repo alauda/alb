@@ -9,7 +9,7 @@ import (
 	. "alauda.io/alb2/test/kind/pkg/helper/qps"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

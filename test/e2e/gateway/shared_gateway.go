@@ -6,7 +6,7 @@ import (
 
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

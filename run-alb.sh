@@ -43,6 +43,7 @@ _term() {
 }
 
 trap _term SIGTERM
+trap _term SIGQUIT
 
 umask 027
 mkdir -p /etc/alb2/nginx/last_status/

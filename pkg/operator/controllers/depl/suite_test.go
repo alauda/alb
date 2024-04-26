@@ -17,7 +17,7 @@ import (
 	cliu "alauda.io/alb2/utils/client"
 	tu "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/xorcare/pointer"
