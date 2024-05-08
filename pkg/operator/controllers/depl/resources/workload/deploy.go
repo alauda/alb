@@ -243,7 +243,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Name:  "alb2",
 			Image: alb,
 			Command: []string{
-				"/alb/ctl/run-alb.sh",
+				"/bin/run", "/alb/ctl/run-alb.sh",
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
@@ -267,7 +267,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Name:  "nginx",
 			Image: nginx,
 			Command: []string{
-				"/alb/nginx/run-nginx.sh",
+				"/bin/run", "/alb/nginx/run-nginx.sh",
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{

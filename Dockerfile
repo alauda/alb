@@ -54,7 +54,7 @@ STOPSIGNAL SIGQUIT
 # iproute2: ss
 RUN umask 027 && \ 
 sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
-apk add --no-cache zlib-dev libcap iproute2 yq && \ 
+apk add --no-cache zlib-dev libcap iproute2 yq bash && \ 
 mkdir -p /alb/ctl/tools && \ 
 mkdir -p /alb/nginx && \ 
 echo "build" && chown -R nonroot:nonroot /alb && \ 
@@ -74,9 +74,10 @@ ls -alh /usr/local/openresty/nginx/conf && \
 rm -rf /usr/bin/nc && ls /usr/bin | grep nc && if command -v nc; then exit; fi && \ 
 setcap CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /sbin/ss && \ 
 setcap CAP_NET_BIND_SERVICE=+eip /usr/local/openresty/nginx/sbin/nginx && \ 
-setcap CAP_NET_BIND_SERVICE,CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /bin/busybox && \ 
+cp /bin/bash /bin/run && \ 
+setcap CAP_NET_BIND_SERVICE,CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /bin/run && \ 
 setcap CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /alb/ctl/alb && \ 
 getcap /sbin/ss && \ 
 getcap /usr/local/openresty/nginx/sbin/nginx && \ 
-getcap /bin/busybox && \ 
+getcap /bin/run && \ 
 true
