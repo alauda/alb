@@ -54,7 +54,7 @@ STOPSIGNAL SIGQUIT
 # iproute2: ss
 RUN umask 027 && \ 
 sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
-apk add --no-cache zlib-dev libcap iproute2 yq bash && \ 
+apk add --no-cache zlib-dev libcap iproute2 yq jq curl bash && \ 
 mkdir -p /alb/ctl/tools && \ 
 mkdir -p /alb/nginx && \ 
 echo "build" && chown -R nonroot:nonroot /alb && \ 

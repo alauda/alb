@@ -74,12 +74,14 @@ function install-offline() (
   wget http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar -O ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   tar -x -f ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   cp -r ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
+  rm -rf ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION*
 
   # wget "https://opm.openresty.org/api/pkg/fetch?account=xiangnanscu&name=lua-resty-cookie&op=eq&version=0.01" -O ./lua-resty-cookie-0.01.opm.tar
   # md5sum ./lua-resty-cookie-0.01.opm.tar cfd011d1eb1712b47abd9cdffb7bc90b
   wget http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar -O ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   tar -x -f ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   cp -r ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
+  rm -rf ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION*
 
   install-lua-var-nginx-module "http://prod-minio.alauda.cn/acp/ci/alb/build/lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz" ${LUA_VAR_NGINX_MODULE_VERSION}
   install-lua-resty-balancer "http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz" ${LUA_RESTY_BALANCER_VERSION}
