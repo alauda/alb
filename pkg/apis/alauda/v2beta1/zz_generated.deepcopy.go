@@ -268,16 +268,6 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 		*out = new(int)
 		**out = **in
 	}
-	if in.EnableGC != nil {
-		in, out := &in.EnableGC, &out.EnableGC
-		*out = new(string)
-		**out = **in
-	}
-	if in.EnableGCAppRule != nil {
-		in, out := &in.EnableGCAppRule, &out.EnableGCAppRule
-		*out = new(string)
-		**out = **in
-	}
 	if in.EnableAlb != nil {
 		in, out := &in.EnableAlb, &out.EnableAlb
 		*out = new(bool)

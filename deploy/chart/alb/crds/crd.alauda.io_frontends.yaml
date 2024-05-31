@@ -16,7 +16,12 @@ spec:
     singular: frontend
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: protocol
+      jsonPath: .spec.protocol
+      name: protocol
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         properties:

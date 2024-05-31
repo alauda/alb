@@ -14,7 +14,7 @@ local dsl = require "dsl"
 local cache = require "cache"
 
 local _M = {}
-
+local MY_POD_NAME = os.getenv("MY_POD_NAME") or ""
 local SUBSYSTEM = ngx_config.subsystem
 
 local function get_policies_of_port(key)
@@ -50,17 +50,19 @@ function _M.get_upstream(subsystem, protocol, port)
     end
     if subsystem == "http" then
         --[[ ngx.log(ngx.ERR, "try find a matched policy len ", #policies) ]]
+
+        ngx.ctx.alb_ctx.trace.alb_pod = MY_POD_NAME
         for i, policy in ipairs(policies) do
             if (policy ~= nil and policy["dsl"] ~= nil) then
                 local match, err = dsl.eval(policy["dsl"])
                 --[[ ngx.log(ngx.ERR, "try find a matched policy ", policy["rule"]) ]]
                 if (match) then
                     local trace = ngx.ctx.alb_ctx.trace
-                    trace.rule = policy["rule"]
+                    trace.rule = policy.rule
                     trace.index = tostring(i)
-                    trace.upstream = policy["upstream"]
+                    trace.upstream = policy.upstream
                     --[[ ngx.log(ngx.ERR, "find a matched policy ", policy["rule"]) ]]
-                    return policy["upstream"], policy, nil
+                    return policy.upstream, policy, nil
                 end
                 if (err ~= nil) then
                     ngx.log(ngx.ERR, "eval dsl " .. common.json_encode(policy["dsl"]) .. " failed " .. err)

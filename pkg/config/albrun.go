@@ -63,8 +63,6 @@ type PortProject []struct {
 
 type ControllerFlags struct {
 	EnableAlb           bool
-	EnableGC            bool
-	EnableGCAppRule     bool
 	EnablePrometheus    bool
 	EnablePortProbe     bool
 	EnablePortProject   bool
@@ -174,8 +172,6 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 		coreV1.EnvVar{Name: MAX_TERM_SECONDS, Value: IntToEnv(a.Controller.MaxTermSeconds)},
 		coreV1.EnvVar{Name: RELOAD_TIMEOUT, Value: IntToEnv(a.Controller.ReloadTimeout)},
 		coreV1.EnvVar{Name: INTERVAL, Value: IntToEnv(a.Controller.Interval)},
-		coreV1.EnvVar{Name: ENABLE_GC, Value: BoolToEnv(a.Controller.Flags.EnableGC)},
-		coreV1.EnvVar{Name: ENABLE_GC_APP_RULE, Value: BoolToEnv(a.Controller.Flags.EnableGCAppRule)},
 		coreV1.EnvVar{Name: ENABLE_PROMETHEUS, Value: BoolToEnv(a.Controller.Flags.EnablePrometheus)},
 		coreV1.EnvVar{Name: ENABLE_PORTPROBE, Value: BoolToEnv(a.Controller.Flags.EnablePortProbe)},
 		coreV1.EnvVar{Name: ENABLE_IPV6, Value: BoolToEnv(a.Controller.Flags.EnableIPV6)},
@@ -231,6 +227,7 @@ func (a *ALBRunConfig) GetNginxContainerEnvs() []coreV1.EnvVar {
 		coreV1.EnvVar{Name: MAX_TERM_SECONDS, Value: IntToEnv(a.Controller.MaxTermSeconds)},
 		coreV1.EnvVar{Name: POLICY_ZIP, Value: BoolToEnv(a.Controller.Flags.PolicyZip)},
 		coreV1.EnvVar{Name: NEW_POLICY_PATH, Value: NEW_POLICY_PATH_VAL},
+		coreV1.EnvVar{Name: MY_POD_NAME, ValueFrom: &coreV1.EnvVarSource{FieldRef: &coreV1.ObjectFieldSelector{FieldPath: "metadata.name", APIVersion: "v1"}}},
 	)
 	return envs
 }
@@ -266,8 +263,6 @@ func controllerFromEnv(env map[string]string, c *ALBRunConfig) {
 
 func flagsFromEnv(env map[string]string, c *ALBRunConfig) {
 	c.Controller.Flags.EnableAlb = ToBool(env[ALB_ENABLE])
-	c.Controller.Flags.EnableGC = ToBool(env[ENABLE_GC])
-	c.Controller.Flags.EnableGCAppRule = ToBool(env[ENABLE_GC_APP_RULE])
 	c.Controller.Flags.EnablePrometheus = ToBool(env[ENABLE_PROMETHEUS])
 	c.Controller.Flags.EnablePortProbe = ToBool(env[ENABLE_PORTPROBE])
 	c.Controller.Flags.EnableIPV6 = ToBool(env[ENABLE_IPV6])

@@ -19,7 +19,6 @@ import (
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
-// TODO 直接用controller-runtime的client
 type K8sClient struct {
 	k8sClient       kubernetes.Interface
 	albClient       albclient.Interface

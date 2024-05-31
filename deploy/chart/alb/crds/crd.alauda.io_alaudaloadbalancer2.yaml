@@ -47,7 +47,7 @@ spec:
                   description: iaas_id is deprecated, default ""
                   type: string
                 type:
-                  description: type defines the loadbalance alb2 uses, now only support nginx
+                  description: type defines the loadbalancer alb2 uses, now only support nginx
                   enum:
                     - nginx
                   type: string
@@ -69,7 +69,28 @@ spec:
       storage: false
       subresources:
         status: {}
-    - name: v2beta1
+    - additionalPrinterColumns:
+        - description: manually set address for this alb
+          jsonPath: .spec.address
+          name: manually-address
+          type: string
+        - description: allocated address
+          jsonPath: .status.detail.address.msg
+          name: allocated-address
+          type: string
+        - description: state of this alb
+          jsonPath: .status.state
+          name: state
+          type: string
+        - description: reason of this state
+          jsonPath: .status.reason
+          name: reason
+          type: string
+        - description: network mode of this alb
+          jsonPath: .spec.config.networkMode
+          name: mode
+          type: string
+      name: v2beta1
       schema:
         openAPIV3Schema:
           description: ALB2 is the Schema for the alaudaloadbalancer2 API
@@ -107,10 +128,6 @@ spec:
                     enableALb:
                       type: boolean
                     enableCrossClusters:
-                      type: string
-                    enableGC:
-                      type: string
-                    enableGCAppRule:
                       type: string
                     enableGoMonitor:
                       type: boolean
@@ -340,7 +357,28 @@ spec:
       storage: true
       subresources:
         status: {}
-    - name: v2
+    - additionalPrinterColumns:
+        - description: manually set address for this alb
+          jsonPath: .spec.address
+          name: manually-address
+          type: string
+        - description: allocated address
+          jsonPath: .status.detail.address.msg
+          name: allocated-address
+          type: string
+        - description: state of this alb
+          jsonPath: .status.state
+          name: state
+          type: string
+        - description: reason of this state
+          jsonPath: .status.reason
+          name: reason
+          type: string
+        - description: network mode of this alb
+          jsonPath: .spec.config.networkMode
+          name: mode
+          type: string
+      name: v2
       schema:
         openAPIV3Schema:
           description: ALB2 is the Schema for the alaudaloadbalancer2 API
@@ -378,10 +416,6 @@ spec:
                     enableALb:
                       type: boolean
                     enableCrossClusters:
-                      type: string
-                    enableGC:
-                      type: string
-                    enableGCAppRule:
                       type: string
                     enableGoMonitor:
                       type: boolean

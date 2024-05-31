@@ -140,7 +140,6 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 					l.Error(err, "leader update alb status fail")
 				}
 			}
-			nctl.GC()
 		}
 
 		if a.albCfg.GetFlags().DisablePeriodGenNginxConfig {
@@ -157,7 +156,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 			l.Error(err, "reload load balancer failed")
 		}
 
-		l.Info("reload: End update reload loop, cost", time.Since(startTime))
+		l.Info("reload: End update reload loop", "cost", time.Since(startTime))
 	}, reloadTimeout, interval)
 
 	// TODO did we ready need this?

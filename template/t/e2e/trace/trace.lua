@@ -20,6 +20,8 @@ local function default_policy()
                     {rule = "5", internal_dsl = {{"STARTS_WITH", "URL", "/t5"}}, upstream = "test-upstream-5"},
                     {rule = "t6", internal_dsl = {{"REGEX", "URL", "/t6/*"}}, upstream = "test-upstream-1"},
                     {rule = "t7", internal_dsl = {{"REGEX", "URL", "/t7/.*"}}, upstream = "test-upstream-1"},
+                    {rule = "trace1", internal_dsl = {{"STARTS_WITH", "URL", "/trace1"}}, rewrite_prefix_match="/trace1",rewrite_replace_prefix="/trace2", upstream = "trace1"},
+                    {rule = "trace2", internal_dsl = {{"STARTS_WITH", "URL", "/trace2"}}, upstream = "trace2"},
                 }
             }
         },
@@ -36,6 +38,16 @@ local function default_policy()
             {
                 name = "test-upstream-5", mode = "http", backends = {
                     {address = "127.0.0.1", port = 11880, weight = 100} -- port not exist will connect error
+                }
+            },
+            {
+                name = "trace1", mode = "http", backends = {
+                    {address = "127.0.0.1", port = 80, weight = 100}
+                }
+            },
+            {
+                name = "trace2", mode = "http", backends = {
+                    {address = "127.0.0.1", port = 1880, weight = 100}
                 }
             }
         }
@@ -194,20 +206,39 @@ end
 function _M.test_trace()
     local httpc = require"resty.http".new()
     -- with cpaas-trace it should return cpaas-trace header
+
     do
-        local res, err = httpc:request_uri("http://127.0.0.1:80/t6/detail", {headers = {["cpaas-trace"] = "true"}})
-        u.logs(res, err)
-        h.assert_eq(res.status, 200)
-        local trace = common.json_decode(res.headers["cpaas-trace"])
+        local res, err = u.curl("http://127.0.0.1:80/trace1", {headers = {["cpaas-trace"] = "true"}})
+        h.assert_curl_success(res, err)
+        local cpaas_trace = res.headers["x-cpaas-trace"]
+        h.assert_eq(type(cpaas_trace), "table")
+        local trace1 = common.json_decode(cpaas_trace[1])
+        u.logs(trace1)
+        h.assert_eq(trace1.rule, "trace1")
+        h.assert_eq(trace1.upstream, "trace1")
+        local trace2 = common.json_decode(cpaas_trace[2])
+        u.logs(trace2)
+        h.assert_eq(trace2.rule, "trace2")
+        h.assert_eq(trace2.upstream, "trace2")
+    end
+
+    do
+        local res, err = u.curl("http://127.0.0.1:80/t6/detail", {headers = {["cpaas-trace"] = "true"}})
+        h.assert_curl_success(res, err)
+        u.logs(res)
+        local cpaas_trace = res.headers["x-cpaas-trace"]
+        h.assert_eq(type(cpaas_trace), "string")
+        local trace = common.json_decode(cpaas_trace)
+        u.logs(trace)
         h.assert_eq(trace.rule, "t6")
         h.assert_eq(trace.upstream, "test-upstream-1")
-        u.logs(trace)
     end
+
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t7/detail", {headers = {["cpaas-trace"] = "true"}})
         u.logs(res, err)
         h.assert_eq(res.status, 200)
-        local trace = common.json_decode(res.headers["cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"])
         h.assert_eq(trace.rule, "t7")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)
@@ -216,7 +247,7 @@ function _M.test_trace()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/detail", {headers = {["cpaas-trace"] = "true"}})
         u.logs(res, err)
         h.assert_eq(res.status, 200)
-        local trace = common.json_decode(res.headers["cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"])
         h.assert_eq(trace.rule, "1")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)
@@ -227,7 +258,7 @@ function _M.test_trace()
         u.logs(res, err)
         h.assert_eq(res.status, 200)
         h.assert_eq(res.body, "from backend\n")
-        local trace = common.json_decode(res.headers["cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"])
         h.assert_eq(trace.rule, "2")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)

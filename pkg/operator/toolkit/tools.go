@@ -86,3 +86,21 @@ func ShowMeta(obj client.Object) string {
 	version := obj.GetResourceVersion()
 	return fmt.Sprintf("%s/%s/%s/%s/%s/%s", ns, name, group, gversion, kind, version)
 }
+
+func ConcatMultipleSlices[T any](slices [][]T) []T {
+	var totalLen int
+
+	for _, s := range slices {
+		totalLen += len(s)
+	}
+
+	result := make([]T, totalLen)
+
+	var i int
+
+	for _, s := range slices {
+		i += copy(result[i:], s)
+	}
+
+	return result
+}

@@ -168,7 +168,11 @@ function _M.balance()
 
     -- set balancer is the last step of send a request
     if subsys.is_http_subsystem() and ngx.ctx.alb_ctx["http_cpaas_trace"] == "true" then
-        ngx.header["cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace)
+        ngx.ctx.alb_ctx.trace.upstream_ip = peer
+        -- nginx will merge same response header into one.
+        -- if upstram is alb either, it will set response's header x-cpaas-trace too.
+        -- since that, at the first alb, the response' header will be a list of all trace info.
+        ngx.header["x-cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace, false)
     end
 end
 

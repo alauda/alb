@@ -1,6 +1,7 @@
 -- format:on
 local _M = {}
 local ngx = ngx
+local common = require "utils.common"
 local subsys = require "utils.subsystem"
 
 local ErrReason = "X-ALB-ERR-REASON"
@@ -28,6 +29,9 @@ function _M.exit_with_code(reason, msg, code)
         ngx.header[ErrReason] = reason
         ngx.ctx.is_alb_err = true
         ngx.status = code
+        if ngx.ctx.alb_ctx["http_cpaas_trace"] == "true" then
+            ngx.header["x-cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace, false)
+        end
         ngx.exit(ngx.HTTP_OK)
     end
     if subsys.is_stream_subsystem() then

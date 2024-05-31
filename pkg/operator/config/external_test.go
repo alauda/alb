@@ -74,8 +74,6 @@ func TestExternalConfigDefaultAndMerge(t *testing.T) {
 			},
 			LoadbalancerType:     pointer.Of("nginx"),
 			Replicas:             pointer.Of(3),
-			EnableGC:             pointer.Of("false"),
-			EnableGCAppRule:      pointer.Of("false"),
 			EnablePrometheus:     pointer.Of("true"),
 			EnablePortprobe:      pointer.Of("true"),
 			EnablePortProject:    pointer.Of(false),

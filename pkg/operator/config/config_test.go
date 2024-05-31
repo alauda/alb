@@ -97,14 +97,6 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Value: "30",
 		},
 		{
-			Name:  "ENABLE_GC",
-			Value: "false",
-		},
-		{
-			Name:  "ENABLE_GC_APP_RULE",
-			Value: "true",
-		},
-		{
 			Name:  "ENABLE_PROMETHEUS",
 			Value: "true",
 		},
@@ -292,6 +284,15 @@ func TestGetNginxContainerEnvs(t *testing.T) {
 		{
 			Name:  "OLD_CONFIG_PATH",
 			Value: "/etc/alb2/nginx/nginx.conf",
+		},
+		{
+			Name: "MY_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
+			},
 		},
 	}
 	actual := cfg.GetNginxContainerEnvs()

@@ -16,7 +16,28 @@ spec:
     singular: rule
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: priority
+      jsonPath: .spec.priority
+      name: priority
+      type: integer
+    - description: description of match condition
+      jsonPath: .spec.dsl
+      name: matches
+      type: string
+    - description: source type of this rule
+      jsonPath: .spec.source.type
+      name: source-type
+      type: string
+    - description: source ns of this rule
+      jsonPath: .spec.source.namespace
+      name: source-ns
+      type: string
+    - description: source name of this rule
+      jsonPath: .spec.source.name
+      name: source-name
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         properties:
@@ -136,3 +157,4 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}

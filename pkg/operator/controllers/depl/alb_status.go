@@ -3,6 +3,7 @@ package depl
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -120,6 +121,9 @@ func GenAddressStatusFromSvc(svc *corev1.Service, cf cfg.Config) albv2.AssignedA
 			host = append(host, ingress.Hostname)
 		}
 	}
+	all := ConcatMultipleSlices([][]string{host, v4, v6})
+	msg := strings.Join(all, ",")
+
 	total := len(v4) + len(v6) + len(host)
 	ok = total != 0 && cf.ALB.Vip.EnableLbSvc
 	return albv2.AssignedAddress{
@@ -127,6 +131,7 @@ func GenAddressStatusFromSvc(svc *corev1.Service, cf cfg.Config) albv2.AssignedA
 		Ipv4: v4,
 		Ipv6: v6,
 		Host: host,
+		Msg:  msg,
 	}
 }
 

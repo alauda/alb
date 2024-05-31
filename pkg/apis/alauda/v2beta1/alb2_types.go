@@ -40,6 +40,11 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:validation:Optional
+// +kubebuilder:printcolumn:JSONPath=".spec.address",description="manually set address for this alb",name="manually-address",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.detail.address.msg",description="allocated address",name="allocated-address",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.state",description="state of this alb",name="state",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.reason",description="reason of this state",name="reason",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.config.networkMode",description="network mode of this alb",name="mode",type=string
 
 // ALB2 is the Schema for the alaudaloadbalancer2 API
 type ALB2 struct {
@@ -76,8 +81,6 @@ type ExternalAlbConfig struct {
 	NodeSelector         map[string]string  `yaml:"nodeSelector" json:"nodeSelector,omitempty"`
 	LoadbalancerType     *string            `yaml:"loadbalancerType" json:"loadbalancerType,omitempty"`
 	Replicas             *int               `yaml:"replicas" json:"replicas,omitempty"`
-	EnableGC             *string            `yaml:"enableGC" json:"enableGC,omitempty"`                       // # 可以删掉 默认关闭
-	EnableGCAppRule      *string            `yaml:"enableGCAppRule" json:"enableGCAppRule,omitempty"`         // # 可以删掉 默认关闭
 	EnableAlb            *bool              `yaml:"enableALb" json:"enableALb,omitempty"`                     // 是否reconcile ft rule,只有在纯gateway模式时才是false
 	EnablePrometheus     *string            `yaml:"enablePrometheus" json:"enablePrometheus,omitempty"`       // openresty的prometheus metrics   TODO 可以删掉 默认为true 应该不会有要关闭metrics的情况
 	MetricsPort          *int               `yaml:"metricsPort" json:"metricsPort,omitempty"`                 // openresty的metrics端口 在不同集群可能是不同

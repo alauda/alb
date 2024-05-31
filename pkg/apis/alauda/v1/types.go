@@ -83,6 +83,7 @@ type PortNumber int32
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=ft,scope=Namespaced
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:JSONPath=".spec.protocol",description="protocol",name="protocol",type=string
 type Frontend struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -136,6 +137,11 @@ type FrontendList struct {
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=rl,scope=Namespaced
+// +kubebuilder:printcolumn:JSONPath=".spec.priority",description="priority",name="priority",type=integer
+// +kubebuilder:printcolumn:JSONPath=".spec.dsl",description="description of match condition",name="matches",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.source.type",description="source type of this rule",name="source-type",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.source.namespace",description="source ns of this rule",name="source-ns",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.source.name",description="source name of this rule",name="source-name",type=string
 
 type Rule struct {
 	metav1.TypeMeta   `json:",inline"`

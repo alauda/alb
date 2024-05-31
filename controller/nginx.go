@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-	"time"
 
 	m "alauda.io/alb2/controller/modules"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -769,26 +768,6 @@ func (nc *NginxController) reload(nginxPid string) error {
 		klog.Errorf("reload nginx failed: %s %v", output, err)
 	}
 	return err
-}
-
-func (nc *NginxController) GC() {
-	flags := config.GetConfig().GetFlags()
-	gcOpt := GCOptions{
-		GCServiceRule: flags.EnableGC,
-		GCAppRule:     flags.EnableGCAppRule,
-	}
-	if !gcOpt.GCServiceRule && !gcOpt.GCAppRule {
-		return
-	}
-	start := time.Now()
-	klog.Info("begin gc rule")
-	defer func() {
-		klog.Infof("end gc rule, spend time %s", time.Since(start))
-	}()
-	err := GCRule(nc.Driver, gcOpt)
-	if err != nil {
-		klog.Error(err)
-	}
 }
 
 // alb or gateway could be nil

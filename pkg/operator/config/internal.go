@@ -197,8 +197,6 @@ func MergeDeploy(ec ExternalAlbConfig, a *ALB2Config) error {
 func flagsFromCr(ec ExternalAlbConfig, a *ALB2Config) {
 	f := &a.Controller.Flags
 	f.EnableAlb = toBool(*ec.EnableAlb)
-	f.EnableGC = toBool(*ec.EnableGC)
-	f.EnableGCAppRule = toBool(*ec.EnableGCAppRule)
 	f.EnablePrometheus = toBool(*ec.EnablePrometheus)
 	f.EnablePortProbe = toBool(*ec.EnablePortprobe)
 	f.EnablePortProject = toBool(*ec.EnablePortProject)

@@ -1,4 +1,0 @@
-package driver
-
-func LoadLbSvc() {
-}

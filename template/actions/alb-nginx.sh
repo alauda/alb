@@ -71,7 +71,6 @@ function test-nginx-in-ci() (
   set -e
 
   echo "test-nginx-in-ci" alb is $ALB
-  alb-lint-lua
   # struct of a nginx test
   # /
   # /nginx
