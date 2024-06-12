@@ -4,7 +4,7 @@ function alb-sync-to-checklist() {
   local target="$1"
   for p in ./migrate/checklist/custom/*; do
     md5sum $p
-    cp $p $target/checklist/custom/
+    cp -r $p $target/checklist/custom/
   done
   echo "====="
   for p in $target/checklist/custom/*; do

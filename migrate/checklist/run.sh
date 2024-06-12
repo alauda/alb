@@ -4,6 +4,7 @@ set -o pipefail
 source helper.sh
 source ./custom/check-alb.sh
 echo "$@"
+BACKUP_DIR="./"
 if [[ -n "$2" ]]; then
   prdb_version="$2"
 fi

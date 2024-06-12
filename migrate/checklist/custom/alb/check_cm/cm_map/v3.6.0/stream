@@ -1,0 +1,13 @@
+# Lua shared dict
+lua_code_cache on;
+lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/template/nginx/lua/?.lua;;';
+lua_package_cpath '/usr/local/lib/lua/?.so;;';
+lua_shared_dict stream_policy   10m;
+lua_shared_dict stream_backend_cache 5m;
+lua_shared_dict stream_alb_cache     20m;
+lua_shared_dict stream_raw     5m;
+lua_shared_dict stream_ipc_shared_dict 1m;
+
+proxy_connect_timeout      5s;
+proxy_timeout              60s;
+tcp_nodelay                on;

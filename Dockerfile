@@ -25,7 +25,7 @@ COPY ./template/actions /tmp/
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
 apk add --no-cache --virtual .builddeps bash perl curl build-base make unzip && \ 
 ls /tmp && bash /tmp/alb-nginx-install-deps.sh /usr/local/openresty && \ 
-apk del .builddeps build-base make unzip && cd / && rm -rf /tmp
+apk del .builddeps build-base make unzip && cd / && rm -rf /tmp && rm /usr/bin/nc
 
 # tweak files
 FROM scratch

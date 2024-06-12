@@ -1,0 +1,3 @@
+grpc_set_header   Content-Type application/grpc;
+grpc_socket_keepalive on;
+keepalive_requests 1000;

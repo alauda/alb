@@ -1,12 +1,15 @@
 #!/bin/bash
 # shellcheck disable=SC2155,SC2086
 function check_alb() (
+  log::info "check-alb 开始"
   check_alb_ingress_path
   check_alb_ingress_rule
   check_alb_hr
   check_alb_ingress_httpport
   check_alb_project
   check_alb_resource
+  check_alb_configmap
+  log::info "check-alb 结束"
 )
 
 # 检查默认alb的ingress http port在关闭的情况下，是否还有旧的http port 在
@@ -318,3 +321,118 @@ function get_albhr_for_cluster() {
   local cluster=$1
   kubectl get hr -n cpaas-system -o jsonpath='{range .items[*]}c {.spec.clusterName} c @ {.spec.chart} @ {.metadata.name}{"\n"}{end}' | grep "stable/alauda-alb2" | grep "c $cluster c" | awk -F '@' '{print $3}' | sort
 }
+
+function check_alb_configmap() (
+  mkdir -p ./.alb_check
+  local version=${prdb_version#v}
+  IFS='.' read -ra VERSION_PARTS <<<"$version"
+  local major="${VERSION_PARTS[0]}"
+  local minor="${VERSION_PARTS[1]}"
+  local patch="${VERSION_PARTS[2]}"
+  if [[ "$major" -lt "3" ]]; then
+    return
+  fi
+  if [[ "$minor" -lt "12" ]]; then
+    check_alb_configmap_lt_3_12 "global"
+    for cluster in $(list_running_cluster | grep -v "global"); do
+      check_alb_configmap_lt_3_12 "$cluster"
+    done
+    return
+  fi
+  if [[ "$minor" -ge "12" ]]; then
+    check_alb_configmap_ge_3_12 "global"
+    for cluster in $(list_running_cluster | grep -v "global"); do
+      check_alb_configmap_ge_3_12 "$cluster"
+    done
+    return
+  fi
+)
+
+function check_alb_configmap_lt_3_12() (
+  local cluster="$1"
+  log::info "check alb configmap change <3.12 in cluster $cluster"
+
+  while read -r hr; do
+    log::info "check alb hr $hr"
+    local albname=${hr#"$cluster-"}
+    local cm=$(kubectl_with_cluster $cluster get cm -n cpaas-system $albname -o yaml)
+    local ver=$(kubectl_with_cluster "global" get hr -n cpaas-system $hr -o jsonpath="{.status.version}")
+    local expect_cm_base=$(_alb_chcm_get_expect_cm_base $ver)
+    local needbackup="false"
+
+    local cm_backup_dir="$backup_dir/$cluster/alb/check_cm/$albname"
+    mkdir -p "$cm_backup_dir"
+    for key_file in "./custom/alb/check_cm/cm_map/$expect_cm_base"/*; do
+      local key=$(basename $key_file)
+      local expect_val=$(cat $key_file)
+      local cur_val=$(echo "$cm" | yq ".data.\"$key\"")
+      if [[ "$cur_val" != "$expect_val" ]]; then
+        echo "$cur_val" >./.alb_check/$ver-$key
+        local diff=$(diff -u $key_file ./.alb_check/$ver-$key)
+        log::err "check alb hr $hr configmap $albname $key 的值不正确, diff --->| $diff |<--- 请检查 参照文档: pageId=164987763#check_alb_configmap_lt_3_12"
+        needbackup="true"
+        echo "$diff" >"$cm_backup_dir/$key-diff"
+      fi
+    done
+    if [[ "$needbackup" == "true" ]]; then
+      echo "$cm" >"$cm_backup_dir/cur.cm.yaml"
+      log::info "check alb hr $hr configmap $albname, 当前configmap已备份到 $cm_backup_dir/cur.cm.yaml"
+    fi
+  done < <(get_albhr_for_cluster $cluster)
+  return
+)
+
+function check_alb_configmap_ge_3_12() (
+  local cluster=$1
+  log::info "check alb configmap change >=3.12 in cluster $cluster"
+
+  while read -r alb; do
+    log::info "check alb configmap change >=3.12 in cluster $cluster $alb"
+    local cm_patch=$(kubectl_with_cluster $cluster get alb2.v2beta1.crd -n cpaas-system $alb -o jsonpath="{.spec.config.overwrite.configmap}")
+    if [[ -n "$cm_patch" ]]; then
+      log::err "check alb $alb configmap patch,此 alb cm 被patch 请检查 参照文档: pageId=164987763#check_alb_configmap_ge_3_12"
+    fi
+  done < <(kubectl_with_cluster $cluster get alb2.v2beta1.crd -n cpaas-system --no-headers | awk '{print $1}')
+  return
+)
+
+function _alb_chcm_get_expect_cm_base() (
+  local ver=$1
+  ver=${ver#v}
+  IFS='.' read -ra VERSION_PARTS <<<"$ver"
+  local major="${VERSION_PARTS[0]}"
+  local minor="${VERSION_PARTS[1]}"
+  local patch="${VERSION_PARTS[2]}"
+  if [[ "$major" == "3" ]] && [[ "$minor" == "0" ]]; then
+    echo "v3.0"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "2" ]]; then
+    echo "v3.0"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "4" ]]; then
+    echo "v3.4"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "6" ]] && [[ "$patch" -lt "9" ]]; then
+    echo "v3.6.0"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "6" ]] && [[ "$patch" -ge "9" ]]; then
+    echo "v3.6.9"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "8" ]] && [[ "$patch" -lt "13" ]]; then
+    echo "v3.8.0"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "8" ]] && [[ "$patch" -gt "13" ]]; then
+    echo "v3.8.13"
+    return
+  fi
+  if [[ "$major" == "3" ]] && [[ "$minor" == "10" ]]; then
+    echo "v3.10"
+    return
+  fi
+)
