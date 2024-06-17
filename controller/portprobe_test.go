@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/cli"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils/log"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 )
 
@@ -71,7 +73,7 @@ spec:
 	cfg.ALBRunConfig.Controller.Flags.EnablePortProbe = true
 	cfg.Controller.PodName = "a"
 	config.UseMock(cfg)
-	drv, err := driver.InitKubernetesDriverFromCfg(ctx, kcfg)
+	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, kcfg)
 	assert.NoError(t, err)
 	p, err := NewPortProbe(ctx, drv, l, cfg)
 	p.listTcpPort = func() (map[int]bool, error) {
@@ -92,8 +94,8 @@ spec:
 		_, err = kc.GetAlbClient().CrdV1().Frontends(ns).UpdateStatus(ctx, ft, metav1.UpdateOptions{})
 		assert.NoError(t, err)
 	}
-
-	alb, err := GetLBConfigFromAlb(*drv, ns, name)
+	albcli := NewAlbCli(drv, l)
+	alb, err := albcli.GetLBConfig(ns, name)
 	assert.NoError(t, err)
 
 	// it should mark this port as conflict

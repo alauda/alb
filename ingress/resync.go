@@ -54,7 +54,7 @@ func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
 
 	for _, ing := range allIngress {
 		key := IngKey(ing)
-		should, _ := c.shouldHandleIngress(alb, ing)
+		should, _ := c.ShouldHandleIngress(alb, ing)
 		if should {
 			shouldHandledIngress = append(shouldHandledIngress, ing)
 			// needHandledIngress = append(needHandledIngress, ing)

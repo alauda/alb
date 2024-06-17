@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
-	ctl "alauda.io/alb2/controller"
+	. "alauda.io/alb2/controller/custom_config"
 	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
-	"github.com/thoas/go-funk"
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -51,7 +50,7 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 		return false, err
 	}
 	log = log.WithValues("ver", ingress.ResourceVersion)
-	should, reason := c.shouldHandleIngress(alb, ingress)
+	should, reason := c.ShouldHandleIngress(alb, ingress)
 	if !should {
 		log.Info("should not handle this ingress. clean up", "reason", reason)
 		return false, c.cleanUpThisIngress(alb, key)
@@ -326,7 +325,7 @@ func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.Ob
 }
 
 // return: nil or not-empty string
-func (c *Controller) GetIngressClass(ing *networkingv1.Ingress) *string {
+func GetIngressClass(ing *networkingv1.Ingress) *string {
 	var ingressclass *string
 	// get ingress class from ing.spec
 	if ing.Spec.IngressClassName != nil {
@@ -342,68 +341,6 @@ func (c *Controller) GetIngressClass(ing *networkingv1.Ingress) *string {
 		ingressclass = nil
 	}
 	return ingressclass
-}
-
-// is our ingressclass
-// 1. is our ingressclass
-// 2. does not has ingressclass
-func (c *Controller) CheckShouldHandleViaIngressClass(ing *networkingv1.Ingress) bool {
-	ingressclass := c.GetIngressClass(ing)
-	if ingressclass == nil {
-		return true
-	}
-	return *ingressclass == c.Name
-}
-
-func (c *Controller) shouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *networkingv1.Ingress) (rv bool, reason string) {
-	IngressHTTPPort := c.GetIngressHttpPort()
-	IngressHTTPSPort := c.GetIngressHttpsPort()
-	if !c.CheckShouldHandleViaIngressClass(ing) {
-		reason = fmt.Sprintf("ingressclass is not our %v", c.Name)
-		return false, reason
-	}
-
-	belongProject := c.GetIngressBelongProject(ing)
-	role := ctl.GetAlbRoleType(alb.Labels)
-	if role == ctl.RolePort {
-		hasHTTPPort := false
-		hasHTTPSPort := false
-		httpPortProjects := []string{}
-		httpsPortProjects := []string{}
-		for _, ft := range alb.Frontends {
-			if ft.SamePort(IngressHTTPPort) {
-				hasHTTPPort = true
-				httpPortProjects = ctl.GetOwnProjectsFromLabel(ft.Name, ft.Labels)
-			} else if ft.SamePort(IngressHTTPSPort) {
-				hasHTTPSPort = true
-				httpsPortProjects = ctl.GetOwnProjectsFromLabel(ft.Name, ft.Labels)
-			}
-			if hasHTTPSPort && hasHTTPPort {
-				break
-			}
-		}
-		// for role=port alb user should create http and https ports before using ingress
-		if !(hasHTTPPort && hasHTTPSPort) {
-			reason = fmt.Sprintf("role port must have both http and https port, http %v %v, https %v %v", IngressHTTPPort, hasHTTPPort, IngressHTTPSPort, hasHTTPSPort)
-			return false, reason
-		}
-		if (funk.Contains(httpPortProjects, m.ProjectALL) || funk.Contains(httpPortProjects, belongProject)) &&
-			(funk.Contains(httpsPortProjects, m.ProjectALL) || funk.Contains(httpsPortProjects, belongProject)) {
-			return true, ""
-		}
-		reason = fmt.Sprintf("role port belong project %v, not match http %v, https %v", belongProject, httpPortProjects, httpsPortProjects)
-		return false, reason
-	}
-
-	projects := ctl.GetOwnProjectsFromAlb(alb.Alb)
-	if funk.Contains(projects, m.ProjectALL) {
-		return true, ""
-	}
-	if funk.Contains(projects, belongProject) {
-		return true, ""
-	}
-	reason = fmt.Sprintf("role instance, alb project %v ingress project %v", projects, belongProject)
-	return false, reason
 }
 
 func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *networkingv1.Ingress) (http *alb2v1.Frontend, https *alb2v1.Frontend, err error) {
@@ -593,7 +530,7 @@ func (c *Controller) generateRule(
 		redirectCode = 302
 	}
 
-	ruleAnnotation := ctl.GenerateRuleAnnotationFromIngressAnnotation(ingress.Name, annotations)
+	ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation(ingress.Name, annotations, c.Domain)
 
 	certs := make(map[string]string)
 

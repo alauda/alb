@@ -31,6 +31,10 @@ func L() logr.Logger {
 }
 
 func InTestSetLogger(logger logr.Logger) {
+	SetLogger(logger)
+}
+
+func SetLogger(logger logr.Logger) {
 	_globalMu.Lock()
 	defer _globalMu.Unlock()
 	_globalL = &Log{logr: logger}
@@ -72,7 +76,13 @@ func InitKlogV2(cfg LogCfg) logr.Logger {
 		_ = flags.Set("logtostderr", "false")
 	}
 	if cfg.Level != "" {
-		_ = flags.Set("v", cfg.Level)
+		if cfg.Level == "0" {
+			flags := &flag.FlagSet{}
+			klogv2.InitFlags(flags)
+			_ = flags.Set("logtostderr", "false")
+		} else {
+			_ = flags.Set("v", cfg.Level)
+		}
 	}
 
 	logger := klogr.NewWithOptions(klogr.WithFormat("Klog"))

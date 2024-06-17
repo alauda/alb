@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	c "alauda.io/alb2/controller"
 	ct "alauda.io/alb2/controller/types"
 	a1t "alauda.io/alb2/pkg/apis/alauda/v1"
 	"github.com/onsi/ginkgo/v2"
@@ -20,7 +19,7 @@ import (
 )
 
 type (
-	NgxPolicy    c.NgxPolicy
+	NgxPolicy    ct.NgxPolicy
 	BackendGroup ct.BackendGroup
 )
 
@@ -46,7 +45,7 @@ func (p NgxPolicy) CertEq(domain string, secret *corev1.Secret) bool {
 	return find
 }
 
-type PolicyAssert func(p c.Policy) bool
+type PolicyAssert func(p ct.Policy) bool
 
 func (p NgxPolicy) PolicyEq(mode, rule string, expectPort int, expectDsl string, expectBg ct.BackendGroup, policyasserts ...PolicyAssert) (bool, error) {
 	policy, port, bg := p.FindPolicy(mode, rule)
@@ -78,11 +77,11 @@ func (p NgxPolicy) PolicyEq(mode, rule string, expectPort int, expectDsl string,
 	return true, nil
 }
 
-func (p NgxPolicy) FindPolicy(mode, rule string) (*c.Policy, int, *ct.BackendGroup) {
-	var retP *c.Policy
+func (p NgxPolicy) FindPolicy(mode, rule string) (*ct.Policy, int, *ct.BackendGroup) {
+	var retP *ct.Policy
 	var retPort int
 	var retBg *ct.BackendGroup
-	var psMap map[a1t.PortNumber]c.Policies
+	var psMap map[a1t.PortNumber]ct.Policies
 	switch mode {
 	case "http":
 		psMap = p.Http.Tcp
@@ -111,15 +110,15 @@ func (p NgxPolicy) FindPolicy(mode, rule string) (*c.Policy, int, *ct.BackendGro
 	return retP, retPort, retBg
 }
 
-func (p NgxPolicy) FindTcpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
+func (p NgxPolicy) FindTcpPolicy(rule string) (*ct.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("tcp", rule)
 }
 
-func (p NgxPolicy) FindUdpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
+func (p NgxPolicy) FindUdpPolicy(rule string) (*ct.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("udp", rule)
 }
 
-func (p NgxPolicy) FindHttpPolicy(rule string) (*c.Policy, int, *ct.BackendGroup) {
+func (p NgxPolicy) FindHttpPolicy(rule string) (*ct.Policy, int, *ct.BackendGroup) {
 	return p.FindPolicy("http", rule)
 }
 

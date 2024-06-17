@@ -11,6 +11,7 @@ import (
 	. "alauda.io/alb2/pkg/config"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -168,6 +169,10 @@ func (c *Config) GetNs() string {
 	return c.Ns
 }
 
+func (c *Config) GeKey() client.ObjectKey {
+	return client.ObjectKey{Namespace: c.Ns, Name: c.Name}
+}
+
 func (c *Config) GetMetricsPort() int {
 	return c.Controller.MetricsPort
 }
@@ -256,6 +261,22 @@ func (n Names) GetLabelSourceType() string {
 
 func (n Names) GetOverwriteConfigmapLabelKey() string {
 	return fmt.Sprintf(OVERWRITE_CONFIGMAP, n.domain)
+}
+
+func (n Names) GetAlbIngressRewriteResponseAnnotation() string {
+	return fmt.Sprintf("alb.ingress.%s/rewrite-response", n.domain)
+}
+
+func (n Names) GetAlbRuleRewriteResponseAnnotation() string {
+	return fmt.Sprintf("alb.rule.%s/rewrite-response", n.domain)
+}
+
+func (n Names) GetAlbIngressRewriteRequestAnnotation() string {
+	return fmt.Sprintf("alb.ingress.%s/rewrite-request", n.domain)
+}
+
+func (n Names) GetAlbRuleRewriteRequestAnnotation() string {
+	return fmt.Sprintf("alb.rule.%s/rewrite-request", n.domain)
 }
 
 type Flags struct {

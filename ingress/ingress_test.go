@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
+	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
@@ -166,6 +167,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 				Name:      albName,
 			},
 			Spec: albv2.ALB2Spec{
+				Type: "nginx",
 				Config: &albv2.ExternalAlbConfig{
 					Projects: []string{"ALL_ALL", "project-1"},
 				},
@@ -190,8 +192,7 @@ func TestNeedEnqueueObject(t *testing.T) {
 			IngressesClass: []networkingv1.IngressClass{
 				{
 					ObjectMeta: k8smetav1.ObjectMeta{
-						Name:            "alb2",
-						ResourceVersion: "1",
+						Name: "alb2",
 					},
 					Spec: networkingv1.IngressClassSpec{
 						Controller: "alauda.io/alb2",
@@ -211,10 +212,9 @@ func TestNeedEnqueueObject(t *testing.T) {
 			fakeResource:  defaultFakeResource,
 			ingress: networkingv1.Ingress{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Namespace:       "ns-1",
-					Name:            "ing-1",
-					ResourceVersion: "1",
-					Annotations:     map[string]string{"kubernetes.io/ingress.class": "x"},
+					Namespace:   "ns-1",
+					Name:        "ing-1",
+					Annotations: map[string]string{"kubernetes.io/ingress.class": "x"},
 				},
 				Spec: networkingv1.IngressSpec{
 					Rules: []networkingv1.IngressRule{
@@ -232,9 +232,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 			fakeResource: defaultFakeResource,
 			ingress: networkingv1.Ingress{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Namespace:       "ns-1",
-					Name:            "ing-2",
-					ResourceVersion: "1",
+					Namespace: "ns-1",
+					Name:      "ing-2",
 				},
 				Spec: networkingv1.IngressSpec{
 					Rules: []networkingv1.IngressRule{
@@ -251,9 +250,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 			fakeResource:  defaultFakeResource,
 			ingress: networkingv1.Ingress{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Namespace:       "ns-1",
-					Name:            "ing-3",
-					ResourceVersion: "1",
+					Namespace: "ns-1",
+					Name:      "ing-3",
 				},
 				Spec: networkingv1.IngressSpec{
 					IngressClassName: &nokIngressClass,
@@ -271,9 +269,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 			fakeResource:  defaultFakeResource,
 			ingress: networkingv1.Ingress{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Namespace:       "ns-1",
-					Name:            "ing-4",
-					ResourceVersion: "1",
+					Namespace: "ns-1",
+					Name:      "ing-4",
 				},
 				Spec: networkingv1.IngressSpec{
 					IngressClassName: &okIngressClass,
@@ -320,6 +317,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 		return runCases
 	}(testCases)
 
+	env := test_utils.NewFakeEnv()
+	env.AssertStart()
 	for index, testCase := range runCases {
 		t.Logf("case %d: %s\n", index, testCase.description)
 		a := assert.New(t)
@@ -329,7 +328,11 @@ func TestNeedEnqueueObject(t *testing.T) {
 		cfg.Name = "alb-1"
 		cfg.SetDomain("alauda.io")
 		config.UseMock(cfg)
-		drv := test_utils.InitFakeAlb(t, ctx, testCase.fakeResource)
+
+		err := env.ApplyFakes(testCase.fakeResource)
+		a.NoError(err)
+		drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, env.GetCfg())
+		a.NoError(err)
 		informers := drv.Informers
 		ingressController := NewController(drv, informers, cfg, log.L())
 		// start to make sure ingress class cache synced.
@@ -342,12 +345,13 @@ func TestNeedEnqueueObject(t *testing.T) {
 		t.Logf("class err %v %v", c, err)
 		alb, err := drv.LoadALBbyName(test_utils.DEFAULT_NS, test_utils.DEFAULT_ALB)
 		a.NoError(err)
-		need, reason := ingressController.shouldHandleIngress(alb, &testCase.ingress)
+		need, reason := ingressController.ShouldHandleIngress(alb, &testCase.ingress)
 		t.Logf("class reason %v", reason)
 
 		a.Equal(testCase.shouldEnqueue, need, testCase.description)
-
+		env.ClearFakes(testCase.fakeResource)
 	}
+	env.Stop()
 }
 
 func TestFindUnSyncedIngress(t *testing.T) {

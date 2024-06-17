@@ -7,35 +7,33 @@ import (
 	"net"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 	gatewayVersioned "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
-	gatewayFakeClient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 	gv1l "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/modules"
 	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
-	albfakeclient "alauda.io/alb2/pkg/client/clientset/versioned/fake"
 	v1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/client/listers/alauda/v2beta1"
+	"alauda.io/alb2/utils/log"
 	v1types "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	dynamicfakeclient "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	corev1lister "k8s.io/client-go/listers/core/v1"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
 )
 
 type Backend struct {
 	InstanceID        string  `json:"instance_id"`
+	Pod               string  `json:"pod"`
+	Ns                string  `json:"name"`
 	IP                string  `json:"ip"`
 	Protocol          string  `json:"-"`
 	AppProtocol       *string `json:"-"`
@@ -80,52 +78,86 @@ type KubernetesDriver struct {
 	EndpointLister corev1lister.EndpointsLister
 	GatewayLister  gv1l.GatewayLister
 	Ctx            context.Context
+	Opt            Opt
+	Log            logr.Logger
+	n              config.Names
 }
 
-func GetDriver(ctx context.Context) (*KubernetesDriver, error) {
-	testMode := config.GetConfig().ExtraConfig.K8s.Mode == "test"
-	return GetKubernetesDriver(ctx, testMode)
+// we do not want to reply on the golbal config
+// define what we need here
+type Opt struct {
+	Domain              string
+	Ns                  string // which alb cr exist
+	EnableCrossClusters bool   // TODO seems odd the add those flag here
 }
 
-func GetDriverWithConfig(ctx context.Context, cfg *config.Config) (*KubernetesDriver, error) {
-	testMode := config.GetConfig().ExtraConfig.K8s.Mode == "test"
-	return GetKubernetesDriver(ctx, testMode)
+type DrvOpt struct {
+	Ctx context.Context
+	Cf  *rest.Config
+	Opt Opt
 }
 
-func GetAndInitDriver(ctx context.Context) (*KubernetesDriver, error) {
-	// TEST != "" means we are debugging or testing
-	testMode := config.GetConfig().ExtraConfig.K8s.Mode == "test"
-	drv, err := GetKubernetesDriver(ctx, testMode)
+func NewDriver(opt DrvOpt) (*KubernetesDriver, error) {
+	drv, err := getKubernetesDriverFromCfg(opt.Ctx, opt.Cf)
 	if err != nil {
 		return nil, err
 	}
-	if err = InitDriver(drv, ctx); err != nil {
+	if err := initDriver(drv, opt.Ctx); err != nil {
 		return nil, err
 	}
+	drv.Opt = opt.Opt
+	drv.n = config.NewNames(drv.Opt.Domain)
+	drv.Log = log.L()
 	return drv, nil
 }
 
-func (kd *KubernetesDriver) GetType() string {
-	return config.Kubernetes
+func cfg2opt(cfg *config.Config) Opt {
+	return Opt{
+		Domain:              cfg.GetDomain(),
+		Ns:                  cfg.GetNs(),
+		EnableCrossClusters: cfg.GetFlags().EnableCrossClusters,
+	}
+}
+
+// Deprecated: use NewDriver instead
+func GetDriver(ctx context.Context) (*KubernetesDriver, error) {
+	return GetAndInitDriver(ctx)
+}
+
+// Deprecated: use NewDriver instead
+func GetAndInitDriver(ctx context.Context) (*KubernetesDriver, error) {
+	cfg := config.GetConfig()
+	cf, err := GetKubeCfg(cfg.K8s)
+	if err != nil {
+		return nil, err
+	}
+	return NewDriver(DrvOpt{
+		Ctx: ctx,
+		Cf:  cf,
+		Opt: cfg2opt(cfg),
+	})
+}
+
+// Deprecated: use NewDriver instead
+func GetAndInitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
+	cfg := config.GetConfig()
+	opt := cfg2opt(cfg)
+	return NewDriver(DrvOpt{Ctx: ctx, Cf: cf, Opt: opt})
 }
 
 func GetKubeCfg(k8s config.K8sConfig) (*rest.Config, error) {
 	// respect KUBECONFIG env
 	if k8s.Mode == "kubecfg" {
-		klog.Infof("driver: use KUBECONFIG env")
 		kubecfg := k8s.KubeCfg
-		klog.Infof("driver: use %v", kubecfg)
 		cf, err := clientcmd.BuildConfigFromFlags("", kubecfg)
 		return cf, err
 	}
 	// respect KUBERNETES_XXX env. only used for test
 	if k8s.Mode == "kube_xx" {
-		klog.Infof("driver: use KUBERNETES_XXX env")
 		host := k8s.K8sServer
 		if host == "" {
 			return nil, fmt.Errorf("invalid host from KUBERNETES_SERVER env")
 		}
-		klog.Infof("driver: k8s host is %v", host)
 		tlsClientConfig := rest.TLSClientConfig{Insecure: true}
 		cf := &rest.Config{
 			Host:            host,
@@ -134,34 +166,11 @@ func GetKubeCfg(k8s config.K8sConfig) (*rest.Config, error) {
 		}
 		return cf, nil
 	}
-
-	klog.Infof("driver: use InClusterConfig")
 	cf, err := rest.InClusterConfig()
 	return cf, err
 }
 
-// TODO 这里应该全部改成controller-runtime的client就不用在这里维护这么多的client了。
-func GetKubernetesDriver(ctx context.Context, isFake bool) (*KubernetesDriver, error) {
-	var client kubernetes.Interface
-	var albClient albclient.Interface
-	var dynamicClient dynamic.Interface
-	var gatewayClient gatewayVersioned.Interface
-	if isFake {
-		klog.Infof("use fake mode ")
-		client = fake.NewSimpleClientset()
-		albClient = albfakeclient.NewSimpleClientset()
-		dynamicClient = dynamicfakeclient.NewSimpleDynamicClient(runtime.NewScheme())
-		gatewayClient = gatewayFakeClient.NewSimpleClientset()
-		return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient, Ctx: ctx}, nil
-	}
-	cf, err := GetKubeCfg(config.GetConfig().K8s)
-	if err != nil {
-		return nil, err
-	}
-	return GetKubernetesDriverFromCfg(ctx, cf)
-}
-
-func GetKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
+func getKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
 	client, err := kubernetes.NewForConfig(cf)
 	if err != nil {
 		return nil, err
@@ -181,18 +190,7 @@ func GetKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*Kubernet
 	return &KubernetesDriver{Client: client, ALBClient: albClient, DynamicClient: dynamicClient, GatewayClient: gatewayClient, Ctx: ctx}, nil
 }
 
-func InitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
-	drv, err := GetKubernetesDriverFromCfg(ctx, cf)
-	if err != nil {
-		return nil, err
-	}
-	if err := InitDriver(drv, ctx); err != nil {
-		return nil, err
-	}
-	return drv, nil
-}
-
-func InitDriver(driver *KubernetesDriver, ctx context.Context) error {
+func initDriver(driver *KubernetesDriver, ctx context.Context) error {
 	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
 	if err != nil {
 		return err
@@ -226,7 +224,7 @@ func (kd *KubernetesDriver) GetClusterIPAddress(svc *v1types.Service, port int) 
 // GetNodePortAddr return addresses of a NodePort service by using host ip and node port
 func (kd *KubernetesDriver) RuleIsOrphanedByApplication(rule *modules.Rule) (bool, error) {
 	var appName, appNamespace string
-	appNameLabelKey := fmt.Sprintf("app.%s/name", config.GetConfig().GetDomain())
+	appNameLabelKey := fmt.Sprintf("app.%s/name", kd.Opt.Domain)
 	for k, v := range rule.Labels {
 		if strings.HasPrefix(k, appNameLabelKey) {
 			vv := strings.Split(v, ".")
@@ -277,26 +275,31 @@ func (kd *KubernetesDriver) GetEndPointAddress(name, namespace string, svc *v1ty
 
 	for _, subset := range ep.Subsets {
 		for _, addr := range subset.Addresses {
-			service.Backends = append(service.Backends, &Backend{
+			backend := &Backend{
 				InstanceID:        addr.Hostname,
 				IP:                addr.IP,
 				Protocol:          string(protocol),
 				AppProtocol:       appProtocol,
 				Port:              containerPort,
 				FromOtherClusters: false,
-			})
+			}
+			if addr.TargetRef != nil {
+				backend.Pod = addr.TargetRef.Name
+				backend.Ns = addr.TargetRef.Namespace
+			}
+			service.Backends = append(service.Backends, backend)
 		}
 	}
-	klog.V(3).Infof("backends of svc %s/%s : %+v", name, protocol, service.Backends)
+	kd.Log.V(3).Info("backends of svc", "name", name, "protocol", protocol, "backends", service.Backends)
 
-	if config.GetConfig().GetFlags().EnableCrossClusters {
-		klog.Infof("begin serve cross-cluster endpointslice")
+	if kd.Opt.EnableCrossClusters {
+		kd.Log.Info("begin serve cross-cluster endpointslice")
 		service.Backends = kd.mergeSubmarinerCrossClusterBackends(namespace, name, svcPortName, service.Backends, protocol)
-		klog.V(3).Infof("added cross-cluster backends of svc %s/%s : %+v", name, protocol, service.Backends)
+		kd.Log.V(3).Info("added cross-cluster backends of svc", "name", name, "protocol", protocol, "backends", service.Backends)
 	}
 
 	if len(service.Backends) == 0 {
-		klog.Warningf("service %s has 0 backends, means has no health pods", name)
+		kd.Log.Info("service has 0 backends means has no health pods", "svc", name, "warn", true)
 	}
 	return service, nil
 }
@@ -366,7 +369,7 @@ func (kd *KubernetesDriver) GetExternalNameAddress(svc *v1types.Service, port in
 			})
 		}
 	}
-	klog.V(3).Infof("backends of svc %s: %+v", svc.Name, service.Backends)
+	kd.Log.V(3).Info("backends of svc", "name", svc.Name, "backends", service.Backends)
 	return service, nil
 }
 
@@ -374,11 +377,11 @@ func (kd *KubernetesDriver) GetExternalNameAddress(svc *v1types.Service, port in
 func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePort int, protocol v1types.Protocol) (*Service, error) {
 	svc, err := kd.ServiceLister.Services(namespace).Get(name)
 	if err != nil || svc == nil {
-		if !config.GetConfig().GetFlags().EnableCrossClusters {
-			klog.Errorf("Get service %s.%s failed: %s", name, namespace, err)
+		if !kd.Opt.EnableCrossClusters {
+			kd.Log.Error(err, "Get service failed", "name", name, "ns", namespace)
 			return nil, err
 		} else {
-			klog.Infof("begin serve cross-cluster endpointslice")
+			kd.Log.Info("begin serve cross-cluster endpointslice")
 			service := &Service{
 				Name:        name,
 				Namespace:   namespace,
@@ -400,8 +403,9 @@ func (kd *KubernetesDriver) GetServiceAddress(name, namespace string, servicePor
 	case v1types.ServiceTypeLoadBalancer:
 		return kd.GetEndPointAddress(name, namespace, svc, servicePort, protocol)
 	default:
-		klog.Errorf("Unsupported type %s of service %s.%s.", svc.Spec.Type, name, namespace)
-		return nil, errors.New("unknown service type")
+		err := errors.New("unknown service type")
+		kd.Log.Error(err, "Unsupported type of service", "type", svc.Spec.Type, "name", name, "ns", namespace)
+		return nil, err
 	}
 }
 
@@ -448,15 +452,15 @@ func (kd *KubernetesDriver) mergeSubmarinerCrossClusterBackends(namespace, name,
 	}
 	selector, err := metav1.LabelSelectorAsSelector(&sel)
 	if err != nil {
-		klog.Errorf("label selector:%s, for endpointslice is wrong: %s", selector, err.Error())
+		kd.Log.Error(err, "label selector:%s, for endpointslice is wrong:", sel)
 		return backends
 	}
 	endpointSlices, err := kd.Informers.K8s.EndpointSlice.Lister().EndpointSlices(namespace).List(selector)
 	if err != nil {
-		klog.Errorf("Get cross-cluster endpointSlices from ns: %s, failed: %s", namespace, err.Error())
+		kd.Log.Error(err, "Get cross-cluster endpointSlices from ns failed", "ns", namespace)
 		return backends
 	} else {
-		klog.Infof("Got endpointslice cross-clusters from ns:%s, %s", namespace, endpointSlices)
+		kd.Log.Info("Get cross-cluster endpointSlices from ns", "ns", namespace, endpointSlices)
 	}
 	for _, endpointSlice := range endpointSlices {
 		if strings.HasPrefix(endpointSlice.Name, name) {

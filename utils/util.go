@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // FileExists return true if file exist and is a file.
@@ -66,4 +69,30 @@ func PrettyJson(data interface{}) string {
 		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
 	}
 	return string(out)
+}
+
+func PrettyCompactJson(data interface{}) string {
+	out, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
+	}
+	return string(out)
+}
+
+func ParseStringToObjectKey(s string) (client.ObjectKey, error) {
+	parts := strings.Split(s, "/")
+	if len(parts) != 2 {
+		return client.ObjectKey{}, fmt.Errorf("invalid format, expected 'namespace/name'")
+	}
+	return client.ObjectKey{
+		Namespace: parts[0],
+		Name:      parts[1],
+	}, nil
+}
+
+func NullOr[T any](o *T, default_val T) T {
+	if o == nil {
+		return default_val
+	}
+	return *o
 }

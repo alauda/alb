@@ -12,6 +12,7 @@ import (
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
@@ -82,7 +83,7 @@ func TestPolicies_Less(t *testing.T) {
 	}
 }
 
-func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, string, error) {
+func GenPolicyAndConfig(t *testing.T, env test_utils.FakeAlbEnv, res test_utils.FakeResource) (*NgxPolicy, string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cfg := config.DefaultMock()
@@ -91,10 +92,15 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	cfg.SetDomain("alauda.io")
 	cfg.Controller.Flags.EnableAlb = true
 	config.UseMock(cfg)
-	drv := test_utils.InitFakeAlb(t, ctx, res)
+	err := env.ApplyFakes(res)
+	assert.NoError(t, err)
+	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, env.GetCfg())
+	assert.NoError(t, err)
+
 	ctl := NewNginxController(drv, ctx, cfg, log.L(), nil)
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
+	env.ClearFakes(res)
 	// marshal and unmarshal to make sure we generate a valid policy json file
 	policy := NgxPolicy{}
 	nginxPolicyJson, err := json.MarshalIndent(nginxPolicy, " ", " ")
@@ -105,15 +111,6 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	nginxConfigStr, err := renderNginxConfig(nginxConfig)
 	assert.NoError(t, err)
 	return &policy, nginxConfigStr, nil
-}
-
-func (p *NgxPolicy) GetBackendGroup(name string) *BackendGroup {
-	for _, be := range p.BackendGroup {
-		if be.Name == name {
-			return be
-		}
-	}
-	return nil
 }
 
 func AssertBackendsEq(t *testing.T, left, right []*Backend) {
@@ -174,13 +171,15 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			}
 		}
-
+		env := test_utils.NewFakeEnv()
+		env.AssertStart()
 		for _, c := range casesRun {
 			t.Logf("run test %s", c.Name)
-			albPolicy, ngxCfg, err := GenPolicyAndConfig(t, c.Res())
+			albPolicy, ngxCfg, err := GenPolicyAndConfig(t, env, c.Res())
 			assert.NoError(t, err, c.Name)
 			c.Assert(*albPolicy, ngxCfg)
 		}
+		env.Stop()
 	}
 	defaultAlb := []albv2.ALB2{
 		{
@@ -335,6 +334,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 						},
 					},
 					K8s: test_utils.FakeK8sResource{
+						Namespaces: []k8sv1.Namespace{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "ns-1",
+								},
+							},
+						},
 						Services: []k8sv1.Service{
 							{
 								ObjectMeta: metav1.ObjectMeta{
@@ -485,6 +491,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 						Rules: []albv1.Rule{},
 					},
 					K8s: test_utils.FakeK8sResource{
+						Namespaces: []k8sv1.Namespace{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "ns-1",
+								},
+							},
+						},
 						Services: []k8sv1.Service{
 							{
 								ObjectMeta: metav1.ObjectMeta{
@@ -587,6 +600,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 						Rules: []albv1.Rule{},
 					},
 					K8s: test_utils.FakeK8sResource{
+						Namespaces: []k8sv1.Namespace{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "ns-1",
+								},
+							},
+						},
 						Services: []k8sv1.Service{
 							{
 								ObjectMeta: metav1.ObjectMeta{
@@ -596,8 +616,8 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 								Spec: k8sv1.ServiceSpec{
 									Type: k8sv1.ServiceTypeClusterIP,
 									Ports: []k8sv1.ServicePort{
-										{Port: int32(ftSg1Port), TargetPort: intstr.FromInt(ftSg1Port), Protocol: k8sv1.ProtocolTCP},
-										{Port: int32(ftSg1Port), TargetPort: intstr.FromInt(ftSg1Port), Protocol: k8sv1.ProtocolUDP},
+										{Port: int32(ftSg1Port), TargetPort: intstr.FromInt(ftSg1Port), Name: "x1", Protocol: k8sv1.ProtocolTCP},
+										{Port: int32(ftSg1Port), TargetPort: intstr.FromInt(ftSg1Port), Name: "x2", Protocol: k8sv1.ProtocolUDP},
 									},
 								},
 							},
@@ -613,10 +633,12 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 										Ports: []k8sv1.EndpointPort{
 											{
 												Port:     int32(ftSg1Port),
+												Name:     "x1",
 												Protocol: k8sv1.ProtocolTCP,
 											},
 											{
 												Port:     int32(ftSg1Port),
+												Name:     "x2",
 												Protocol: k8sv1.ProtocolUDP,
 											},
 										},
@@ -727,6 +749,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 						},
 					},
 					K8s: test_utils.FakeK8sResource{
+						Namespaces: []k8sv1.Namespace{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "ns-1",
+								},
+							},
+						},
 						Services: []k8sv1.Service{
 							{
 								ObjectMeta: metav1.ObjectMeta{
@@ -736,8 +765,8 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 								Spec: k8sv1.ServiceSpec{
 									Type: k8sv1.ServiceTypeClusterIP,
 									Ports: []k8sv1.ServicePort{
-										{Port: 53, TargetPort: intstr.FromInt(53), Protocol: k8sv1.ProtocolTCP},
-										{Port: 53, TargetPort: intstr.FromInt(53), Protocol: k8sv1.ProtocolUDP},
+										{Port: 53, TargetPort: intstr.FromInt(53), Name: "x1", Protocol: k8sv1.ProtocolTCP},
+										{Port: 53, TargetPort: intstr.FromInt(53), Name: "x2", Protocol: k8sv1.ProtocolUDP},
 									},
 								},
 							},
@@ -753,10 +782,12 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 										Ports: []k8sv1.EndpointPort{
 											{
 												Port:     53,
+												Name:     "x1",
 												Protocol: k8sv1.ProtocolTCP,
 											},
 											{
 												Port:     53,
+												Name:     "x2",
 												Protocol: k8sv1.ProtocolUDP,
 											},
 										},
@@ -857,6 +888,13 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 						},
 					},
 					K8s: test_utils.FakeK8sResource{
+						Namespaces: []k8sv1.Namespace{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "ns-1",
+								},
+							},
+						},
 						Secrets: []k8sv1.Secret{
 							{
 								ObjectMeta: metav1.ObjectMeta{

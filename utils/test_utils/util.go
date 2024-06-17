@@ -109,14 +109,6 @@ func MarshOrPanic(data interface{}) string {
 	return string(out)
 }
 
-func PrettyJson(data interface{}) string {
-	out, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		return fmt.Sprintf("err: %v could not jsonlize %v", err, data)
-	}
-	return string(out)
-}
-
 func Template(templateStr string, data map[string]interface{}) string {
 	buf := new(bytes.Buffer)
 	t, err := template.New("s").Parse(templateStr)

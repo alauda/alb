@@ -54,9 +54,8 @@ spec:
         pathType: ImplementationSpecific
 `
 	kt.AssertKubectlApply(ingYaml)
-	drv, err := driver.GetKubernetesDriverFromCfg(ctx, kcfg)
+	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, kcfg)
 	assert.NoError(t, err)
-	driver.InitDriver(drv, ctx)
 	ingc := NewController(drv, drv.Informers, config.GetConfig(), log.L().WithName("ingress"))
 
 	ing, err := kc.GetK8sClient().NetworkingV1().Ingresses("cpaas-system").Get(ctx, "i1", metav1.GetOptions{})

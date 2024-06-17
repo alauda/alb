@@ -45,14 +45,20 @@ func min(a, b int) int {
 	return b
 }
 
-func newNginxParam() NginxParam {
-	ngx := config.GetConfig().GetNginxCfg()
+func newNginxParam(cfg *config.Config) NginxParam {
+	ngx := cfg.GetNginxCfg()
+
+	cpu_preset := cfg.GetCpuPreset()
+	work_limit := cfg.GetWorkerLimit()
+	if work_limit == 0 {
+		work_limit = 4
+	}
 	return NginxParam{
 		EnablePrometheus: ngx.EnablePrometheus,
 		EnableIPV6:       checkIPV6(ngx.EnableIpv6),
 		EnableHTTP2:      ngx.EnableHttp2,
-		CPUNum:           strconv.Itoa(min(cpu_preset(), workerLimit())),
-		MetricsPort:      config.GetConfig().GetMetricsPort(),
+		CPUNum:           strconv.Itoa(min(cpu_preset, work_limit)),
+		MetricsPort:      cfg.GetMetricsPort(),
 		Backlog:          ngx.BackLog,
 		EnableGzip:       ngx.EnableGzip,
 		GzipLevel:        5,

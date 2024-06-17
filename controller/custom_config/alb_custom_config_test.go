@@ -1,4 +1,4 @@
-package controller
+package custom_config
 
 import (
 	"fmt"
@@ -10,11 +10,13 @@ import (
 )
 
 func TestRuleConfig(t *testing.T) {
-	config.UseMock(config.DefaultMock())
-	ALBIngressRewriteRequestAnnotation := GetAlbIngressRewriteRequestAnnotation()
-	RuleRewriteRequestAnnotation := GetAlbRuleRewriteRequestAnnotation()
-	ALBIngressRewriteResponseAnnotation := GetAlbIngressRewriteResponseAnnotation()
-	RuleRewriteResponseAnnotation := GetAlbRuleRewriteResponseAnnotation()
+	cfg := config.DefaultMock()
+	config.UseMock(cfg)
+	n := cfg.Names
+	ALBIngressRewriteRequestAnnotation := n.GetAlbIngressRewriteRequestAnnotation()
+	RuleRewriteRequestAnnotation := n.GetAlbRuleRewriteRequestAnnotation()
+	ALBIngressRewriteResponseAnnotation := n.GetAlbIngressRewriteResponseAnnotation()
+	RuleRewriteResponseAnnotation := n.GetAlbRuleRewriteResponseAnnotation()
 	type TestCase struct {
 		ingressAnnotation    map[string]string
 		expectRuleAnnotation map[string]string
@@ -75,9 +77,9 @@ func TestRuleConfig(t *testing.T) {
 		},
 	}
 	for i, c := range cases {
-		ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation("xx", c.ingressAnnotation)
+		ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation("xx", c.ingressAnnotation, cfg.Domain)
 		assert.Equal(t, ruleAnnotation, c.expectRuleAnnotation, fmt.Sprintf("case %v fail", i+1))
-		cfg := RuleConfigFromRuleAnnotation("", ruleAnnotation)
+		cfg := RuleConfigFromRuleAnnotation("", ruleAnnotation, cfg.Domain)
 		assert.Equal(t, cfg, c.expectRuleConfig, fmt.Sprintf("case %v fail", i+1))
 	}
 
@@ -102,7 +104,7 @@ func TestRuleConfig(t *testing.T) {
 		ruleCase2,
 	}
 	for _, c := range ruleCases {
-		cfg := RuleConfigFromRuleAnnotation("", c.ruleAnnotation)
+		cfg := RuleConfigFromRuleAnnotation("", c.ruleAnnotation, cfg.Domain)
 		assert.Equal(t, cfg, c.expectRuleConfig)
 	}
 }

@@ -22,12 +22,12 @@ func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1.Ingr
 	var allIngresses []*networkingv1.Ingress
 	for _, project := range projects {
 		sel := labels.Set{fmt.Sprintf("%s/project", c.GetDomain()): project}.AsSelector()
-		nss, err := c.namespaceLister.List(sel)
+		nss, err := c.kd.Client.CoreV1().Namespaces().List(c.kd.Ctx, metav1.ListOptions{LabelSelector: sel.String()})
 		if err != nil {
 			c.log.Error(err, "")
 			return nil
 		}
-		for _, ns := range nss {
+		for _, ns := range nss.Items {
 			ingress, err := c.ingressLister.Ingresses(ns.Name).List(labels.Everything())
 			if err != nil {
 				c.log.Error(err, "")
@@ -37,19 +37,4 @@ func (c *Controller) GetProjectIngresses(projects []string) []*networkingv1.Ingr
 		}
 	}
 	return allIngresses
-}
-
-func (c *Controller) GetIngressBelongProject(obj metav1.Object) string {
-	if ns := obj.GetNamespace(); ns != "" {
-		nsCr, err := c.namespaceLister.Get(ns)
-		if err != nil {
-			c.log.Error(err, "get namespace failed")
-			return ""
-		}
-		domain := c.GetDomain()
-		if project := nsCr.Labels[fmt.Sprintf("%s/project", domain)]; project != "" {
-			return project
-		}
-	}
-	return ""
 }

@@ -36,7 +36,6 @@ type LoadBalancer struct {
 	Type      string            `json:"type"`
 	Version   int               `json:"version"`
 	Frontends []*Frontend       `json:"frontends"`
-	TweakHash string            `json:"-"`
 }
 
 func (lb *LoadBalancer) String() string {
@@ -100,20 +99,9 @@ func (ft *Frontend) IsValidProtocol() bool {
 		ft.Protocol == v1.FtProtocolgRPC
 }
 
-type Backend struct {
-	Address           string  `json:"address"`
-	FromOtherClusters bool    `json:"otherclusters"`
-	Port              int     `json:"port"`
-	Weight            int     `json:"weight"`
-	Protocol          string  `json:"-"`
-	AppProtocol       *string `json:"-"`
-}
-
 func (b *Backend) Eq(other *Backend) bool {
 	return b.Address == other.Address && b.Port == other.Port && b.Weight == other.Weight
 }
-
-type Backends []*Backend
 
 func (b Backend) String() string {
 	return fmt.Sprintf("%v-%v-%v", b.Address, b.Port, b.Weight)
@@ -177,6 +165,18 @@ type BackendGroup struct {
 	SessionAffinityAttribute string   `json:"session_affinity_attribute"`
 	Mode                     string   `json:"mode"`
 	Backends                 Backends `json:"backends"`
+}
+
+type Backends []*Backend
+
+type Backend struct {
+	Address           string  `json:"address"`
+	Pod               string  `json:"-"`
+	FromOtherClusters bool    `json:"otherclusters"`
+	Port              int     `json:"port"`
+	Weight            int     `json:"weight"`
+	Protocol          string  `json:"-"`
+	AppProtocol       *string `json:"-"`
 }
 
 type BackendService struct {

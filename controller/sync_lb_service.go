@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	opsvc "alauda.io/alb2/pkg/operator/controllers/depl/resources/service"
@@ -58,7 +57,7 @@ func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*types.Frontend)
 	cli := nc.Driver
 	log := s.nc.log
 	log.Info("sync lb svc ports")
-	cfg := config.GetConfig()
+	cfg := nc.albcfg
 	ns := cfg.GetNs()
 	name := cfg.GetAlbName()
 	svc, err := GetLbSvc(ctx, cli.Client, crcli.ObjectKey{Namespace: ns, Name: name}, cfg.GetDomain())

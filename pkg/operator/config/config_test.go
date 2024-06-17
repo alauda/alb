@@ -4,6 +4,7 @@ import (
 	"sort"
 	"testing"
 
+	. "alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/test_utils"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -234,7 +235,7 @@ func TestGetALBContainerEnvs(t *testing.T) {
 			Value: "600",
 		},
 	}
-	t.Log(test_utils.PrettyJson(cfg))
+	t.Log(PrettyJson(cfg))
 	actual := cfg.GetALBContainerEnvs()
 	sort.Slice(actual, func(i, j int) bool {
 		return actual[i].Name < actual[j].Name
@@ -335,7 +336,7 @@ spec:
 			ns:   "n1",
 			name: "test",
 			assert: func(cfg ALB2Config) {
-				t.Logf(test_utils.PrettyJson(cfg))
+				t.Logf(PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeShared)
 				assert.Equal(t, cfg.Gateway.Shared.GatewayClassName, "test")
@@ -360,7 +361,7 @@ spec:
 			ns:   "n1",
 			name: "test-xxxx",
 			assert: func(cfg ALB2Config) {
-				t.Logf(test_utils.PrettyJson(cfg))
+				t.Logf(PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeStandAlone)
 				assert.Equal(t, cfg.Gateway.StandAlone.GatewayName, "test")
@@ -388,7 +389,7 @@ spec:
 			ns:   "n1",
 			name: "test-xxxx",
 			assert: func(cfg ALB2Config) {
-				t.Logf(test_utils.PrettyJson(cfg))
+				t.Logf(PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeStandAlone)
 				assert.Equal(t, cfg.Gateway.StandAlone.GatewayName, "test")

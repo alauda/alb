@@ -44,5 +44,4 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&GOpt.KubecfgPath, "kubecfg", "k", "", "location of kubecfg if you want to specified")
 }

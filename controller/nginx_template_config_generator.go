@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils/dirhash"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/types"
@@ -62,11 +63,16 @@ func GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, nginxPar
 			CertificateName: ft.CertificateName,
 		}
 	}
-
+	// calculate hash by tweak dir
+	hash, err := dirhash.HashDir(cfg.GetNginxCfg().TweakDir, ".conf", dirhash.DefaultHash)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
 	return &NginxTemplateConfig{
 		Name:      alb.Name,
 		Frontends: fts,
-		TweakHash: alb.TweakHash,
+		TweakHash: hash,
 		Phase:     phase,
 		Metrics: MetricsConfig{
 			Port:            nginxParam.MetricsPort,

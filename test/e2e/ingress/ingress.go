@@ -10,6 +10,7 @@ import (
 	"alauda.io/alb2/driver"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	. "alauda.io/alb2/utils/test_utils/assert"
 	"github.com/go-logr/logr"

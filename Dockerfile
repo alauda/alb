@@ -1,4 +1,4 @@
-ARG GO_BUILD_BASE=docker.mirrors.sjtug.sjtu.edu.cn/library/golang:1.21.6-alpine
+ARG GO_BUILD_BASE=build-harbor.alauda.cn/sync/library/golang:1.21-alpine
 ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.25.3
 ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.17
 

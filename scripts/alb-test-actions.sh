@@ -135,7 +135,7 @@ function alb-install-golang-test-dependency() {
   # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
   wget http://prod-minio.alauda.cn/acp/golangci-lint && chmod +x ./golangci-lint && mv ./golangci-lint /usr/local/bin/golangci-lint
   apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
-  rm -rf /usr/lib/python3.11/EXTERNALLY-MANAGED || true
+  rm /usr/lib/python3.*/EXTERNALLY-MANAGED || true
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install
   git config --global --add safe.directory $PWD

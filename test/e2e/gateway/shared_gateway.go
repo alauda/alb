@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	. "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"

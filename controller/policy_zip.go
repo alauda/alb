@@ -6,9 +6,20 @@ import (
 	"encoding/json"
 	"os"
 
-	"alauda.io/alb2/config"
+	. "alauda.io/alb2/controller/types"
+
 	"k8s.io/klog/v2"
 )
+
+func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
+	zip := nc.albcfg.GetFlags().PolicyZip
+	path := nc.NewPolicyPath
+	if zip {
+		path += ".bin"
+	}
+	klog.Infof("update policy %v", path)
+	return nc.updatePolicyFileRaw(ngxPolicies, path, zip)
+}
 
 func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path string, zip bool) error {
 	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
@@ -47,14 +58,4 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 		return err
 	}
 	return policyWriter.Sync()
-}
-
-func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
-	zip := config.GetConfig().GetFlags().PolicyZip
-	path := nc.NewPolicyPath
-	if zip {
-		path += ".bin"
-	}
-	klog.Infof("update policy %v", path)
-	return nc.updatePolicyFileRaw(ngxPolicies, path, zip)
 }

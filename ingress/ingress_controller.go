@@ -38,7 +38,6 @@ import (
 	networkinginformers "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	networkinglisters "k8s.io/client-go/listers/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -63,9 +62,8 @@ func (c *Controller) StartIngressLoop(ctx context.Context) error {
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
-	ingressLister   networkinglisters.IngressLister
-	ruleLister      listerv1.RuleLister
-	namespaceLister corelisters.NamespaceLister
+	ingressLister networkinglisters.IngressLister
+	ruleLister    listerv1.RuleLister
 
 	// workqueue is a rate limited work queue. This is used to queue work to be
 	// processed instead of performing it as soon as a change happens. This
@@ -83,6 +81,7 @@ type Controller struct {
 	ingressInformer      networkinginformers.IngressInformer
 	ingressClassInformer networkinginformers.IngressClassInformer
 	log                  logr.Logger
+	IngressSelect
 	*config.Config
 }
 
@@ -92,7 +91,6 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	ruleInformer := informers.Alb.Rule
 	ingressInformer := informers.K8s.Ingress
 	ingressClassInformer := informers.K8s.IngressClass
-	namespaceLister := informers.K8s.Namespace.Lister()
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
@@ -115,7 +113,6 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	controller := &Controller{
 		ingressLister:        ingressInformer.Lister(),
 		ruleLister:           ruleInformer.Lister(),
-		namespaceLister:      namespaceLister,
 		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Ingresses"),
 		recorder:             recorder,
 		kd:                   NewDriver(d, albCfg, log.WithName("driver")),
@@ -124,6 +121,10 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 		ingressClassInformer: ingressClassInformer,
 		log:                  log,
 		Config:               albCfg,
+		IngressSelect: IngressSelect{
+			cfg: Cfg2IngressSelectOpt(albCfg),
+			drv: d,
+		},
 	}
 	return controller
 }

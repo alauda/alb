@@ -13,6 +13,7 @@ import (
 	ctl "alauda.io/alb2/controller"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/workload"
+	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

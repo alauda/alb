@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	. "alauda.io/alb2/controller/types"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/stretchr/testify/assert"

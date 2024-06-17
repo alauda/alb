@@ -3,9 +3,9 @@ package gateway
 import (
 	"context"
 
-	c "alauda.io/alb2/controller"
 	ct "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/test/e2e/framework"
+	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
@@ -122,7 +122,7 @@ spec:
 						Weight:  50,
 					},
 				},
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http" && p.Config.RewriteRequest.Headers["my-header"] == "bar"
 			})
 		})
@@ -335,7 +335,7 @@ spec:
 				Name:     name,
 				Mode:     "http",
 				Backends: defaultBackend,
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
@@ -346,7 +346,7 @@ spec:
 				Name:     name,
 				Mode:     "http",
 				Backends: defaultBackend,
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
@@ -358,7 +358,7 @@ spec:
 				Name:     name,
 				Mode:     "http",
 				Backends: default443Backend,
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "https"
 			})
 			if err != nil {
@@ -738,7 +738,7 @@ spec:
 						Weight:  50,
 					},
 				},
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
@@ -757,7 +757,7 @@ spec:
 						Weight:  100,
 					},
 				},
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
@@ -864,7 +864,7 @@ spec:
 						Weight:  50,
 					},
 				},
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {
@@ -882,7 +882,7 @@ spec:
 						Weight:  100,
 					},
 				},
-			}, func(p c.Policy) bool {
+			}, func(p ct.Policy) bool {
 				return p.BackendProtocol == "http"
 			})
 			if err != nil {

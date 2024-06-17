@@ -1,23 +1,17 @@
 package controller
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 
-	"alauda.io/alb2/config"
-	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
-	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	pkgcfg "alauda.io/alb2/pkg/config"
@@ -28,62 +22,6 @@ var (
 	SUCCESS = "success"
 	FAILED  = "failed"
 )
-
-func generateServiceKey(ns string, name string, protocol apiv1.Protocol, svcPort int) string {
-	key := fmt.Sprintf("%s-%s-%s-%d", ns, name, protocol, svcPort)
-	return strings.ToLower(key)
-}
-
-// 找到 service 对应的后端
-func generateBackend(backendMap map[string][]*driver.Backend, services []*types.BackendService, protocol apiv1.Protocol) types.Backends {
-	totalWeight := 0
-	for _, svc := range services {
-		if svc.Weight > 100 {
-			svc.Weight = 100
-		}
-		if svc.Weight < 0 {
-			svc.Weight = 0
-		}
-		totalWeight += svc.Weight
-	}
-	if totalWeight == 0 {
-		// all service has zero weight
-		totalWeight = 100
-	}
-	bes := []*types.Backend{}
-	for _, svc := range services {
-		name := generateServiceKey(svc.ServiceNs, svc.ServiceName, protocol, svc.ServicePort)
-		backends, ok := backendMap[name]
-		// some rule such as redirect ingress will use a fake service.
-		if !ok || len(backends) == 0 {
-			continue
-		}
-		// 100 is the max weigh in SLB
-		weight := int(math.Floor(float64(svc.Weight*100)/float64(totalWeight*len(backends)) + 0.5))
-		if weight == 0 && svc.Weight != 0 {
-			weight = 1
-		}
-		for _, be := range backends {
-			port := be.Port
-			if port == 0 {
-				klog.Warningf("invalid backend port 0 svc: %+v", svc)
-				continue
-			}
-			bes = append(bes,
-				&types.Backend{
-					Address:           be.IP,
-					Port:              port,
-					Weight:            weight,
-					Protocol:          be.Protocol,
-					AppProtocol:       be.AppProtocol,
-					FromOtherClusters: be.FromOtherClusters,
-				})
-		}
-	}
-	sortedBackends := types.Backends(bes)
-	sort.Sort(sortedBackends)
-	return sortedBackends
-}
 
 func sameFiles(file1, file2 string) bool {
 	sum1, err := fileSha256(file1)
@@ -152,22 +90,8 @@ func getLastReloadStatus(statusFileParentPath string) string {
 	return FAILED
 }
 
-func workerLimit() int {
-	n := config.GetConfig().GetWorkerLimit()
-	if n > 0 {
-		return n
-	}
-	return 4
-}
-
-func cpu_preset() int {
-	return config.GetConfig().GetCpuPreset()
-}
-
-func getPortInfo(driver *driver.KubernetesDriver) (map[string][]string, error) {
-	cm, err := driver.Client.CoreV1().ConfigMaps(config.GetConfig().GetNs()).Get(
-		context.TODO(),
-		fmt.Sprintf("%s-port-info", config.GetConfig().GetAlbName()), metav1.GetOptions{})
+func getPortInfo(driver *driver.KubernetesDriver, ns string, name string) (map[string][]string, error) {
+	cm, err := driver.Client.CoreV1().ConfigMaps(ns).Get(driver.Ctx, fmt.Sprintf("%s-port-info", name), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -222,16 +146,16 @@ func getPortProject(port int, info map[string][]string) ([]string, error) {
 	return nil, nil
 }
 
-func generatePatchPortProjectPayload(labels map[string]string, desiredProjects []string) []byte {
+func generatePatchPortProjectPayload(labels map[string]string, desiredProjects []string, domain string) []byte {
 	newLabels := make(map[string]string)
 	// project.cpaas.io/ALL_ALL=true
 	for k, v := range labels {
-		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", config.GetConfig().GetDomain())) {
+		if !strings.HasPrefix(k, fmt.Sprintf("project.%s", domain)) {
 			newLabels[k] = v
 		}
 	}
 	for _, p := range desiredProjects {
-		newLabels[fmt.Sprintf("project.%s/%s", config.GetConfig().GetDomain(), p)] = "true"
+		newLabels[fmt.Sprintf("project.%s/%s", domain, p)] = "true"
 	}
 	patchPayloadTemplate := `[{
         "op": "%s",

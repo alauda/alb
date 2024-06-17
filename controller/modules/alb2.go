@@ -20,7 +20,6 @@ type AlaudaLoadBalancer struct {
 	Name      string
 	Namespace string
 	Frontends []*Frontend
-	TweakHash string // used to make nginx.conf change when tweak_dir change
 }
 
 type Frontend struct {

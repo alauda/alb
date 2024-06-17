@@ -1,4 +1,4 @@
-package controller
+package cli
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"github.com/go-logr/logr"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,7 +32,7 @@ func getCertMap(alb *types.LoadBalancer, d *driver.KubernetesDriver) map[string]
 			}
 			ns, name, err := ParseCertificateName(ft.CertificateName)
 			if err != nil {
-				klog.Warningf("get cert %s failed, %+v", ft.CertificateName, err)
+				d.Log.Info("get cert failed", "cert", ft.CertificateName, "err", err)
 				continue
 			}
 			cm[strconv.Itoa(int(ft.Port))] = client.ObjectKey{Namespace: ns, Name: name}
@@ -41,7 +41,7 @@ func getCertMap(alb *types.LoadBalancer, d *driver.KubernetesDriver) map[string]
 	}
 
 	portDefaultCert := getPortDefaultCert(alb)
-	certFromRule := formatCertsMap(getCertsFromRule(alb, certProtocol))
+	certFromRule := formatCertsMap(getCertsFromRule(alb, certProtocol, d.Log))
 
 	secretMap := make(map[string]client.ObjectKey)
 
@@ -55,7 +55,7 @@ func getCertMap(alb *types.LoadBalancer, d *driver.KubernetesDriver) map[string]
 			secretMap[domain] = secret
 		}
 	}
-	klog.Infof("secretMap %v", secretMap)
+	d.Log.Info("get secrets", "secretMap", secretMap)
 
 	certMap := make(map[string]types.Certificate)
 	certCache := make(map[string]types.Certificate)
@@ -66,10 +66,10 @@ func getCertMap(alb *types.LoadBalancer, d *driver.KubernetesDriver) map[string]
 			certMap[domain] = cert
 			continue
 		}
-		klog.V(3).Infof("get cert for domain %v %v", secretKey, domain)
+		d.Log.V(3).Info("get cert for domain", "key", secretKey, "domain", domain)
 		cert, err := getCertificateFromSecret(d, secret.Namespace, secret.Name)
 		if err != nil {
-			klog.Errorf("get cert %s failed, %+v", secret, err)
+			d.Log.Error(err, "get secret failed", "secret", secret)
 			continue
 		}
 		certMap[domain] = *cert
@@ -138,7 +138,7 @@ func SameCertificateName(left, right string) (bool, error) {
 }
 
 // domain / ft / cert
-func getCertsFromRule(alb *types.LoadBalancer, certProtocol map[albv1.FtProtocol]bool) map[string]map[string][]client.ObjectKey {
+func getCertsFromRule(alb *types.LoadBalancer, certProtocol map[albv1.FtProtocol]bool, log logr.Logger) map[string]map[string][]client.ObjectKey {
 	cm := make(map[string]map[string][]client.ObjectKey)
 	for _, ft := range alb.Frontends {
 		if ft.Conflict || !certProtocol[ft.Protocol] {
@@ -155,7 +155,7 @@ func getCertsFromRule(alb *types.LoadBalancer, certProtocol map[albv1.FtProtocol
 			}
 			ns, name, err := ParseCertificateName(rule.CertificateName)
 			if err != nil {
-				klog.Warningf("get cert %s failed, %+v", rule.CertificateName, err)
+				log.Info("get cert fail", "cert", rule.CertificateName, "err", err)
 				continue
 			}
 			if ftMap[rule.Domain] == nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"alauda.io/alb2/config"
 	albinformers "alauda.io/alb2/pkg/client/informers/externalversions"
 	albv1 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
@@ -79,7 +78,7 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	kubeInformerFactory.Start(ctx.Done())
 
 	albInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0,
-		albinformers.WithNamespace(config.GetConfig().GetNs()))
+		albinformers.WithNamespace(driver.Opt.Ns))
 
 	alb2Informer := albInformerFactory.Crd().V2beta1().ALB2s()
 	alb2Synced := alb2Informer.Informer().HasSynced

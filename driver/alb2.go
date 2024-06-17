@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"alauda.io/alb2/config"
 	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
-	"alauda.io/alb2/utils/dirhash"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -40,7 +38,7 @@ func (kd *KubernetesDriver) UpdateAlbStatus(alb *albv2.ALB2) error {
 }
 
 func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.Frontend, error) {
-	sel := labels.Set{config.GetConfig().GetLabelAlbName(): lbname}.AsSelector()
+	sel := labels.Set{kd.n.GetLabelAlbName(): lbname}.AsSelector()
 	resList, err := kd.FrontendLister.Frontends(namespace).List(sel)
 	klog.V(4).Infof("loadft alb %s/%s: sel %v len %v", namespace, lbname, sel, len(resList))
 	if err != nil {
@@ -52,8 +50,8 @@ func (kd *KubernetesDriver) LoadFrontends(namespace, lbname string) ([]*alb2v1.F
 
 func (kd *KubernetesDriver) LoadRules(namespace, lbname, ftname string) ([]*alb2v1.Rule, error) {
 	sel := labels.Set{
-		config.GetConfig().GetLabelAlbName(): lbname,
-		config.GetConfig().GetLabelFt():      ftname,
+		kd.n.GetLabelAlbName(): lbname,
+		kd.n.GetLabelFt():      ftname,
 	}.AsSelector()
 	resList, err := kd.RuleLister.Rules(namespace).List(sel)
 	if err != nil {
@@ -84,14 +82,6 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	alb2.Status = alb2Res.Status
 	alb2.Spec = alb2Res.Spec
 	alb2.Labels = alb2Res.Labels
-
-	// calculate hash by tweak dir
-	hash, err := dirhash.HashDir(config.GetConfig().GetNginxCfg().TweakDir, ".conf", dirhash.DefaultHash)
-	if err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-	alb2.TweakHash = hash
 
 	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
