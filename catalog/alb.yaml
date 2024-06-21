@@ -23,7 +23,7 @@ metadata:
 
     # 组件的管理人员，格式 ${owner}
     acp.cpaas.io/owner: congwu@alauda.io
-
+    acp.cpaas.io/functional-attributes: core
     # 技术文档目录，相对于 catalog-info.yaml 文件 mkdocs.yaml 所在的位置。比如下面的目录结构，技术文档目录为 ./
     # .
     # ├── mkdocs.mk
