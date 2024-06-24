@@ -243,7 +243,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Name:  "alb2",
 			Image: alb,
 			Command: []string{
-				"/bin/run", "/alb/ctl/run-alb.sh",
+				"/alb/ctl/run-alb.sh",
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
@@ -256,9 +256,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 						"NET_BIND_SERVICE",
 					},
 				},
-				RunAsNonRoot:             pointer.To(true),
-				RunAsUser:                pointer.To(int64(697)),
-				AllowPrivilegeEscalation: pointer.To(false),
+				AllowPrivilegeEscalation: pointer.To(true),
 			},
 			Env:      conf.GetALBContainerEnvs(),
 			Resource: toResource(conf.Deploy.ALbResource),
@@ -267,7 +265,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Name:  "nginx",
 			Image: nginx,
 			Command: []string{
-				"/bin/run", "/alb/nginx/run-nginx.sh",
+				"/alb/nginx/run-nginx.sh",
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
@@ -280,9 +278,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 						"NET_BIND_SERVICE",
 					},
 				},
-				RunAsNonRoot:             pointer.To(true),
-				RunAsUser:                pointer.To(int64(697)),
-				AllowPrivilegeEscalation: pointer.To(false),
+				AllowPrivilegeEscalation: pointer.To(true),
 			},
 			Env: conf.GetNginxContainerEnvs(),
 			ReadyProbe: &corev1.Probe{

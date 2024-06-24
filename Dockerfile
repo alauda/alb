@@ -72,12 +72,9 @@ chmod -R o-rwx /alb && chmod -R g-w /alb && \
 chmod 550 /alb/nginx/run-nginx.sh && \ 
 ls -alh /usr/local/openresty/nginx/conf && \ 
 rm -rf /usr/bin/nc && ls /usr/bin | grep nc && if command -v nc; then exit; fi && \ 
-setcap CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /sbin/ss && \ 
+setcap CAP_SYS_PTRACE=+eip /sbin/ss && \ 
 setcap CAP_NET_BIND_SERVICE=+eip /usr/local/openresty/nginx/sbin/nginx && \ 
-cp /bin/bash /bin/run && \ 
-setcap CAP_NET_BIND_SERVICE,CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /bin/run && \ 
-setcap CAP_SYS_PTRACE,CAP_NET_ADMIN,CAP_NET_RAW=+eip /alb/ctl/alb && \ 
 getcap /sbin/ss && \ 
 getcap /usr/local/openresty/nginx/sbin/nginx && \ 
-getcap /bin/run && \ 
 true
+USER nonroot
