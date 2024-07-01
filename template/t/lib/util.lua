@@ -1,10 +1,12 @@
+-- format:on
 ---@diagnostic disable: need-check-nil, undefined-doc-param, deprecated
 local _M = {}
 
 local inspect = require "inspect"
+local sext = require "utils.string_ext"
 
 function _M.httpc()
-    return require "resty.http".new()
+    return require"resty.http".new()
 end
 
 function _M.curl(url, cfg)
@@ -13,7 +15,7 @@ function _M.curl(url, cfg)
         cfg = {}
         cfg["headers"] = {}
     end
-    local res, err = httpc:request_uri(url, { method = "GET", headers = cfg.headers })
+    local res, err = httpc:request_uri(url, {method = "GET", headers = cfg.headers})
     return res, err
 end
 
@@ -33,12 +35,16 @@ end
 ---@param arg table  -- will be combined and wrapped with inspect
 function _M.logs(...)
     local callerinfo = debug.getinfo(2)
-    local caller = callerinfo.source .. " " .. tostring(callerinfo.currentline)
+    local caller = sext.remove_prefix(callerinfo.source, "@") .. " " .. tostring(callerinfo.currentline)
     local msg = ""
-    local t, n = { ... }, select('#', ...)
+    local t, n = {...}, select('#', ...)
     for k = 1, n do
         local v = t[k]
-        msg = msg .. " |> " .. inspect(v) .. " <|"
+        if type(v) == "string" then
+            msg = msg .. " |> " .. v .. " <|"
+        else
+            msg = msg .. " |> " .. inspect(v) .. " <|"
+        end
     end
     -- local list = table.pack(...)
     -- local msg = ""
@@ -46,7 +52,7 @@ function _M.logs(...)
     --     msg = msg .. " |->" .. inspect(v) .. "<-|"
     -- end
     -- _M.log(inspect(arg), { caller = caller })
-    _M.log(msg, { caller = caller })
+    _M.log(msg, {caller = caller})
 end
 
 function _M.now_ms()
@@ -57,7 +63,7 @@ end
 function _M.time_spend(f)
     local start = _M.now_ms()
     _M.log("time spend start " .. tostring(ngx.now()))
-    local ret = { f() }
+    local ret = {f()}
     local stop = _M.now_ms()
     _M.log("time spend end " .. tostring(ngx.now()))
     return stop - start, unpack(ret)

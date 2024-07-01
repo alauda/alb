@@ -53,3 +53,5 @@ alb-kind-e2e
 test.test
 migrate/checklist/.kube/
 kubectl*
+fortio/*.json
+.flame/

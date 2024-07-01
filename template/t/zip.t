@@ -44,7 +44,6 @@ __DATA__
     h.assert_eq(zlib.version()~="",true)
 
 === TEST 2: test decompress_from_file
---- ONLY
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test

@@ -173,7 +173,9 @@ server {
 	}
 }
 __END
-	}
+	}else {
+        warn "lua_test_eval not defined"
+    }
 
     if (defined $server_port) {
         warn "set server_port to $server_port";

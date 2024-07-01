@@ -1,3 +1,4 @@
+-- format:on
 local g_ext = require "utils.generic_ext"
 
 local _M = {}
@@ -35,4 +36,17 @@ function _M.remove_prefix(s, prefix)
     return s
 end
 
+--- split string to lines and grep the lines with regex
+--- @param s string
+--- @param regex string
+--- @return string[]
+function _M.lines_grep(s, regex)
+    local lines = {}
+    for line in string.gmatch(s, "[^\r\n]+") do
+        if string.match(line, regex) then
+            table.insert(lines, line)
+        end
+    end
+    return lines
+end
 return _M

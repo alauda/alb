@@ -45,7 +45,6 @@ http {
         else
             balancer = res
         end
-        require("metrics").init()
     }
     init_worker_by_lua_file /alb/nginx/lua/worker.lua;
 

@@ -16,13 +16,13 @@ function alb-install-nginx-test-dependency-arch() {
   # export PATH=/opt/openresty/bin:$PATH
   # export PATH=/opt/openresty/nginx/sbin:$PATH
   # init the openresty
-  cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
 }
 
 function tweak_gen_install() {
   go build -v -v -o ./bin/tools/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
   md5sum ./bin/tools/tweak_gen
-  cp ./bin/tools/tweak_gen /usr/local/bin
+  sudo cp ./bin/tools/tweak_gen /usr/local/bin
 }
 
 function alb-test-all-in-ci-nginx() {
@@ -97,8 +97,11 @@ function test-nginx-in-ci() (
   export INGRESS_HTTPS_PORT=443
 
   mkdir -p $TEST_BASE/cert
+
   if [[ "$KEEP_TWEAK" != "true" ]]; then
-    rm -rf ./template/tweak
+    rm -rf $TEST_BASE/tweak
+  fi
+  if [[ ! -d $TEST_BASE/tweak ]]; then
     configmap_to_file $TEST_BASE/tweak
   fi
   openssl dhparam -dsaparam -out $TEST_BASE/dhparam.pem 2048

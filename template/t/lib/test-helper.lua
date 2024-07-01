@@ -1,27 +1,42 @@
+-- format:on
 local _M = {}
 local inspect = require "inspect"
+local u = require "util"
+function _M.trim(s)
+    return s:gsub("^%s*(.-)%s*$", "%1")
+end
 
-function _M.trim(s) return s:gsub("^%s*(.-)%s*$", "%1") end
-
-function _M.P(x) ngx.log(ngx.INFO, inspect.inspect(x)) end
+function _M.P(x)
+    ngx.log(ngx.INFO, inspect.inspect(x))
+end
 
 -- test-helper should not use anything in common.lua,we just make a copy here.
 function _M._table_equals(t1, t2, ignore_mt)
     local ty1 = type(t1)
     local ty2 = type(t2)
-    if ty1 ~= ty2 then return false end
+    if ty1 ~= ty2 then
+        return false
+    end
     -- non-table types can be directly compared
-    if ty1 ~= "table" and ty2 ~= "table" then return t1 == t2 end
+    if ty1 ~= "table" and ty2 ~= "table" then
+        return t1 == t2
+    end
     -- as well as tables which have the metamethod __eq
     local mt = getmetatable(t1)
-    if not ignore_mt and mt and mt.__eq then return t1 == t2 end
+    if not ignore_mt and mt and mt.__eq then
+        return t1 == t2
+    end
     for k1, v1 in pairs(t1) do
         local v2 = t2[k1]
-        if v2 == nil or not _M._table_equals(v1, v2) then return false end
+        if v2 == nil or not _M._table_equals(v1, v2) then
+            return false
+        end
     end
     for k2, v2 in pairs(t2) do
         local v1 = t1[k2]
-        if v1 == nil or not _M._table_equals(v1, v2) then return false end
+        if v1 == nil or not _M._table_equals(v1, v2) then
+            return false
+        end
     end
     return true
 end
@@ -36,14 +51,18 @@ function _M.assert_table_equals(t1, t2, ignore_mt)
 end
 
 function _M.assert_contains(left, right)
-    if left:find(right, 1, true) then return true end
+    if left:find(right, 1, true) then
+        return true
+    end
     ngx.log(ngx.ERR, "could not find " .. right .. " in " .. left)
     ngx.exit(ngx.ERR)
 end
 
 function _M.assert_not_contains(left, right)
     local find = left:find(right, 1, true)
-    if find == nil then return true end
+    if find == nil then
+        return true
+    end
     ngx.log(ngx.ERR, "could find " .. right .. " in " .. left)
     ngx.exit(ngx.ERR)
 end
@@ -52,7 +71,7 @@ function _M.assert_eq(left, right, msg)
     local ty1 = type(left)
     local ty2 = type(right)
     if ty1 ~= ty2 then
-        ngx.log(ngx.ERR, "type not same " .. ty1..":"..tostring(left) .. " " .. ty2..":"..tostring(right))
+        ngx.log(ngx.ERR, "type not same " .. ty1 .. ":" .. tostring(left) .. " " .. ty2 .. ":" .. tostring(right))
         ngx.exit(ngx.ERR)
     end
     if ty1 == ty2 and ty1 == "table" then
@@ -60,9 +79,7 @@ function _M.assert_eq(left, right, msg)
         return
     end
     if not (left == right) then
-        ngx.log(ngx.ERR,
-            tostring(left) ..
-            " ? " .. tostring(right) .. "  " .. tostring(left == right) .. " msg " .. tostring(msg) .. "\n")
+        ngx.log(ngx.ERR, tostring(left) .. " ? " .. tostring(right) .. "  " .. tostring(left == right) .. " msg " .. tostring(msg) .. "\n")
         ngx.exit(ngx.ERR)
         return
     end
@@ -103,15 +120,26 @@ function _M.testcase(title, enable, f)
 
 end
 
+--- curl and assert
+---@param url string
+---@param req_cfg table | nil
+---@param assert_cfg table | nil
+---@return table
+function _M.assert_curl(url, req_cfg, assert_cfg)
+    local this = _M
+    local res, err = u.curl(url, req_cfg)
+    this.assert_is_nil(err)
+    this.assert_eq(res.status, 200)
+    return res
+end
+
 function _M.assert_curl_success(res, err, body)
     local res_body = _M.trim(res.body)
-    if body == nil then body = res_body end
+    if body == nil then
+        body = res_body
+    end
     if err ~= nil or res.status ~= 200 or res_body ~= body then
-        local msg = "fail " ..
-            tostring(err) ..
-            " " ..
-            tostring(res.status) .. " -" .. tostring(body) .. " -" .. tostring(res_body) .. "- " ..
-            tostring(res_body == body)
+        local msg = "fail " .. tostring(err) .. " " .. tostring(res.status) .. " -" .. tostring(body) .. " -" .. tostring(res_body) .. "- " .. tostring(res_body == body)
         ngx.log(ngx.ERR, msg)
         ngx.exit(ngx.ERR, msg)
         return

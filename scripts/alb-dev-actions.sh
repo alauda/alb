@@ -20,6 +20,7 @@ source $CUR_ALB_BASE/scripts/alb-build-actions.sh
 source $CUR_ALB_BASE/scripts/alb-env-actions.sh
 source $CUR_ALB_BASE/scripts/alb-deploy-actions.sh
 source $CUR_ALB_BASE/scripts/alb-github-actions.sh
+source $CUR_ALB_BASE/scripts/alb-perf-actions.sh
 source $CUR_ALB_BASE/template/actions/alb-nginx.sh
 
 function alb-dev-install() (

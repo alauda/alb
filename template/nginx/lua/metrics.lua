@@ -2,17 +2,17 @@
 local _M = {}
 
 local table_clear = require("table.clear")
-local prometheus = require "resty.prometheus"
+local prometheus = require "resty.prometheus.prometheus"
 local tonumber = tonumber
 local ngx = ngx
 local ngx_var = ngx.var
 local ngx_log = ngx.log
-
+---@type { [string]: table|nil }
 local _metrics = {}
 local _prometheus
 
 function _M.init()
-    ngx_log(ngx.INFO, "init metrics")
+    ngx_log(ngx.INFO, "init metrics for " .. tostring(ngx.worker.id()) .. " " .. tostring(ngx.worker.pid()))
     table_clear(_metrics)
     -- LuaFormatter off
     _prometheus = prometheus.init("prometheus_metrics")
@@ -79,37 +79,41 @@ function _M.log()
     local source_namespace = source.namespace or ""
     local source_name = source.name or ""
 
-    _metrics.status:inc(1, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
-    _metrics.request_sizes:inc(request_length, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
-    _metrics.response_sizes:inc(bytes_sent, server_port, rule_name, status, request_method, source_type, source_namespace, source_name)
-    _metrics.latency:observe(request_time, server_port, rule_name, source_type, source_namespace, source_name)
+    _metrics.status:inc(1, {server_port, rule_name, status, request_method, source_type, source_namespace, source_name})
+    _metrics.request_sizes:inc(request_length, {server_port, rule_name, status, request_method, source_type, source_namespace, source_name})
+    _metrics.response_sizes:inc(bytes_sent, {server_port, rule_name, status, request_method, source_type, source_namespace, source_name})
+    _metrics.latency:observe(request_time, {server_port, rule_name, source_type, source_namespace, source_name})
 
     if rule_name ~= "" then
-        _metrics.upstream_requests_status:inc(1, server_port, rule_name, upstream_addr, status, request_method, source_type, source_namespace, source_name)
-        _metrics.upstream_latency:observe(upstream_response_time, server_port, rule_name, upstream_addr, source_type, source_namespace, source_name)
+        _metrics.upstream_requests_status:inc(1, {server_port, rule_name, upstream_addr, status, request_method, source_type, source_namespace, source_name})
+        _metrics.upstream_latency:observe(upstream_response_time, {server_port, rule_name, upstream_addr, source_type, source_namespace, source_name})
     else
-        _metrics.mismatch_rule_requests:inc(1, server_port, request_method)
+        _metrics.mismatch_rule_requests:inc(1, {server_port, request_method})
     end
     if ngx.ctx.is_alb_err == true then
-        _metrics.alb_error:inc(1, server_port)
+        _metrics.alb_error:inc(1, {server_port})
     end
 end
 
 function _M.collect()
-    _metrics.connection:set(ngx_var.connections_reading, "reading")
-    _metrics.connection:set(ngx_var.connections_waiting, "waiting")
-    _metrics.connection:set(ngx_var.connections_writing, "writing")
-    _metrics.connection:set(ngx_var.connections_active, "active")
+    _metrics.connection:set(ngx_var.connections_reading, {"reading"})
+    _metrics.connection:set(ngx_var.connections_waiting, {"waiting"})
+    _metrics.connection:set(ngx_var.connections_writing, {"writing"})
+    _metrics.connection:set(ngx_var.connections_active, {"active"})
     _metrics.metrics_free_cache_size:set(ngx.shared.prometheus_metrics:free_space())
     _prometheus:collect()
 
     if ngx.shared.prometheus_metrics:free_space() < ngx.shared.prometheus_metrics:capacity() * 0.1 then
+        ngx_log(ngx.WARN, "outof prometheus metrics memory")
         _M.clear()
     end
 end
 
 function _M.clear()
-    _prometheus:clear()
+    for name, metrics in pairs(_metrics) do
+        ngx_log(ngx.INFO, "clean prometheus metrics: ", name)
+        metrics:reset()
+    end
     ngx_log(ngx.INFO, "clear prometheus metrics finished")
 end
 

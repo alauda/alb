@@ -1,0 +1,25 @@
+use strict;
+use warnings;
+use t::Alauda;
+use Test::Nginx::Socket 'no_plan';
+use Test::Nginx::Socket;
+
+
+our $perf_case = "require(\"perf.e2e.fortio\").test(\"$ENV{PERF_CASE}\",\"$ENV{PERF_TIME}\")";
+our $perf_time = "$ENV{PERF_TIME}";
+warn "perf_case:  $perf_case\n perf_time: $perf_time\n";
+
+log_level("info");
+master_process_enabled("on");
+workers(1);
+worker_connections(51200);
+no_shuffle();
+no_root_location();
+run_tests();
+
+__DATA__
+
+=== TEST 1: perf
+--- init_worker_eval: require("mock_worker_init").init_worker()
+--- timeout eval: $::perf_time
+--- lua_test_eval eval: $::perf_case

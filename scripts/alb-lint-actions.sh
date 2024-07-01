@@ -68,7 +68,7 @@ function alb-lint-lua-install() {
 
 function alb-lint-lua-need-format() {
   local f=$1
-  if (head $f -n 1 | grep format:on); then
+  if (head $f -n 10 | grep format:on); then
     echo "true"
   fi
   echo "false"
@@ -119,7 +119,10 @@ function alb-lua-list-all-app-file() {
 
 function alb-lua-list-all-needformat-file() {
   # TODO install luaformatter in ci
-  if ! command -v lua-formadt; then return; fi
+  if [[ -z $(which lua-format) ]]; then
+    # echo "lua-format not installed"
+    return
+  fi
   while read -r f; do
     if [[ "false" == "$(alb-lint-lua-need-format $f)" ]]; then
       continue

@@ -1,0 +1,106 @@
+{
+  "session_name": "fg",
+  "wins": [
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_name": "zsh",
+      "window_active": true,
+      "window_flags": ":*",
+      "window_layout": "3661,320x81,0,0[320x40,0,0{143x40,0,0,38,98x40,144,0[98x8,144,0,40,98x31,144,9,41],77x40,243,0,42},320x40,0,41{190x40,0,41{108x40,0,41,43,81x40,109,41,44},129x40,191,41[129x17,191,41,45,129x22,191,59,46]}]"
+    }
+  ],
+  "panes": [
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 0,
+      "mytitle": "alb",
+      "mybooter": "@ OPEN_SVG=1;source ./scripts/alb-dev-actions.sh;alb-perf http_r1 50",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 1,
+      "mytitle": "watch-ng",
+      "mybooter": "@ source ./scripts/alb-dev-actions.sh; alb-perf-watch-ng",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 2,
+      "mytitle": "ng-log",
+      "mybooter": "@ tail -F ./template/servroot/logs/*",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 3,
+      "mytitle": "fortio-server",
+      "mybooter": "@ fortio server",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT/fortio"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 4,
+      "mytitle": "",
+      "mybooter": "",
+      "pane_active": true,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 5,
+      "mytitle": "ng-qps",
+      "mybooter": "@ source ./scripts/alb-dev-actions.sh; alb-perf-watch-ng-qps",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 6,
+      "mytitle": "",
+      "mybooter": "",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    },
+    {
+      "session_name": "fg",
+      "window_index": 0,
+      "window_active": true,
+      "window_flags": ":*",
+      "pane_index": 7,
+      "mytitle": "top",
+      "mybooter": "@ htop",
+      "pane_active": false,
+      "pane_current_path": "$ALB_ROOT"
+    }
+  ],
+  "var": {
+    "@my_var_path": "ALB_ROOT,STAPXX_BASE"
+  }
+}

@@ -52,3 +52,7 @@ if ngx_worker.id() == 0 then
         ngx_log(ngx.ERR, string_format("error when setting up timer.every for clean_metrics: %s", tostring(err)))
     end
 end
+
+if subsys.is_http_subsystem() then
+    require("metrics").init()
+end

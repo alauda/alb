@@ -18,7 +18,7 @@ _EOC_
 
 
 log_level("info");
-workers(4);
+workers(1);
 master_process_enabled("on");
 no_shuffle();
 no_root_location();
