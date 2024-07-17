@@ -1,6 +1,6 @@
-ARG GO_BUILD_BASE=build-harbor.alauda.cn/sync/library/golang:1.21-alpine
+ARG GO_BUILD_BASE=docker-mirrors.alauda.cn/library/golang:1.22.5-alpine
 ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.25.3
-ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.17
+ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.20
 
 FROM ${GO_BUILD_BASE} AS go_builder
 
@@ -8,7 +8,6 @@ ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.cn,direct
 COPY ./ /alb/
 WORKDIR /alb
-ENV CGO_ENABLED=0
 ENV GOFLAGS=-buildvcs=false
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/alb alauda.io/alb2/cmd/alb

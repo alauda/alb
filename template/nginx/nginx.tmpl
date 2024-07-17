@@ -123,7 +123,6 @@ http {
         server_name _;
 
         include    /alb/tweak/http_server.conf;
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
         ssl_certificate /alb/nginx/placeholder.crt;
         ssl_certificate_key /alb/nginx/placeholder.key;

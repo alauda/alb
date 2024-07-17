@@ -55,3 +55,4 @@ migrate/checklist/.kube/
 kubectl*
 fortio/*.json
 .flame/
+template/nginx/lua/vendor/.*

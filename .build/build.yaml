@@ -30,7 +30,7 @@ spec:
           - name: source
             workspace: source
         steps:
-          - image: build-harbor.alauda.cn/sync/library/golang:1.21-alpine # keep it as same as alb docker builder.
+          - image: docker-mirrors.alauda.cn/library/golang:1.22.5-alpine # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
