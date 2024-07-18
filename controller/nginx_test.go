@@ -136,6 +136,7 @@ func AssertBackendsEq(t *testing.T, left, right []*Backend) {
 
 func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 	defer klog.Flush()
+	log.InTestSetLogger(log.L())
 	certAKey, certACert, err := test_utils.GenCert("a.b.c")
 	assert.NoError(t, err)
 	certBKey, certBCert, err := test_utils.GenCert("c.b.a")
@@ -811,7 +812,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			Assert: func(p NgxPolicy, cfg string) {
 				listen, err := test_utils.PickHttpServerListen(cfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:1936", "[::]:1936", "0.0.0.0:80 backlog=100 default_server", "[::]:80 backlog=100 default_server"})
+				assert.Equal(t, listen, []string{"0.0.0.0:1936 ssl", "[::]:1936 ssl", "0.0.0.0:80 backlog=100 default_server", "[::]:80 backlog=100 default_server"})
 				listen, err = test_utils.PickStreamServerListen(cfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:53", "[::]:53", "0.0.0.0:53 udp", "[::]:53 udp"})
@@ -963,7 +964,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			},
 			Assert: func(p NgxPolicy, cfg string) {
-				assert.Equal(t, len(p.CertificateMap), 2)
+				assert.Equal(t, len(p.CertificateMap), 3)
 				assert.Equal(t, p.CertificateMap["443"].Key, certAKey)
 				assert.Equal(t, p.CertificateMap["443"].Cert, certACert)
 				assert.Equal(t, p.CertificateMap["a.b.c"].Key, certBKey)

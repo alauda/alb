@@ -95,6 +95,7 @@ function test-nginx-in-ci() (
   export TEST_NGINX_WORKER_USER=root
   export DEFAULT_SSL_STRATEGY=Always
   export INGRESS_HTTPS_PORT=443
+  export METRICS_AURH="false"
 
   mkdir -p $TEST_BASE/cert
 

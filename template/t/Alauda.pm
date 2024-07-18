@@ -222,6 +222,7 @@ env DEFAULT_SSL_STRATEGY;
 env DEFAULT_SSL_STRATEGY;
 env INGRESS_HTTPS_PORT;
 env TEST_BASE;
+env METRICS_AURH;
 
 stream {
     include       $base/tweak/stream-common.conf;

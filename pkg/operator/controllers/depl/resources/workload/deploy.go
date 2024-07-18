@@ -283,10 +283,8 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Env: conf.GetNginxContainerEnvs(),
 			ReadyProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/status",
-						Port:   intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
-						Scheme: "HTTP",
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
 					},
 				},
 				InitialDelaySeconds: 3,
@@ -297,10 +295,8 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Probe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/status",
-						Port:   intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
-						Scheme: "HTTP",
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.IntOrString{IntVal: int32(conf.Controller.MetricsPort)},
 					},
 				},
 				InitialDelaySeconds: 60,

@@ -195,7 +195,7 @@ func listRule(ctx Ctx) error {
 		return err
 	}
 	acli := NewAlbCli(drv, ctx.log)
-	pcli := NewPolicyCli(drv, ctx.log)
+	pcli := NewPolicyCli(drv, ctx.log, PolicyCliOpt{MetricsPort: 0})
 	if ctx.AlbName == "" {
 		albs, err := drv.ALBClient.CrdV2beta1().ALB2s(ctx.AlbNs).List(ctx.ctx, metav1.ListOptions{})
 		if err != nil {

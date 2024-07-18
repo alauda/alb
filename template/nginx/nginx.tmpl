@@ -13,6 +13,7 @@ env NEW_POLICY_PATH;
 env DEFAULT_SSL_STRATEGY;
 env INGRESS_HTTPS_PORT;
 env POLICY_ZIP;
+env METRICS_AUTH;
 env MY_POD_NAME;
 
 events {
@@ -51,17 +52,18 @@ http {
     {{ if eq $.Phase "running" -}}
     server {
         {{ range $address := .Metrics.IpV4BindAddress -}}
-        listen    {{$address}}:{{$.Metrics.Port}};
+        listen    {{$address}}:{{$.Metrics.Port}} ssl;
         {{- end}}
         {{ range $address := .Metrics.IpV6BindAddress -}}
-        listen    {{$address}}:{{$.Metrics.Port}};
+        listen    {{$address}}:{{$.Metrics.Port}} ssl;
         {{- end }}
 
+        include  /alb/tweak/http_server.conf;
+        ssl_certificate /alb/nginx/placeholder.crt;
+        ssl_certificate_key /alb/nginx/placeholder.key;
+        ssl_dhparam /etc/alb2/nginx/dhparam.pem;
+        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
         access_log off;
-
-        location /status {
-            stub_status;
-        }
 
         location /metrics {
             content_by_lua_block {

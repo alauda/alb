@@ -218,7 +218,7 @@ func (s *SvcCtl) patchMonitorSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2
 	metrics := int32(cfg.ALB.Controller.MetricsPort)
 	ports := []corev1.ServicePort{
 		{
-			Name:     "metrics",
+			Name:     "https-metrics",
 			Protocol: "TCP",
 			Port:     metrics,
 			TargetPort: intstr.IntOrString{

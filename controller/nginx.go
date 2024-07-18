@@ -49,7 +49,7 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *c
 		log:           log,
 		lc:            leader,
 		albcli:        cli.NewAlbCli(kd, log),
-		policycli:     cli.NewPolicyCli(kd, log),
+		policycli:     cli.NewPolicyCli(kd, log, cli.PolicyCliOpt{MetricsPort: cfg.GetMetricsPort()}),
 	}
 	return n
 }

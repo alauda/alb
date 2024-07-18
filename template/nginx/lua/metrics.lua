@@ -10,6 +10,7 @@ local ngx_log = ngx.log
 ---@type { [string]: table|nil }
 local _metrics = {}
 local _prometheus
+local mauth = require("metrics_auth")
 
 function _M.init()
     ngx_log(ngx.INFO, "init metrics for " .. tostring(ngx.worker.id()) .. " " .. tostring(ngx.worker.pid()))
@@ -96,6 +97,7 @@ function _M.log()
 end
 
 function _M.collect()
+    mauth.verify_auth()
     _metrics.connection:set(ngx_var.connections_reading, {"reading"})
     _metrics.connection:set(ngx_var.connections_waiting, {"waiting"})
     _metrics.connection:set(ngx_var.connections_writing, {"writing"})
@@ -110,6 +112,7 @@ function _M.collect()
 end
 
 function _M.clear()
+    mauth.verify_auth()
     for name, metrics in pairs(_metrics) do
         ngx_log(ngx.INFO, "clean prometheus metrics: ", name)
         metrics:reset()

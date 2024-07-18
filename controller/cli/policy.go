@@ -3,16 +3,20 @@ package cli
 import (
 	"fmt"
 	"math"
+	"net"
 	"sort"
 	"strings"
+	"sync"
 
 	m "alauda.io/alb2/controller/modules"
+	"alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
+	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,18 +25,24 @@ import (
 type PolicyCli struct {
 	drv *driver.KubernetesDriver
 	log logr.Logger
+	opt PolicyCliOpt
+}
+type PolicyCliOpt struct {
+	MetricsPort int
 }
 
-func NewPolicyCli(drv *driver.KubernetesDriver, log logr.Logger) PolicyCli {
+func NewPolicyCli(drv *driver.KubernetesDriver, log logr.Logger, opt PolicyCliOpt) PolicyCli {
 	return PolicyCli{
 		drv: drv,
 		log: log,
+		opt: opt,
 	}
 }
 
 // fetch cert and backend info that lb config need, constructs a "dynamic config" used by openresty.
 func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	certificateMap := getCertMap(alb, p.drv)
+	p.setMetricsPortCert(certificateMap)
 	backendGroup := pickAllBackendGroup(alb)
 
 	ngxPolicy := NgxPolicy{
@@ -389,4 +399,25 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 	sortedBackends := Backends(bes)
 	sort.Sort(sortedBackends)
 	return sortedBackends
+}
+
+func (p *PolicyCli) setMetricsPortCert(cert map[string]types.Certificate) {
+	port := p.opt.MetricsPort
+	cert[fmt.Sprintf("%d", port)] = genMetricsCert()
+}
+
+var (
+	metricsCert types.Certificate
+	once        sync.Once
+)
+
+func genMetricsCert() types.Certificate {
+	once.Do(func() {
+		cert, key, _ := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{})
+		metricsCert = types.Certificate{
+			Cert: string(cert),
+			Key:  string(key),
+		}
+	})
+	return metricsCert
 }
