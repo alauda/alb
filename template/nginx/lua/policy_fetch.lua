@@ -5,6 +5,7 @@ local string_lower = string.lower
 local common = require "utils.common"
 local cache = require "cache"
 local subsys = require "utils.subsystem"
+local compress = require "utils.compress"
 local ngx = ngx
 local ngx_shared = ngx.shared
 local ngx_log = ngx.log
@@ -16,6 +17,7 @@ local current_subsystem = subsys.CURRENT_SYBSYSTEM
 local _M = {}
 
 local POLICY_PATH = os_getenv("NEW_POLICY_PATH")
+local POLICY_ZIP = os_getenv("POLICY_ZIP")
 
 local function set_default_value(table, key, default_val)
     if table[key] == nil then
@@ -81,30 +83,30 @@ end
 ---@param policy table
 ---@param old_policy table
 local function update_stream_cache(policy, old_policy)
-    local backend_group = common.access_or(policy, {"backend_group"}, {})
-    local stream_policy = common.access_or(policy, {"stream"}, {})
+    local backend_group = common.access_or(policy, { "backend_group" }, {})
+    local stream_policy = common.access_or(policy, { "stream" }, {})
 
     ngx_shared["stream_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
     ngx_shared["stream_policy"]:set("all_policies", common.json_encode(stream_policy, true))
 
-    local stream_tcp_policy = common.access_or(policy, {"stream", "tcp"}, {})
-    local old_stream_tcp_policy = common.access_or(old_policy, {"stream", "tcp"}, {})
+    local stream_tcp_policy = common.access_or(policy, { "stream", "tcp" }, {})
+    local old_stream_tcp_policy = common.access_or(old_policy, { "stream", "tcp" }, {})
     update_stream_policy_cache(stream_tcp_policy, old_stream_tcp_policy, "tcp")
 
-    local stream_udp_policy = common.access_or(policy, {"stream", "udp"}, {})
-    local old_stream_udp_policy = common.access_or(old_policy, {"stream", "udp"}, {})
+    local stream_udp_policy = common.access_or(policy, { "stream", "udp" }, {})
+    local old_stream_udp_policy = common.access_or(old_policy, { "stream", "udp" }, {})
     update_stream_policy_cache(stream_udp_policy, old_stream_udp_policy, "udp")
 end
 
 ---@param policy table|nil
 ---@param old_policy table|nil
 local function update_http_cache(policy, old_policy)
-    local backend_group = common.access_or(policy, {"backend_group"}, {})
-    local certificate_map = common.access_or(policy, {"certificate_map"}, {})
-    local old_certificate_map = common.access_or(old_policy, {"certificate_map"}, {})
+    local backend_group = common.access_or(policy, { "backend_group" }, {})
+    local certificate_map = common.access_or(policy, { "certificate_map" }, {})
+    local old_certificate_map = common.access_or(old_policy, { "certificate_map" }, {})
 
-    local http_policy = common.access_or(policy, {"http", "tcp"}, {})
-    local old_http_policy = common.access_or(old_policy, {"http", "tcp"}, {})
+    local http_policy = common.access_or(policy, { "http", "tcp" }, {})
+    local old_http_policy = common.access_or(old_policy, { "http", "tcp" }, {})
 
     ngx_shared["http_backend_cache"]:set("backend_group", common.json_encode(backend_group, true))
     ngx_shared["http_certs_cache"]:set("certificate_map", common.json_encode(certificate_map, true))
@@ -153,6 +155,9 @@ function _M.update_policy(policy_raw, via)
     if policy_raw == "" then
         return "empty policy " .. via
     end
+    if policy_raw == nil then
+        return "empty policy " .. via
+    end
 
     local policy_data = common.json_decode(policy_raw)
     if policy_data == nil then
@@ -179,9 +184,15 @@ function _M.update_policy(policy_raw, via)
 end
 
 function _M.fetch_policy()
-    local policy_raw, err = file_read_to_string(POLICY_PATH)
+    local policy_raw
+    local err
+    if POLICY_ZIP == "true" then
+        policy_raw, err = compress.decompress_from_file(POLICY_PATH .. ".bin")
+    else
+        policy_raw, err = file_read_to_string(POLICY_PATH)
+    end
     if err ~= nil then
-        ngx_log(ngx.ERR, "read policy in " .. POLICY_PATH .. " fail " .. err)
+        ngx_log(ngx.ERR, "read policy in " .. POLICY_PATH .. " zip " .. tostring(POLICY_ZIP) .. " fail " .. err)
         return
     end
     local err = _M.update_policy(policy_raw, "auto")
