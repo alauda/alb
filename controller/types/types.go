@@ -6,6 +6,7 @@ import (
 
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
 )
 
 const (
@@ -174,6 +175,8 @@ type Backend struct {
 	Pod               string  `json:"-"`
 	FromOtherClusters bool    `json:"otherclusters"`
 	Port              int     `json:"port"`
+	Svc               string  `json:"svc"`
+	Ns                string  `json:"ns"`
 	Weight            int     `json:"weight"`
 	Protocol          string  `json:"-"`
 	AppProtocol       *string `json:"-"`
@@ -188,40 +191,25 @@ type BackendService struct {
 	Weight      int     `json:"weight"`
 }
 
+// rule cr/gateway cr => rule => policy
 type Rule struct {
-	Config                *RuleConfig `json:"config,omitempty"`
-	RuleID                string      `json:"rule_id"`
-	Priority              int         `json:"priority"` // priority set by user
-	Type                  string      `json:"type"`
-	Domain                string      `json:"domain"` // used to fetch cert.
-	URL                   string      `json:"url"`
-	DSLX                  v1.DSLX     `json:"dslx"`
-	EnableCORS            bool        `json:"enable_cors"`
-	CORSAllowHeaders      string      `json:"cors_allow_headers"`
-	CORSAllowOrigin       string      `json:"cors_allow_origin"`
-	BackendProtocol       string      `json:"backend_protocol"`
-	RedirectURL           string      `json:"redirect_url"`
-	RedirectCode          int         `json:"redirect_code"`
-	RedirectScheme        *string     `json:"redirect_scheme,omitempty"`
-	RedirectHost          *string     `json:"redirect_host,omitempty"`
-	RedirectPort          *int        `json:"redirect_port,omitempty"`
-	RedirectPrefixMatch   *string     `json:"redirect_prefix_match,omitempty"`
-	RedirectReplacePrefix *string     `json:"redirect_replace_prefix,omitempty"`
-	VHost                 string      `json:"vhost"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Domain      string `json:"domain"` // used to fetch cert.
+
 	// CertificateName = namespace_secretName
-	CertificateName      string  `json:"certificate_name"`
-	RewriteBase          string  `json:"rewrite_base"`
-	RewriteTarget        string  `json:"rewrite_target"`
-	RewritePrefixMatch   *string `json:"rewrite_prefix_match,omitempty"`
-	RewriteReplacePrefix *string `json:"rewrite_replace_prefix,omitempty"`
-	Description          string  `json:"description"`
+	CertificateName string `json:"certificate_name"`
 
 	SessionAffinityPolicy string            `json:"session_affinity_policy"`
 	SessionAffinityAttr   string            `json:"session_affinity_attribute"`
 	Services              []*BackendService `json:"services"` // 这条规则对应的后端服务
+	BackendGroup          *BackendGroup     `json:"-"`        // 这条规则对应的后端 pod 的 ip
 
-	BackendGroup *BackendGroup `json:"-"` // 这条规则对应的后端 pod 的 ip
-	Source       *v1.Source    `json:"source"`
+	RuleID string              `json:"rule_id"`
+	Config *RuleConfigInPolicy `json:"config,omitempty"`
+
+	SameInRuleCr
+	SameInPolicy
 }
 
 func (rl Rule) AllowNoAddr() bool {
@@ -261,10 +249,12 @@ func (bg BackendGroup) Eq(other BackendGroup) bool {
 		bg.Backends.Eq(other.Backends)
 }
 
-type RuleConfig struct {
+// policy.json http match rule config
+type RuleConfigInPolicy struct {
 	RewriteResponse *RewriteResponseConfig             `json:"rewrite_response,omitempty"`
 	RewriteRequest  *RewriteRequestConfig              `json:"rewrite_request,omitempty"`
 	Timeout         *gatewayPolicy.TimeoutPolicyConfig `json:"timeout,omitempty"`
+	Otel            *otelt.OtelInPolicy                `json:"otel,omitempty"`
 }
 
 type RewriteResponseConfig struct {
@@ -285,14 +275,7 @@ func (r RewriteResponseConfig) IsEmpty() bool {
 	return len(r.Headers) == 0
 }
 
-func (r RuleConfig) ToJsonString() (string, error) {
+func (r RuleConfigInPolicy) ToJsonString() (string, error) {
 	ret, err := json.Marshal(&r)
 	return string(ret), err
-}
-
-func (r RuleConfig) IsEmpty() bool {
-	if r.RewriteResponse != nil || r.RewriteRequest != nil || r.Timeout != nil {
-		return false
-	}
-	return true
 }

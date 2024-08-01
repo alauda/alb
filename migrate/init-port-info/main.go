@@ -47,15 +47,16 @@ func main() {
 }
 
 func ensureEnv() {
-	klog.Info("NAMESPACE: ", config.GetConfig().GetNs())
-	klog.Info("DOMAIN: ", config.GetConfig().GetDomain())
-	if strings.TrimSpace(config.GetConfig().GetNs()) == "" ||
-		strings.TrimSpace(config.GetConfig().GetDomain()) == "" {
+	cfg := config.GetConfig()
+	klog.Info("NAMESPACE: ", cfg.GetNs())
+	klog.Info("DOMAIN: ", cfg.GetDomain())
+	if strings.TrimSpace(cfg.GetNs()) == "" ||
+		strings.TrimSpace(cfg.GetDomain()) == "" {
 		panic("you must set NAMESPACE and DOMAIN env")
 	}
 
-	Namespace = config.GetConfig().GetNs()
-	Domain = config.GetConfig().GetDomain()
+	Namespace = cfg.GetNs()
+	Domain = cfg.GetDomain()
 }
 
 func run() error {

@@ -15,6 +15,10 @@ env INGRESS_HTTPS_PORT;
 env POLICY_ZIP;
 env METRICS_AUTH;
 env MY_POD_NAME;
+env NAME;
+env ALB_NS;
+env ALB_VER;
+env HOSTNAME;
 
 events {
     multi_accept        on;
@@ -38,16 +42,7 @@ http {
     gzip_vary on;
     {{- end }}
 
-    init_by_lua_block {
-        require "resty.core"
-        ok, res = pcall(require, "balancer")
-        if not ok then
-            error("require failed: " .. tostring(res))
-        else
-            balancer = res
-        end
-    }
-    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/phase/init_worker_phase.lua;
 
     {{ if eq $.Phase "running" -}}
     server {
@@ -62,7 +57,7 @@ http {
         ssl_certificate /alb/nginx/placeholder.crt;
         ssl_certificate_key /alb/nginx/placeholder.key;
         ssl_dhparam /etc/alb2/nginx/dhparam.pem;
-        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file /alb/nginx/lua/phase/ssl_cert_phase.lua;
         access_log off;
 
         location /metrics {
@@ -95,14 +90,12 @@ http {
         location / {
             set $backend_protocol http;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             {{ if $cfg.EnablePrometheus -}}
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file /alb/nginx/lua/phase/log_phase.lua;
             {{- end }}
         }
     }
@@ -129,19 +122,17 @@ http {
         ssl_certificate /alb/nginx/placeholder.crt;
         ssl_certificate_key /alb/nginx/placeholder.key;
         ssl_dhparam /etc/alb2/nginx/dhparam.pem;
-        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file /alb/nginx/lua/phase/ssl_cert_phase.lua;
 
         location / {
             set $backend_protocol http;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
 
             {{ if $cfg.EnablePrometheus -}}
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file /alb/nginx/lua/phase/log_phase.lua;
             {{- end }}
         }
     }
@@ -164,14 +155,12 @@ http {
         location / {
             set $backend_protocol grpc;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/phase/l7_rewrite_phase.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
             {{ if $cfg.EnablePrometheus -}}
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file /alb/nginx/lua/phase/log_phase.lua;
             {{- end }}
         }
     }
@@ -194,19 +183,17 @@ http {
         ssl_certificate /alb/nginx/placeholder.crt;
         ssl_certificate_key /alb/nginx/placeholder.key;
         ssl_dhparam /etc/alb2/nginx/dhparam.pem;
-        ssl_certificate_by_lua_file /alb/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file /alb/nginx/lua/phase/ssl_cert_phase.lua;
 
         location / {
             set $backend_protocol grpc;
 
-            rewrite_by_lua_file /alb/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file /alb/nginx/lua/phase/l7_rewrite_phase.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
 
             {{ if $cfg.EnablePrometheus -}}
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file /alb/nginx/lua/phase/log_phase.lua;
             {{- end }}
         }
     }
@@ -216,9 +203,7 @@ http {
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
-        balancer_by_lua_block {
-            balancer.balance()
-        }
+        balancer_by_lua_file /alb/nginx/lua/phase/balancer_phase.lua ;
         include    /alb/tweak/upstream.conf;
     }
 }
@@ -226,16 +211,7 @@ http {
 stream {
     include    /alb/tweak/stream-common.conf;
 
-    init_by_lua_block {
-            require "resty.core"
-            ok, res = pcall(require, "balancer")
-            if not ok then
-                error("require failed: " .. tostring(res))
-            else
-                balancer = res
-            end
-    }
-    init_worker_by_lua_file /alb/nginx/lua/worker.lua;
+    init_worker_by_lua_file /alb/nginx/lua/phase/init_worker_phase.lua;
 
     {{ range $_, $ft := .Frontends -}}
     {{ if eq $ft.Protocol "tcp" -}}
@@ -274,8 +250,6 @@ stream {
     upstream stream_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
-        balancer_by_lua_block {
-            balancer.balance()
-        }
+        balancer_by_lua_file /alb/nginx/lua/phase/balancer_phase.lua ;
     }
 }

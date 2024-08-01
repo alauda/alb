@@ -32,7 +32,7 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 	log := log.L().WithName(gateway.ALB_GATEWAY_NGINX)
 	ret := &ctltype.LoadBalancer{}
 	ret.Frontends = []*ctltype.Frontend{}
-	ret.Name = config.GetConfig().GetAlbName()
+	ret.Name = cfg.GetAlbName()
 	d := NewDriver(drv, log)
 	gcfg := cfg.GetGatewayCfg()
 	log.Info("get lb config start", "cfg", gcfg)

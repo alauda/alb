@@ -267,6 +267,10 @@ func (n Names) GetAlbIngressRewriteResponseAnnotation() string {
 	return fmt.Sprintf("alb.ingress.%s/rewrite-response", n.domain)
 }
 
+func (n Names) GetAlbIngressOtelAnnotation() string {
+	return fmt.Sprintf("alb.ingress.%s/otel", n.domain)
+}
+
 func (n Names) GetAlbRuleRewriteResponseAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-response", n.domain)
 }

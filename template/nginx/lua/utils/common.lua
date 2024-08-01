@@ -22,7 +22,7 @@ _M.null = json.null
 --- lua table to json string.
 --- if error, return nil
 ---@param data table
----@param empty_table_as_object boolean
+---@param empty_table_as_object? boolean
 ---@return string|nil
 function _M.json_encode(data, empty_table_as_object)
     local json_value = nil
@@ -153,29 +153,6 @@ function _M.lua_ngx_var(ngx_var)
     end
 
     return ngx.var[var_name]
-end
-
--- {
---    "mode": "http",
---    "session_affinity_attribute": "",
---    "name": "calico-new-yz-alb-09999-eb1a18d0-8d44-4100-bbb8-93db3c02c482",
---    "session_affinity_policy": "",
---    "backends": [
---    {
---        "port": 80,
---        "address": "10.16.12.11",
---        "weight": 100
---    }
---    ]
--- }
-function _M.get_nodes(backend)
-    local nodes = {}
-
-    for _, endpoint in ipairs(backend.backends) do
-        local endpoint_string = endpoint.address .. ":" .. endpoint.port
-        nodes[endpoint_string] = endpoint.weight
-    end
-    return nodes
 end
 
 -- http://nginx.org/en/docs/http/ngx_http_upstream_module.html#example

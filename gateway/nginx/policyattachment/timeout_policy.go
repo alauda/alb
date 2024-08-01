@@ -114,7 +114,7 @@ func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *Rule, ref Ref) error {
 	log.V(5).Info("timeout cfg ", "cfg", timeout)
 
 	if rule.Config == nil {
-		rule.Config = &RuleConfig{}
+		rule.Config = &RuleConfigInPolicy{}
 	}
 	timeoutCfg := gatewayPolicy.TimeoutPolicyConfig(timeout)
 	rule.Config.Timeout = &timeoutCfg

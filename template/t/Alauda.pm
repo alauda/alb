@@ -1,8 +1,20 @@
+package t::Alauda;
 use strict;
 use warnings;
+use File::Basename;
 
-package t::Alauda;
 use Test::Nginx::Socket::Lua::Stream -Base;
+
+sub get_test_name {
+    my $file = $_[0];
+    my $dirname = dirname($file);
+    my $basename = basename($file, qr/\.[^.]*$/);
+    $file = "$dirname/$basename";
+    $file =~ m{^.*?/t/(.*)$};  # 匹配/t/后面的部分，捕获到$1中
+    my $suffix = $1;  # 获取捕获的后缀部分
+    $suffix =~ s{/}{.}g;  # 将后缀部分中的/替换为.
+    return $suffix;
+}
 
 # struct of a nginx test
 # /
@@ -40,19 +52,17 @@ sub gen_https_port_config {
 
         ssl_certificate $base/nginx/placeholder.crt;
         ssl_certificate_key $base/nginx/placeholder.key;
-        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file $base/nginx/lua/phase/ssl_cert_phase.lua;
         ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$backend_protocol http;
 
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file $base/nginx/lua/phase/log_phase.lua;
         }
     }
 __END
@@ -198,9 +208,29 @@ __END
     close(FH);
     
 
-	my $init_worker = " init_worker_by_lua_file $base/nginx/lua/worker.lua; ";
+	my $init_worker = " init_worker_by_lua_file $base/nginx/lua/phase/init_worker_phase.lua; ";
     if (defined $block->disable_init_worker) {
         $init_worker = "";
+    }
+    my $init = "";
+
+    if (defined $block->enable_nyi) {
+        my $name = $block->enable_nyi;
+        if ($name eq "") {
+            $name = "nyi";
+        }
+        $init = <<__END;
+init_by_lua_block {
+    local detail=false
+    if detail then
+        local dump = require "jit.dump"
+        dump.on(nil, "$base/.$name.nyi")
+    else
+        local v = require "jit.v"
+        v.on("$base/.$name.nyi")
+    end
+}
+__END
     }
 
     if (defined $block->init_worker_eval) {
@@ -221,6 +251,12 @@ env NEW_POLICY_PATH;
 env DEFAULT_SSL_STRATEGY;
 env DEFAULT_SSL_STRATEGY;
 env INGRESS_HTTPS_PORT;
+env HOSTNAME;
+env MY_POD_NAME;
+env NAME;
+env ALB_NS;
+env ALB_VER;
+env HOSTNAME;
 env TEST_BASE;
 env METRICS_AURH;
 
@@ -231,15 +267,6 @@ stream {
     access_log $base/servroot/logs/access.stream.log stream;
     error_log $base/servroot/logs/error.stream.log info;
 
-    init_by_lua_block {
-            require "resty.core"
-            ok, res = pcall(require, "balancer")
-            if not ok then
-                error("require failed: " .. tostring(res))
-            else
-                balancer = res
-            end
-    }
     $init_worker
     $stream_config
 
@@ -259,10 +286,7 @@ stream {
 
     upstream stream_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
-
-        balancer_by_lua_block {
-            balancer.balance()
-        }
+        balancer_by_lua_file $base/nginx/lua/phase/balancer_phase.lua ;
     }
 }
 _END_
@@ -314,9 +338,7 @@ __END
     lua_package_path "$lua_path";
     error_log $base/servroot/logs/error.http.log info;
 
-	log_format  test  '[\$time_local] \$remote_addr:\$remote_port "\$host" "\$request" '
-                      '\$status \$upstream_status \$upstream_addr '
-                      '"\$http_user_agent" "\$http_x_forwarded_for" '
+	log_format  test  '[\$time_local] \$remote_port \$request" '
                       '\$request_time \$upstream_response_time';
     access_log $base/servroot/logs/access.http.log test;
 
@@ -328,17 +350,7 @@ __END
     gzip_proxied any;
     gzip_vary on;
 
-    init_by_lua_block {
-            require "resty.core"
-            ok, res = pcall(require, "balancer")
-            if not ok then
-                error("require failed: " .. tostring(res))
-            else
-                balancer = res
-            end
-            require("metrics").init()
-    }
-
+    $init
     $init_worker
 
     server {
@@ -349,13 +361,9 @@ __END
         location / {
             set \$backend_protocol http;
 
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
-
-            log_by_lua_block {
-                require("metrics").log()
-            }
         }
     }
 
@@ -367,13 +375,11 @@ __END
         location / {
             set \$backend_protocol http;
  
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file $base/nginx/lua/phase/log_phase.lua;
         }
     }
 
@@ -388,19 +394,16 @@ __END
 
         ssl_certificate $base/nginx/placeholder.crt;
         ssl_certificate_key $base/nginx/placeholder.key;
-        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file $base/nginx/lua/phase/ssl_cert_phase.lua;
         ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$backend_protocol http;
 
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
-
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file $base/nginx/lua/phase/log_phase.lua;
         }
     }
     server {
@@ -414,19 +417,17 @@ __END
 
         ssl_certificate $base/nginx/placeholder.crt;
         ssl_certificate_key $base/nginx/placeholder.key;
-        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file $base/nginx/lua/phase/ssl_cert_phase.lua;
         ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$backend_protocol http;
 
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file $base/nginx/lua/phase/log_phase.lua;
         }
     }
 
@@ -441,19 +442,17 @@ __END
 
         ssl_certificate $base/nginx/placeholder.crt;
         ssl_certificate_key $base/nginx/placeholder.key;
-        ssl_certificate_by_lua_file $base/nginx/lua/cert.lua;
+        ssl_certificate_by_lua_file $base/nginx/lua/phase/ssl_cert_phase.lua;
         ssl_dhparam $base/dhparam.pem;
 
         location / {
             set \$backend_protocol http;
 
-            rewrite_by_lua_file $base/nginx/lua/l7_rewrite.lua;
+            rewrite_by_lua_file $base/nginx/lua/phase/l7_rewrite_phase.lua;
             proxy_pass \$backend_protocol://http_backend;
             header_filter_by_lua_file $base/nginx/lua/l7_header_filter.lua;
 
-            log_by_lua_block {
-                require("metrics").log()
-            }
+            log_by_lua_file $base/nginx/lua/phase/log_phase.lua;
         }
     }
     $extra_https_port_config
@@ -461,15 +460,13 @@ __END
     upstream http_backend {
         server 0.0.0.1:1234;   # just an invalid address as a place holder
 
-        balancer_by_lua_block {
-            balancer.balance()
-        }
+        balancer_by_lua_file $base/nginx/lua/phase/balancer_phase.lua; 
         include       $base/tweak/upstream.conf;
     }
 
     $http_config
 
-	$lua_test_full
+    $lua_test_full
 
     server {
         listen    0.0.0.0:1936;

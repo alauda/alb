@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -116,6 +117,7 @@ type ExternalAlbConfig struct {
 	AntiAffinityKey      *string            `yaml:"antiAffinityKey" json:"antiAffinityKey,omitempty"`
 	BindNIC              *string            `yaml:"bindNIC" json:"bindNIC,omitempty"` // json string alb绑定网卡的配置 '{"nic":["eth0"]}'
 	Overwrite            *ExternalOverwrite `yaml:"overwrite" json:"overwrite,omitempty"`
+	Otel                 *otelt.OtelCrConf  `yaml:"otel" json:"otel,omitempty"`
 }
 
 type VipConfig struct {

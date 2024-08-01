@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	. "alauda.io/alb2/pkg/operator/toolkit"
+	u "alauda.io/alb2/pkg/utils"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	perr "github.com/pkg/errors"
@@ -163,14 +164,7 @@ func OperatorLabel(version string) map[string]string {
 }
 
 func MergeMap(a map[string]string, b map[string]string) map[string]string {
-	ret := map[string]string{}
-	for k, v := range a {
-		ret[k] = v
-	}
-	for k, v := range b {
-		ret[k] = v
-	}
-	return ret
+	return u.MergeMap(a, b)
 }
 
 // 如果key中有某个prefix，就删除这个key

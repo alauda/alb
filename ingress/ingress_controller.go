@@ -28,6 +28,7 @@ import (
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	informerv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
+	cus "alauda.io/alb2/pkg/controller/custom_config"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -83,6 +84,7 @@ type Controller struct {
 	log                  logr.Logger
 	IngressSelect
 	*config.Config
+	cus cus.CustomCfgCtl
 }
 
 // NewController returns a new sample controller
@@ -107,7 +109,7 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	hostname, _ := os.Hostname()
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", config.GetConfig().GetAlbName()), Host: hostname},
+		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", albCfg.GetAlbName()), Host: hostname},
 	)
 
 	controller := &Controller{
@@ -125,6 +127,10 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 			cfg: Cfg2IngressSelectOpt(albCfg),
 			drv: d,
 		},
+		cus: cus.NewCustomCfgCtl(cus.CustomCfgOpt{
+			Log:    log,
+			Domain: albCfg.Domain,
+		}),
 	}
 	return controller
 }

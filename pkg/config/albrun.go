@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	u "alauda.io/alb2/pkg/utils"
 	coreV1 "k8s.io/api/core/v1"
 )
 
@@ -106,6 +107,8 @@ const (
 	DOMAIN                  string = "DOMAIN"
 	NAMESPACE               string = "NAMESPACE"
 	NAME                    string = "NAME"
+	ALB_NS                  string = "ALB_NS"
+	ALB_VER                 string = "ALB_VER"
 	MY_POD_NAME             string = "MY_POD_NAME"
 	WORKER_LIMIT            string = "WORKER_LIMIT"
 	CPU_PRESET              string = "CPU_PRESET"
@@ -155,6 +158,7 @@ const (
 	DEFAULT_RELOAD_TIMEOUT_VAL  int    = 600
 )
 
+// TODO we should use alb cr instead of env..
 func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 	var envs []coreV1.EnvVar
 
@@ -216,7 +220,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 	return envs
 }
 
-func (a *ALBRunConfig) GetNginxContainerEnvs() []coreV1.EnvVar {
+func (a *ALBRunConfig) GetNginxContainerEnvs(ver string) []coreV1.EnvVar {
 	var envs []coreV1.EnvVar
 	envs = append(envs,
 		coreV1.EnvVar{Name: OLD_CONFIG_PATH, Value: OLD_CONFIG_PATH_VAL},
@@ -228,6 +232,9 @@ func (a *ALBRunConfig) GetNginxContainerEnvs() []coreV1.EnvVar {
 		coreV1.EnvVar{Name: POLICY_ZIP, Value: BoolToEnv(a.Controller.Flags.PolicyZip)},
 		coreV1.EnvVar{Name: NEW_POLICY_PATH, Value: NEW_POLICY_PATH_VAL},
 		coreV1.EnvVar{Name: MY_POD_NAME, ValueFrom: &coreV1.EnvVarSource{FieldRef: &coreV1.ObjectFieldSelector{FieldPath: "metadata.name", APIVersion: "v1"}}},
+		coreV1.EnvVar{Name: NAME, Value: a.Name},
+		coreV1.EnvVar{Name: ALB_NS, Value: a.Ns},
+		coreV1.EnvVar{Name: ALB_VER, Value: ver},
 	)
 	return envs
 }
@@ -333,10 +340,7 @@ func ToStringOr(x string, backup string) string {
 }
 
 func ToBoolOr(x string, backup bool) bool {
-	if x == "" {
-		return backup
-	}
-	return strings.ToLower(strings.TrimSpace(x)) == "true"
+	return u.ToBoolOr(x, backup)
 }
 
 func ToBool(x string) bool {

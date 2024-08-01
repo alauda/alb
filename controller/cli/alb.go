@@ -3,10 +3,10 @@ package cli
 import (
 	"strings"
 
-	. "alauda.io/alb2/controller/custom_config"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	cus "alauda.io/alb2/pkg/controller/custom_config"
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2"
 )
@@ -15,12 +15,17 @@ import (
 type AlbCli struct {
 	drv *driver.KubernetesDriver
 	log logr.Logger
+	cus cus.CustomCfgCtl
 }
 
 func NewAlbCli(drv *driver.KubernetesDriver, log logr.Logger) AlbCli {
 	return AlbCli{
 		drv: drv,
 		log: log,
+		cus: cus.NewCustomCfgCtl(cus.CustomCfgOpt{
+			Log:    log,
+			Domain: drv.Opt.Domain,
+		}),
 	}
 }
 
@@ -67,27 +72,28 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 		// translate rule cr to our rule struct
 		for _, marl := range mft.Rules {
 			arl := marl.Spec
-			ruleConfig := RuleConfigFromRuleAnnotation(marl.Name, marl.Annotations, c.drv.Opt.Domain)
 			rule := &Rule{
-				Config:           ruleConfig,
-				RuleID:           marl.Name,
-				Priority:         arl.Priority,
-				Type:             arl.Type,
-				Domain:           strings.ToLower(arl.Domain),
-				URL:              arl.URL,
-				DSLX:             arl.DSLX,
-				Description:      arl.Description,
-				CertificateName:  arl.CertificateName,
-				RewriteBase:      arl.RewriteBase,
-				RewriteTarget:    arl.RewriteTarget,
-				EnableCORS:       arl.EnableCORS,
-				CORSAllowHeaders: arl.CORSAllowHeaders,
-				CORSAllowOrigin:  arl.CORSAllowOrigin,
-				BackendProtocol:  arl.BackendProtocol,
-				RedirectURL:      arl.RedirectURL,
-				RedirectCode:     arl.RedirectCode,
-				VHost:            arl.VHost,
-				Source:           arl.Source,
+				Config: &RuleConfigInPolicy{},
+				RuleID: marl.Name,
+				SameInRuleCr: SameInRuleCr{
+					Priority:         arl.Priority,
+					DSLX:             arl.DSLX,
+					URL:              arl.URL,
+					RewriteBase:      arl.RewriteBase,
+					RewriteTarget:    arl.RewriteTarget,
+					EnableCORS:       arl.EnableCORS,
+					CORSAllowHeaders: arl.CORSAllowHeaders,
+					CORSAllowOrigin:  arl.CORSAllowOrigin,
+					BackendProtocol:  arl.BackendProtocol,
+					RedirectURL:      arl.RedirectURL,
+					VHost:            arl.VHost,
+					Source:           arl.Source,
+					RedirectCode:     arl.RedirectCode,
+				},
+				Type:            arl.Type,
+				Domain:          strings.ToLower(arl.Domain),
+				Description:     arl.Description,
+				CertificateName: arl.CertificateName,
 			}
 			if arl.ServiceGroup != nil {
 				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
@@ -104,6 +110,7 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 					})
 				}
 			}
+			c.cus.FromRuleCr(marl, rule)
 			ft.Rules = append(ft.Rules, rule)
 		}
 

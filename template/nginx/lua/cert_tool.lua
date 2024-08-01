@@ -3,14 +3,11 @@ local string_sub = string.sub
 local string_find = string.find
 local tonumber = tonumber
 local ssl = require "ngx.ssl"
-local ngx_shared = ngx.shared
-local ngx_config = ngx.config
+local shm = require "config.shmap"
 local common = require "utils.common"
-local conf = require "conf"
+local conf = require "config.conf"
 local s_ext = require "utils.string_ext"
-local cache = require "cache"
-local subsystem = ngx_config.subsystem
-local l2_cache = ngx_shared[subsystem .. "_certs_cache"]
+local cache = require "config.cache"
 
 local M = {}
 
@@ -126,7 +123,7 @@ function M.try_get_domain_cert_from_l2_cache(domain_raw, port_raw)
 end
 
 function M.get_cert(key)
-    local cert = l2_cache:get(key)
+    local cert = shm.get_http_cert(key)
     if s_ext.is_nill(cert) then
         return nil, false
     end

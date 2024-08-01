@@ -52,18 +52,6 @@ function alb-run-all-e2e-test() (
     ginkgo --fail-fast -focus "$filter" ./test/e2e
     return
   fi
-  if [[ "$concurrent" == "1" ]]; then
-    local all=$(ginkgo -dry-run -v ./test/e2e | grep alb-test-case | wc -l)
-    local i=0
-    while read tcase; do
-      tcase=$(echo $tcase | xargs)
-      echo "run case $tcase"
-      echo "$tcase $i/$all" >./.current-test
-      ginkgo --fail-fast -focus "$tcase" ./test/e2e
-      i=$((i + 1))
-    done < <(ginkgo -dry-run --no-color -v ./test/e2e | grep alb-test-case | sed 's/alb-test-case//g' | sort)
-    return
-  fi
 
   local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")

@@ -67,10 +67,14 @@ function test-nginx-local() {
 }
 
 function test-nginx-in-ci() (
-  set -x
-  set -e
+  alb-nginx-test $1
+)
 
-  echo "test-nginx-in-ci" alb is $ALB
+function alb-nginx-test() (
+  set -e
+  set -x
+  echo "alb-nginx-test" alb is $ALB
+  local t1=$(date)
   # struct of a nginx test
   # /
   # /nginx
@@ -97,6 +101,12 @@ function test-nginx-in-ci() (
   export INGRESS_HTTPS_PORT=443
   export METRICS_AURH="false"
 
+  export MY_POD_NAME="mock-alb-pod"
+  export NAME="test-alb"
+  export ALB_NS="cpaas-system"
+  export ALB_VER="3.18.0"
+  export HOSTNAME="the-host"
+
   mkdir -p $TEST_BASE/cert
 
   if [[ "$KEEP_TWEAK" != "true" ]]; then
@@ -115,7 +125,12 @@ function test-nginx-in-ci() (
   ls $TEST_BASE
   unset http_proxy
   unset https_proxy
+  local t2=$(date)
   prove -I $TEST_BASE/ -r $filter
+  local t3=$(date)
+  echo $t1
+  echo $t2
+  echo $t3
 )
 
 function configmap_to_file() {
@@ -136,3 +151,92 @@ function configmap_to_file() {
 
   cat $output_dir/http.conf
 }
+
+function alb-nginx-watch-log() (
+  echo "watch log"
+  tail -F ./template/servroot/logs/error.http.log | python -u -c '
+import sys
+for line in sys.stdin:
+    if "keepalive connection" in line:
+        continue
+    if line.startswith("20"):
+        spos = line.find("[lua]") + 5
+        epos = line.find("client: 127.0.0.1,")
+        time=line.split()[1].strip()
+        print("|->  "+time+" "+line[spos:epos].strip()+"  <-|")
+        continue
+    if line.strip().startswith(","): 
+        continue
+    print("e|"+line)
+'
+)
+
+# we donot want to same name lua file. some tool, like jit dump could only show file name.
+function alb-nginx-list-lib-lua() (
+  local openresty=$(echo $(realpath $(which nginx)) | sed 's|nginx/sbin/nginx||g')
+  local lib=$(fd . $openresty | grep '\.lua')
+  echo "$lib"
+)
+
+function alb-nginx-list-lib-lua-name() (
+  alb-nginx-list-lib-lua | xargs -I{} basename {} | sort | uniq
+)
+
+function alb-nginx-list-our-lua() (
+  fd . ./template/nginx/lua | grep '\.lua'
+)
+
+function alb-nginx-list-our-lua-name() (
+  alb-nginx-list-our-lua | xargs -I{} basename {} | sort | uniq
+)
+
+function alb-nginx-check-filename() (
+  local lib=$(alb-nginx-list-lib-lua-name)
+  local our=$(alb-nginx-list-our-lua-name)
+  local find="false"
+  while read -r line; do
+    local name=$(echo $line | awk '{print $2}')
+    echo "$name in lib" $(alb-nginx-list-lib-lua | grep $name)
+    echo "$name in our" $(alb-nginx-list-our-lua | grep $name)
+    find="true"
+  done < <(echo "$lib\n$our" | sort | uniq -c | grep -v "1 ")
+  if [[ "$find" == "true" ]]; then
+    echo "find duplicate"
+    exit 1
+  fi
+)
+
+function alb-nginx-show-our-nyi() (
+  local lib=$(alb-nginx-list-lib-lua-name)
+  local nyi_raw=$(cat ./template/.*.nyi | grep NYI)
+  local our=$(fd . ./template/nginx/lua | grep '\.lua' | xargs -I{} basename {} | sort | uniq)
+  local nyi=$(echo "$nyi_raw" | rg '\s([^\s]*).lua' -o -r '$1' | sort | uniq)
+  while read -r lua; do
+    lua="$lua.lua"
+    local inour=$(echo "$our" | grep $lua)
+    local inlib=$(echo "$lib" | grep $lua)
+    if [[ -n "$inour" ]]; then
+      echo "- $lua | in our $inour | $(echo ""$nyi_raw"" | grep $lua) | \n\n "
+    fi
+    # if [[ -n "$inlib" ]]; then
+    #    echo "- $lua | in lib $inlib |"
+    # fi
+  done < <(echo "$nyi" | grep -v 'prometheus')
+  return
+)
+
+function alb-nginx-build-tylua() (
+  cd ./cmd/utils/tylua
+  rm ./bin/tylua || true
+  mkdir -p ./bin
+  go build -v -o ./bin/tylua
+  md5sum ./bin/tylua
+)
+
+function alb-nginx-tylua() (
+  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq)
+  local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
+  ./cmd/utils/tylua/bin/tylua $coverpkg NgxPolicy ./template/nginx/lua/types/ngxpolicy.types.lua
+
+  return
+)

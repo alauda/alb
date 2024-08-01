@@ -287,6 +287,18 @@ func TestGetNginxContainerEnvs(t *testing.T) {
 			Value: "/etc/alb2/nginx/nginx.conf",
 		},
 		{
+			Name:  "NAME",
+			Value: "test",
+		},
+		{
+			Name:  "ALB_NS",
+			Value: "n1",
+		},
+		{
+			Name:  "ALB_VER",
+			Value: "1.1",
+		},
+		{
 			Name: "MY_POD_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
@@ -296,7 +308,7 @@ func TestGetNginxContainerEnvs(t *testing.T) {
 			},
 		},
 	}
-	actual := cfg.GetNginxContainerEnvs()
+	actual := cfg.GetNginxContainerEnvs("1.1")
 	sort.Slice(expect, func(i, j int) bool {
 		return expect[i].Name < expect[j].Name
 	})

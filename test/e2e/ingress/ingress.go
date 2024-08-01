@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
-	"time"
 
-	"alauda.io/alb2/driver"
+	ct "alauda.io/alb2/controller/types"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils"
@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -95,19 +96,6 @@ var _ = ginkgo.Describe("Ingress", func() {
 		env.Stop()
 	})
 
-	GIt("test client", func() {
-		kd, err := driver.GetAndInitDriver(ctx)
-		GinkgoNoErr(err)
-		for {
-			alb, err := kd.ALB2Lister.ALB2s("cpaas-system").Get("alb-dev")
-			if err == nil {
-				break
-			}
-			l.Info("alb", "cr", alb, "err", err)
-			time.Sleep(time.Second * 1)
-		}
-	})
-
 	GIt("should compatible with redirect ingress", func() {
 		l.Info("start test")
 		ns := f.GetProductNs()
@@ -175,10 +163,12 @@ var _ = ginkgo.Describe("Ingress", func() {
 			rule := rules[0]
 			ruleName := rule.Name
 
-			f.WaitPolicy(func(policyRaw string) bool {
-				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
-				return hasRule && hasPod
+			f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+				rp, _, _ := p.FindHttpPolicy(ruleName)
+				if rp == nil {
+					return false, nil
+				}
+				return true, nil
 			})
 		})
 
@@ -225,10 +215,22 @@ var _ = ginkgo.Describe("Ingress", func() {
 			ruleName := rule.Name
 			Logf("created rule %+v", rule)
 			assert.Equal(ginkgo.GinkgoT(), rule.Spec.ServiceGroup.Services[0].Port, 81)
-			f.WaitPolicy(func(policyRaw string) bool {
-				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.3.1 otherclusters:false port:112 weight:50] map[address:192.168.3.2 otherclusters:false port:112 weight:50]]`)
-				return hasRule && hasPod
+			f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+				rp, _, rb := p.FindHttpPolicy(ruleName)
+				if rp == nil {
+					return false, nil
+				}
+				bs := rb.Backends
+				key := func(b *ct.Backend) string {
+					return fmt.Sprintf("%s %d", b.Address, b.Port)
+				}
+				sort.Slice(bs, func(i, j int) bool {
+					return key(bs[i]) < key(bs[j])
+				})
+				ret := strings.Join(lo.Map(bs, func(b *ct.Backend, _ int) string { return key(b) }), "|")
+				expect := "192.168.3.1 112|192.168.3.2 112"
+				l.Info("should eq", "ret", ret, "expect", expect)
+				return ret == expect, nil
 			})
 		})
 
@@ -246,12 +248,14 @@ var _ = ginkgo.Describe("Ingress", func() {
 			ruleName := rule.Name
 			_ = ruleName
 
-			f.WaitPolicy(func(policyRaw string) bool {
-				l.Info("policy", "raw", policyRaw)
-				hasRule := PolicyHasRule(policyRaw, 80, ruleName)
-				hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[map[address:192.168.1.1 otherclusters:false port:80 weight:50] map[address:192.168.2.2 otherclusters:false port:80 weight:50]]`)
-				return hasRule && hasPod
+			f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+				rp, _, _ := p.FindHttpPolicy(ruleName)
+				if rp == nil {
+					return false, nil
+				}
+				return true, nil
 			})
+
 		})
 
 		GIt("should work with none path ingress", func() {

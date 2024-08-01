@@ -3,3 +3,4 @@ keep_simple_control_block_one_line: false
 line-breaks-after-function-body: false
 keep_simple_function_one_line: false
 column_limit: 380
+chop_down_table: true

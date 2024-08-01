@@ -53,7 +53,7 @@ function _M.rewrite_request_header()
     local headers_set_var = cfg["headers_var"]
     if headers_set_var then
         for k, varname in pairs(headers_set_var) do
-            local var = ngx.ctx.alb_ctx[varname]
+            local var = ngx.ctx.alb_ctx.var[varname]
             if var then
                 ngx.req.set_header(k, var)
             end
@@ -78,7 +78,7 @@ function _M.rewrite_request_header()
     if headers_add_var then
         for k, varlist in pairs(headers_add_var) do
             for _, varname in pairs(varlist) do
-                local var = ngx.ctx.alb_ctx[varname]
+                local var = ngx.ctx.alb_ctx.var[varname]
                 if var then
                     ngx_req.add_header(k, var)
                 end

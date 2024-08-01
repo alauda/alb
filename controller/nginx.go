@@ -99,6 +99,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if phase != m.PhaseTerminating {
 		phase = m.PhaseRunning
 	}
+	// TODO move to other goroutine
 	if nc.albcfg.IsEnableVIP() && nc.lc != nil && nc.lc.AmILeader() {
 		nc.log.Info("enable vip and I am the leader")
 		if err := nc.SyncLbSvcPort(alb.Frontends); err != nil {

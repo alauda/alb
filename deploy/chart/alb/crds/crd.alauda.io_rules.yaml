@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.1
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: rules.crd.alauda.io
 spec:
   group: crd.alauda.io
@@ -42,14 +42,19 @@ spec:
       openAPIV3Schema:
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -63,6 +68,73 @@ spec:
                 description: certificate_name defines certificate used with specified
                   hostname in rule at https frontend
                 type: string
+              config:
+                properties:
+                  otel:
+                    properties:
+                      enable:
+                        type: boolean
+                      exporter:
+                        properties:
+                          batch_span_processor:
+                            properties:
+                              inactive_timeout:
+                                type: integer
+                              max_queue_size:
+                                type: integer
+                            required:
+                            - inactive_timeout
+                            - max_queue_size
+                            type: object
+                          collector:
+                            properties:
+                              address:
+                                type: string
+                              request_timeout:
+                                type: integer
+                            required:
+                            - address
+                            - request_timeout
+                            type: object
+                        type: object
+                      flags:
+                        properties:
+                          hide_upstream_attrs:
+                            type: boolean
+                          notrust_incoming_span:
+                            type: boolean
+                          report_http_reqeust_header:
+                            type: boolean
+                          report_http_response_header:
+                            type: boolean
+                        required:
+                        - hide_upstream_attrs
+                        - notrust_incoming_span
+                        - report_http_reqeust_header
+                        - report_http_response_header
+                        type: object
+                      resource:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      sampler:
+                        properties:
+                          name:
+                            type: string
+                          options:
+                            properties:
+                              fraction:
+                                type: string
+                              parent_name:
+                                type: string
+                            type: object
+                        required:
+                        - name
+                        type: object
+                    required:
+                    - enable
+                    type: object
+                type: object
               corsAllowHeaders:
                 description: corsAllowHeaders defines the headers allowed by cors
                   when enableCORS is true

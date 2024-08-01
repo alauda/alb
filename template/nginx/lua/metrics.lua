@@ -2,7 +2,7 @@
 local _M = {}
 
 local table_clear = require("table.clear")
-local prometheus = require "resty.prometheus.prometheus"
+local prometheus = require "prometheus.prometheus"
 local tonumber = tonumber
 local ngx = ngx
 local ngx_var = ngx.var

@@ -1,5 +1,32 @@
 {
-   "diagnostics" : {
-     "globals" : [ "vim", "use","ngx" ]
-   }
+    "runtime": {
+        "version": "Lua 5.1",
+        "path": [
+            "?.lua",
+            "?/init.lua",
+            "./template/nginx/lua/?.lua",
+            "./template/nginx/lua/vendor/?.lua"
+        ]
+    },
+    "diagnostics": {
+        "ignoredFiles": "Disable",
+        "libraryFiles": "Disable",
+        "globals": [
+            "vim",
+            "use",
+            "ngx",
+            "jit",
+            "_ENV"
+        ]
+    },
+    "workspace": {
+        "ignoreDir": [
+            ".vscode",
+            "work-park",
+            "vendor"
+        ],
+        "library": [
+            "${3rd}/OpenResty/library"
+        ]
+    }
 }

@@ -595,6 +595,8 @@ apiVersion: crd.alauda.io/v1
 kind: Rule
 metadata:
   labels:
+    alb2.cpaas.io/frontend: alb-demo-00080  # required, indicate the Frontend to which this rule belongs
+    alb2.cpaas.io/name: alb-demo            # required, indicate the ALB to which this rule belongs
     alb2.cpaas.io/source-type: ingress
   name: x-60080-1
   namespace: cpaas-system

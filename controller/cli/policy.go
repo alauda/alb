@@ -13,18 +13,19 @@ import (
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	cus "alauda.io/alb2/pkg/controller/custom_config"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	"github.com/thoas/go-funk"
+	corev1 "k8s.io/api/core/v1"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 type PolicyCli struct {
 	drv *driver.KubernetesDriver
 	log logr.Logger
+	cus cus.CustomCfgCtl
 	opt PolicyCliOpt
 }
 type PolicyCliOpt struct {
@@ -36,6 +37,7 @@ func NewPolicyCli(drv *driver.KubernetesDriver, log logr.Logger, opt PolicyCliOp
 		drv: drv,
 		log: log,
 		opt: opt,
+		cus: cus.NewCustomCfgCtl(cus.CustomCfgOpt{Log: log}),
 	}
 }
 
@@ -48,6 +50,7 @@ func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	ngxPolicy := NgxPolicy{
 		CertificateMap: certificateMap,
 		Http:           HttpPolicy{Tcp: make(map[albv1.PortNumber]Policies)},
+		CommonConfig:   CommonPolicyConfig{},
 		Stream:         StreamPolicy{Tcp: make(map[albv1.PortNumber]Policies), Udp: make(map[albv1.PortNumber]Policies)},
 		BackendGroup:   backendGroup,
 	}
@@ -68,7 +71,7 @@ func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 			p.initGRPCModeFt(ft, &ngxPolicy)
 		}
 	}
-
+	p.cus.ResolvePolicies(alb, &ngxPolicy)
 	return ngxPolicy
 }
 
@@ -147,44 +150,25 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 
 		klog.V(3).Infof("Rule is %v", rule)
 		// translate our rule struct to policy (the json file)
-		policy := Policy{}
-		policy.Subsystem = SubsystemHTTP
-		policy.Rule = rule.RuleID
-		policy.DSL = rule.DSLX
 		internalDSL, err := utils.DSLX2Internal(rule.DSLX)
 		if err != nil {
 			klog.Error("convert dslx to internal failed", err)
 			continue
 		}
+		policy := Policy{}
 		policy.InternalDSL = internalDSL
-
-		policy.Priority = rule.GetPriority()
-		policy.RawPriority = rule.GetRawPriority()
 		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
 		// policy-gen 设置 rule 的 upstream
 		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
-		// for rewrite
-		policy.URL = rule.URL
-		policy.RewriteBase = rule.RewriteBase
-		policy.RewriteTarget = rule.RewriteTarget
-		policy.RewritePrefixMatch = rule.RewritePrefixMatch
-		policy.RewriteReplacePrefix = rule.RewriteReplacePrefix
-		policy.EnableCORS = rule.EnableCORS
-		policy.CORSAllowHeaders = rule.CORSAllowHeaders
-		policy.CORSAllowOrigin = rule.CORSAllowOrigin
-		policy.BackendProtocol = rule.BackendProtocol
-
-		policy.RedirectScheme = rule.RedirectScheme
-		policy.RedirectHost = rule.RedirectHost
-		policy.RedirectPort = rule.RedirectPort
-		policy.RedirectURL = rule.RedirectURL
-		policy.RedirectPrefixMatch = rule.RedirectPrefixMatch
-		policy.RedirectReplacePrefix = rule.RedirectReplacePrefix
-		policy.RedirectCode = rule.RedirectCode
-
-		policy.VHost = rule.VHost
+		policy.ComplexPriority = rule.GetPriority()
+		policy.Subsystem = SubsystemHTTP
+		policy.Rule = rule.RuleID
 		policy.Config = rule.Config
-		policy.Source = rule.Source
+
+		policy.SameInRuleCr = rule.SameInRuleCr
+		policy.SameInPolicy = rule.SameInPolicy
+		InitPolicySource(&policy, rule)
+
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &policy)
 	}
 
@@ -192,8 +176,8 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
 		defaultPolicy := Policy{}
 		defaultPolicy.Rule = ft.FtName
-		defaultPolicy.Priority = -1     // default rule should have the minimum priority
-		defaultPolicy.RawPriority = 999 // minimum number means higher priority
+		defaultPolicy.ComplexPriority = -1 // default rule should have the minimum priority
+		defaultPolicy.Priority = 999       // minimum number means higher priority
 		defaultPolicy.Subsystem = SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 		defaultPolicy.BackendProtocol = ft.BackendProtocol
@@ -201,6 +185,15 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
 	}
 	sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.
+}
+
+func InitPolicySource(p *Policy, rule *Rule) {
+	if rule.Source == nil || rule.Source.Type != m.TypeIngress {
+		return
+	}
+	p.SourceType = m.TypeIngress
+	p.SourceName = rule.Source.Name
+	p.SourceNs = rule.Source.Namespace
 }
 
 func (p *PolicyCli) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
@@ -225,7 +218,7 @@ func (p *PolicyCli) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 			continue
 		}
 		policy.InternalDSL = internalDSL
-		policy.RawPriority = rule.GetRawPriority()
+		policy.Priority = rule.GetRawPriority()
 		policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
 		// policy-gen 设置 rule 的 upstream
 		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
@@ -240,7 +233,7 @@ func (p *PolicyCli) initGRPCModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
 		defaultPolicy := Policy{}
 		defaultPolicy.Rule = ft.FtName
-		defaultPolicy.RawPriority = 999 // default backend has the lowest priority
+		defaultPolicy.Priority = 999 // default backend has the lowest priority
 		defaultPolicy.Subsystem = SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
 		defaultPolicy.BackendProtocol = ft.BackendProtocol
@@ -388,6 +381,8 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 				&Backend{
 					Address:           be.IP,
 					Pod:               be.Pod,
+					Svc:               svc.ServiceName,
+					Ns:                svc.ServiceNs,
 					Port:              port,
 					Weight:            weight,
 					Protocol:          be.Protocol,

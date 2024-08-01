@@ -280,7 +280,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				},
 				AllowPrivilegeEscalation: pointer.To(true),
 			},
-			Env: conf.GetNginxContainerEnvs(),
+			Env: conf.GetNginxContainerEnvs(d.env.Version),
 			ReadyProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					TCPSocket: &corev1.TCPSocketAction{

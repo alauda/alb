@@ -22,6 +22,7 @@ limitations under the License.
 package v2beta1
 
 import (
+	types "alauda.io/alb2/pkg/controller/ext/otel/types"
 	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -441,6 +442,11 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 	if in.Overwrite != nil {
 		in, out := &in.Overwrite, &out.Overwrite
 		*out = new(ExternalOverwrite)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Otel != nil {
+		in, out := &in.Otel, &out.Otel
+		*out = new(types.OtelCrConf)
 		(*in).DeepCopyInto(*out)
 	}
 	return

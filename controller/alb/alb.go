@@ -52,7 +52,11 @@ func (a *Alb) Start() error {
 		}
 	}()
 
-	drv, err := driver.GetAndInitDriver(a.ctx)
+	drv, err := driver.NewDriver(driver.DrvOpt{
+		Ctx: a.ctx,
+		Cf:  a.cfg,
+		Opt: driver.Cfg2opt(a.albCfg),
+	})
 	if err != nil {
 		return err
 	}
@@ -97,7 +101,7 @@ func (a *Alb) Start() error {
 			l.Info("wait leader")
 			a.le.WaitUtilIMLeader()
 			l.Info("im leader,start gateway controller")
-			gctl.Run(leaderCtx)
+			gctl.Run(leaderCtx, a.albCfg)
 		}()
 	}
 

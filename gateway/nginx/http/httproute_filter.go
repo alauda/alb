@@ -72,7 +72,7 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.Rule, filter
 	}
 
 	if rule.Config == nil {
-		rule.Config = &types.RuleConfig{}
+		rule.Config = &types.RuleConfigInPolicy{}
 	}
 	rule.Config.RewriteRequest = &types.RewriteRequestConfig{
 		Headers:       set,

@@ -52,6 +52,7 @@ func GetLbSvc(ctx context.Context, cli kubernetes.Interface, key crcli.ObjectKey
 	return &ls.Items[0], nil
 }
 
+// TODO we should want ft change and sync monitor svc and lbsvc
 func (s MixProtocolLbSvc) sync(ctx context.Context, frontends []*types.Frontend) error {
 	nc := s.nc
 	cli := nc.Driver

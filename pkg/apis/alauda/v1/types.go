@@ -4,8 +4,10 @@ package v1
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
+	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -112,7 +114,12 @@ type FrontendSpec struct {
 	// certificate_name defines certificate used for https frontend
 	CertificateName string `json:"certificate_name"`
 	// backendProtocol defines protocol used by backend servers, it could be https/http/grpc
-	BackendProtocol string `json:"backendProtocol"`
+	BackendProtocol string    `json:"backendProtocol"`
+	Config          *FTConfig `json:"config,omitempty"`
+}
+
+type FTConfig struct {
+	Otel *otelt.OtelCrConf `json:"otel,omitempty"`
 }
 
 type FrontendStatus struct {
@@ -188,25 +195,32 @@ func (d DSLX) ToSearchableString() string {
 }
 
 type RuleSpec struct {
+	// type is deprecated
+	Type        string `json:"type"`
 	Description string `json:"description"`
 	Domain      string `json:"domain"`
 	// +optional
 	// used for searching on the UI interface
 	DSL string `json:"dsl"`
-	// dslx defines the matching criteria
-	DSLX DSLX `json:"dslx"`
-	// priority ranges from [1,10], if multiple rules match, less value prioritize
-	Priority int `json:"priority"`
 	// +optional
 	ServiceGroup *ServiceGroup `json:"serviceGroup,omitempty"`
-	// +optional
-	// source is where the frontend or rule came from. It's type can be "bind" for those created for service annotations. And carries information about ingress when rule is generalized by ingress
-	Source *Source `json:"source,omitempty"`
-	// type is deprecated
-	Type string `json:"type"`
-	URL  string `json:"url"`
 	// certificate_name defines certificate used with specified hostname in rule at https frontend
 	CertificateName string `json:"certificate_name"`
+
+	Config *RuleConfigInCr `json:"config,omitempty"`
+
+	// 下面的部分和rule 和 policy 是一模一样的
+
+	// priority ranges from [1,10], if multiple rules match, less value prioritize
+	Priority int `json:"priority"`
+	// dslx defines the matching criteria
+	DSLX DSLX `json:"dslx"`
+	// +optional
+	URL string `json:"url"`
+	// +optional
+	RewriteBase string `json:"rewrite_base,omitempty"`
+	// +optional
+	RewriteTarget string `json:"rewrite_target,omitempty"`
 	// enableCORS is the switch whether enable cross domain, when EnableCORS is false, alb2 transports information to backend servers which determine whether allow cross-domain
 	EnableCORS bool `json:"enableCORS"`
 	// corsAllowHeaders defines the headers allowed by cors when enableCORS is true
@@ -221,9 +235,22 @@ type RuleSpec struct {
 	// redirectCode could be 301(Permanent Redirect)/302(Temporal Redirect), default 0
 	RedirectCode int `json:"redirectCode"`
 	// +optional
-	RewriteBase string `json:"rewrite_base,omitempty"`
-	// +optional
-	RewriteTarget string `json:"rewrite_target,omitempty"`
+	// source is where the frontend or rule came from. It's type can be "bind" for those created for service annotations. And carries information about ingress when rule is generalized by ingress
+	Source *Source `json:"source,omitempty"`
+}
+
+type RuleConfigInCr struct {
+	Otel *otelt.OtelCrConf `json:"otel,omitempty"`
+}
+
+func (r *Rule) GetOtel() *otelt.OtelCrConf {
+	if r.Spec.Config == nil {
+		return nil
+	}
+	if r.Spec.Config.Otel == nil {
+		return nil
+	}
+	return r.Spec.Config.Otel
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -288,7 +315,6 @@ func (dslx DSLX) Priority() int {
 	return p
 }
 
-// TODO use code generator
 // converting rules to deterministic strings,since that we could hash/diff rule spec.
 func (r *RuleSpec) Identity() string {
 	var b bytes.Buffer
@@ -310,5 +336,7 @@ func (r *RuleSpec) Identity() string {
 	b.WriteString(fmt.Sprintf("%v", r.RedirectCode))
 	b.WriteString(r.RewriteBase)
 	b.WriteString(r.RewriteTarget)
+	conf, _ := json.Marshal(r.Config)
+	b.WriteString(string(conf))
 	return b.String()
 }

@@ -216,6 +216,8 @@ nginx.ingress.kubernetes.io/backend-protocol
 nginx.ingress.kubernetes.io/temporal-redirect
 nginx.ingress.kubernetes.io/permanent-redirect
 nginx.ingress.kubernetes.io/upstream-vhost
+nginx.ingress.kubernetes.io/enable-opentelemetry
+nginx.ingress.kubernetes.io/opentelemetry-trust-incoming-spans
 ```
 
 ### Container Network

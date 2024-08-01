@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,13 +25,13 @@ type GatewayClassReconciler struct {
 }
 
 // TODO gateway class 由operator来reconcile
-func NewGatewayClassReconciler(ctx context.Context, c client.Client, log logr.Logger) GatewayClassReconciler {
+func NewGatewayClassReconciler(ctx context.Context, c client.Client, log logr.Logger, cfg *config.Config) GatewayClassReconciler {
 	return GatewayClassReconciler{
 		c:              c,
 		log:            log,
 		ctx:            ctx,
-		class:          GetClassName(),
-		controllerName: GetControllerName(),
+		class:          GetClassName(cfg),
+		controllerName: GetControllerName(cfg),
 	}
 }
 

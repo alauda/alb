@@ -248,16 +248,20 @@ func TestSortPolicy(t *testing.T) {
 			name: "compare policy RawPriority first",
 			policies: []*Policy{
 				{
-					Rule:        "a",
-					RawPriority: 5,
-					Priority:    50000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "a",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 50000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
-					Rule:        "b",
-					RawPriority: 1,
-					Priority:    10000 + 500,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+					Rule: "b",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 1,
+					},
+					ComplexPriority: 10000 + 500,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
@@ -266,22 +270,28 @@ func TestSortPolicy(t *testing.T) {
 			name: "compare policy RawPriority first",
 			policies: []*Policy{
 				{
-					Rule:        "a",
-					RawPriority: 5,
-					Priority:    50000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "a",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 50000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
-					Rule:        "b",
-					RawPriority: 1,
-					Priority:    10000 + 500,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+					Rule: "b",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 1,
+					},
+					ComplexPriority: 10000 + 500,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 				{
-					Rule:        "c",
-					RawPriority: -1,
-					Priority:    10000 + 500,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+					Rule: "c",
+					SameInRuleCr: SameInRuleCr{
+						Priority: -1,
+					},
+					ComplexPriority: 10000 + 500,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"c", "b", "a"},
@@ -290,16 +300,20 @@ func TestSortPolicy(t *testing.T) {
 			name: "same RawPriority compare priority",
 			policies: []*Policy{
 				{
-					Rule:        "a",
-					RawPriority: 5,
-					Priority:    10000 + 1000 + 500 + 100,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "a",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 10000 + 1000 + 500 + 100,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
-					Rule:        "b",
-					RawPriority: 5,
-					Priority:    50000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+					Rule: "b",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 50000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
@@ -308,16 +322,20 @@ func TestSortPolicy(t *testing.T) {
 			name: "same RawPriority and priority, compare complex",
 			policies: []*Policy{
 				{
-					Rule:        "a",
-					RawPriority: 5,
-					Priority:    10000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "a",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 10000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
-					Rule:        "b",
-					RawPriority: 5,
-					Priority:    10000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
+					Rule: "b",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 10000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/b"}},
 				},
 			},
 			order: []string{"b", "a"},
@@ -327,16 +345,20 @@ func TestSortPolicy(t *testing.T) {
 			name: "same RawPriority/priority and complex, compare name to stabilize order",
 			policies: []*Policy{
 				{
-					Rule:        "b",
-					RawPriority: 5,
-					Priority:    10000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "b",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 10000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 				{
-					Rule:        "a",
-					RawPriority: 5,
-					Priority:    10000 + 1000,
-					InternalDSL: []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
+					Rule: "a",
+					SameInRuleCr: SameInRuleCr{
+						Priority: 5,
+					},
+					ComplexPriority: 10000 + 1000,
+					InternalDSL:     []interface{}{[]string{utils.OP_STARTS_WITH, utils.KEY_URL, "/"}},
 				},
 			},
 			order: []string{"a", "b"},

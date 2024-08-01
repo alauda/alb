@@ -22,18 +22,16 @@ function _M.test()
     do
         local orgin = get_string_count(msg, "http")
         local res, err = httpc:request_uri("http://127.0.0.1/ping")
-        u.logs("start", res, err, orgin)
         h.assert_eq(res.status, 502)
         local final = get_string_count(msg, "http")
-        u.logs("final", final)
-        h.assert_eq(final - orgin, 5)
+        h.assert_eq(final - orgin, 5, F("http {orgin} {final}"))
     end
     do
         local orgin = get_string_count(msg, "stream")
         local res, err = httpc:request_uri("http://127.0.0.1:81/ping")
         h.assert_eq(err, "connection reset by peer")
         local final = get_string_count(msg, "stream")
-        h.assert_eq(final - orgin, 5)
+        h.assert_eq(final - orgin, 5, F "stream {orgin} {final}")
     end
 end
 

@@ -9,6 +9,7 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
+	github.com/josephburnett/jd v1.8.1
 	github.com/kr/pretty v0.3.1
 	github.com/lithammer/dedent v1.1.0
 	github.com/markkurossi/tabulate v0.0.0-20230223130100-d4965869b123
@@ -42,7 +43,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/evanphx/json-patch/v5 v5.7.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.20.0 // indirect

@@ -49,4 +49,5 @@ function _M.lines_grep(s, regex)
     end
     return lines
 end
+
 return _M

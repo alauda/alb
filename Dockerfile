@@ -22,9 +22,10 @@ WORKDIR /tmp/
 COPY ./template/actions /tmp/
 # install our lua dependency
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
-apk add --no-cache --virtual .builddeps bash perl curl build-base make unzip && \ 
+apk add --no-cache --virtual .builddeps luarocks5.1 lua5.1 lua5.1-dev bash perl curl build-base make unzip && \ 
+cp /usr/bin/luarocks-5.1 /usr/bin/luarocks && \ 
 ls /tmp && bash /tmp/alb-nginx-install-deps.sh /usr/local/openresty && \ 
-apk del .builddeps build-base make unzip && cd / && rm -rf /tmp && rm /usr/bin/nc
+apk del .builddeps build-base make unzip && cd / && rm -rf /tmp && rm /usr/bin/luarocks && rm /usr/bin/nc
 
 # tweak files
 FROM scratch

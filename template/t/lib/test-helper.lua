@@ -2,6 +2,7 @@
 local _M = {}
 local inspect = require "inspect"
 local u = require "util"
+local c = require "utils.common"
 function _M.trim(s)
     return s:gsub("^%s*(.-)%s*$", "%1")
 end
@@ -78,7 +79,7 @@ function _M.assert_eq(left, right, msg)
         _M.assert_table_equals(left, right)
         return
     end
-    if not (left == right) then
+    if left ~= right then
         ngx.log(ngx.ERR, tostring(left) .. " ? " .. tostring(right) .. "  " .. tostring(left == right) .. " msg " .. tostring(msg) .. "\n")
         ngx.exit(ngx.ERR)
         return
@@ -114,12 +115,10 @@ function _M.fail(msg)
     ngx.exit(ngx.ERR)
 end
 
---- a simple warpper of f which represents a testcase,you could enable or disable - a simple warpper of f which represents a testcase,you could enable or disable it.
--- TODO
-function _M.testcase(title, enable, f)
-
+function _M.just_curl(url, req_cfg)
+    local res, err = u.curl(url, req_cfg)
+    return res, err
 end
-
 --- curl and assert
 ---@param url string
 ---@param req_cfg table | nil
@@ -129,8 +128,17 @@ function _M.assert_curl(url, req_cfg, assert_cfg)
     local this = _M
     local res, err = u.curl(url, req_cfg)
     this.assert_is_nil(err)
-    this.assert_eq(res.status, 200)
+    if assert_cfg ~= nil and assert_cfg.status ~= nil then
+        this.assert_eq(res.status, assert_cfg.status, _M.curl_res_to_string(res))
+        return res
+    end
+    this.assert_eq(res.status, 200, _M.curl_res_to_string(res))
     return res
+end
+
+function _M.curl_res_to_string(res)
+    local t = {body = res.body, headers = res.headers, status = res.status}
+    return c.json_encode(t)
 end
 
 function _M.assert_curl_success(res, err, body)

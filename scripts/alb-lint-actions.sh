@@ -114,7 +114,7 @@ function alb-lua-list-all-test-file() {
 }
 
 function alb-lua-list-all-app-file() {
-  find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
+  find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'types.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
 }
 
 function alb-lua-list-all-needformat-file() {

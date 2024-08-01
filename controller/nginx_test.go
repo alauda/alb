@@ -40,8 +40,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"1",
 			[]*Policy{
-				{Priority: 100, RawPriority: 5},
-				{Priority: 100, RawPriority: 5},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
 			},
 			args{0, 1},
 			false,
@@ -49,8 +49,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"2",
 			[]*Policy{
-				{Priority: 100, RawPriority: 4},
-				{Priority: 100, RawPriority: 5},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 4}},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
 			},
 			args{0, 1},
 			true,
@@ -58,8 +58,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"3",
 			[]*Policy{
-				{Priority: 99, RawPriority: 5},
-				{Priority: 100, RawPriority: 5},
+				{ComplexPriority: 99, SameInRuleCr: SameInRuleCr{Priority: 5}},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
 			},
 			args{0, 1},
 			false,
@@ -67,8 +67,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"4",
 			[]*Policy{
-				{Priority: 100, RawPriority: 100, Rule: "a"},
-				{Priority: 100, RawPriority: 100, Rule: "b"},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 100}, Rule: "a"},
+				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 100}, Rule: "b"},
 			},
 			args{0, 1},
 			true,
@@ -124,13 +124,18 @@ func AssertBackendsEq(t *testing.T, left, right []*Backend) {
 	for _, be := range right {
 		find := false
 		for i, leftBe := range leftMap {
-			if leftBe != nil && *be == *leftBe {
+			if leftBe == nil {
+				continue
+			}
+			addr := be.Address
+			leftAddr := leftBe.Address
+			if addr == leftAddr && be.Port == leftBe.Port && be.Weight == leftBe.Weight {
 				find = true
 				leftMap[i] = nil
 				break
 			}
 		}
-		assert.True(t, find, "could not find be %v", be)
+		assert.True(t, find, "could not find be %v %v", be)
 	}
 }
 

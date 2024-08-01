@@ -29,8 +29,8 @@ function _M.exit_with_code(reason, msg, code)
         ngx.header[ErrReason] = reason
         ngx.ctx.is_alb_err = true
         ngx.status = code
-        if ngx.ctx.alb_ctx["http_cpaas_trace"] == "true" then
-            ngx.header["x-cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.trace, false)
+        if ngx.ctx.alb_ctx.var["http_cpaas_trace"] == "true" then
+            ngx.header["x-cpaas-trace"] = common.json_encode(ngx.ctx.alb_ctx.var.trace, false)
         end
         ngx.exit(ngx.HTTP_OK)
     end

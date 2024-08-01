@@ -1,0 +1,23 @@
+use strict;
+use warnings;
+use t::Alauda;
+use Test::Nginx::Socket 'no_plan';
+use Test::Nginx::Socket;
+
+our $tt = t::Alauda->get_test_name(__FILE__);
+
+log_level("info");
+master_process_enabled("on");
+workers(1);
+worker_connections(51200);
+no_shuffle();
+no_root_location();
+run_tests();
+
+__DATA__
+
+=== TEST 1: nyi
+--- timeout: 30
+--- enable_nyi
+--- init_worker_eval: require("mock_worker_init").init_worker()
+--- lua_test_eval eval: "require('$::tt').test()"

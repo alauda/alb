@@ -16,7 +16,8 @@ import (
 
 func TestIngressGenRule(t *testing.T) {
 	ctx := context.Background()
-	config.UseMock(config.DefaultMock())
+	gcf := config.DefaultMock()
+	config.UseMock(gcf)
 	base := InitBase()
 	l := log.InitKlogV2(log.LogCfg{ToFile: base + "/unit-test.log"})
 	env := NewEnvtestExt(base, l)
@@ -56,13 +57,15 @@ spec:
 	kt.AssertKubectlApply(ingYaml)
 	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, kcfg)
 	assert.NoError(t, err)
-	ingc := NewController(drv, drv.Informers, config.GetConfig(), log.L().WithName("ingress"))
+	ingc := NewController(drv, drv.Informers, gcf, log.L().WithName("ingress"))
 
 	ing, err := kc.GetK8sClient().NetworkingV1().Ingresses("cpaas-system").Get(ctx, "i1", metav1.GetOptions{})
 	assert.NoError(t, err)
+
+	ft := &albv1.Frontend{}
 	for ri, r := range ing.Spec.Rules {
-		for pi, p := range r.HTTP.Paths {
-			albrule, err := ingc.generateRule(ing, crcli.ObjectKey{Namespace: "x", Name: "x"}, &albv1.Frontend{}, r.Host, p, ri, pi)
+		for pi := range r.HTTP.Paths {
+			albrule, err := ingc.GenerateRule(ing, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, ri, pi)
 			l.Info("rule", "cr", PrettyCr(albrule))
 			assert.NoError(t, err)
 		}

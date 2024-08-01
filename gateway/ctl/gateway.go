@@ -71,7 +71,7 @@ func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger,
 		c:                     c,
 		log:                   log,
 		ctx:                   ctx,
-		controllerName:        GetControllerName(),
+		controllerName:        GetControllerName(cfg),
 		invalidListenerfilter: listenerFilter,
 		invalidRoutefilter:    routeFilter,
 		supportKind:           SUPPORT_KIND_MAP,
@@ -373,7 +373,7 @@ func (g *GatewayReconciler) updateGatewayStatus(gateway *gv1.Gateway, ls []*List
 
 func (g *GatewayReconciler) GetGatewayAlb(gw *gv1.Gateway) (*alb2v2.ALB2, error) {
 	// get ip from alb.
-	ns, name := config.GetConfig().GetAlbNsAndName()
+	ns, name := g.albcfg.GetAlbNsAndName()
 	return getAlb(g.ctx, g.c, ns, name)
 }
 

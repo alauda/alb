@@ -4,8 +4,8 @@ local F = require "F"
 local u = require "util"
 local h = require "test-helper"
 local common = require "utils.common"
-local dsl = require "dsl"
-local ups = require "upstream"
+local dsl = require "match_engine.dsl"
+local ups = require "match_engine.upstream"
 -- LuaFormatter off
 local function default_policy()
     return {
@@ -13,41 +13,49 @@ local function default_policy()
         http = {
             tcp = {
                 ["80"] = {
-                    {rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1"},
-                    {rule = "2", internal_dsl = {{"STARTS_WITH", "URL", "/t2"}}, upstream = "test-upstream-1"},
-                    {rule = "3", internal_dsl = {{"STARTS_WITH", "URL", "/t3"}}, upstream = "test-upstream-3"},
-                    {rule = "4", internal_dsl = {{"STARTS_WITH", "URL", "/t4"}}, upstream = "test-upstream-4"},
-                    {rule = "5", internal_dsl = {{"STARTS_WITH", "URL", "/t5"}}, upstream = "test-upstream-5"},
-                    {rule = "t6", internal_dsl = {{"REGEX", "URL", "/t6/*"}}, upstream = "test-upstream-1"},
-                    {rule = "t7", internal_dsl = {{"REGEX", "URL", "/t7/.*"}}, upstream = "test-upstream-1"},
-                    {rule = "trace1", internal_dsl = {{"STARTS_WITH", "URL", "/trace1"}}, rewrite_prefix_match="/trace1",rewrite_replace_prefix="/trace2", upstream = "trace1"},
-                    {rule = "trace2", internal_dsl = {{"STARTS_WITH", "URL", "/trace2"}}, upstream = "trace2"},
+                    { rule = "1",      internal_dsl = { { "STARTS_WITH", "URL", "/t1" } },     upstream = "test-upstream-1" },
+                    { rule = "2",      internal_dsl = { { "STARTS_WITH", "URL", "/t2" } },     upstream = "test-upstream-1" },
+                    { rule = "3",      internal_dsl = { { "STARTS_WITH", "URL", "/t3" } },     upstream = "test-upstream-3" },
+                    { rule = "4",      internal_dsl = { { "STARTS_WITH", "URL", "/t4" } },     upstream = "test-upstream-4" },
+                    { rule = "5",      internal_dsl = { { "STARTS_WITH", "URL", "/t5" } },     upstream = "test-upstream-5" },
+                    { rule = "t6",     internal_dsl = { { "REGEX", "URL", "/t6/*" } },         upstream = "test-upstream-1" },
+                    { rule = "t7",     internal_dsl = { { "REGEX", "URL", "/t7/.*" } },        upstream = "test-upstream-1" },
+                    { rule = "trace1", internal_dsl = { { "STARTS_WITH", "URL", "/trace1" } }, rewrite_prefix_match = "/trace1", rewrite_replace_prefix = "/trace2", upstream = "trace1" },
+                    { rule = "trace2", internal_dsl = { { "STARTS_WITH", "URL", "/trace2" } }, upstream = "trace2" },
                 }
             }
         },
-        stream = {tcp = {["81"] = {{upstream = "test-upstream-1"}}}},
+        stream = { tcp = { ["81"] = { { upstream = "test-upstream-1" } } } },
         backend_group = {
             {
-                name = "test-upstream-1", mode = "http", backends = {
-                    {address = "127.0.0.1", port = 1880, weight = 100}
+                name = "test-upstream-1",
+                mode = "http",
+                backends = {
+                    { address = "127.0.0.1", port = 1880, weight = 100 }
                 }
             },
             {
                 name = "test-upstream-4", mode = "http", backends = {}
             },
             {
-                name = "test-upstream-5", mode = "http", backends = {
-                    {address = "127.0.0.1", port = 11880, weight = 100} -- port not exist will connect error
+                name = "test-upstream-5",
+                mode = "http",
+                backends = {
+                    { address = "127.0.0.1", port = 11880, weight = 100 } -- port not exist will connect error
                 }
             },
             {
-                name = "trace1", mode = "http", backends = {
-                    {address = "127.0.0.1", port = 80, weight = 100}
+                name = "trace1",
+                mode = "http",
+                backends = {
+                    { address = "127.0.0.1", port = 80, weight = 100 }
                 }
             },
             {
-                name = "trace2", mode = "http", backends = {
-                    {address = "127.0.0.1", port = 1880, weight = 100}
+                name = "trace2",
+                mode = "http",
+                backends = {
+                    { address = "127.0.0.1", port = 1880, weight = 100 }
                 }
             }
         }
@@ -59,6 +67,10 @@ function _M.as_backend()
     if string.find(ngx.var.uri, "404") then
         u.logs("expect 404 ====", ngx.var.uri)
         ngx.exit(404)
+    end
+    if string.find(ngx.var.uri, "500") then
+        u.logs("expect 500 ====", ngx.var.uri)
+        ngx.exit(500)
     end
     if string.find(ngx.var.uri, "timeout") then
         ngx.exit(504)
@@ -81,8 +93,8 @@ function _M.as_backend()
     ngx.say "from backend"
 end
 
+local p = require "config.policy_fetch"
 function _M.set_policy(policy)
-    local p = require "policy_fetch"
     p.update_policy(policy, "manual")
 end
 
@@ -91,7 +103,7 @@ function _M.set_policy_lua(policy_table)
 end
 
 function _M.test_policy_cache()
-    ngx.ctx.alb_ctx = {uri = "/t1", trace = {}}
+    ngx.ctx.alb_ctx = {var = {uri = "/t1", trace = {}}}
     local up, policy, err = ups.get_upstream("http", "tcp", 80)
     h.assert_is_nil(err)
     h.assert_eq(up, "test-upstream-1")
@@ -129,6 +141,11 @@ function _M.test_error_reason()
         u.logs(res, err)
         h.assert_eq(res.status, 500)
         h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidBalancer : no balancer found for test-upstream-4")
+
+        local res, err = httpc:request_uri("http://127.0.0.1:80/t1/500", {})
+        u.logs(res, err)
+        h.assert_eq(res.status, 500)
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 324")
     end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1", {})

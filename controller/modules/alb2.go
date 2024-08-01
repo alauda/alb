@@ -6,15 +6,13 @@ import (
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // a tree like struct to load all alb route related resource such as alb/ft/rule
 type AlaudaLoadBalancer struct {
-	UID       types.UID
 	Alb       *albv2.ALB2
-	Labels    map[string]string
+	Labels    map[string]string // depr
 	Spec      albv2.ALB2Spec
 	Status    albv2.ALB2Status
 	Name      string

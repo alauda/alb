@@ -8,7 +8,7 @@ function _M.header_filter()
     if not enable_cors then
         return
     end
-    if ngx.ctx.alb_ctx.method ~= 'OPTIONS' then
+    if ngx.ctx.alb_ctx.var.method ~= 'OPTIONS' then
         if matched_policy["cors_allow_origin"] ~= "" then
             ngx_header['Access-Control-Allow-Origin'] = matched_policy["cors_allow_origin"]
         else

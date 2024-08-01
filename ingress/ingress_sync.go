@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
-	. "alauda.io/alb2/controller/custom_config"
 	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -173,13 +172,15 @@ func (c *Controller) genSyncFtAction(oft *alb2v1.Frontend, eft *alb2v1.Frontend,
 		return nil, nil
 	}
 	// we only update ft when source group change to exist
+	// user may update those ingress created ft
 	if oft != nil && eft != nil {
 		log.Info("ft both exist", "oft-v", oft.ResourceVersion, "oft-src", oft.Spec.Source, "oft-svc", oft.Spec.ServiceGroup, "eft-src", eft.Spec.Source, "eft-svc", eft.Spec.ServiceGroup)
 		// oft it get from k8s, eft is crate via our. we should update the exist ft.
 		if oft.Spec.ServiceGroup == nil && eft.Spec.ServiceGroup != nil {
 			log.Info("ft default backend changed ", "backend", eft.Spec.ServiceGroup, "source", eft.Spec.Source)
 			f := oft.DeepCopy()
-			f.Spec = eft.Spec
+			f.Spec.ServiceGroup = eft.Spec.ServiceGroup
+			f.Spec.Source = eft.Spec.Source
 			return &SyncFt{
 				Update: []*alb2v1.Frontend{f},
 			}, nil
@@ -256,7 +257,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 		}
 		for pIndex, p := range r.HTTP.Paths {
 			if httpFt != nil {
-				rule, err := c.generateRule(ingress, alb.GetAlbKey(), httpFt, host, p, rIndex, pIndex)
+				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpFt, rIndex, pIndex)
 				if err != nil {
 					c.log.Error(err, "generate http rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
 					continue
@@ -264,7 +265,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 				httpRule = append(httpRule, rule)
 			}
 			if httpsFt != nil {
-				rule, err := c.generateRule(ingress, alb.GetAlbKey(), httpsFt, host, p, rIndex, pIndex)
+				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpsFt, rIndex, pIndex)
 				if err != nil {
 					c.log.Error(err, "generate https rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
 					continue
@@ -283,8 +284,8 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 }
 
 func (c *Controller) cleanUpThisIngress(alb *m.AlaudaLoadBalancer, key client.ObjectKey) error {
-	IngressHTTPPort := config.GetConfig().GetIngressHttpPort()
-	IngressHTTPSPort := config.GetConfig().GetIngressHttpsPort()
+	IngressHTTPPort := c.GetIngressHttpPort()
+	IngressHTTPSPort := c.GetIngressHttpsPort()
 	log := c.log.WithName("cleanup").WithValues("ingress", key)
 	log.Info("clean up")
 	var ft *m.Frontend
@@ -348,7 +349,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	IngressHTTPSPort := c.GetIngressHttpsPort()
 	defaultSSLCert := strings.ReplaceAll(c.GetDefaultSSLCert(), "/", "_")
 
-	alblabelKey := config.GetConfig().GetLabelAlbName()
+	alblabelKey := c.GetLabelAlbName()
 	need := getIngressFtTypes(ingress, c.Config)
 	c.log.Info("ing need http https", "http", need.NeedHttp(), "https", need.NeedHttps())
 
@@ -380,7 +381,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 						APIVersion: alb2v2.SchemeGroupVersion.String(),
 						Kind:       alb2v1.ALB2Kind,
 						Name:       alb.Name,
-						UID:        alb.UID,
+						UID:        alb.Alb.UID,
 					},
 				},
 			},
@@ -411,7 +412,7 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 						APIVersion: alb2v2.SchemeGroupVersion.String(),
 						Kind:       alb2v2.ALB2Kind,
 						Name:       alb.Name,
-						UID:        alb.UID,
+						UID:        alb.Alb.UID,
 					},
 				},
 			},
@@ -484,15 +485,17 @@ func (c *Controller) getIngresHttpsFtRaw(alb *m.AlaudaLoadBalancer) *alb2v1.Fron
 	return alb.FindIngressFtRaw(https, m.ProtoHTTPS)
 }
 
-func (c *Controller) generateRule(
+func (c *Controller) GenerateRule(
 	ingress *networkingv1.Ingress,
 	albKey client.ObjectKey,
 	ft *alb2v1.Frontend,
-	host string,
-	ingresPath networkingv1.HTTPIngressPath,
 	ruleIndex int,
 	pathIndex int,
 ) (*alb2v1.Rule, error) {
+	r := ingress.Spec.Rules[ruleIndex]
+	host := r.Host
+	ingresPath := ingress.Spec.Rules[ruleIndex].HTTP.Paths[pathIndex]
+
 	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", c.GetDomain())
 
 	ingInfo := fmt.Sprintf("%s/%s:%v:%v", ingress.Namespace, ingress.Name, ft.Spec.Port, pathIndex)
@@ -530,7 +533,7 @@ func (c *Controller) generateRule(
 		redirectCode = 302
 	}
 
-	ruleAnnotation := GenerateRuleAnnotationFromIngressAnnotation(ingress.Name, annotations, c.Domain)
+	ruleAnnotation := map[string]string{}
 
 	certs := make(map[string]string)
 
@@ -585,6 +588,7 @@ func (c *Controller) generateRule(
 		RedirectCode:     redirectCode,
 		VHost:            vhost,
 		Description:      ingInfo,
+		Config:           &alb2v1.RuleConfigInCr{},
 		ServiceGroup: &alb2v1.ServiceGroup{ // TODO ingress could only have one service as backend
 			Services: []alb2v1.Service{
 				{
@@ -602,7 +606,7 @@ func (c *Controller) generateRule(
 		},
 	}
 
-	cfg := config.GetConfig()
+	cfg := c
 	ruleRes := &alb2v1.Rule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -624,6 +628,7 @@ func (c *Controller) generateRule(
 		},
 		Spec: ruleSpec,
 	}
+	c.cus.IngressToRule(ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
 }
 

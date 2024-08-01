@@ -24,9 +24,9 @@ function _M.redirect()
         end
     end
 
-    local scheme = s_ext.nil_or(redirect_scheme, ngx.ctx.alb_ctx.scheme)
-    local host = s_ext.nil_or(redirect_host, ngx.ctx.alb_ctx.host)
-    local url = s_ext.nil_or(redirect_url, ngx.ctx.alb_ctx.uri)
+    local scheme = s_ext.nil_or(redirect_scheme, ngx.ctx.alb_ctx.var.scheme)
+    local host = s_ext.nil_or(redirect_host, ngx.ctx.alb_ctx.var.host)
+    local url = s_ext.nil_or(redirect_url, ngx.ctx.alb_ctx.var.uri)
     if prefix_match ~= nil and prefix_match ~= "" then
         replace_prefix = s_ext.nil_or(replace_prefix, "")
         url = replace.replace(url, prefix_match, replace_prefix)

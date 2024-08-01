@@ -16,8 +16,10 @@ import (
 	"text/template"
 	"time"
 
+	jd "github.com/josephburnett/jd/lib"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -209,4 +211,32 @@ func GinkgoNoErr(e error) {
 
 func GinkgoAssertTrue(v bool, msg string) {
 	assert.True(ginkgo.GinkgoT(), v, msg)
+}
+
+func GinkgoAssertStringEq(left, right string, msg string) {
+	assert.Equal(ginkgo.GinkgoT(), left, right, msg)
+}
+
+func GinkgoAssertJsonTEq(left interface{}, right interface{}, msg string) {
+	left_j, err := json.MarshalIndent(left, "", "")
+	GinkgoNoErr(err)
+	left_jd, err := jd.ReadJsonString(string(left_j))
+	GinkgoNoErr(err)
+	right_j, err := json.MarshalIndent(right, "", "")
+	GinkgoNoErr(err)
+	right_jd, err := jd.ReadJsonString(string(right_j))
+	GinkgoNoErr(err)
+	df := left_jd.Diff(right_jd)
+	assert.Equal(ginkgo.GinkgoT(), df.Render(), "", msg)
+}
+
+func GinkgoAssertJsonEq(left interface{}, right string, msg string) {
+	left_j, err := json.MarshalIndent(left, "", "")
+	GinkgoNoErr(err)
+	left_jd, err := jd.ReadJsonString(string(left_j))
+	GinkgoNoErr(err)
+	right_jd, err := jd.ReadJsonString(right)
+	GinkgoNoErr(err)
+	df := left_jd.Diff(right_jd)
+	assert.Equal(ginkgo.GinkgoT(), df.Render(), "", msg)
 }

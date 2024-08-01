@@ -84,13 +84,12 @@ func GetObjectKey(c CommonRoute) string {
 	return client.ObjectKeyFromObject(c.GetObject()).String()
 }
 
-// TODO fixme
-func GetClassName() string {
-	return config.GetConfig().GetAlbName()
+func GetClassName(cfg *config.Config) string {
+	return cfg.GetAlbName()
 }
 
-func GetControllerName() string {
-	return fmt.Sprintf("alb2.gateway.%s/%s", config.GetConfig().GetDomain(), config.GetConfig().GetAlbName())
+func GetControllerName(cfg *config.Config) string {
+	return fmt.Sprintf("alb2.gateway.%s/%s", cfg.GetDomain(), cfg.GetAlbName())
 }
 
 func IsSupported(protocol string, routeKind string) bool {

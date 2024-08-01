@@ -68,15 +68,15 @@ type KubernetesDriver struct {
 	DynamicClient  dynamic.Interface
 	Client         kubernetes.Interface
 	GatewayClient  gatewayVersioned.Interface
-	Informers      Informers
+	Informers      Informers // deprecated
 	ALBClient      albclient.Interface
 	ALBv2Client    albclient.Interface
-	ALB2Lister     albv2.ALB2Lister
-	FrontendLister v1.FrontendLister
-	RuleLister     v1.RuleLister
-	ServiceLister  corev1lister.ServiceLister
-	EndpointLister corev1lister.EndpointsLister
-	GatewayLister  gv1l.GatewayLister
+	ALB2Lister     albv2.ALB2Lister             // deprecated
+	FrontendLister v1.FrontendLister            // deprecated
+	RuleLister     v1.RuleLister                // deprecated
+	ServiceLister  corev1lister.ServiceLister   // deprecated
+	EndpointLister corev1lister.EndpointsLister // deprecated
+	GatewayLister  gv1l.GatewayLister           // deprecated
 	Ctx            context.Context
 	Opt            Opt
 	Log            logr.Logger
@@ -111,7 +111,7 @@ func NewDriver(opt DrvOpt) (*KubernetesDriver, error) {
 	return drv, nil
 }
 
-func cfg2opt(cfg *config.Config) Opt {
+func Cfg2opt(cfg *config.Config) Opt {
 	return Opt{
 		Domain:              cfg.GetDomain(),
 		Ns:                  cfg.GetNs(),
@@ -121,36 +121,33 @@ func cfg2opt(cfg *config.Config) Opt {
 
 // Deprecated: use NewDriver instead
 func GetDriver(ctx context.Context) (*KubernetesDriver, error) {
-	return GetAndInitDriver(ctx)
-}
-
-// Deprecated: use NewDriver instead
-func GetAndInitDriver(ctx context.Context) (*KubernetesDriver, error) {
-	cfg := config.GetConfig()
-	cf, err := GetKubeCfg(cfg.K8s)
-	if err != nil {
-		return nil, err
-	}
-	return NewDriver(DrvOpt{
-		Ctx: ctx,
-		Cf:  cf,
-		Opt: cfg2opt(cfg),
-	})
+	return GetAndInitKubernetesDriverFromCfg(ctx, nil)
 }
 
 // Deprecated: use NewDriver instead
 func GetAndInitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*KubernetesDriver, error) {
 	cfg := config.GetConfig()
-	opt := cfg2opt(cfg)
+	if cf == nil {
+		lcf, err := GetKubeCfg(cfg.K8s)
+		if err != nil {
+			return nil, err
+		}
+		cf = lcf
+	}
+	opt := Cfg2opt(cfg)
 	return NewDriver(DrvOpt{Ctx: ctx, Cf: cf, Opt: opt})
+}
+
+func GetKubeCfgFromFile(f string) (*rest.Config, error) {
+	cf, err := clientcmd.BuildConfigFromFlags("", f)
+	return cf, err
 }
 
 func GetKubeCfg(k8s config.K8sConfig) (*rest.Config, error) {
 	// respect KUBECONFIG env
 	if k8s.Mode == "kubecfg" {
 		kubecfg := k8s.KubeCfg
-		cf, err := clientcmd.BuildConfigFromFlags("", kubecfg)
-		return cf, err
+		return GetKubeCfgFromFile(kubecfg)
 	}
 	// respect KUBERNETES_XXX env. only used for test
 	if k8s.Mode == "kube_xx" {

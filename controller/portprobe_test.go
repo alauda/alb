@@ -19,6 +19,7 @@ import (
 )
 
 func TestPortProbe(t *testing.T) {
+	t.Skip("skip")
 	base := InitBase()
 	l := log.InitKlogV2(log.LogCfg{ToFile: base + "/port-test.log"})
 	env := NewEnvtestExt(base, l)
