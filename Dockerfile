@@ -1,6 +1,5 @@
 ARG GO_BUILD_BASE=docker-mirrors.alauda.cn/library/golang:1.22.5-alpine
 ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.25.3
-ARG RUN_BASE=build-harbor.alauda.cn/ops/alpine:3.20
 
 FROM ${GO_BUILD_BASE} AS go_builder
 
@@ -18,6 +17,7 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 RUN ldd /out/albctl || true
 
 FROM ${OPENRESTY_BASE} AS base
+ENV ALB_ONLINE =$ALB_ONLINE
 WORKDIR /tmp/
 COPY ./template/actions /tmp/
 # install our lua dependency
@@ -52,7 +52,9 @@ STOPSIGNAL SIGQUIT
 # libcap: tweak file capability
 # zlib-dev: policy-zip
 # iproute2: ss
-RUN umask 027 && \ 
+# add nonroot user to run base image if not exist
+RUN sh -c "cat /etc/passwd | grep nonroot || (adduser -D nonroot && mkdir -p /etc/sudoers.d && echo 'nonroot ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/nonroot && chmod 0440 /etc/sudoers.d/nonroot)" && \ 
+umask 027 && \ 
 sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
 apk add --no-cache zlib-dev libcap iproute2 yq jq curl bash && \ 
 mkdir -p /alb/ctl/tools && \ 

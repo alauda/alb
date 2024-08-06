@@ -1,4 +1,4 @@
-name: Build 
+name: build-alb-images-and-chart
 on:
   workflow_dispatch:
     inputs:
@@ -30,7 +30,6 @@ env:
   GOSEC_VERSION: '2.18.2'
   HELM_VERSION: v3.13.3
   SUBMARINER_VERSION: '0.16.2'
-  IMAGE_REPO: "theseedoaa"
 jobs:
   build-alb:
     name: Build alb
@@ -41,56 +40,27 @@ jobs:
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-      - name: version
+      - name: version # it will set the CURRENT_VERSION env
         uses: HardNorth/github-version-generate@v1.3.0
         with:
           version-source: file
-          version-file: .github/VERSION
-          version-file-extraction-pattern: 'v(.+)'
+          version-file: ./deploy/chart/alb/Chart.yaml
+          version-file-extraction-pattern: 'version: v([0-9]*\.[0-9]*\.[0-9]*)'
       - uses: docker/setup-buildx-action@v3
       - uses: azure/setup-helm@v3
         with:
           version: '${{ env.HELM_VERSION }}'
       - name: build
+        env:
+            RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
         run: |
           set -x
-          source ./scripts/alb-dev-actions.sh
-          export VERSION=$(alb-github-gen-version)
-
-          OPENRESTY_BASE=theseedoaa/alb-nginx-base:v1.22.0
-          GO_BUILD_BASE=golang:1.21.6-alpine
-          RUN_BASE=theseedoaa/ops-alpine:3.17 # we need nonroot user
-
-          #  build images
-          docker buildx build --platform linux/amd64 -t $IMAGE_REPO/alb:$VERSION --build-arg VERSION=$VERSION  --build-arg RUN_BASE=$RUN_BASE --build-arg BUILD_BASE=$GO_BUILD_BASE -o type=docker -f ./Dockerfile . 
-
-          docker pull $OPENRESTY_BASE 
-          docker buildx build --platform linux/amd64 -t $IMAGE_REPO/alb-nginx:$VERSION --build-arg VERSION=$VERSION  --build-arg OPENRESTY_BASE=$OPENRESTY_BASE --build-arg BUILD_BASE=$GO_BUILD_BASE -o type=docker -f ./template/Dockerfile ./ 
-
-          docker images
-          
-          docker save $IMAGE_REPO/alb:$VERSION > alb.tar
-          docker save $IMAGE_REPO/alb-nginx:$VERSION > alb-nginx.tar
-          ls
-          env
-          # build chart
-          rm -rf .cr-release-packages
-          mkdir -p .cr-release-packages
-          chart=$(alb-build-github-chart $IMAGE_REPO $VERSION  ./deploy/chart/alb .cr-release-packages/ )
-          cp $chart alauda-alb2.tgz
-          tree ./deploy/chart/alb
-          tree .cr-release-packages
-          cat ./deploy/chart/alb/Chart.yaml
+          ./scripts/run-like-github-actions.sh build-alb
       - name: Upload alb images to artifact
         uses: actions/upload-artifact@v3
         with:
           name: alb
           path: alb.tar
-      - name: Upload alb-nginx images to artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: alb-nginx
-          path: alb-nginx.tar
       - name: Upload chart's to artifact
         uses: actions/upload-artifact@v3
         with:
@@ -103,30 +73,10 @@ jobs:
       - name: release
         if: ${{ inputs.do_release }}
         env:
+          RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
-          echo "in release"
-          # push docker
-          source ./scripts/alb-dev-actions.sh
-          export VERSION=$(alb-github-gen-version)
-          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          docker push $IMAGE_REPO/alb:$VERSION
-          docker push $IMAGE_REPO/alb-nginx:$VERSION
-
-          # push chart
-          owner=$(cut -d '/' -f 1 <<< "$GITHUB_REPOSITORY")
-          repo=$(cut -d '/' -f 2 <<< "$GITHUB_REPOSITORY")
-
-          args=(--owner "$owner" --repo "$repo" --charts-dir "./deploy/chart/alb" --skip-packaging "true" --pages-branch "gh-pages")
-
-          echo "sync chart"
-          git status
-          git log | head -n 30
-          git remote -v
-          git remote update
-          git branch -r
-
-          .github/cr.sh "${args[@]}"
+          ./scripts/run-like-github-actions.sh release-alb
