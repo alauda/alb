@@ -28,20 +28,36 @@ fi
 
 export PATH=$openresty/bin:$PATH
 
-function install-offline() (
+function alb-ng-install-deps() (
   mkdir -p $openresty/site/lualib/resty/
   tree $openresty/luajit
-
-  install-lua-var-nginx-module
+  tree $openresty/site/
   install-lua-resty-mlcache
-  install-lua-resty-cookie
+  install-lua-var-nginx-module
   install-lua-resty-balancer
+  install-lua-resty-cookie
   install-lua-protobuf
   install-opentelemetry-lua
   install-lua-resty-http
+  tree $openresty/lualib/resty
+)
 
-  tree $openresty/luajit
-  return
+function _alb_lua_switch() (
+  local online=$1
+  local offline=$2
+  if [[ "$(_alb_am_i_online)" == "true" ]]; then
+    echo "$online"
+    return
+  fi
+  echo "$offline"
+)
+
+function _alb_am_i_online() (
+  if [[ -n "$ALB_ONLINE" ]]; then
+    echo "true"
+    return
+  fi
+  echo "false"
 )
 
 function install-lua-resty-http() (
@@ -52,7 +68,7 @@ function install-lua-resty-http() (
   local online="https://codeload.github.com/ledgetech/lua-resty-http/zip/refs/tags/v$ver"
   local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-http-$ver.zip"
   local name="lua-resty-http"
-  local url=$offline
+  local url=$(_alb_lua_switch $online $offline)
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -75,7 +91,7 @@ function install-opentelemetry-lua() (
   local online="https://codeload.github.com/yangxikun/opentelemetry-lua/zip/refs/tags/v$ver"
   local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/opentelemetry-lua-$ver.zip"
   local name="opentelemetry-lua"
-  local url=$offline
+  local url=$(_alb_lua_switch $online $offline)
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -94,25 +110,31 @@ function install-opentelemetry-lua() (
 )
 
 function install-lua-resty-mlcache() (
-  # wget "https://opm.openresty.org/api/pkg/fetch?account=thibaultcha&name=lua-resty-mlcache&op=eq&version=2.5.0" -O ./lua-resty-mlcache-2.5.0.opm.tar
   # md5sum   ./lua-resty-mlcache-2.5.0.opm.tar ea5d142ffef2bea41ea408ef9aa94033
-  wget http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar -O ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
+  local online="https://opm.openresty.org/api/pkg/fetch?account=thibaultcha&name=lua-resty-mlcache&op=eq&version=$LUA_RESTY_MLCACHE_VERSION"
+  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar"
+  local url=$(_alb_lua_switch $online $offline)
+  wget $url -O ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   tar -x -f ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   cp -r ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
   rm -rf ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION*
 )
 
 function install-lua-resty-cookie() (
-  # wget "https://opm.openresty.org/api/pkg/fetch?account=xiangnanscu&name=lua-resty-cookie&op=eq&version=0.01" -O ./lua-resty-cookie-0.01.opm.tar
   # md5sum ./lua-resty-cookie-0.01.opm.tar cfd011d1eb1712b47abd9cdffb7bc90b
-  wget http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar -O ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
+  local online="https://opm.openresty.org/api/pkg/fetch?account=xiangnanscu&name=lua-resty-cookie&op=eq&version=$LUA_RESTY_COOKIE_VERSION"
+  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar"
+  local url=$(_alb_lua_switch $online $offline)
+  wget $url -O ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   tar -x -f ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   cp -r ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
   rm -rf ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION*
 )
 
 function install-lua-resty-balancer() (
-  local url="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz"
+  local online="https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz"
+  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz"
+  local url=$(_alb_lua_switch $online $offline)
   local ver="${LUA_RESTY_BALANCER_VERSION}"
   wget "$url" -O lua-resty-balancer-v$ver.tar.gz
   tar xzf lua-resty-balancer-v$ver.tar.gz && rm -rf lua-resty-balancer-v$ver.tar.gz
@@ -125,7 +147,9 @@ function install-lua-resty-balancer() (
 )
 
 function install-lua-var-nginx-module() (
-  local url="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
+  local online="https://github.com/api7/lua-var-nginx-module/archive/v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
+  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
+  local url=$(_alb_lua_switch $online $offline)
   local ver="${LUA_VAR_NGINX_MODULE_VERSION}"
   wget $url -O lua-var-nginx-module-v$ver.tar.gz
   tar xzf lua-var-nginx-module-v$ver.tar.gz
@@ -141,7 +165,7 @@ function install-lua-protobuf() (
   local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-protobuf-$LUA_PROTOBUF.zip"
   local online="https://codeload.github.com/starwing/lua-protobuf/zip/refs/tags/$LUA_PROTOBUF"
   local name="lua-protobuf"
-  local url=$offline
+  local url=$(_alb_lua_switch $online $offline)
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -157,21 +181,6 @@ function install-lua-protobuf() (
   return
 )
 
-function install-online() (
-  tree $openresty/site/
-  opm install thibaultcha/lua-resty-mlcache=$LUA_RESTY_MLCACHE_VERSION
-  tree $openresty/site/
-  opm install xiangnanscu/lua-resty-cookie=$LUA_RESTY_COOKIE_VERSION
-  tree $openresty/site/
-
-  install-lua-var-nginx-module "https://github.com/api7/lua-var-nginx-module/archive/v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz" ${LUA_VAR_NGINX_MODULE_VERSION}
-  install-lua-resty-balancer "https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz" ${LUA_RESTY_BALANCER_VERSION}
-  install-lua-protobuf "online"
-  install-opentelemetry-lua "online"
-  install-lua-resty-http "online"
-  tree $openresty/lualib/resty
-)
-
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  install-offline
+  alb-ng-install-deps
 fi
