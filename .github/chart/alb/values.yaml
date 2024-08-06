@@ -17,7 +17,7 @@ global:
     nginx:
       code: https://github.com/alauda/alb
       support_arm: true
-      repository: alb-nginx
+      repository: alb
 resources:
   alb:
     limits:
