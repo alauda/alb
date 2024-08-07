@@ -3,6 +3,18 @@ entries:
   alauda-alb2:
   - annotations:
       branch: ""
+      commit: f11bddc62e30f5b6e82116d46c9e4f1e7499b766
+      release: alpha
+    apiVersion: v2
+    created: "2024-08-07T10:47:44.662388226Z"
+    description: alauda loadbalancer version 2
+    digest: 81e0bdade44a12d797aaa92e073fa0b97708a748323f6b512e8704ab39cfb044
+    name: alauda-alb2
+    urls:
+    - https://github.com/alauda/alb/releases/download/alauda-alb2-v3.18.0-feat-ACP-37252-ghci.113.1/alauda-alb2-v3.18.0-feat-ACP-37252-ghci.113.1.tgz
+    version: v3.18.0-feat-ACP-37252-ghci.113.1
+  - annotations:
+      branch: ""
       commit: d52da272000bd08e74e19f51535581b160f68edb
       release: alpha
     apiVersion: v2
@@ -37,4 +49,4 @@ entries:
     urls:
     - https://github.com/alauda/alb/releases/download/alauda-alb2-v1.0.0/alauda-alb2-v1.0.0.tgz
     version: v1.0.0
-generated: "2024-08-07T10:11:36.376107864Z"
+generated: "2024-08-07T10:47:44.662409406Z"
