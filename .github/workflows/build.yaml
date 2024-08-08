@@ -50,6 +50,10 @@ jobs:
       - uses: azure/setup-helm@v3
         with:
           version: '${{ env.HELM_VERSION }}'
+      - name: test alb go 
+        run: |
+          set -x
+          ./scripts/run-like-github-actions.sh test-alb-go
       - name: build
         env:
             RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
@@ -66,6 +70,10 @@ jobs:
         with:
           name: alb-chart
           path: alauda-alb2.tgz
+      - name: test alb nginx
+        run: |
+          set -x
+          ./scripts/run-like-github-actions.sh test-alb-nginx
       - name: cr
         uses: helm/chart-releaser-action@v1.6.0
         with:
