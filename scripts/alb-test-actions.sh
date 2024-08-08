@@ -95,7 +95,7 @@ function alb-go-unit-test() {
 }
 
 function alb-envtest-install() {
-  curl --progress-bar -sSLo envtest-bins.tar.gz $(_switch_url "https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)" "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz")
+  curl --progress-bar -sSLo envtest-bins.tar.gz $(__at_resolve_url envtest)
   mkdir -p /usr/local/kubebuilder
   tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
   rm envtest-bins.tar.gz
@@ -103,12 +103,41 @@ function alb-envtest-install() {
   /usr/local/kubebuilder/bin/kube-apiserver --version
 }
 
-function _switch_url() {
-  if [[ -n "$ALB_ONLINE" ]]; then
-    echo $1
-  else
-    echo $2
+function __at_resolve_url() {
+  local name="$1"
+  local arch=$(uname -m)
+
+  local envtest_url="https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)"
+  local cfg=$(
+    cat <<EOF
+{
+ "kubectl_x86_64_online": "https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz",
+ "helm_x86_64_online": "https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz",
+ "golangcli_x86_64_online": "https://github.com/golangci/golangci-lint/releases/download/v1.59.1/golangci-lint-1.59.1-illumos-amd64.tar.gz",
+ "envtest_x86_64_online": "$envtest_url",
+
+ "kubectl_arm_online": "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz",
+ "helm_arm_online": "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz",
+ "golangcli_arm_online": "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz",
+ "envtest_arm_online": "$envtest_url",
+ 
+ "kubectl_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/kubernetes-client-linux-amd64.tar.gz",
+ "helm_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/helm-v3.9.3-linux-amd64.tar.gz",
+ "golangcli_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/golangci-lint-1.59.1-illumos-amd64.tar.gz",
+ "envtest_x86_64_offline": "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz"
+}
+EOF
+  )
+  local mode="offline"
+  if [[ "$ALB_ONLINE" == "true" ]]; then
+    mode="online"
   fi
+  local url=$(echo "$cfg" | jq -r ".${name}_${arch}_${mode}")
+  if [[ -z "$url" ]]; then
+    echo "not found $name $arch $mode"
+    return 1
+  fi
+  echo $url
 }
 
 function alb-install-golang-test-dependency() {
@@ -117,7 +146,7 @@ function alb-install-golang-test-dependency() {
   if [ -f "$(which helm)" ]; then echo "dependency already installed" return; else echo "dependency not installed. install it"; fi
 
   # rm -rf kubernetes-client-linux-amd64.tar.gz &&  wget  &&
-  local kubectl_url=$(_switch_url https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz http://prod-minio.alauda.cn/acp/ci/alb/build/kubernetes-client-linux-amd64.tar.gz)
+  local kubectl_url=$(__at_resolve_url kubectl)
 
   wget $kubectl_url
   tar -zxvf kubernetes-client-linux-amd64.tar.gz
@@ -129,13 +158,13 @@ function alb-install-golang-test-dependency() {
   which kubectl
 
   echo "install helm"
-  local helm_url=$(_switch_url https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz http://prod-minio.alauda.cn/acp/ci/alb/build/helm-v3.9.3-linux-amd64.tar.gz)
+  local helm_url=$(__at_resolve_url helm)
   wget $helm_url
   tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
 
   helm version
   # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
-  local golangci_lint=$(_switch_url "https://github.com/golangci/golangci-lint/releases/download/v1.59.1/golangci-lint-1.59.1-illumos-amd64.tar.gz" "http://prod-minio.alauda.cn/acp/ci/alb/build/golangci-lint-1.59.1-illumos-amd64.tar.gz")
+  local golangci_lint=$(__at_resolve_url golangcli)
   wget $golangci_lint
   tar -zxvf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
   chmod +x ./golangci-lint-1.59.1-illumos-amd64/golangci-lint && mv ./golangci-lint-1.59.1-illumos-amd64/golangci-lint /usr/local/bin/golangci-lint
