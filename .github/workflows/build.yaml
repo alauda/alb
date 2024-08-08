@@ -34,6 +34,11 @@ jobs:
   build-alb:
     name: Build alb
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
     steps:
       - uses: actions/checkout@v4
       - name: Configure Git
@@ -47,16 +52,18 @@ jobs:
           version-file: ./deploy/chart/alb/Chart.yaml
           version-file-extraction-pattern: 'version: v([0-9]*\.[0-9]*\.[0-9]*)'
       - uses: docker/setup-buildx-action@v3
-      - uses: azure/setup-helm@v3
-        with:
-          version: '${{ env.HELM_VERSION }}'
       - name: test alb go 
+        if: ${{ matrix.platform ==  'linux/amd64' }}
+        env:
+            MATRIX_PLATFORM: "${{ matrix.platform }}"
         run: |
           set -x
+          echo "FROM --platform=\${{ matrix.platform }} | $MATRIX_PLATFORM "
           ./scripts/run-like-github-actions.sh test-alb-go
       - name: build
         env:
             RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
+            MATRIX_PLATFORM: "${{matrix.platform }}"
         run: |
           set -x
           ./scripts/run-like-github-actions.sh build-alb
@@ -65,19 +72,29 @@ jobs:
         with:
           name: alb
           path: alb.tar
+      - name: test alb nginx
+        env:
+            MATRIX_PLATFORM: "${{matrix.platform }}"
+        run: |
+          set -x
+          ./scripts/run-like-github-actions.sh test-alb-nginx
+  release-alb:
+    name: Release alb
+    runs-on: ubuntu-22.04
+    needs: [build-alb]
+    steps:
+      - name: cr
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          install_only: true
+      - uses: azure/setup-helm@v3
+        with:
+          version: '${{ env.HELM_VERSION }}'
       - name: Upload chart's to artifact
         uses: actions/upload-artifact@v3
         with:
           name: alb-chart
           path: alauda-alb2.tgz
-      - name: test alb nginx
-        run: |
-          set -x
-          ./scripts/run-like-github-actions.sh test-alb-nginx
-      - name: cr
-        uses: helm/chart-releaser-action@v1.6.0
-        with:
-          install_only: true
       - name: release
         if: ${{ inputs.do_release }}
         env:
