@@ -29,9 +29,12 @@ function alb-gh-build-alb() (
   local alb_nginx_base="$IMAGE_REPO/alb-nginx-base:$(alb-gh-get-nginx-ver)"
   local go_build_base="docker.io/library/golang:$(alb-gh-get-gobuild-ver)"
   #  build images
+
+  local platform=${MATRIX_PLATFORM:-"linux/amd64"}
+  echo "platform $platform"
   docker buildx build \
     --network=host \
-    --platform linux/amd64 \
+    --platform $platform \
     -t $IMAGE_REPO/alb:$chart_ver \
     --build-arg GO_BUILD_BASE=$go_build_base \
     --build-arg ALB_ONLINE=true \
@@ -86,11 +89,14 @@ function alb-gh-build-nginx() (
   local RESTY_PCRE_VERSION=$(cat ./template/Dockerfile.openresty | grep RESTY_PCRE_VERSION= | awk -F = '{print $2}' | tr -d '"')
   local RESTY_PCRE_BASE="https://downloads.sourceforge.net/project/pcre/pcre/$RESTY_PCRE_VERSION/pcre-$RESTY_PCRE_VERSION.tar.gz"
   local resty_base="docker.io/library/alpine"
+
+  local platform=${MATRIX_PLATFORM:-"linux/amd64"}
+  echo "platform $platform"
   docker buildx build \
-    --progress=plain \
+    --network=host \
+    --platform $platform \
     --no-cache \
     --network=host \
-    --platform linux/amd64 \
     -t $IMAGE_REPO/alb-nginx-base:$ver \
     --build-arg RESTY_IMAGE_BASE=$resty_base \
     --build-arg RESTY_PCRE_BASE=$RESTY_PCRE_BASE \
