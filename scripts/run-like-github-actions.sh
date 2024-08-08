@@ -2,6 +2,25 @@
 set -e
 export IMAGE_REPO="theseedoaa"
 # required env $CURRENT_VERSION $RELEASE_ME
+
+function alb-gh-test-alb-go() (
+  pwd
+  ls
+  echo "test go"
+  local go_build_base="docker.io/library/golang:$(alb-gh-get-gobuild-ver)"
+  export ALB_ONLINE="true"
+  ./scripts/run-like-ci-go.sh $go_build_base
+)
+
+function alb-gh-test-alb-nginx() (
+  pwd
+  ls
+  echo "test nginx"
+  local image=$(docker images | grep theseedoaa/alb | head -1 | awk '{printf "%s:%s",$1,$2}')
+  echo "test nginx $image"
+  ./scripts/run-like-ci-nginx.sh $image
+)
+
 function alb-gh-build-alb() (
   env
   local chart_ver=$(alb-github-gen-version)
@@ -140,6 +159,12 @@ if [ "$0" = "$BASH_SOURCE" ]; then
     alb-gh-release-nginx
   fi
 
+  if [[ "$1" == "test-alb-go" ]]; then
+    alb-gh-test-alb-go
+  fi
+  if [[ "$1" == "test-alb-nginx" ]]; then
+    alb-gh-test-alb-nginx
+  fi
   if [[ "$1" == "build-alb" ]]; then
     alb-gh-build-alb
   fi

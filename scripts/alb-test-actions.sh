@@ -95,9 +95,7 @@ function alb-go-unit-test() {
 }
 
 function alb-envtest-install() {
-  # TODO use http://prod-minio.alauda.cn/acp/
-  #   curl --progress-bar -sSLo envtest-bins.tar.gz "https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)"
-  curl --progress-bar -sSLo envtest-bins.tar.gz "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz"
+  curl --progress-bar -sSLo envtest-bins.tar.gz $(_switch_url "https://go.kubebuilder.io/test-tools/1.24.2/$(go env GOOS)/$(go env GOARCH)" "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz")
   mkdir -p /usr/local/kubebuilder
   tar -C /usr/local/kubebuilder --strip-components=1 -zvxf envtest-bins.tar.gz
   rm envtest-bins.tar.gz
@@ -105,23 +103,45 @@ function alb-envtest-install() {
   /usr/local/kubebuilder/bin/kube-apiserver --version
 }
 
+function _switch_url() {
+  if [[ -n "$ALB_ONLINE" ]]; then
+    echo $1
+  else
+    echo $2
+  fi
+}
+
 function alb-install-golang-test-dependency() {
   ls
   which helm || true
   if [ -f "$(which helm)" ]; then echo "dependency already installed" return; else echo "dependency not installed. install it"; fi
 
-  # rm -rf kubernetes-client-linux-amd64.tar.gz &&  wget https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz && tar -zxvf kubernetes-client-linux-amd64.tar.gz && chmod +x ./kubernetes/client/bin/kubectl && mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl && rm -rf ./kubernetes && rm ./kubernetes-client-linux-amd64.tar.gz
-  wget http://prod-minio.alauda.cn/acp/kubectl-v1.24.1 && chmod +x ./kubectl-v1.24.1 && mv ./kubectl-v1.24.1 /usr/local/bin/kubectl
+  # rm -rf kubernetes-client-linux-amd64.tar.gz &&  wget  &&
+  local kubectl_url=$(_switch_url https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz http://prod-minio.alauda.cn/acp/ci/alb/build/kubernetes-client-linux-amd64.tar.gz)
+
+  wget $kubectl_url
+  tar -zxvf kubernetes-client-linux-amd64.tar.gz
+  chmod +x ./kubernetes/client/bin/kubectl
+  mv ./kubernetes/client/bin/kubectl /usr/local/bin/kubectl
+  rm -rf ./kubernetes
+  rm ./kubernetes-client-linux-amd64.tar.gz
+
   which kubectl
 
   echo "install helm"
-  #   rm helm-v3.9.3-linux-amd64.tar.gz || true
-  #   wget https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz && tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
-  wget http://prod-minio.alauda.cn/acp/helm-v3.9.3 && chmod +x ./helm-v3.9.3 && mv ./helm-v3.9.3 /usr/local/bin/helm
+  local helm_url=$(_switch_url https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz http://prod-minio.alauda.cn/acp/ci/alb/build/helm-v3.9.3-linux-amd64.tar.gz)
+  wget $helm_url
+  tar -zxvf helm-v3.9.3-linux-amd64.tar.gz && chmod +x ./linux-amd64/helm && mv ./linux-amd64/helm /usr/local/bin/helm && rm -rf ./linux-amd64 && rm ./helm-v3.9.3-linux-amd64.tar.gz
 
   helm version
   # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
-  wget http://prod-minio.alauda.cn/acp/golangci-lint && chmod +x ./golangci-lint && mv ./golangci-lint /usr/local/bin/golangci-lint
+  local golangci_lint=$(_switch_url "https://github.com/golangci/golangci-lint/releases/download/v1.59.1/golangci-lint-1.59.1-illumos-amd64.tar.gz" "http://prod-minio.alauda.cn/acp/ci/alb/build/golangci-lint-1.59.1-illumos-amd64.tar.gz")
+  wget $golangci_lint
+  tar -zxvf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
+  chmod +x ./golangci-lint-1.59.1-illumos-amd64/golangci-lint && mv ./golangci-lint-1.59.1-illumos-amd64/golangci-lint /usr/local/bin/golangci-lint
+  rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
+  rm -rf ./golangci-lint-1.59.1-illumos-amd64
+
   apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
   rm /usr/lib/python3.*/EXTERNALLY-MANAGED || true
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
