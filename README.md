@@ -13,7 +13,7 @@ ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https
 
 ## Architecture
 
-![](docs/architecture.png)
+![](docs/res/architecture.png)
 
 ## Quick Start
 
@@ -109,7 +109,7 @@ Now you visit the app by `curl http://${ip}`
 ### `Frontend` and `Rule`
 
 Complex traffic matching and distribution patterns can be configured by `Frontend` and `Rule`.  
-[syntax of rule's dslx](./docs/rules.md)
+[syntax of rule's dslx](./docs/feature/rule/rules.md)
 
 ```yaml
 apiVersion: crd.alauda.io/v1
