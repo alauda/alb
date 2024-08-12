@@ -5,13 +5,22 @@
 alb支持上报otel trace 到指定collector上，支持不同的采样策略，支持在ingress级别单独配置是否上报
 
 ## 名词解释
-| 名词        | 解释                                                                                                                    |
-|-------------|-----------------------------------------------------------------------------------------------------------------------|
-| otel server | 能够收集上报的otel trace的server，比如jaeger就是这样的一个server                                                         |
-| trace       | 上报到otel server的的数据                                                                                               |
-| attributes  | 每个trace中，有很多属性，其中有tracer自身的一个属性 resource attributes 也有这次trace的请求相关的一些属性 span attributes |
-| sampler     | 每个采样器中可以配置自己的采样策略，来决定是否要上报请求的trace                                                          |
+| 名词        | 解释                                                                                                                 |
+|-------------|--------------------------------------------------------------------------------------------------------------------|
+| otel-server | 能够收集上报的otel trace的server，比如jaeger就是这样的一个server                                                      |
+| trace       | 上报到otel server的数据                                                                                              |
+| attributes  | 每个trace中，有很多属性，其中有tracer自身的属性 resource attributes. 也有这次trace的请求相关的一些属性 span attributes |
+| sampler     | 每个采样器中可以配置自己的采样策略，来决定是否要上报请求的trace                                                       |
+| alb/ft/rule | 对应创建的alb资源，frontend 资源，rule资源，可以在这些资源上配置otel，配置会自动继承                                     |
+## quick demo
+如下yaml中部署安装了
+```yaml
 
+```
+你可以通过curl 来向hotrod发请求，最终在jaeger的ui中看到
+[image](jaeger)
+
+## 详细配置
 ## 前提条件
 1. 创建/找到要操作的alb 以下称为`<otel-alb>`
 2. 确认otel上报数据的server的地址 以下称为`<jaeger-server>`
@@ -39,7 +48,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/enable-opentelemetry: "true"
 ```
-
+如果在alb/ft 上的
 ### 在ingress上开启或关闭otel trust
 ```yaml
 kind: Ingress
@@ -123,7 +132,8 @@ curl -v "http://$ALB_IP:81/" -H 'traceparent:00-xx-xx-02' 不上报
 | service.instance.id | alb pod name     |
 ### span attributes
 
-| 默认上报                  | 解释                                     |
+#### 默认上报
+| name                      | 解释                                     |
 |---------------------------|------------------------------------------|
 | http.status_code          | status code                              |
 | http.request.resend_count | 重试测试                                 |
@@ -132,17 +142,19 @@ curl -v "http://$ALB_IP:81/" -H 'traceparent:00-xx-xx-02' 不上报
 | alb.rule.source_name      | ingress的name                            |
 | alb.rule.source_ns        | ingress的ns                              |
 
+#### 默认上报，可以通过flag.hide_upstream_attrs 关掉 
+| name                  | 解释               |
+|-----------------------|------------------|
+| alb.upstream.svc_name | 转发到的svc的name  |
+| alb.upstream.svc_ns   | 转发到的svc的ns    |
+| alb.upstream.peer     | 转发到pod ip +端口 |
 
-| 默认上报，可以通过flag.hide_upstream_attrs 关掉 | 解释               |
-|------------------------------------------------|------------------|
-| alb.upstream.svc_name                          | 转发到的svc的name  |
-| alb.upstream.svc_ns                            | 转发到的svc的ns    |
-| alb.upstream.peer                              | 转发到pod ip +端口 |
+#### 默认不上报，可以通过flag.report_http_reqeust_header 打开
+| name                         | 解释       |
+|------------------------------|----------|
+| http.request.header.<header> | 请求header |
+#### 默认不上报，可以通过flag.report_http_response_header 打开
 
-| 默认不上报，可以通过flag.report_http_reqeust_header 打开 | 解释       |
-|---------------------------------------------------------|----------|
-| http.request.header.<header>                            | 请求header |
-
-| 默认不上报，可以通过flag.report_http_response_header 打开 | 解释       |
-|----------------------------------------------------------|----------|
-| http.response.header.<header>                            | 响应header |
+| name                          | 解释       |
+|-------------------------------|----------|
+| http.response.header.<header> | 响应header |
