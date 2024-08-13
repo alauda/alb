@@ -17,14 +17,15 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 RUN ldd /out/albctl || true
 
 FROM ${OPENRESTY_BASE} AS base
-ENV ALB_ONLINE =$ALB_ONLINE
+ARG ALB_ONLINE
+ENV ALB_ONLINE=${ALB_ONLINE}
 WORKDIR /tmp/
 COPY ./template/actions /tmp/
 # install our lua dependency
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
+RUN env && sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \ 
 apk add --no-cache --virtual .builddeps luarocks5.1 lua5.1 lua5.1-dev bash perl curl build-base make unzip && \ 
 cp /usr/bin/luarocks-5.1 /usr/bin/luarocks && \ 
-ls /tmp && bash /tmp/alb-nginx-install-deps.sh /usr/local/openresty && \ 
+ls /tmp && echo "\n\n alb-nginx-install-deps.sh \n\n" && bash /tmp/alb-nginx-install-deps.sh /usr/local/openresty && \ 
 apk del .builddeps build-base make unzip && cd / && rm -rf /tmp && rm /usr/bin/luarocks && rm /usr/bin/nc
 
 # tweak files

@@ -2,6 +2,11 @@ name: build-alb-images-and-chart
 on:
   workflow_dispatch:
     inputs:
+      skip_test:
+        type: boolean
+        description: skil test 
+        required: false
+        default: false
       do_release:
         type: boolean
         description: do release 
@@ -34,6 +39,11 @@ jobs:
   build-alb:
     name: Build alb
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+        #   - linux/arm64
     steps:
       - uses: actions/checkout@v4
       - name: Configure Git
@@ -47,44 +57,99 @@ jobs:
           version-file: ./deploy/chart/alb/Chart.yaml
           version-file-extraction-pattern: 'version: v([0-9]*\.[0-9]*\.[0-9]*)'
       - uses: docker/setup-buildx-action@v3
-      - uses: azure/setup-helm@v3
-        with:
-          version: '${{ env.HELM_VERSION }}'
-      - name: test alb go 
-        run: |
-          set -x
-          ./scripts/run-like-github-actions.sh test-alb-go
       - name: build
         env:
             RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
+            MATRIX_PLATFORM: "${{matrix.platform }}"
         run: |
           set -x
           ./scripts/run-like-github-actions.sh build-alb
+          platform=$(echo "$MATRIX_PLATFORM" | sed 's|/|-|g')
+          echo "artifactPath=./alb-$platform.tar" >> $GITHUB_ENV
+          echo "artifactName=alb-$platform" >> $GITHUB_ENV
       - name: Upload alb images to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: alb
-          path: alb.tar
-      - name: Upload chart's to artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: alb-chart
-          path: alauda-alb2.tgz
+          name: ${{ env.artifactName }}
+          path: ${{ env.artifactPath }}
+      - name: test alb go 
+        if: ${{ (matrix.platform ==  'linux/amd64' ) && (!inputs.skip_test) }}
+        env:
+            MATRIX_PLATFORM: "${{ matrix.platform }}"
+        run: |
+          set -x
+          echo "FROM --platform=\${{ matrix.platform }} | $MATRIX_PLATFORM "
+          ./scripts/run-like-github-actions.sh test-alb-go
       - name: test alb nginx
+        if: ${{ (matrix.platform ==  'linux/amd64' ) && (!inputs.skip_test) }}
+        env:
+            MATRIX_PLATFORM: "${{matrix.platform }}"
         run: |
           set -x
           ./scripts/run-like-github-actions.sh test-alb-nginx
+  release-alb:
+    name: Release alb
+    runs-on: ubuntu-22.04
+    needs: [build-alb]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      - name: version # it will set the CURRENT_VERSION env
+        uses: HardNorth/github-version-generate@v1.3.0
+        with:
+          version-source: file
+          version-file: ./deploy/chart/alb/Chart.yaml
+          version-file-extraction-pattern: 'version: v([0-9]*\.[0-9]*\.[0-9]*)'
       - name: cr
         uses: helm/chart-releaser-action@v1.6.0
         with:
           install_only: true
-      - name: release
-        if: ${{ inputs.do_release }}
+      - uses: azure/setup-helm@v3
+        with:
+          version: '${{ env.HELM_VERSION }}'
+      - uses: actions/download-artifact@master # TODO download arm artifact
+        with:
+            name: alb-linux-amd64
+      - name: show artifact
+        run: |
+          ls -l
+      - name: set release type
         env:
           RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
+        run: |
+          branch=$(echo "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g')
+          echo "branch is $branch"
+          if [[ "$RELEASE_ME" == "false" ]] && [[ "$branch" == "master" ]] ;then
+            echo "in master we still want to a pre-release"
+            echo "RELEASE_TYPE=pre-release" >> $GITHUB_ENV
+            exit
+          fi
+          if [[ "$RELEASE_ME" == "true" ]] ;then
+            echo "release it"
+            echo "RELEASE_TYPE=release" >> $GITHUB_ENV
+            exit
+          fi
+            echo "RELEASE_TYPE=no-release" >> $GITHUB_ENV
+          echo "not release"
+      - name: gen alb chart
+        run: |
+          echo "gen alb chart"
+          env
+          ./scripts/run-like-github-actions.sh gen-chart-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alb-chart
+          path: alauda-alb2.tgz
+      - name: release
+        if: ${{ env.RELEASE_TYPE !=  'no-release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
-          ./scripts/run-like-github-actions.sh release-alb
+           ./scripts/run-like-github-actions.sh release-alb

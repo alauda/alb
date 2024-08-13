@@ -1,7 +1,6 @@
 #!/bin/bash
 
-set -x
-set -e
+# set -e
 
 LUA_VAR_NGINX_MODULE_VERSION="0.5.2"
 LUA_RESTY_BALANCER_VERSION="0.04"
@@ -12,6 +11,9 @@ LUA_RESTY_HTTP="0.16.1" # used by  opentelemetry-lua and our nginx test # 0.17.2
 OPENTELEMETRY_LUA="0.2.6"
 
 openresty=$1
+if [[ -n "$OPENRESTY_BUILD_TRARGRT_DIR" ]]; then
+  openresty=$OPENRESTY_BUILD_TRARGRT_DIR
+fi
 if [[ -z "$openresty" && -f "/usr/local/openresty" ]]; then
   openresty="/usr/local/openresty"
   echo "use default $openresty "
@@ -29,6 +31,7 @@ fi
 export PATH=$openresty/bin:$PATH
 
 function alb-ng-install-deps() (
+  env
   mkdir -p $openresty/site/lualib/resty/
   tree $openresty/luajit
   tree $openresty/site/
@@ -53,7 +56,7 @@ function _alb_lua_switch() (
 )
 
 function _alb_am_i_online() (
-  if [[ -n "$ALB_ONLINE" ]]; then
+  if [[ "$ALB_ONLINE" == "true" ]]; then
     echo "true"
     return
   fi

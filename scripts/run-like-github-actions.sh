@@ -29,55 +29,71 @@ function alb-gh-build-alb() (
   local alb_nginx_base="$IMAGE_REPO/alb-nginx-base:$(alb-gh-get-nginx-ver)"
   local go_build_base="docker.io/library/golang:$(alb-gh-get-gobuild-ver)"
   #  build images
+
+  local platform=${MATRIX_PLATFORM:-"linux/amd64"}
+  echo "platform $platform"
   docker buildx build \
     --network=host \
-    --platform linux/amd64 \
+    --platform $platform \
     -t $IMAGE_REPO/alb:$chart_ver \
     --build-arg GO_BUILD_BASE=$go_build_base \
     --build-arg ALB_ONLINE=true \
     --build-arg OPENRESTY_BASE=$alb_nginx_base \
     -o type=docker \
-    -f ./Dockerfile .
+    -f ./Dockerfile \
+    .
   docker images
-  docker save $IMAGE_REPO/alb:$chart_ver >alb.tar
+  docker image inspect $IMAGE_REPO/alb:$chart_ver
+  local suffix=$(__normal_platform)
+  docker save $IMAGE_REPO/alb:$chart_ver >./alb-$suffix.tar
   ls
-  # build chart
-  rm -rf .cr-release-packages
-  mkdir -p .cr-release-packages
-  chart=$(alb-build-github-chart $IMAGE_REPO $chart_ver ./deploy/chart/alb .cr-release-packages/)
-  cp $chart alauda-alb2.tgz
-  tree ./deploy/chart/alb
-  tree .cr-release-packages
-  cat ./deploy/chart/alb/Chart.yaml
   return
 )
 
+function alb-gh-gen-chart-artifact() (
+  rm -rf .cr-release-packages
+  mkdir -p .cr-release-packages
+  local chart_ver=${1-$(alb-github-gen-version)}
+  local chart=$(alb-build-github-chart $IMAGE_REPO $chart_ver ./deploy/chart/alb .cr-release-packages/)
+  echo "tree .cr-release-packages"
+  tree .cr-release-packages
+  echo "chart_ver $chart_ver chart $chart"
+  cp $chart alauda-alb2.tgz
+)
+
 function alb-gh-release-alb() (
-  if [[ "$RELEASE_ME" != "true" ]]; then
-    echo "skip release"
+  set -x
+  echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  echo "in release"
+
+  tree ./.cr-release-packages
+  # the loaded image tag are $(alb-github-gen-version)
+  docker load <./alb-linux-amd64.tar # TODO
+  docker images
+
+  if [[ "$RELEASE_TYPE" == "pre-release" ]]; then
+    local version=$(alb-github-gen-version)
+    docker tag $IMAGE_REPO/alb:$version $IMAGE_REPO/alb:v0.0.0
+    docker image inspect $IMAGE_REPO/alb:v0.0.0
+    alb-gh-gen-chart-artifact v0.0.0
+    docker push $IMAGE_REPO/alb:v0.0.0
+    # update release
+    git tag --delete alauda-alb2-v0.0.0 || true
+    git push origin --delete alauda-alb2-v0.0.0 || true
+    git tag alauda-alb2-v0.0.0
+    git push origin alauda-alb2-v0.0.0
+    git tag | cat
+    gh release delete alauda-alb2-v0.0.0 || true
+    gh release create alauda-alb2-v0.0.0 --prerelease ./.cr-release-packages/alauda-alb2-v0.0.0.tgz
     return
   fi
-  echo "in release"
-  # push docker
-  source ./scripts/alb-dev-actions.sh
-  export VERSION=$(alb-github-gen-version)
-  echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  docker push $IMAGE_REPO/alb:$VERSION
 
-  # push chart
-  owner=$(cut -d '/' -f 1 <<<"$GITHUB_REPOSITORY")
-  repo=$(cut -d '/' -f 2 <<<"$GITHUB_REPOSITORY")
-
-  args=(--owner "$owner" --repo "$repo" --charts-dir "./deploy/chart/alb" --skip-packaging "true" --pages-branch "gh-pages")
-
-  echo "sync chart"
-  git status
-  git log | head -n 30
-  git remote -v
-  git remote update
-  git branch -r
-
-  .github/cr.sh "${args[@]}"
+  if [[ "$RELEASE_TYPE" == "release" ]]; then
+    local version=$(alb-github-gen-version)
+    docker image inspect $IMAGE_REPO/alb:$version
+    docker push $IMAGE_REPO/alb:$version
+    .github/cr.sh --owner "alauda" --repo "alb" --charts-dir "./deploy/chart/alb" --skip-packaging "true" --pages-branch "gh-pages"
+  fi
   return
 )
 
@@ -86,11 +102,14 @@ function alb-gh-build-nginx() (
   local RESTY_PCRE_VERSION=$(cat ./template/Dockerfile.openresty | grep RESTY_PCRE_VERSION= | awk -F = '{print $2}' | tr -d '"')
   local RESTY_PCRE_BASE="https://downloads.sourceforge.net/project/pcre/pcre/$RESTY_PCRE_VERSION/pcre-$RESTY_PCRE_VERSION.tar.gz"
   local resty_base="docker.io/library/alpine"
+
+  local platform=${MATRIX_PLATFORM:-"linux/amd64"}
+  echo "platform $platform"
   docker buildx build \
-    --progress=plain \
+    --network=host \
+    --platform $platform \
     --no-cache \
     --network=host \
-    --platform linux/amd64 \
     -t $IMAGE_REPO/alb-nginx-base:$ver \
     --build-arg RESTY_IMAGE_BASE=$resty_base \
     --build-arg RESTY_PCRE_BASE=$RESTY_PCRE_BASE \
@@ -98,7 +117,10 @@ function alb-gh-build-nginx() (
     -f ./template/Dockerfile.openresty \
     ./
   docker images
-  docker save $IMAGE_REPO/alb-nginx-base:$ver >alb-nginx-base.tar
+  docker image inspect $IMAGE_REPO/alb-nginx-base:$ver
+  local suffix=$(__normal_platform)
+  echo "export ./alb-nginx-base-$suffix.tar"
+  docker save $IMAGE_REPO/alb-nginx-base:$ver >./alb-nginx-base-$suffix.tar
   return
 )
 
@@ -111,7 +133,7 @@ function alb-gh-release-nginx() (
 )
 
 function alb-gh-get-nginx-ver() (
-  cat ./Dockerfile | grep OPENRESTY_BASE | grep alb-nginx | awk -F : '{print $2}'
+  cat ./Dockerfile | grep OPENRESTY_BASE | grep alb-nginx | awk -F : '{print $2}' | xargs
 )
 
 function alb-gh-get-gobuild-ver() (
@@ -125,6 +147,10 @@ function alb-github-gen-version() {
     return
   fi
   echo "v$CURRENT_VERSION-$branch.$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+}
+
+function __normal_platform() {
+  echo "$MATRIX_PLATFORM" | sed 's|/|-|g'
 }
 
 function alb-build-github-chart() {
@@ -170,5 +196,8 @@ if [ "$0" = "$BASH_SOURCE" ]; then
   fi
   if [[ "$1" == "release-alb" ]]; then
     alb-gh-release-alb
+  fi
+  if [[ "$1" == "gen-chart-artifact" ]]; then
+    alb-gh-gen-chart-artifact
   fi
 fi

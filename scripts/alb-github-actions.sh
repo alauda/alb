@@ -44,5 +44,6 @@ function alb-gh-wk-build-and-relase-nginx() (
 function alb-gh-wk-build-and-relase-alb() (
   local branch=${1-$(git rev-parse --abbrev-ref HEAD)}
   local relase=${2-false}
-  gh workflow run build.yaml --ref $branch -f do_release=$relase
+  local skip_test=${3-false}
+  gh workflow run build.yaml --ref $branch -f do_release=$relase -f skip_test=$skip_test
 )

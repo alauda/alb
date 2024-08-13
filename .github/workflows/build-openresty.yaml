@@ -16,6 +16,11 @@ jobs:
   build-openresty:
     name: Build Openresty
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+        #   - linux/arm64
     steps:
       - uses: actions/checkout@v4
       - name: Configure Git
@@ -24,14 +29,20 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
       - uses: docker/setup-buildx-action@v3
       - name: build
+        env:
+            MATRIX_PLATFORM: "${{ matrix.platform }}"
         run: |
           ./scripts/run-like-github-actions.sh build-nginx
+          platform=$(echo "$MATRIX_PLATFORM" | sed 's|/|-|g')
+          echo "artifactPath=./alb-nginx-base-$platform.tar" >> $GITHUB_ENV
+          echo "artifactName=alb-nginx-base-$platform" >> $GITHUB_ENV
       - name: Upload alb-nginx-base images to artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: alb-nginx-base
-          path: alb-nginx-base.tar
+          name: ${{ env.artifactName }}
+          path: ${{ env.artifactPath }}
       - name: release
+        if: ${{ inputs.do_release }}
         env:
           RELEASE_ME: "${{ github.event.inputs.do_release == 'true' }}"
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -39,4 +50,5 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
+          env
           ./scripts/run-like-github-actions.sh release-nginx
