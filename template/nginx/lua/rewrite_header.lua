@@ -3,6 +3,8 @@
 local common = require "utils.common"
 local ngx_resp = require "ngx.resp"
 local ngx_req = require "ngx.req"
+local string_sub = string.sub
+local string_len = string.len
 
 local _M = {}
 
@@ -38,6 +40,25 @@ function _M.rewrite_response_header()
 
 end
 
+---comment
+---@param key string
+---@param val string|nil
+local function trim_cookie_quote_if_needed(key, val)
+    if val == nil then
+        return nil
+    end
+    if string_sub(key, 1, 7) ~= "cookie_" then
+        return val
+    end
+    if string_len(val) <= 1 then
+        return val
+    end
+    if string_sub(val, 1, 1) == '"' and string_sub(val, -1, -1) == '"' then
+        return string_sub(val, 2, -2)
+    end
+    return val
+end
+
 function _M.rewrite_request_header()
     local matched_policy = ngx.ctx.matched_policy
     if not common.has_key(matched_policy, {"config", "rewrite_request"}) then
@@ -54,6 +75,7 @@ function _M.rewrite_request_header()
     if headers_set_var then
         for k, varname in pairs(headers_set_var) do
             local var = ngx.ctx.alb_ctx.var[varname]
+            var = trim_cookie_quote_if_needed(varname, var)
             if var then
                 ngx.req.set_header(k, var)
             end
@@ -79,6 +101,7 @@ function _M.rewrite_request_header()
         for k, varlist in pairs(headers_add_var) do
             for _, varname in pairs(varlist) do
                 local var = ngx.ctx.alb_ctx.var[varname]
+                var = trim_cookie_quote_if_needed(varname, var)
                 if var then
                     ngx_req.add_header(k, var)
                 end

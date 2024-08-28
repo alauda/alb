@@ -258,6 +258,18 @@ function m.test_var()
         h.assert_eq(res.header["a-add"], "2222")
         h.assert_eq(res.header["x-add"], "c1")
     end
+    -- test cookie has space
+    do
+        local out, err = http:request_uri("http://127.0.0.1:80/t1", {headers = {["Cookie"] = [[a="c1 c2"]]}})
+        local res = utils.json_decode(out.body)
+        u.logs(res, err)
+        h.assert_eq(res.header["a-set"], "c1 c2")
+
+        local out, err = http:request_uri("http://127.0.0.1:80/t1", {headers = {["Cookie"] = [[a="c1 c2]]}})
+        local res = utils.json_decode(out.body)
+        u.logs(res, err)
+        h.assert_eq(res.header["a-set"], [["c1 c2]])
+    end
 end
 
 return m

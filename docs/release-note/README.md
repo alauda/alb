@@ -12,3 +12,4 @@ chart: NOT_RELEASE
 * add MonitorDashboard in chart .
 * add source name/ns label in rule. (first 63 chars if name/ns is longer than 63)
 * api: filter project when list rules.
+* unquote cookie value when rewrite request header via var
