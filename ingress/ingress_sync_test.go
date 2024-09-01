@@ -65,7 +65,7 @@ spec:
 	ft := &albv1.Frontend{}
 	for ri, r := range ing.Spec.Rules {
 		for pi := range r.HTTP.Paths {
-			albrule, err := ingc.GenerateRule(ing, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, ri, pi)
+			albrule, err := ingc.GenerateRule(ing, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, ri, pi, "")
 			l.Info("rule", "cr", PrettyCr(albrule))
 			assert.NoError(t, err)
 		}

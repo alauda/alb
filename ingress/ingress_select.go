@@ -106,7 +106,7 @@ func (s IngressSelect) CheckShouldHandleViaIngressClass(ing *networkingv1.Ingres
 
 func (s IngressSelect) GetIngressBelongProject(obj metav1.Object) string {
 	if ns := obj.GetNamespace(); ns != "" {
-		nsCr, err := s.drv.Client.CoreV1().Namespaces().Get(s.drv.Ctx, ns, metav1.GetOptions{})
+		nsCr, err := s.drv.Informers.K8s.Namespace.Lister().Get(ns)
 		if err != nil {
 			s.drv.Log.Error(err, "get namespace failed")
 			return ""

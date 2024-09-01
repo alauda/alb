@@ -1,12 +1,14 @@
 package ingress
 
 import (
+	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	"context"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 
+	"alauda.io/alb2/config"
 	ct "alauda.io/alb2/controller/types"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/test/e2e/framework"
@@ -21,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -65,7 +68,7 @@ var _ = ginkgo.Describe("Ingress", func() {
             type: "nginx"
             config:
                 networkMode: host
-                projects: ["project1"]
+                projects: ["project1","p2"]
 `,
 			Ns:       "cpaas-system",
 			Name:     "alb-dev",
@@ -605,6 +608,113 @@ spec:
 				return true, nil
 			})
 		})
+		ginkgo.It("should create rule with project label", func() {
+			f.AssertKubectlApply(`
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: alb-n1
+  labels:
+    cpaas.io/project: p2
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  annotations:
+    alb2.cpaas.io/source-ingress-path-index: "0"
+    alb2.cpaas.io/source-ingress-rule-index: "0"
+  labels:
+    alb2.cpaas.io/frontend: alb-dev-00080
+    alb2.cpaas.io/name: alb-dev
+    alb2.cpaas.io/source-index: "0-0"
+    alb2.cpaas.io/source-name: ing-with-project
+    alb2.cpaas.io/source-ns: alb-n1
+    alb2.cpaas.io/source-type: ingress
+  name: alb-dev-00080-ra
+  namespace: cpaas-system
+spec:
+  backendProtocol: ""
+  certificate_name: ""
+  corsAllowHeaders: ""
+  corsAllowOrigin: ""
+  description: alb-n1/ing-with-project:80:0
+  domain: ""
+  dsl: '[{[[STARTS_WITH /a]] URL }]'
+  dslx:
+  - type: URL
+    values:
+    - - STARTS_WITH
+      - /a
+  enableCORS: false
+  priority: 5
+  redirectCode: 0
+  redirectURL: ""
+  rewrite_base: /a
+  serviceGroup:
+    services:
+    - name: svc-default
+      namespace: alb-n1
+      port: 80
+      weight: 100
+  source:
+    name: ing-with-project
+    namespace: alb-n1
+    type: ingress
+  type: ""
+  url: /a
+  vhost: ""
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ing-with-project
+  namespace: alb-n1
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /a
+        pathType: Prefix
+      - backend:
+          service:
+            name: svc-default
+            port:
+              number: 80
+        path: /b
+        pathType: Prefix
+`)
+			ctx := f.GetCtx()
+			ingName := "ing-with-project"
+			// Wait for the rule to be created
+			f.Wait(func() (bool, error) {
+				ing_rules, err := FindRuleViaSource(ctx, *f.K8sClient, ingName)
+				if err != nil {
+					return false, err
+				}
+				if len(ing_rules) == 0 {
+					return false, nil
+				}
+				return true, nil
+			})
+			l.Info("rule", "yaml", f.Kubectl.AssertKubectl("get rule -A -oyaml"))
+			n := config.NewNames("cpaas.io")
+			r_update, err := GetIngressRule(f.GetAlbClient(), ctx, ingName, "alb-n1", "0-0")
+			GinkgoNoErr(err)
+			r_create, err := GetIngressRule(f.GetAlbClient(), ctx, ingName, "alb-n1", "0-1")
+			GinkgoNoErr(err)
+			GinkgoAssertStringEq(r_update.Name, "alb-dev-00080-ra", "")
+			_ = r_update
+			// Check if the rule has the project label
+			Expect(r_create.Labels).To(HaveKey(n.GetLabelProject()))
+			Expect(r_create.Labels).To(HaveKey(n.GetLabelProject()))
+			Expect(r_update.Labels[n.GetLabelProject()]).To(Equal("p2"))
+			Expect(r_update.Labels[n.GetLabelProject()]).To(Equal("p2"))
+		})
 	})
 })
 
@@ -620,4 +730,20 @@ func FindRuleViaSource(ctx context.Context, cli K8sClient, ing string) ([]av1.Ru
 		}
 	}
 	return out, nil
+}
+
+func GetIngressRule(cli albclient.Interface, ctx context.Context, ingName string, ingNs string, ingIndex string) (*av1.Rule, error) {
+	ns := "cpaas-system"
+	rules, err := cli.CrdV1().Rules(ns).List(ctx, metav1.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{
+		"alb2.cpaas.io/source-ns":    ingNs,
+		"alb2.cpaas.io/source-name":  ingName,
+		"alb2.cpaas.io/source-index": ingIndex,
+	}).String()})
+	if err != nil {
+		return nil, err
+	}
+	if len(rules.Items) != 1 {
+		return nil, fmt.Errorf("find more than one rule %v", rules.Items)
+	}
+	return &rules.Items[0], nil
 }

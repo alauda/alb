@@ -55,11 +55,11 @@ func (c *Controller) OnResync(ctx context.Context, log logr.Logger) error {
 
 	for _, ing := range allIngress {
 		key := IngKey(ing)
+		project := c.GetIngressBelongProject(ing)
 		should, _ := c.ShouldHandleIngress(alb, ing)
 		if should {
 			shouldHandledIngress = append(shouldHandledIngress, ing)
-			// needHandledIngress = append(needHandledIngress, ing)
-			expect, err := c.generateExpect(alb, ing)
+			expect, err := c.generateExpect(alb, ing, project)
 			if err != nil {
 				return err
 			}

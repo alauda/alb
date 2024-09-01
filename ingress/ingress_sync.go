@@ -54,8 +54,8 @@ func (c *Controller) Reconcile(key client.ObjectKey) (requeue bool, err error) {
 		log.Info("should not handle this ingress. clean up", "reason", reason)
 		return false, c.cleanUpThisIngress(alb, key)
 	}
-
-	expect, err := c.generateExpect(alb, ingress)
+	project := c.GetIngressBelongProject(ingress)
+	expect, err := c.generateExpect(alb, ingress, project)
 	if err != nil {
 		return false, err
 	}
@@ -239,7 +239,7 @@ func (e *ExpectFtAndRule) ShowExpect() string {
 }
 
 // generate expect ft and rule fot this ingress
-func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networkingv1.Ingress) (*ExpectFtAndRule, error) {
+func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networkingv1.Ingress, project string) (*ExpectFtAndRule, error) {
 	httpFt, httpsFt, err := c.generateExpectFrontend(alb, ingress)
 	if err != nil {
 		return nil, err
@@ -257,7 +257,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 		}
 		for pIndex, p := range r.HTTP.Paths {
 			if httpFt != nil {
-				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpFt, rIndex, pIndex)
+				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpFt, rIndex, pIndex, project)
 				if err != nil {
 					c.log.Error(err, "generate http rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
 					continue
@@ -265,7 +265,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 				httpRule = append(httpRule, rule)
 			}
 			if httpsFt != nil {
-				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpsFt, rIndex, pIndex)
+				rule, err := c.GenerateRule(ingress, alb.GetAlbKey(), httpsFt, rIndex, pIndex, project)
 				if err != nil {
 					c.log.Error(err, "generate https rule fail", "ingress", ingress.Name, "ns", ingress.Namespace, "path", p.String(), "rindex", rIndex, "pindex", pIndex)
 					continue
@@ -491,6 +491,7 @@ func (c *Controller) GenerateRule(
 	ft *alb2v1.Frontend,
 	ruleIndex int,
 	pathIndex int,
+	project string,
 ) (*alb2v1.Rule, error) {
 	r := ingress.Spec.Rules[ruleIndex]
 	host := r.Host
@@ -628,8 +629,22 @@ func (c *Controller) GenerateRule(
 		},
 		Spec: ruleSpec,
 	}
+	if project != "" {
+		ruleRes.Labels[cfg.GetLabelProject()] = project
+	}
+	// in most case 63 is enough, we use those label only manually
+	ruleRes.Labels[cfg.GetLabelSourceName()] = CutSize(ingress.Name, 63)
+	ruleRes.Labels[cfg.GetLabelSourceNs()] = CutSize(ingress.Namespace, 63)
+	ruleRes.Labels[cfg.GetLabelSourceIndex()] = fmt.Sprintf("%d-%d", ruleIndex, pathIndex)
 	c.cus.IngressToRule(ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
+}
+
+func CutSize(s string, size int) string {
+	if len(s) > size {
+		return s[:size]
+	}
+	return s
 }
 
 type SyncRule struct {
@@ -793,6 +808,9 @@ func ruleIdentify(r *alb2v1.Rule) string {
 	// do care about the other hash
 	for k, v := range r.Labels {
 		if strings.HasPrefix(k, "alb") {
+			label = append(label, k+":"+v)
+		}
+		if k == "cpaas.io/project" {
 			label = append(label, k+":"+v)
 		}
 	}

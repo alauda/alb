@@ -211,7 +211,10 @@ const (
 	FMT_FT                        = "alb2.%s/frontend"
 	FMT_LEADER                    = "alb2.%s/leader"
 	FMT_SOURCE_TYPE               = "alb2.%s/source-type"
-	FMT_SOURCE_INGRESS_VERSION    = "alb2.%s/source-ingress-version"
+	FMT_SOURCE_NAME               = "alb2.%s/source-name"
+	FMT_SOURCE_NS                 = "alb2.%s/source-ns"
+	FMT_SOURCE_INDEX              = "alb2.%s/source-index"
+	FMT_PROJECT                   = "%s/project"
 	FMT_SOURCE_INGRESS_RULE_INDEX = "alb2.%s/source-ingress-rule-index"
 	FMT_SOURCE_INGRESS_PATH_INDEX = "alb2.%s/source-ingress-path-index"
 	FMT_INGRESS_ADDRESS_NAME      = "alb2.%s/%s_address"
@@ -228,11 +231,6 @@ func NewNames(domain string) Names {
 
 func (n Names) GetLabelLeader() string {
 	return fmt.Sprintf(FMT_LEADER, n.domain)
-}
-
-func (n Names) GetLabelSourceIngressVer() string {
-	sourceIngressVersion := fmt.Sprintf(FMT_SOURCE_INGRESS_VERSION, n.domain)
-	return sourceIngressVersion
 }
 
 func (n Names) GetLabelSourceIngressPathIndex() string {
@@ -257,6 +255,21 @@ func (n Names) GetLabelFt() string {
 
 func (n Names) GetLabelSourceType() string {
 	return fmt.Sprintf(FMT_SOURCE_TYPE, n.domain)
+}
+
+func (n Names) GetLabelSourceIndex() string {
+	return fmt.Sprintf(FMT_SOURCE_INDEX, n.domain)
+}
+func (n Names) GetLabelSourceName() string {
+	return fmt.Sprintf(FMT_SOURCE_NAME, n.domain)
+}
+
+func (n Names) GetLabelSourceNs() string {
+	return fmt.Sprintf(FMT_SOURCE_NS, n.domain)
+}
+
+func (n Names) GetLabelProject() string {
+	return fmt.Sprintf(FMT_PROJECT, n.domain)
 }
 
 func (n Names) GetOverwriteConfigmapLabelKey() string {

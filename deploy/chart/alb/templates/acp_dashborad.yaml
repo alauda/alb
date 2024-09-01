@@ -1,0 +1,1488 @@
+{{ if .Capabilities.APIVersions.Has "ait.alauda.io/v1alpha2" -}}
+kind: MonitorDashboard
+apiVersion: ait.alauda.io/v1alpha2
+metadata:
+  labels:
+    cpaas.io/dashboard.folder: container-platform
+  name: albstatus
+  namespace: "cpaas-system"
+spec:
+  body:
+    __elements: {}
+    __inputs:
+      - description: ""
+        label: prometheus
+        name: DS_PROMETHEUS
+        pluginId: prometheus
+        pluginName: Prometheus
+        type: datasource
+    __requires:
+      - id: grafana
+        name: Grafana
+        type: grafana
+        version: 9.5.21
+      - id: prometheus
+        name: Prometheus
+        type: datasource
+        version: 1.0.0
+      - id: stat
+        name: Stat
+        type: panel
+        version: ""
+      - id: table
+        name: Table
+        type: panel
+        version: ""
+      - id: timeseries
+        name: Time series
+        type: panel
+        version: ""
+    annotations:
+      list:
+        - builtIn: 1
+          datasource:
+            type: grafana
+            uid: -- Grafana --
+          enable: true
+          hide: true
+          iconColor: rgba(0, 211, 255, 1)
+          name: Annotations & Alerts
+          type: dashboard
+        - datasource:
+            type: grafana
+            uid: -- Grafana --
+          enable: true
+          iconColor: rgba(0, 211, 255, 1)
+          iconSize: 0
+          lineColor: ""
+          name: Annotations & Alerts
+          query: ""
+          showLine: false
+          tagsField: ""
+          textField: ""
+          type: dashboard
+    description: "alb-exporter"
+    editable: false
+    fiscalYearStartMonth: 0
+    graphTooltip: 0
+    id: null
+    links: []
+    liveNow: false
+    panels:
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上的活跃连接数
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              spanNulls: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 0
+          "y": 0
+        id: 10
+        options:
+          colorMode: value
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+          orientation: horizontal
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          textMode: auto
+          tooltip: {}
+        pluginVersion: 9.5.21
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(nginx_http_connections{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", state="active"})
+            format: time_series
+            instant: false
+            legendFormat: ""
+            range: true
+            refId: A
+        title: Active Connections
+        type: stat
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上最近 5 分钟的每秒请求量
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              spanNulls: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: reqps
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 6
+          "y": 0
+        id: 12
+        options:
+          colorMode: value
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+          orientation: horizontal
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          textMode: auto
+          tooltip: {}
+        pluginVersion: 9.5.21
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
+            legendFormat: ""
+            range: true
+            refId: A
+        title: Requests Per Second
+        type: stat
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上最近 5 分钟每秒 4XX 和 5XX 请求的比例
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              spanNulls: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: percentunit
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 12
+          "y": 0
+        id: 14
+        options:
+          colorMode: value
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+          orientation: horizontal
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          textMode: auto
+          tooltip: {}
+        pluginVersion: 9.5.21
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              status=~"[4-5].*"}[5m]))/(sum(irate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*"}[5m])) + 0.01)
+            legendFormat: ""
+            range: true
+            refId: A
+        title: Error Rate
+        type: stat
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上最近 5 分钟请求的平均延迟
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              spanNulls: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: s
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 18
+          "y": 0
+        id: 16
+        options:
+          colorMode: value
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+          orientation: horizontal
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          textMode: auto
+          tooltip: {}
+        pluginVersion: 9.5.21
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum(increase(nginx_http_request_duration_seconds_sum{vmcluster="$vmcluster",
+              namespace=~"$namespace",
+              pod=~"$name-.*"}[5m]))/sum(increase(nginx_http_request_duration_seconds_count{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
+            legendFormat: ""
+            range: true
+            refId: A
+        title: Latency
+        type: stat
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的 CPU 使用量
+        fieldConfig:
+          defaults:
+            color:
+              mode: palette-classic
+            custom:
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              fillOpacity: 0
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: s
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 0
+          "y": 8
+        id: 2
+        options:
+          legend:
+            calcs: []
+            displayMode: list
+            placement: bottom
+            showLegend: true
+          reduceOptions: {}
+          tooltip:
+            mode: single
+            sort: desc
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: builder
+            expr: sum by(pod_name)
+              (container_cpu_usage_seconds_total_irate5m{pod_name=~"$name-.*",
+              image="", namespace=~"$namespace", vmcluster="$vmcluster"})
+            legendFormat: ""
+            range: true
+            refId: A
+        title: CPU Usage
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的内存使用量
+        fieldConfig:
+          defaults:
+            color:
+              mode: palette-classic
+            custom:
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              fillOpacity: 0
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
+            decimals: 0
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: bytes
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 6
+          "y": 8
+        id: 4
+        options:
+          legend:
+            calcs: []
+            displayMode: list
+            placement: bottom
+            showLegend: true
+          reduceOptions: {}
+          tooltip:
+            mode: single
+            sort: desc
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum by(pod_name) (container_memory_working_set_bytes{pod_name=~"$name-.*",
+              image="", namespace=~"$namespace", vmcluster="$vmcluster"})
+            legendFormat: ""
+            range: true
+            refId: A
+        title: Memory Usage
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的网络 IO 吞吐
+        fieldConfig:
+          defaults:
+            color:
+              mode: palette-classic
+            custom:
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              fillOpacity: 0
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: binBps
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 12
+          "y": 8
+        id: 6
+        options:
+          legend:
+            calcs: []
+            displayMode: list
+            placement: bottom
+            showLegend: true
+          reduceOptions: {}
+          tooltip:
+            mode: single
+            sort: desc
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum by(pod_name)
+              (container_network_receive_bytes_total_irate5m{pod_name=~"$name-.*",
+              namespace=~"$namespace", vmcluster="$vmcluster"})
+            legendFormat: '{{.pod_name}}/receive'
+            range: true
+            refId: A
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum by(pod_name)
+              (container_network_transmit_bytes_total_irate5m{pod_name=~"$name-.*",
+              namespace=~"$namespace", vmcluster="$vmcluster"})
+            hide: false
+            interval: ""
+            legendFormat: '{{.pod_name}}/transmit'
+            range: true
+            refId: B
+        title: Network Receive/Transmit
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的磁盘 IO 吞吐
+        fieldConfig:
+          defaults:
+            color:
+              mode: palette-classic
+            custom:
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              fillOpacity: 0
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: binBps
+          overrides: []
+        gridPos:
+          h: 8
+          w: 6
+          x: 18
+          "y": 8
+        id: 8
+        options:
+          legend:
+            calcs: []
+            displayMode: list
+            placement: bottom
+            showLegend: true
+          reduceOptions: {}
+          tooltip:
+            mode: single
+            sort: desc
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum by(pod)
+              (rate(container_fs_writes_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
+            legendFormat: '{{.pod}}/write'
+            range: true
+            refId: A
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum by(pod)
+              (rate(container_fs_reads_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
+            hide: false
+            legendFormat: '{{.pod}}/reads'
+            range: true
+            refId: B
+        title: Disk Read/Write Rate
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上 Ingress 最近 5 分钟的 QPS，请求吞吐量，响应吞吐量，错误率，P50 延迟，上游 P50 延迟，P90
+          延迟，上游 P90 延迟，P99 延迟，上游 P99 延迟
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              align: auto
+              cellOptions:
+                type: auto
+              filterable: false
+              inspect: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: s
+          overrides:
+            - matcher:
+                id: byName
+                options: QPS
+              properties:
+                - id: unit
+                  value: reqps
+            - matcher:
+                id: byName
+                options: Error Rate
+              properties:
+                - id: unit
+                  value: percentunit
+                - id: noValue
+                  value: 0%
+            - matcher:
+                id: byName
+                options: Request BPS
+              properties:
+                - id: unit
+                  value: bytes
+            - matcher:
+                id: byName
+                options: Response BPS
+              properties:
+                - id: unit
+                  value: bytes
+        gridPos:
+          h: 13
+          w: 24
+          x: 0
+          "y": 16
+        id: 18
+        options:
+          cellHeight: sm
+          footer:
+            countRows: false
+            enablePagination: true
+            fields: []
+            reducer:
+              - sum
+            show: false
+          frameIndex: 2
+          legend:
+            calcs: []
+          reduceOptions: {}
+          showHeader: true
+          sortBy:
+            - desc: true
+              displayName: Response BPS
+          tooltip: {}
+        pluginVersion: 9.5.21
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum by(source_namespace, source_name)
+              (rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m]))
+            format: table
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: QPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: (sum(rate(nginx_http_status{vmcluster="$vmcluster", status=~"[4-5].*",
+              source_type="ingress", namespace=~"$namespace",
+              pod=~"$name-.*"}[5m])) by (source_namespace, source_name) + 0 )/
+              (sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              source_type="ingress", namespace=~"$namespace",
+              pod=~"$name-.*"}[5m])) by (source_namespace, source_name) + 0.01)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Error Rate
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: UpstreamP50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Upstream P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Upstream P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_request_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (source_namespace,source_name)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Request BPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_response_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="ingress"}[5m])) by (source_namespace,source_name)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Response BPS
+        title: Ingress Status
+        type: table
+        transformations:
+          - id: merge
+            options: {}
+          - id: organize
+            options:
+              excludeByName:
+                Time: true
+              indexByName:
+                Time: 0
+                "Value #Error Rate": 6
+                "Value #P50": 7
+                "Value #P90": 9
+                "Value #P99": 11
+                "Value #QPS": 3
+                "Value #Request BPS": 4
+                "Value #Response BPS": 5
+                "Value #Upstream P90": 10
+                "Value #Upstream P99": 12
+                "Value #UpstreamP50": 8
+                source_name: 2
+                source_namespace: 1
+              renameByName:
+                "Value #Error Rate": Error Rate
+                "Value #P50": P50
+                "Value #P90": P90
+                "Value #P99": P99
+                "Value #QPS": QPS
+                "Value #Request BPS": Request BPS
+                "Value #Response BPS": Response BPS
+                "Value #Upstream P90": Upstream P90
+                "Value #Upstream P99": Upstream P99
+                "Value #UpstreamP50": Upstream P50
+                source_name: Name
+                source_namespace: Namespace
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上 HTTPRoute 最近 5 分钟的 QPS，请求吞吐量，响应吞吐量，错误率，P50 延迟，上游 P50
+          延迟，P90 延迟，上游 P90 延迟，P99 延迟，上游 P99 延迟
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              align: auto
+              cellOptions:
+                type: auto
+              filterable: false
+              inspect: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: s
+          overrides:
+            - matcher:
+                id: byName
+                options: QPS
+              properties:
+                - id: unit
+                  value: reqps
+            - matcher:
+                id: byName
+                options: Error Rate
+              properties:
+                - id: unit
+                  value: percentunit
+                - id: noValue
+                  value: 0%
+            - matcher:
+                id: byName
+                options: Request BPS
+              properties:
+                - id: unit
+                  value: bytes
+            - matcher:
+                id: byName
+                options: Response BPS
+              properties:
+                - id: unit
+                  value: bytes
+        gridPos:
+          h: 13
+          w: 24
+          x: 0
+          "y": 29
+        id: 19
+        options:
+          footer:
+            countRows: false
+            enablePagination: true
+            fields: []
+            reducer:
+              - sum
+            show: false
+          frameIndex: 2
+          legend:
+            calcs: []
+          reduceOptions: {}
+          showHeader: true
+          sortBy:
+            - desc: true
+              displayName: Request BPS
+          tooltip: {}
+        pluginVersion: 9.4.12
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum by(source_namespace, source_name)
+              (rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m]))
+            format: table
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: QPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: (sum(rate(nginx_http_status{vmcluster="$vmcluster", status=~"[4-5].*",
+              source_type="httpRoute", namespace=~"$namespace",
+              pod=~"$name-.*"}[5m])) by (source_namespace, source_name) + 0 )/
+              (sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              source_type="httpRoute", namespace=~"$namespace",
+              pod=~"$name-.*"}[5m])) by (source_namespace, source_name) + 0.01)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Error Rate
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: UpstreamP50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Upstream P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (le, source_namespace,
+              source_name))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Upstream P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_request_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (source_namespace,source_name)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Request BPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_response_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*",
+              source_type="httpRoute"}[5m])) by (source_namespace,source_name)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            range: false
+            refId: Response BPS
+        title: HTTPRoute Status
+        type: table
+        transformations:
+          - id: merge
+            options: {}
+          - id: organize
+            options:
+              excludeByName:
+                Time: true
+              indexByName:
+                Time: 0
+                "Value #Error Rate": 6
+                "Value #P50": 7
+                "Value #P90": 9
+                "Value #P99": 11
+                "Value #QPS": 3
+                "Value #Request BPS": 4
+                "Value #Response BPS": 5
+                "Value #Upstream P90": 10
+                "Value #Upstream P99": 12
+                "Value #UpstreamP50": 8
+                source_name: 2
+                source_namespace: 1
+              renameByName:
+                "Value #Error Rate": Error Rate
+                "Value #P50": P50
+                "Value #P90": P90
+                "Value #P99": P99
+                "Value #QPS": QPS
+                "Value #Request BPS": Request BPS
+                "Value #Response BPS": Response BPS
+                "Value #Upstream P90": Upstream P90
+                "Value #Upstream P99": Upstream P99
+                "Value #UpstreamP50": Upstream P50
+                source_name: Name
+                source_namespace: Namespace
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上非 Ingress 和 HTTPRoute 的规则最近 5 分钟的 QPS，请求吞吐量，响应吞吐量，错误率，P50
+          延迟，上游 P50 延迟，P90 延迟，上游 P90 延迟，P99 延迟，上游 P99 延迟
+        fieldConfig:
+          defaults:
+            color:
+              mode: thresholds
+            custom:
+              align: auto
+              cellOptions:
+                type: auto
+              filterable: false
+              inspect: false
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: 80
+                - color: "#56A64B"
+                  value: null
+            unit: s
+          overrides:
+            - matcher:
+                id: byName
+                options: QPS
+              properties:
+                - id: unit
+                  value: reqps
+            - matcher:
+                id: byName
+                options: Error Rate
+              properties:
+                - id: unit
+                  value: percentunit
+                - id: noValue
+                  value: 0%
+            - matcher:
+                id: byName
+                options: Request BPS
+              properties:
+                - id: unit
+                  value: bytes
+            - matcher:
+                id: byName
+                options: Response BPS
+              properties:
+                - id: unit
+                  value: bytes
+        gridPos:
+          h: 13
+          w: 24
+          x: 0
+          "y": 42
+        id: 20
+        options:
+          footer:
+            countRows: false
+            enablePagination: true
+            fields: []
+            reducer:
+              - sum
+            show: false
+          frameIndex: 2
+          legend:
+            calcs: []
+          reduceOptions: {}
+          showHeader: true
+          sortBy:
+            - desc: true
+              displayName: Request BPS
+          tooltip: {}
+        pluginVersion: 9.4.12
+        targets:
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum by(namespace, rule) (rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m]))
+            format: table
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: QPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: P50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: (sum(rate(nginx_http_status{vmcluster="$vmcluster", status=~"[4-5].*",
+              source_type="", namespace=~"$namespace", pod=~"$name-.*",
+              rule!=""}[5m])) by (namespace, rule) + 0 )/
+              (sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              source_type="", namespace=~"$namespace", pod=~"$name-.*",
+              rule!=""}[5m])) by (namespace, rule) + 0.01)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: Error Rate
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.50,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: UpstreamP50
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.90,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: Upstream P90
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: histogram_quantile(0.99,
+              sum(rate(nginx_http_upstream_request_duration_seconds_bucket{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (le, namespace, rule))
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: Upstream P99
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_request_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (namespace,rule)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: Request BPS
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            exemplar: false
+            expr: sum(rate(nginx_http_response_size_bytes{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", source_type="",
+              rule!=""}[5m])) by (namespace,rule)
+            format: table
+            hide: false
+            instant: true
+            legendFormat: '{{.namespace}}/{{.rule}}'
+            range: false
+            refId: Response BPS
+        title: Rule Status
+        type: table
+        transformations:
+          - id: merge
+            options: {}
+          - id: organize
+            options:
+              excludeByName:
+                Time: true
+              indexByName:
+                Time: 0
+                "Value #Error Rate": 6
+                "Value #P50": 7
+                "Value #P90": 9
+                "Value #P99": 11
+                "Value #QPS": 3
+                "Value #Request BPS": 4
+                "Value #Response BPS": 5
+                "Value #Upstream P90": 10
+                "Value #Upstream P99": 12
+                "Value #UpstreamP50": 8
+                namespace: 1
+                rule: 2
+              renameByName:
+                "Value #Error Rate": Error Rate
+                "Value #P50": P50
+                "Value #P90": P90
+                "Value #P99": P99
+                "Value #QPS": QPS
+                "Value #Request BPS": Request BPS
+                "Value #Response BPS": Response BPS
+                "Value #Upstream P90": Upstream P90
+                "Value #Upstream P99": Upstream P99
+                "Value #UpstreamP50": Upstream P50
+                namespace: Namespace
+                rule: Rule Name
+                source_name: Name
+                source_namespace: Namespace
+    refresh: ""
+    schemaVersion: 38
+    style: dark
+    tags: []
+    templating:
+      list:
+        - allFormat: ""
+          allValue: ""
+          current: {}
+          datasource:
+            type: prometheus
+            uid: ${DS_PROMETHEUS}
+          definition: label_values(nginx_http_connections, namespace)
+          hide: 0
+          includeAll: true
+          label: ""
+          multi: false
+          multiFormat: ""
+          name: namespace
+          options: []
+          query:
+            query: label_values(nginx_http_connections, namespace)
+            refId: StandardVariableQuery
+          refresh: 1
+          regex: ""
+          skipUrlSync: false
+          sort: 0
+          type: query
+        - allFormat: ""
+          allValue: ""
+          current: {}
+          datasource:
+            type: prometheus
+            uid: ${DS_PROMETHEUS}
+          definition: label_values(nginx_http_connections{namespace=~"$namespace"},
+            service)
+          hide: 0
+          includeAll: true
+          label: ""
+          multi: false
+          multiFormat: ""
+          name: name
+          options: []
+          query:
+            query: label_values(nginx_http_connections{namespace=~"$namespace"}, service)
+            refId: StandardVariableQuery
+          refresh: 1
+          regex: ""
+          skipUrlSync: false
+          sort: 0
+          type: query
+        - allFormat: ""
+          allValue: ""
+          current: {}
+          datasource:
+            type: prometheus
+            uid: ${DS_PROMETHEUS}
+          definition: label_values(up, vmcluster)
+          hide: 2
+          includeAll: false
+          label: Cluster
+          multi: false
+          multiFormat: ""
+          name: vmcluster
+          options: []
+          query:
+            query: label_values(up, vmcluster)
+            refId: StandardVariableQuery
+          refresh: 1
+          regex: ""
+          skipUrlSync: false
+          sort: 0
+          type: query
+    time:
+      from: now-1h
+      to: now
+    timepicker: {}
+    timezone: ""
+    title: ALB Status
+    uid: nyPL62bSk
+    version: 2
+    weekStart: ""
+{{- end }}

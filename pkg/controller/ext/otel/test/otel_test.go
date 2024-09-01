@@ -307,16 +307,16 @@ spec:
 			GinkgoNoErr(err)
 			ft := &albv1.Frontend{}
 
-			r1, err := ingc.GenerateRule(ing1, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0)
+			r1, err := ingc.GenerateRule(ing1, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0, "")
 			GinkgoNoErr(err)
 
-			r2, err := ingc.GenerateRule(ing2, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0)
+			r2, err := ingc.GenerateRule(ing2, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0, "")
 			GinkgoNoErr(err)
 
-			r3, err := ingc.GenerateRule(ing3, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0)
+			r3, err := ingc.GenerateRule(ing3, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0, "")
 			GinkgoNoErr(err)
 
-			r4, err := ingc.GenerateRule(ing4, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0)
+			r4, err := ingc.GenerateRule(ing4, crcli.ObjectKey{Namespace: "x", Name: "x"}, ft, 0, 0, "")
 			GinkgoNoErr(err)
 
 			l.Info("get rule1", "cr", PrettyCr(r1))

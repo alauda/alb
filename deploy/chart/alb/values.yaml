@@ -3,7 +3,7 @@ operator:
   albImagePullPolicy: Always
 defaultAlb: true # 部署默认的alb
 operatorReplicas: 1
-operatorDeployMode: "csv" # csv|deployment
+operatorDeployMode: "deployment"
 displayName: ""
 address: 127.0.0.1 # address of the default alb
 projects: []
