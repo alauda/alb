@@ -41,7 +41,6 @@ func (g *TyLua) SetTypeMapping(goType string, tsType string) {
 }
 
 func (g *TyLua) Generate(pkg_names []string, boot string, out string) error {
-
 	log.Printf("Generating for packages: %v", pkg_names)
 	pkgs, err := packages.Load(&packages.Config{
 		Mode: packages.NeedSyntax | packages.NeedFiles,
@@ -98,5 +97,5 @@ func (g *TyLua) Generate(pkg_names []string, boot string, out string) error {
 		codes[types_order[k]] = v
 	}
 	log.Printf("resolve ok %v", out)
-	return os.WriteFile(out, []byte(strings.Join(codes, "")), os.FileMode(0644))
+	return os.WriteFile(out, []byte(strings.Join(codes, "")), os.FileMode(0o644))
 }

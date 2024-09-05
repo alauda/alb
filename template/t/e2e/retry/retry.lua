@@ -6,8 +6,8 @@ local httpc = require("resty.http").new();
 
 local function get_string_count(msg, module)
     local map = {
-        ["http"] = "./template/servroot/logs/error.http.log",
-        ["stream"] = "./template/servroot/logs/error.stream.log",
+        ["http"] = "./template/servroot/logs/error.log",
+        ["stream"] = "./template/servroot/logs/error.log",
     }
     local cmd = string.format([[bash -c "cat %s |grep '%s' | wc -l"]], map[module], msg)
     local final, err = u.shell(cmd)

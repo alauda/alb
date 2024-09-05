@@ -51,7 +51,7 @@ func (s IngressSelect) ShouldHandleIngress(alb *m.AlaudaLoadBalancer, ing *netwo
 	}
 
 	belongProject := s.GetIngressBelongProject(ing)
-	role := ctl.GetAlbRoleType(alb.Labels, s.cfg.Domain)
+	role := ctl.GetAlbRoleType(alb.Alb.Labels, s.cfg.Domain)
 	if role == ctl.RolePort {
 		hasHTTPPort := false
 		hasHTTPSPort := false

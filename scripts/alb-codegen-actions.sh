@@ -30,7 +30,7 @@ function alb-crd-gen() (
 
   # we should use --plural-exceptions "ALB2:alaudaloadbalancer2,but we could not. is too late. i just give up.
   find ./pkg/client -name '*.go' | xargs -i{} sed -i 's/Resource("alb2s")/Resource("alaudaloadbalancer2")/g' {}
-  # 增加一个v2版本，v2版本和v2beta1保持一直，storageversion也用v2beta1.. 这样的好处是直接用kubectl get alb2 时能拿到正确的版本(v2)
+  # 增加一个v2版本，v2版本和v2beta1保持一致，storageversion也用v2beta1.. 这样的好处是直接用kubectl get alb2 时能拿到正确的版本(v2) # (也不用改代码了)
   yq -i '.spec.versions += .spec.versions.1' ./deploy/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml
   yq -i '.spec.versions.2.name = "v2"' ./deploy/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml
   yq -i '.spec.versions.2.storage = false' ./deploy/chart/alb/crds/crd.alauda.io_alaudaloadbalancer2.yaml

@@ -12,11 +12,6 @@ import (
 // a tree like struct to load all alb route related resource such as alb/ft/rule
 type AlaudaLoadBalancer struct {
 	Alb       *albv2.ALB2
-	Labels    map[string]string // depr
-	Spec      albv2.ALB2Spec
-	Status    albv2.ALB2Status
-	Name      string
-	Namespace string
 	Frontends []*Frontend
 }
 
@@ -31,10 +26,36 @@ type Rule struct {
 	FT *Frontend
 }
 
+func (r *Rule) GetFtConfig() *alb2v1.FTConfig {
+	if r == nil {
+		return nil
+	}
+	if r.FT == nil {
+		return nil
+	}
+	return r.FT.Spec.Config
+}
+
+func (r *Rule) GetAlbConfig() *albv2.ExternalAlbConfig {
+	if r == nil {
+		return nil
+	}
+	if r.FT == nil {
+		return nil
+	}
+	if r.FT.LB == nil {
+		return nil
+	}
+	if r.FT.LB.Alb == nil {
+		return nil
+	}
+	return r.FT.LB.Alb.Spec.Config
+}
+
 func (alb *AlaudaLoadBalancer) GetAlbKey() client.ObjectKey {
 	return client.ObjectKey{
-		Namespace: alb.Namespace,
-		Name:      alb.Name,
+		Namespace: alb.Alb.Namespace,
+		Name:      alb.Alb.Name,
 	}
 }
 

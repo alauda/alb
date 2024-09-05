@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	. "alauda.io/alb2/pkg/utils/test_utils"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"

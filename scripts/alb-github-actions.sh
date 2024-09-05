@@ -1,7 +1,8 @@
 #!/bin/bash
 
 function alb-gh-install-from-release() (
-  local ver=$1
+  local ver=${1-v0.0.0}
+  helm repo update
   local image=$(helm install alb-operator alb/alauda-alb2 --version $ver --dry-run | grep image: | awk '{print $2}' | tr -d '"')
   kind-load-image-in-current $image
   helm install alb-operator alb/alauda-alb2 --version $ver
@@ -32,6 +33,7 @@ function kind-load-image-in-current() (
   local cluster=$(kind get clusters | head -n1)
   local image=$1
   docker pull $image
+  docker inspect $image | grep -i id
   kind load docker-image $image --name $cluster
 )
 

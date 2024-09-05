@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	m "alauda.io/alb2/controller/modules"
-	"alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -396,20 +395,20 @@ func generateBackend(backendMap map[string][]*driver.Backend, services []*Backen
 	return sortedBackends
 }
 
-func (p *PolicyCli) setMetricsPortCert(cert map[string]types.Certificate) {
+func (p *PolicyCli) setMetricsPortCert(cert map[string]Certificate) {
 	port := p.opt.MetricsPort
 	cert[fmt.Sprintf("%d", port)] = genMetricsCert()
 }
 
 var (
-	metricsCert types.Certificate
+	metricsCert Certificate
 	once        sync.Once
 )
 
-func genMetricsCert() types.Certificate {
+func genMetricsCert() Certificate {
 	once.Do(func() {
 		cert, key, _ := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{})
-		metricsCert = types.Certificate{
+		metricsCert = Certificate{
 			Cert: string(cert),
 			Key:  string(key),
 		}

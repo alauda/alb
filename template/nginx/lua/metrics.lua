@@ -70,11 +70,11 @@ function _M.log()
     local server_port = ngx_var.server_port or ""
     local status = ngx_var.status or ""
     local request_method = ngx_var.request_method or ""
-    local request_length = tonumber(ngx_var.request_length)
-    local request_time = tonumber(ngx_var.request_time)
-    local bytes_sent = tonumber(ngx_var.bytes_sent)
+    local request_length = tonumber(ngx_var.request_length) or 0
+    local request_time = tonumber(ngx_var.request_time) or 0
+    local bytes_sent = tonumber(ngx_var.bytes_sent) or 0
     local upstream_addr = ngx_var.upstream_addr or ""
-    local upstream_response_time = tonumber(ngx_var.upstream_response_time)
+    local upstream_response_time = tonumber(ngx_var.upstream_response_time) or 0
     local source = ngx.ctx.matched_policy and ngx.ctx.matched_policy.source or {}
     local source_type = source.type or ""
     local source_namespace = source.namespace or ""

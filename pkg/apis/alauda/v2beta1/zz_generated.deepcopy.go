@@ -23,6 +23,7 @@ package v2beta1
 
 import (
 	types "alauda.io/alb2/pkg/controller/ext/otel/types"
+	waftypes "alauda.io/alb2/pkg/controller/ext/waf/types"
 	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -448,6 +449,16 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 		in, out := &in.Otel, &out.Otel
 		*out = new(types.OtelCrConf)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.ModeSecurity != nil {
+		in, out := &in.ModeSecurity, &out.ModeSecurity
+		*out = new(waftypes.WafCrConf)
+		**out = **in
+	}
+	if in.ReadonlyFS != nil {
+		in, out := &in.ReadonlyFS, &out.ReadonlyFS
+		*out = new(bool)
+		**out = **in
 	}
 	return
 }

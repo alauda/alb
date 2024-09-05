@@ -67,8 +67,6 @@ func (kd *KubernetesDriver) LoadALB(key client.ObjectKey) (*m.AlaudaLoadBalancer
 
 func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoadBalancer, error) {
 	alb2 := m.AlaudaLoadBalancer{
-		Name:      name,
-		Namespace: namespace,
 		Frontends: []*m.Frontend{},
 	}
 	alb2Res, err := kd.LoadAlbResource(namespace, name)
@@ -78,9 +76,6 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	}
 	klog.V(4).Infof("load alb key %s/%s: uid %v", namespace, name, alb2Res.UID)
 	alb2.Alb = alb2Res
-	alb2.Status = alb2Res.Status
-	alb2.Spec = alb2Res.Spec
-	alb2.Labels = alb2Res.Labels
 
 	resList, err := kd.LoadFrontends(namespace, name)
 	if err != nil {
@@ -90,6 +85,9 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 	for _, res := range resList {
 		if res == nil {
 			continue
+		}
+		if res.Spec.Config == nil {
+			res.Spec.Config = &alb2v1.FTConfig{}
 		}
 		ft := &m.Frontend{
 			Frontend: res,
@@ -103,6 +101,9 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 		}
 
 		for _, r := range ruleList {
+			if r.Spec.Config == nil {
+				r.Spec.Config = &alb2v1.RuleConfigInCr{}
+			}
 			rule := &m.Rule{
 				Rule: r,
 				FT:   ft,

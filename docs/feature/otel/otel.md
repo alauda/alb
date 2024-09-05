@@ -15,7 +15,7 @@ alb支持上报otel trace 到指定collector上，支持不同的采样策略，
 | [hotrod](https://github.com/jaegertracing/jaeger/tree/main/examples/hotrod) | jaeger提供的用来演示如何是用otel的demo,由多个微服务组成.                                                             |
 | [hotrod-with-proxy](https://github.com/woodgear/hotrod-with-proxy/blob/master/services/frontend/best_eta.go#L53)                                                           | 通过环境变量指定hotrod内部各微服务地址                                                                               |
 ## quick demo
-![otel-quick-demo](./res/alb-otel.drawio.svg)
+![otel-quick-demo](alb-otel.drawio.svg)
 
 如下yaml中部署了一个alb，使用jaeger作为otel-server，hotrod-proxy作为demo backend，通过配置ingress规则，client在请求alb时，流量会转发至hotrod，hotrod自己内部的微服务也通过alb做转发。
 
@@ -221,8 +221,8 @@ spec:
 
 4. 执行`curl -v "http://$ALB_IP:80/dispatch?customer=567&nonse="`通过alb来向hotrod发请求,alb会将trace上报到jaeger中，可以打开`"http://$JAEGER_IP:16686"`来查看。
 结果应类似于
-![jaeger](./res/jaeger.png)
-![trace](./res/trace.png)
+![jaeger](jaeger.png)
+![trace](trace.png)
 
 
 ## 详细配置

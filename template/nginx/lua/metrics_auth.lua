@@ -1,9 +1,12 @@
 local _M = {}
 
-local SKIP_METRICS_AURH = os.getenv("METRICS_AURH") == "false"
+local SKIP_METRICS_AURH = os.getenv("METRICS_AUTH") == "false"
 
 local function get_token()
     local authorization = ngx.req.get_headers()['authorization']
+    if type(authorization) ~= "string" then
+        return nil
+    end
     local matched = ngx.re.match(authorization, 'Bearer (.*)', 'jo')
 
     if matched == nil then

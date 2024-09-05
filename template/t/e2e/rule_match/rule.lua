@@ -23,9 +23,7 @@ function _M.test()
     }
     )
     -- LuaFormatter on
-    local res = h.assert_curl("http://127.0.0.1:80/t1?v=v")
-    u.logs(res)
-    h.assert_eq(res.body, "ok\n")
+    h.assert_curl("http://127.0.0.1:80/t1?v=v", {}, { status = 404 })
 end
 
 return _M

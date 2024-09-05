@@ -54,6 +54,21 @@ type InitInformersOptions struct {
 	ErrorIfWaitSyncFail bool // if errorIfWaitSyncFail set to false, and some error happens, it will ignore this error(just log) and still fill-up Informers
 }
 
+func initInformerAndLister(driver *KubernetesDriver, ctx context.Context) error {
+	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
+	if err != nil {
+		return err
+	}
+	driver.Informers = *informers
+	driver.ALB2Lister = informers.Alb.Alb.Lister()
+	driver.FrontendLister = informers.Alb.Ft.Lister()
+	driver.RuleLister = informers.Alb.Rule.Lister()
+	driver.ServiceLister = informers.K8s.Service.Lister()
+	driver.EndpointLister = informers.K8s.Endpoint.Lister()
+	driver.GatewayLister = informers.Gateway.Gateway.Lister()
+	return nil
+}
+
 func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitInformersOptions) (*Informers, error) {
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(driver.Client, 0)
 

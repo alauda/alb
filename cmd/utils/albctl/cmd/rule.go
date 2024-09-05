@@ -311,10 +311,10 @@ func checkingress(ctx Ctx) error {
 		}
 
 		should, reason := ing.NewIngressSelect(ing.IngressSelectOpt{
-			HttpPort:  NullOr(alb.Spec.Config.IngressHTTPPort, 80),
-			HttpsPort: NullOr(alb.Spec.Config.IngressHTTPPort, 443),
+			HttpPort:  NullOr(alb.Alb.Spec.Config.IngressHTTPPort, 80),
+			HttpsPort: NullOr(alb.Alb.Spec.Config.IngressHTTPPort, 443),
 			Domain:    "cpaas.io",
-			Name:      alb.Name,
+			Name:      alb.Alb.Name,
 		}, drv).ShouldHandleIngress(alb, ingcr)
 		fmt.Println("alb:", albkey, "ing:", ingkey, "should-handle-ingress:", should, "reason:", reason)
 		return nil

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -119,7 +120,8 @@ type FrontendSpec struct {
 }
 
 type FTConfig struct {
-	Otel *otelt.OtelCrConf `json:"otel,omitempty"`
+	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
+	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"`
 }
 
 type FrontendStatus struct {
@@ -240,7 +242,18 @@ type RuleSpec struct {
 }
 
 type RuleConfigInCr struct {
-	Otel *otelt.OtelCrConf `json:"otel,omitempty"`
+	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
+	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"` // waf 是个泛指，内部目前是指ModeSecurity，但是在cr上，还是用具体的ModeSecurity这个名字
+}
+
+func (r *Rule) GetWaf() *waft.WafCrConf {
+	if r.Spec.Config == nil {
+		return nil
+	}
+	if r.Spec.Config.ModeSecurity == nil {
+		return nil
+	}
+	return r.Spec.Config.ModeSecurity
 }
 
 func (r *Rule) GetOtel() *otelt.OtelCrConf {

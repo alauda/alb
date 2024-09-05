@@ -15,7 +15,7 @@ server {
 
     ssl_certificate     $base/cert/tls.crt;
     ssl_certificate_key $base/cert/tls.key;
-    ssl_dhparam $base/dhparam.pem;
+    ssl_dhparam $base/share/dhparam.pem;
 
     ssl_session_timeout  5m;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;

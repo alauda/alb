@@ -7,7 +7,7 @@ function alb-debug-e2e-test() {
 }
 
 function alb-build-e2e-test() {
-  ginkgo -dry-run -v ./test/e2e
+  ginkgo -dry-run ./test/e2e
 }
 
 function alb-go-test-all-with-coverage() {
@@ -26,15 +26,22 @@ function alb-go-test-all-with-coverage() {
   echo "end_e2e $end_e2e"
   echo "end_checklist $end_checklist"
 
+  tail -n +2 ./coverage.unit >>./coverage.txt
   tail -n +2 ./coverage.e2e >>./coverage.txt
 
   sed -e '1i\mode: atomic' ./coverage.txt >./coverage.txt.all
   mv ./coverage.txt.all ./coverage.txt
-  go tool cover -html=./coverage.txt -o coverage.html
-  go tool cover -func=./coverage.txt >./coverage.report
+  _alb-go-coverage_gen ./coverage.txt
+}
+
+function _alb-go-coverage_gen() (
+  local c=$1
+  go tool cover -html=$c -o coverage.html
+  go tool cover -func=$c >./coverage.report
   local total=$(grep total ./coverage.report | awk '{print $3}')
   echo $total
-}
+  return
+)
 
 function alb-run-checklist-test() (
   echo "life: checklist start"
@@ -66,33 +73,25 @@ function alb-run-all-e2e-test() (
   fi
 )
 
-function alb-go-unit-test() {
+function alb-go-build-unit-test() {
+  go test -run -c alauda.io/alb2/... | grep -v 'ok' | grep -v 'no test files'
+}
+
+function alb-go-unit-test() (
+  set -e
   local filter=${1:-""}
   # TODO it shoult include e2e test
-  # translate from https://github.com/ory/go-acc
-  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
+  local s=$(date)
+  echo "s $s"
+  # https://github.com/ory/go-acc
+  local coverpkg_list=$(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
-  local fail="0"
-  echo "$coverpkg"
-  while IFS= read -r pkg; do
-    echo "pkg $pkg"
-    if [ -f ./coverage.tmp ]; then rm ./coverage.tmp; fi
-    touch ./coverage.tmp
-    go test -v -race -covermode=atomic -coverprofile=coverage.tmp -coverpkg "$coverpkg" $pkg
-    fail="$?"
-    echo "pkg test over $pkg $fail"
-    if [[ ! "$fail" == "0" ]]; then
-      break
-    fi
-    tail -n +2 ./coverage.tmp >>./coverage.txt
-  done <<<"$coverpkg_list"
-
-  if [[ ! "$fail" == "0" ]]; then
-    echo "unit test wrong"
-    return 1
-  fi
-}
+  local concurrent=${2:-3}
+  go test -p $concurrent -v -race -covermode=atomic -coverprofile=coverage.unit -coverpkg "$coverpkg" $(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
+  local e=$(date)
+  echo $s $e
+)
 
 function alb-envtest-install() {
   curl --progress-bar -sSLo envtest-bins.tar.gz $(__at_resolve_url envtest)

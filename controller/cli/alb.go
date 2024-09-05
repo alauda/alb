@@ -41,17 +41,17 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 	}
 
 	cAlb := &LoadBalancer{
-		Name:      mAlb.Name,
-		Address:   mAlb.Spec.Address,
+		Name:      mAlb.Alb.Name,
+		Address:   mAlb.Alb.Spec.Address,
 		Frontends: []*Frontend{},
-		Labels:    mAlb.Labels,
+		Labels:    mAlb.Alb.Labels,
 	}
 
 	// mft frontend struct from modules package.
 	for _, mft := range mAlb.Frontends {
 		ft := &Frontend{
 			FtName:          mft.Name,
-			AlbName:         mAlb.Name,
+			AlbName:         mAlb.Alb.Name,
 			Port:            mft.Spec.Port,
 			Protocol:        mft.Spec.Protocol,
 			Rules:           RuleList{},
