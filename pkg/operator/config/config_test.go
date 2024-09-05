@@ -315,7 +315,7 @@ func TestGetNginxContainerEnvs(t *testing.T) {
 	sort.Slice(actual, func(i, j int) bool {
 		return actual[i].Name < actual[j].Name
 	})
-	t.Logf(cmp.Diff(expect, actual))
+	t.Logf("%v", cmp.Diff(expect, actual))
 	assert.ElementsMatch(t, expect, actual)
 }
 
@@ -348,7 +348,7 @@ spec:
 			ns:   "n1",
 			name: "test",
 			assert: func(cfg ALB2Config) {
-				t.Logf(PrettyJson(cfg))
+				t.Logf("%v", PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeShared)
 				assert.Equal(t, cfg.Gateway.Shared.GatewayClassName, "test")
@@ -373,7 +373,7 @@ spec:
 			ns:   "n1",
 			name: "test-xxxx",
 			assert: func(cfg ALB2Config) {
-				t.Logf(PrettyJson(cfg))
+				t.Logf("%v", PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeStandAlone)
 				assert.Equal(t, cfg.Gateway.StandAlone.GatewayName, "test")
@@ -401,7 +401,7 @@ spec:
 			ns:   "n1",
 			name: "test-xxxx",
 			assert: func(cfg ALB2Config) {
-				t.Logf(PrettyJson(cfg))
+				t.Logf("%v", PrettyJson(cfg))
 				assert.Equal(t, cfg.Gateway.Enable, true)
 				assert.Equal(t, cfg.Gateway.Mode, albv2.GatewayModeStandAlone)
 				assert.Equal(t, cfg.Gateway.StandAlone.GatewayName, "test")
@@ -414,7 +414,7 @@ spec:
 	}
 	for _, c := range cases {
 		alb := yamltoAlbCr(c.albCr, c.ns, c.name)
-		t.Logf(test_utils.PrettyCr(alb))
+		t.Logf("%v", test_utils.PrettyCr(alb))
 		cfg, err := NewALB2Config(alb, DEFAULT_OPERATOR_CFG, test_utils.ConsoleLog())
 		assert.NoError(t, err)
 		c.assert(*cfg)
@@ -424,7 +424,7 @@ spec:
 		}
 		ncfg, err := AlbRunCfgFromEnv(env)
 		assert.NoError(t, err)
-		t.Logf(cmp.Diff(ncfg, cfg.ALBRunConfig))
+		t.Logf("%v", cmp.Diff(ncfg, cfg.ALBRunConfig))
 		assert.Equal(t, cfg.ALBRunConfig, ncfg)
 	}
 }

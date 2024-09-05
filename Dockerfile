@@ -14,6 +14,7 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/operator alauda.io/alb2/cmd/operator
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-static' -v -o /out/albctl alauda.io/alb2/cmd/utils/albctl
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/ngx_gen alauda.io/alb2/cmd/utils/ngx_gen
 RUN ldd /out/albctl || true
 
 FROM ${OPENRESTY_BASE} AS base
@@ -33,9 +34,10 @@ FROM scratch
 ## openresty as base image
 COPY --from=base / /
 COPY ./template/nginx /alb/nginx
-COPY ./template/nginx/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
+COPY ./pkg/controller/ngxconf/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
 COPY run-alb.sh /alb/ctl/run-alb.sh
 COPY --from=go_builder /out/tweak_gen /alb/tools/tweak_gen
+COPY --from=go_builder /out/ngx_gen /alb/tools/ngx_gen
 COPY --from=go_builder /out/alb /alb/ctl/alb
 COPY --from=go_builder /out/migrate /alb/ctl/tools/
 COPY --from=go_builder /out/operator /alb/ctl/operator

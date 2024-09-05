@@ -126,7 +126,7 @@ func (a *Env) Start() error {
 
 	tweakDir := base + "/tweak"
 	os.MkdirAll(tweakDir, os.ModePerm)
-	nginxTemplatePath, err := filepath.Abs(filepath.Join(root, "template/nginx/nginx.tmpl"))
+	nginxTemplatePath, err := filepath.Abs(filepath.Join(root, "pkg/controller/ngxconf/nginx.tmpl"))
 	assert.Nil(GinkgoT(), err, "nginx template")
 	assert.FileExists(GinkgoT(), nginxTemplatePath, "nginx template")
 

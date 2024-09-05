@@ -1,21 +1,24 @@
 package ingress
 
 import (
-	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
 	"context"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 
+	albclient "alauda.io/alb2/pkg/client/clientset/versioned"
+
 	"alauda.io/alb2/config"
 	ct "alauda.io/alb2/controller/types"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	. "alauda.io/alb2/pkg/utils/test_utils"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils"
 	. "alauda.io/alb2/utils/test_utils"
 	. "alauda.io/alb2/utils/test_utils/assert"
 	"github.com/go-logr/logr"
+	"github.com/lithammer/dedent"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -258,7 +261,6 @@ var _ = ginkgo.Describe("Ingress", func() {
 				}
 				return true, nil
 			})
-
 		})
 
 		GIt("should work with none path ingress", func() {
@@ -564,49 +566,19 @@ spec:
         path: /xx1
         pathType: ImplementationSpecific
 `)
-			ctx := f.GetCtx()
 			ns := "alb-test"
 			ingname := "ing-xx"
-			ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
-			GinkgoNoErr(err)
-			ruleName := ""
 			// wait for rule created, and get rule name
-			f.Wait(func() (bool, error) {
-				rs, err := FindRuleViaSource(f.GetCtx(), *f.K8sClient, ing.Name)
-				if err != nil {
-					return false, err
-				}
-				if len(rs) != 1 {
-					return false, fmt.Errorf("find one more rule %v", PrettyJson(rs))
-				}
-				r := rs[0]
-				l.Info("rule", "rule", PrettyCr(r), "r-i-v", r.Annotations, "ing-v", ing.ResourceVersion)
-				ruleName = r.Name
-				return true, nil
-			})
+			ruleName := f.WaitIngressRule(ingname, ns, 1)[0].Name
 
-			// change ingress version
-			_, err = f.Kubectl.Kubectl("annotate", "ingresses.networking.k8s.io", "-n", "alb-test", "ing-xx", fmt.Sprintf("a=%d", 1), "--overwrite")
-			GinkgoNoErr(err)
-			ing, err = f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
-			GinkgoNoErr(err)
+			{
+				// change ingress version
+				_, err := f.Kubectl.Kubectl("annotate", "ingresses.networking.k8s.io", "-n", "alb-test", "ing-xx", fmt.Sprintf("a=%d", 1), "--overwrite")
+				GinkgoNoErr(err)
+				rule := f.WaitIngressRule(ingname, ns, 1)[0]
+				GinkgoAssertStringEq(ruleName, rule.Name, "")
+			}
 
-			// rule's name should not change
-			f.Wait(func() (bool, error) {
-				rs, err := FindRuleViaSource(f.GetCtx(), *f.K8sClient, ing.Name)
-				if err != nil {
-					return false, err
-				}
-				if len(rs) != 1 {
-					return false, fmt.Errorf("find one more rule %v", PrettyJson(rs))
-				}
-				r := rs[0]
-				l.Info("rule", "rule", PrettyCr(r), "r-i-v", r.Annotations, "ing-v", ing.ResourceVersion)
-				if r.Name != ruleName {
-					return false, fmt.Errorf("rule name should not change %v %v", ruleName, r.Name)
-				}
-				return true, nil
-			})
 		})
 		ginkgo.It("should create rule with project label", func() {
 			f.AssertKubectlApply(`
@@ -714,6 +686,79 @@ spec:
 			Expect(r_create.Labels).To(HaveKey(n.GetLabelProject()))
 			Expect(r_update.Labels[n.GetLabelProject()]).To(Equal("p2"))
 			Expect(r_update.Labels[n.GetLabelProject()]).To(Equal("p2"))
+		})
+
+		ginkgo.It("waf should ok", func() {
+			// should sync snip to rule annotation
+			f.AssertKubectlApply(dedent.Dedent(`
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+              name: ing-xx
+              namespace: alb-test
+            spec:
+              rules:
+              - http:
+                  paths:
+                  - backend:
+                      service:
+                        name: svc-default
+                        port:
+                          number: 80
+                    path: /xx1
+                    pathType: ImplementationSpecific
+            `))
+			ns := "alb-test"
+			ingname := "ing-xx"
+			annote_ing := func(k string, v string) {
+				f.AssertKubectl("annotate", "ingresses.networking.k8s.io", "-n", "alb-test", "ing-xx", fmt.Sprintf("%s=%v", k, v), "--overwrite")
+			}
+			l.Info("wait for rule created")
+			Eventually(func() *av1.Rule { return &f.WaitIngressRule(ingname, ns, 1)[0] }, "10m").Should(Satisfy(func(r *av1.Rule) bool {
+				l.Info("waf nil", "rule", PrettyJson(r.Spec.Config.ModeSecurity), "annotate", r.Annotations)
+				return r.Spec.Config.ModeSecurity == nil
+			}))
+
+			l.Info("enable waf")
+			annote_ing("nginx.ingress.kubernetes.io/enable-modsecurity", "true")
+			Eventually(func() *av1.Rule { return &f.WaitIngressRule(ingname, ns, 1)[0] }, "10m").Should(Satisfy(func(r *av1.Rule) bool {
+				l.Info("check enable", "r", r.Spec.Config)
+				if r.GetWaf() == nil {
+					return false
+				}
+				enable := r.GetWaf() != nil && r.GetWaf().Enable
+				l.Info("waf enable", "x", enable, "rule", PrettyJson(r.Spec.Config.ModeSecurity), "annotate", r.Annotations)
+				return enable
+			}))
+			l.Info("disable waf")
+			annote_ing("nginx.ingress.kubernetes.io/enable-modsecurity", "false")
+			Eventually(func() *av1.Rule { return &f.WaitIngressRule(ingname, ns, 1)[0] }, "10m").Should(Satisfy(func(r *av1.Rule) bool {
+				l.Info("waf disable", "rule", r.Spec.Config)
+				if r.GetWaf() == nil {
+					return false
+				}
+				enable := r.Spec.Config.ModeSecurity.Enable
+				l.Info("waf disable", "x", enable, "rule", PrettyJson(r.Spec.Config.ModeSecurity), "annotate", r.Annotations)
+				return !enable
+			}))
+
+			annote_ing("nginx.ingress.kubernetes.io/enable-modsecurity", "true")
+			snip_key := "nginx.ingress.kubernetes.io/modsecurity-snippet"
+			// snip a
+			l.Info("snip a")
+			annote_ing(snip_key, "a=a")
+			Eventually(func() *av1.Rule { return &f.WaitIngressRule(ingname, ns, 1)[0] }, "10m").Should(Satisfy(func(r *av1.Rule) bool {
+				enable := r.Spec.Config.ModeSecurity.Enable
+				l.Info("waf enable", "x", enable, "rule", PrettyJson(r.Spec.Config.ModeSecurity), "annotate", r.Annotations)
+				return enable && r.Annotations[snip_key] == "a=a"
+			}))
+			l.Info("snip b")
+			annote_ing(snip_key, "a=b")
+			Eventually(func() *av1.Rule { return &f.WaitIngressRule(ingname, ns, 1)[0] }, "10m").Should(Satisfy(func(r *av1.Rule) bool {
+				enable := r.Spec.Config.ModeSecurity.Enable
+				l.Info("waf enable", "x", enable, "rule", PrettyJson(r.Spec.Config.ModeSecurity), "annotate", r.Annotations)
+				return enable && r.Annotations[snip_key] == "a=b"
+			}))
 		})
 	})
 })

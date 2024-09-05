@@ -1,20 +1,16 @@
 package controller
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"path/filepath"
-	"runtime"
 	"testing"
-	"text/template"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	ngxconf "alauda.io/alb2/pkg/controller/ngxconf"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"alauda.io/alb2/utils/test_utils"
@@ -108,7 +104,7 @@ func GenPolicyAndConfig(t *testing.T, env test_utils.FakeAlbEnv, res test_utils.
 	err = json.Unmarshal(nginxPolicyJson, &policy)
 	assert.NoError(t, err)
 
-	nginxConfigStr, err := renderNginxConfig(nginxConfig)
+	nginxConfigStr, err := ngxconf.RenderNginxConfigEmbed(nginxConfig)
 	assert.NoError(t, err)
 	return &policy, nginxConfigStr, nil
 }
@@ -979,40 +975,4 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 	}
 
 	run_test(cases)
-}
-
-func TestRenderNginxConfig(t *testing.T) {
-	config := NginxTemplateConfig{
-		Frontends: map[string]FtConfig{
-			"8081-http": {
-				Port:            8081,
-				Protocol:        "http",
-				IpV4BindAddress: []string{"192.168.0.1", "192.168.0.3"},
-				IpV6BindAddress: []string{"[::1]", "[::2]"},
-			},
-		},
-		NginxParam: NginxParam{EnableIPV6: true},
-	}
-	configStr, err := renderNginxConfig(config)
-	assert.Nil(t, err)
-	assert.Contains(t, configStr, "listen    192.168.0.1:8081")
-	assert.Contains(t, configStr, "listen    192.168.0.3:8081")
-	assert.Contains(t, configStr, "listen    [::1]:8081")
-	assert.Contains(t, configStr, "listen    [::2]:8081")
-}
-
-func renderNginxConfig(config NginxTemplateConfig) (string, error) {
-	// get the current test file abs path
-	_, filename, _, _ := runtime.Caller(0)
-	t, err := template.New("nginx.tmpl").ParseFiles(fmt.Sprintf("%s/../template/nginx/nginx.tmpl", filepath.Dir(filename)))
-	var tpl bytes.Buffer
-	if err != nil {
-		return "", err
-	}
-
-	if err := t.Execute(&tpl, config); err != nil {
-		return "", err
-	}
-
-	return tpl.String(), nil
 }

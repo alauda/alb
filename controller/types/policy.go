@@ -54,6 +54,7 @@ type SameInPolicy struct {
 	RedirectPort          *int    `json:"redirect_port,omitempty"`
 	RedirectPrefixMatch   *string `json:"redirect_prefix_match,omitempty"`
 	RedirectReplacePrefix *string `json:"redirect_replace_prefix,omitempty"`
+	ToLocation            *string `json:"to_location,omitempty"`
 }
 
 type NgxPolicy struct {

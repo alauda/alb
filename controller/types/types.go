@@ -7,6 +7,8 @@ import (
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -37,14 +39,7 @@ type LoadBalancer struct {
 	Type      string            `json:"type"`
 	Version   int               `json:"version"`
 	Frontends []*Frontend       `json:"frontends"`
-}
-
-func (lb *LoadBalancer) String() string {
-	r, err := json.Marshal(lb)
-	if err != nil {
-		return ""
-	}
-	return string(r)
+	CmRefs    map[string]*corev1.ConfigMap
 }
 
 type Certificate struct {
@@ -208,6 +203,7 @@ type Rule struct {
 	RuleID string              `json:"rule_id"`
 	Config *RuleConfigInPolicy `json:"config,omitempty"`
 
+	Waf *waft.WafInRule `json:"waf"` // waf not need to be in policy.json
 	SameInRuleCr
 	SameInPolicy
 }

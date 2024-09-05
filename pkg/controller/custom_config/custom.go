@@ -5,6 +5,7 @@ import (
 	ct "alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/pkg/controller/ext/otel"
+	"alauda.io/alb2/pkg/controller/ext/waf"
 	u "alauda.io/alb2/pkg/utils"
 	"github.com/go-logr/logr"
 	nv1 "k8s.io/api/networking/v1"
@@ -16,12 +17,12 @@ import (
 //           | ingress sync |-----------------+
 //           +--------------+                 |
 //                                            |
-//                                            |                +-----+
-//                                            v         +----> | otel|
-//           +-----------------+         +--------------+      +-----+
+//                                            |                +-----------+
+//                                            v         +----> | otel/other|
+//           +-----------------+         +--------------+      +-----------+
 //           |cr:rule -> m:rule|-------->| custom config|
 //           +-------+---------+         +--------------+     +-----------------+
-//                   |                         ^         +--->| rewrite req/res |
+//                   |                         ^         +--->| (legacy)rewrite req/res |
 //                   |                         |              -------------------+
 //                   |                         |
 //             +-----v------+                  |
@@ -33,6 +34,7 @@ type CustomCfgCtl struct {
 	log    logr.Logger
 	domain string
 	otel   *otel.Otel
+	waf    *waf.Waf
 }
 
 type CustomCfgOpt struct {
@@ -45,6 +47,7 @@ func NewCustomCfgCtl(opt CustomCfgOpt) CustomCfgCtl {
 		log:    opt.Log,
 		domain: opt.Domain,
 		otel:   otel.NewOtel(opt.Log),
+		waf:    waf.NewWaf(opt.Log),
 	}
 }
 
@@ -53,12 +56,14 @@ func (c CustomCfgCtl) IngressToRule(ing *nv1.Ingress, rindex int, pindex int, ru
 	annotations := legacyGenerateRuleAnnotationFromIngressAnnotation(ing.Name, ing.Annotations, c.domain)
 	rule.Annotations = u.MergeMap(rule.Annotations, annotations)
 	c.otel.UpdateRuleViaIngress(ing, rindex, pindex, rule, c.domain)
+	c.waf.UpdateRuleViaIngress(ing, rindex, pindex, rule, c.domain)
 }
 
 // cr:rule -> m:rule
 func (c CustomCfgCtl) FromRuleCr(rule *m.Rule, r *ct.Rule) {
 	ruleInPolicyFromRuleAnnotation(rule, c.domain, r.Config)
 	c.otel.FromRuleCr(rule, r)
+	c.waf.FromRuleCr(rule, r)
 }
 
 // policy gen

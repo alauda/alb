@@ -1,4 +1,4 @@
-package controller
+package ngxconf
 
 import (
 	"encoding/json"
@@ -10,42 +10,71 @@ import (
 	"sort"
 	"strings"
 
-	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/utils/dirhash"
+	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/types"
 	"alauda.io/alb2/utils"
 	"k8s.io/klog/v2"
+
+	. "alauda.io/alb2/controller/types"
+	"alauda.io/alb2/driver"
+	"alauda.io/alb2/pkg/controller/ext/waf"
+	. "alauda.io/alb2/pkg/controller/ngxconf/types"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 )
 
-type LegacyConfig = Config
+type NgxCli struct {
+	drv *driver.KubernetesDriver
+	log logr.Logger
+	opt NgxCliOpt
+	waf *waf.Waf
+}
+type NgxCliOpt struct{}
 
-type FtConfig struct {
-	Port            int
-	Protocol        albv1.FtProtocol
-	CertificateName string
-	IpV4BindAddress []string
-	IpV6BindAddress []string
+func NewNgxCli(drv *driver.KubernetesDriver, log logr.Logger, opt NgxCliOpt) NgxCli {
+	return NgxCli{
+		drv: drv,
+		log: log,
+		opt: opt,
+		waf: waf.NewWaf(log),
+	}
 }
 
-type MetricsConfig struct {
-	Port            int
-	IpV4BindAddress []string
-	IpV6BindAddress []string
+func (c *NgxCli) FillUpRefCms(alb *LoadBalancer) error {
+	// 实际上也应该是由ext/waf做的，但是目前没有同类的东西，所以这里直接做
+	if alb.CmRefs == nil {
+		alb.CmRefs = map[string]*corev1.ConfigMap{}
+	}
+	cms := map[client.ObjectKey]string{}
+	for _, f := range alb.Frontends {
+		for _, r := range f.Rules {
+			if r.Waf != nil && r.Waf.Raw.CmRef != "" {
+				ns, name, _, err := waf.ParseCmRef(r.Waf.Raw.CmRef)
+				if err != nil {
+					continue
+				}
+				cms[client.ObjectKey{Namespace: ns, Name: name}] = r.Waf.Key
+			}
+		}
+	}
+	for cm_key, waf_key := range cms {
+		cm := &corev1.ConfigMap{}
+		err := c.drv.Cli.Get(c.drv.Ctx, cm_key, cm)
+		if err != nil {
+			c.log.Error(err, "get waf used cm fail", "waf", waf_key, "cm", cm_key.String())
+			continue
+		}
+		alb.CmRefs[cm_key.String()] = cm
+	}
+	return nil
 }
 
-// a config used for nginx.tmpl to generate nginx.conf
-type NginxTemplateConfig struct {
-	Name      string
-	Frontends map[string]FtConfig
-	Metrics   MetricsConfig
-	TweakHash string
-	Phase     string
-	NginxParam
-}
-
-func GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, nginxParam NginxParam, cfg *config.Config) (*NginxTemplateConfig, error) {
+func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, cfg *config.Config) (*NginxTemplateConfig, error) {
+	nginxParam := newNginxParam(cfg)
 	ipv4, ipv6, err := GetBindIp(cfg)
 	if err != nil {
 		return nil, err
@@ -55,22 +84,28 @@ func GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, nginxPar
 		if ft.Conflict {
 			continue
 		}
-		fts[fmt.Sprintf("%d-%s", ft.Port, ft.Protocol)] = FtConfig{
+		fts[ft.String()] = FtConfig{
 			IpV4BindAddress: ipv4,
 			IpV6BindAddress: ipv6,
 			Port:            int(ft.Port),
 			Protocol:        ft.Protocol,
+			EnableHTTP2:     nginxParam.EnableHTTP2,
 			CertificateName: ft.CertificateName,
 		}
 	}
 	// calculate hash by tweak dir
-	hash, err := dirhash.HashDir(cfg.GetNginxCfg().TweakDir, ".conf", dirhash.DefaultHash)
+	tweakBase := cfg.GetNginxCfg().TweakDir
+	hash, err := dirhash.HashDir(tweakBase, ".conf", dirhash.DefaultHash)
 	if err != nil {
 		klog.Error(err)
 		return nil, err
 	}
-	return &NginxTemplateConfig{
+	tmpl_cfg := &NginxTemplateConfig{
 		Name:      alb.Name,
+		TweakBase: tweakBase,
+		NginxBase: "/alb/nginx",
+		RestyBase: "/usr/local/openresty",
+		ShareBase: "/etc/alb2/nginx",
 		Frontends: fts,
 		TweakHash: hash,
 		Phase:     phase,
@@ -80,7 +115,22 @@ func GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, nginxPar
 			IpV6BindAddress: ipv6,
 		},
 		NginxParam: nginxParam,
-	}, nil
+		Flags:      DefaulNgxTmplFlags(),
+	}
+	err = c.waf.UpdateNgxTmpl(tmpl_cfg, alb, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return tmpl_cfg, nil
+}
+
+func NgxTmplCfgFromYaml(ngx string) (*NginxTemplateConfig, error) {
+	var cfg NginxTemplateConfig
+	err := yaml.Unmarshal([]byte(ngx), &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal YAML: %v", err)
+	}
+	return &cfg, nil
 }
 
 func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, err error) {
