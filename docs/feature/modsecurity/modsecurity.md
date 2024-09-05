@@ -38,12 +38,8 @@ metadata:
     nginx.ingress.kubernetes.io/enable-modsecurity: "true"
     nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"
     nginx.ingress.kubernetes.io/modsecurity-snippet: |
-       modsecurity_rules '
         SecRuleEngine On
-        SecRule ARGS:test "\@contains test" "id:1234,deny,log"
-       ';
-       modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
-       modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+        SecRule ARGS:test "@contains test" "id:1234,deny,log"
   name: ing-waf-enable
 spec:
   ingressClassName: waf-alb
