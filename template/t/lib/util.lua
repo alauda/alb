@@ -6,16 +6,29 @@ local inspect = require "inspect"
 local sext = require "utils.string_ext"
 
 function _M.httpc()
-    return require"resty.http".new()
+    return require "resty.http".new()
+end
+
+function _M.get_caller_info(f, t)
+    local msg=""
+    for i = f, t do
+        local callerinfo = debug.getinfo(i)
+        local caller = sext.remove_prefix(callerinfo.source, "@") .. " " .. tostring(callerinfo.currentline)
+        msg = msg .. " " .. caller
+    end
+    return msg
 end
 
 function _M.curl(url, cfg)
     local httpc = require("resty.http").new()
     if cfg == nil then
-        cfg = {}
-        cfg["headers"] = {}
+        local res, err = httpc:request_uri(url, { method = "GET" })
+        return res, err
     end
-    local res, err = httpc:request_uri(url, {method = "GET", headers = cfg.headers})
+    if cfg.method == nil then
+        cfg.method = "GET"
+    end
+    local res, err = httpc:request_uri(url, cfg)
     return res, err
 end
 
@@ -37,7 +50,7 @@ function _M.logs(...)
     local callerinfo = debug.getinfo(2)
     local caller = sext.remove_prefix(callerinfo.source, "@") .. " " .. tostring(callerinfo.currentline)
     local msg = ""
-    local t, n = {...}, select('#', ...)
+    local t, n = { ... }, select('#', ...)
     for k = 1, n do
         local v = t[k]
         if type(v) == "string" then
@@ -52,7 +65,7 @@ function _M.logs(...)
     --     msg = msg .. " |->" .. inspect(v) .. "<-|"
     -- end
     -- _M.log(inspect(arg), { caller = caller })
-    _M.log(msg, {caller = caller})
+    _M.log(msg, { caller = caller })
 end
 
 function _M.now_ms()
@@ -63,7 +76,7 @@ end
 function _M.time_spend(f)
     local start = _M.now_ms()
     _M.log("time spend start " .. tostring(ngx.now()))
-    local ret = {f()}
+    local ret = { f() }
     local stop = _M.now_ms()
     _M.log("time spend end " .. tostring(ngx.now()))
     return stop - start, unpack(ret)

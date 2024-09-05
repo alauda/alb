@@ -103,6 +103,14 @@ local function do_l7_rewrite()
         ngx_log(ngx.ERR, msg)
         return e.exit_with_code(e.InvalidUpstream, msg, ngx.HTTP_NOT_FOUND)
     end
+    local to_location = matched_policy["to_location"] or ""
+    local ami_in_root_location = ngx.var.location_mode == "root"
+
+    if to_location ~= "" and ami_in_root_location then
+        ngx_log(ngx.INFO, "exec to_location: " .. to_location)
+        ngx.exec("@" .. to_location)
+        return
+    end
 
     ngx.ctx.matched_policy = matched_policy
     ngx.ctx.upstream = t_upstream

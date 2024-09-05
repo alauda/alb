@@ -42,7 +42,88 @@ function alb-ng-install-deps() (
   install-lua-protobuf
   install-opentelemetry-lua
   install-lua-resty-http
+  alb-ng-install-waf
   tree $openresty/lualib/resty
+  tree /etc/nginx
+)
+
+function alb-ng-install-waf() (
+  export OWASP_MODSECURITY_CRS_VERSION=4.4.0
+  # https://github.com/kubernetes/ingress-nginx/blob/c9743ae58599ad43236a7b28aea0f6bd8cd19c4a/images/nginx-1.25/rootfs/build.sh#L363
+  mkdir -p /etc/nginx/modsecurity
+  local recommended_conf_url_online="https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v3/master/modsecurity.conf-recommended"
+  local recommended_conf_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity.conf-recommended"
+  # f82971c3764647d751372fa423bd56fe  ./modsecurity.conf-recommended
+  local recommended_url=$(_alb_lua_switch "$recommended_conf_url_online" "$recommended_conf_url_offline")
+
+  local coreruleset_url_online="https://codeload.github.com/coreruleset/coreruleset/zip/refs/tags/v$OWASP_MODSECURITY_CRS_VERSION"
+  local coreruleset_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/coreruleset-4.4.0.zip"
+  local coreruleset_url=$(_alb_lua_switch "$coreruleset_url_online" "$coreruleset_url_offline")
+
+  local unicode_mapping_url_online="https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v3/master/unicode.mapping"
+  local unicode_mapping_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/unicode.mapping"
+  local unicode_mapping_url=$(_alb_lua_switch "$unicode_mapping_url_online" "$unicode_mapping_url_offline")
+
+  rm -rf /etc/nginx/modsecurity || true
+  rm -rf /etc/nginx/owasp-modsecurity-crs || true
+  mkdir -p /etc/nginx/modsecurity/
+  mkdir -p /var/log/audit/
+  wget $recommended_url -O /etc/nginx/modsecurity/modsecurity.conf
+  wget $unicode_mapping_url -O /etc/nginx/modsecurity/unicode.mapping
+
+  # Replace serial logging with concurrent
+  sed -i 's|SecAuditLogType Serial|SecAuditLogType Concurrent|g' /etc/nginx/modsecurity/modsecurity.conf
+
+  # Concurrent logging implies the log is stored in several files
+  echo "SecAuditLogStorageDir /var/log/audit/" >>/etc/nginx/modsecurity/modsecurity.conf
+
+  # Download owasp modsecurity crs
+  cd /etc/nginx/
+  set +x
+  wget $coreruleset_url -O ./coreruleset.zip
+  unzip ./coreruleset.zip
+  mv ./coreruleset-$OWASP_MODSECURITY_CRS_VERSION ./owasp-modsecurity-crs
+  rm ./coreruleset.zip
+  cd ./owasp-modsecurity-crs
+
+  mv crs-setup.conf.example crs-setup.conf
+  mv rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf.example rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+  mv rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+  cd ..
+  set +x
+
+  # OWASP CRS v4 rules
+  echo "
+Include /etc/nginx/owasp-modsecurity-crs/crs-setup.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-901-INITIALIZATION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-905-COMMON-EXCEPTIONS.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-911-METHOD-ENFORCEMENT.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-913-SCANNER-DETECTION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-920-PROTOCOL-ENFORCEMENT.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-921-PROTOCOL-ATTACK.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-922-MULTIPART-ATTACK.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-930-APPLICATION-ATTACK-LFI.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-931-APPLICATION-ATTACK-RFI.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-932-APPLICATION-ATTACK-RCE.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-933-APPLICATION-ATTACK-PHP.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-934-APPLICATION-ATTACK-GENERIC.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-941-APPLICATION-ATTACK-XSS.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-943-APPLICATION-ATTACK-SESSION-FIXATION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-944-APPLICATION-ATTACK-JAVA.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/REQUEST-949-BLOCKING-EVALUATION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-950-DATA-LEAKAGES.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-951-DATA-LEAKAGES-SQL.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-952-DATA-LEAKAGES-JAVA.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-953-DATA-LEAKAGES-PHP.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-954-DATA-LEAKAGES-IIS.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-955-WEB-SHELLS.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-959-BLOCKING-EVALUATION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-980-CORRELATION.conf
+Include /etc/nginx/owasp-modsecurity-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf
+" >/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf
+  return
 )
 
 function _alb_lua_switch() (

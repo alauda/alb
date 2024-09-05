@@ -101,6 +101,8 @@ function alb-gh-build-nginx() (
   local ver=$(alb-gh-get-nginx-ver)
   local RESTY_PCRE_VERSION=$(cat ./template/Dockerfile.openresty | grep RESTY_PCRE_VERSION= | awk -F = '{print $2}' | tr -d '"')
   local RESTY_PCRE_BASE="https://downloads.sourceforge.net/project/pcre/pcre/$RESTY_PCRE_VERSION/pcre-$RESTY_PCRE_VERSION.tar.gz"
+  local MODSECURITY_NGINX_BASE="https://codeload.github.com/owasp-modsecurity/ModSecurity-nginx/zip/refs/heads/master"
+  local MODSECURITY_BASE="https://github.com/owasp-modsecurity/ModSecurity/releases/download/v3.0.13/modsecurity-v3.0.13.tar.gz"
   local resty_base="docker.io/library/alpine"
 
   local platform=${MATRIX_PLATFORM:-"linux/amd64"}
@@ -113,6 +115,8 @@ function alb-gh-build-nginx() (
     -t $IMAGE_REPO/alb-nginx-base:$ver \
     --build-arg RESTY_IMAGE_BASE=$resty_base \
     --build-arg RESTY_PCRE_BASE=$RESTY_PCRE_BASE \
+    --build-arg MODSECURITY_NGINX_BASE=$MODSECURITY_NGINX_BASE \
+    --build-arg MODSECURITY_BASE=$MODSECURITY_BASE \
     -o type=docker \
     -f ./template/Dockerfile.openresty \
     ./
