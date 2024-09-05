@@ -15,23 +15,13 @@ local subsystem = ngx.config.subsystem
 local replace = require "replace_prefix_match"
 local e = require "error"
 local pm = require("plugins.core.plugin_manager")
+local cors = require "cors"
 
 local function set_cors(matched_policy)
     local enable_cors = matched_policy["enable_cors"]
     if enable_cors == true then
         if ngx.ctx.alb_ctx.var.method == 'OPTIONS' then
-            if matched_policy["cors_allow_origin"] ~= "" then
-                ngx_header['Access-Control-Allow-Origin'] = matched_policy["cors_allow_origin"]
-            else
-                ngx_header['Access-Control-Allow-Origin'] = "*"
-            end
-            ngx_header['Access-Control-Allow-Credentials'] = 'true'
-            ngx_header['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, PATCH, OPTIONS'
-            if matched_policy["cors_allow_headers"] ~= "" then
-                ngx_header['Access-Control-Allow-Headers'] = matched_policy["cors_allow_headers"]
-            else
-                ngx_header['Access-Control-Allow-Headers'] = 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization'
-            end
+            cors.common_cors_header(matched_policy, ngx_header)
             ngx_header['Access-Control-Max-Age'] = '1728000'
             ngx_header['Content-Type'] = 'text/plain charset=UTF-8'
             ngx_header['Content-Length'] = '0'
@@ -56,7 +46,7 @@ local function set_backend_protocol(matched_policy)
 end
 
 local function set_rewrite_url(matched_policy)
-    local prefix_match = matched_policy["rewrite_prefix_match"] -- notemptystring | nil
+    local prefix_match = matched_policy["rewrite_prefix_match"]     -- notemptystring | nil
     local replace_prefix = matched_policy["rewrite_replace_prefix"] -- string | nil
     if prefix_match ~= nil and prefix_match ~= "" then
         ngx.req.set_uri(replace.replace(ngx.ctx.alb_ctx.var.uri, prefix_match, replace_prefix), false)
