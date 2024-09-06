@@ -214,6 +214,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 		}
 	}
+	readonly := conf.Flags.ReadOnlyFs
 
 	return DeployCfg{
 		Spec: DeploySpec{
@@ -247,7 +248,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
-				ReadOnlyRootFilesystem: pointer.To(true),
+				ReadOnlyRootFilesystem: pointer.To(readonly),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE", // 向其他process 发信号需要ptrace
@@ -269,7 +270,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 			Pullpolicy: corev1.PullPolicy(pullpolicy),
 			Securityctx: &corev1.SecurityContext{
-				ReadOnlyRootFilesystem: pointer.To(true),
+				ReadOnlyRootFilesystem: pointer.To(readonly),
 				Capabilities: &corev1.Capabilities{
 					Add: []corev1.Capability{
 						"SYS_PTRACE", // 向其他process 发信号需要ptrace

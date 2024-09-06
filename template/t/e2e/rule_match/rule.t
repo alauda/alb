@@ -5,7 +5,7 @@ use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
 use Test::Nginx::Socket;
 
-our $tt = t::Alauda->get_test_name(__FILE__);
+our $tt = t::Alauda::get_test_name(__FILE__);
 
 log_level("info");
 master_process_enabled("on");

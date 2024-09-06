@@ -8,11 +8,11 @@ fi
 
 function alb-install-nginx-test-dependency() {
   apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
-  cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+  cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run YAML::PP
 }
 
 function alb-install-nginx-test-dependency-ubuntu() {
-  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run YAML::PP
 }
 
 function alb-install-nginx-test-dependency-arch() {
@@ -20,7 +20,7 @@ function alb-install-nginx-test-dependency-arch() {
   # export PATH=/opt/openresty/bin:$PATH
   # export PATH=/opt/openresty/nginx/sbin:$PATH
   # init the openresty
-  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run
+  sudo cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run YAML::PP
 }
 
 function tweak_gen_install() {
@@ -29,8 +29,19 @@ function tweak_gen_install() {
   sudo cp ./bin/tools/tweak_gen /usr/local/bin
 }
 
+function ngx_gen_install() {
+  go build -v -v -o ./bin/tools/ngx_gen alauda.io/alb2/cmd/utils/ngx_gen
+  md5sum ./bin/tools/ngx_gen
+  sudo cp ./bin/tools/ngx_gen /usr/local/bin
+}
+
+if [[ -n "$CUR_ALB_BASE" ]]; then
+  export ALB=$CUR_ALB_BASE
+fi
+
 function alb-test-all-in-ci-nginx() {
   # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
+
   set -e # exit on err
   echo alb is $ALB
   export PATH=$PATH:/alb/tools/
@@ -59,7 +70,7 @@ function test-nginx-local() {
   sudo rm -rf ./template/logs
   sudo rm -rf ./template/cert
   sudo rm -rf ./template/servroot
-  sudo rm -rf ./template/dhparam.pem
+  sudo rm -rf ./template/share/
   sudo rm -rf ./template/policy.new
 
   # sudo setcap CAP_NET_BIND_SERVICE=+eip `which nginx`
@@ -103,8 +114,7 @@ function alb-nginx-test() (
   export TEST_NGINX_WORKER_USER=root
   export DEFAULT_SSL_STRATEGY=Always
   export INGRESS_HTTPS_PORT=443
-  export METRICS_AURH="false"
-
+  export METRICS_AUTH="false"
   export MY_POD_NAME="mock-alb-pod"
   export NAME="test-alb"
   export ALB_NS="cpaas-system"
@@ -119,7 +129,8 @@ function alb-nginx-test() (
   if [[ ! -d $TEST_BASE/tweak ]]; then
     configmap_to_file $TEST_BASE/tweak
   fi
-  openssl dhparam -dsaparam -out $TEST_BASE/dhparam.pem 2048
+  mkdir -p $TEST_BASE/share
+  openssl dhparam -dsaparam -out $TEST_BASE/share/dhparam.pem 2048
   local filter=""
   if [ -z "$1" ]; then
     filter="$TEST_BASE/t"

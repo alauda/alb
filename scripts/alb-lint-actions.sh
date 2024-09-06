@@ -84,15 +84,18 @@ function alb-lint-lua() (
     fi
   done < <(alb-lua-list-all-app-file)
 
-  # TODO add all lua file
-  while read -r f; do
-    lua-format --check -v $f
-    if [[ $? -ne 0 ]]; then
-      echo "need format $f"
-      exit 1
-      return
-    fi
-  done < <(alb-lua-list-all-needformat-file)
+  # before i find a beeter way to format lua, disable this
+  # the recommended way is to use lus-ls https://github.com/LuaLS/lua-language-server in vscode
+  return
+  #   # TODO add all lua file
+  #   while read -r f; do
+  #     lua-format --check -v $f
+  #     if [[ $? -ne 0 ]]; then
+  #       echo "need format $f"
+  #       exit 1
+  #       return
+  #     fi
+  #   done < <(alb-lua-list-all-needformat-file)
 
   echo "lua ok"
 )

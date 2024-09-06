@@ -195,6 +195,21 @@ spec:
                       type: integer
                     metricsPort:
                       type: integer
+                    modsecurity:
+                      properties:
+                        cmRef:
+                          type: string
+                        enable:
+                          type: boolean
+                        transactionId:
+                          type: string
+                        useCoreRules:
+                          type: boolean
+                        useRecommend:
+                          type: boolean
+                      required:
+                        - enable
+                      type: object
                     networkMode:
                       type: string
                     nodeSelector:
@@ -296,6 +311,8 @@ spec:
                       items:
                         type: string
                       type: array
+                    readonlyFS:
+                      type: boolean
                     reloadtimeout:
                       type: integer
                     replicas:
@@ -559,6 +576,21 @@ spec:
                       type: integer
                     metricsPort:
                       type: integer
+                    modsecurity:
+                      properties:
+                        cmRef:
+                          type: string
+                        enable:
+                          type: boolean
+                        transactionId:
+                          type: string
+                        useCoreRules:
+                          type: boolean
+                        useRecommend:
+                          type: boolean
+                      required:
+                        - enable
+                      type: object
                     networkMode:
                       type: string
                     nodeSelector:
@@ -660,6 +692,8 @@ spec:
                       items:
                         type: string
                       type: array
+                    readonlyFS:
+                      type: boolean
                     reloadtimeout:
                       type: integer
                     replicas:

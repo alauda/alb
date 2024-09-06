@@ -1,0 +1,327 @@
+
+{{ $cfg := .NginxParam }}
+{{ if .Flags.ShowRoot  -}}
+worker_rlimit_nofile 100000;
+worker_processes     {{.CPUNum}};
+worker_cpu_affinity  auto;
+worker_shutdown_timeout 240s;
+
+error_log  stderr   notice;
+pid        {{$.ShareBase}}/nginx.pid;
+
+
+events {
+    multi_accept        on;
+    worker_connections  51200;
+}
+
+# Name: {{.Name}}
+# Hash: {{.TweakHash}}
+
+{{- end }}
+
+
+{{ if .Flags.ShowEnv  -}}
+env SYNC_POLICY_INTERVAL;
+env CLEAN_METRICS_INTERVAL;
+env NEW_POLICY_PATH;
+env DEFAULT_SSL_STRATEGY;
+env INGRESS_HTTPS_PORT;
+env POLICY_ZIP;
+env METRICS_AUTH;
+env MY_POD_NAME;
+env NAME;
+env ALB_NS;
+env ALB_VER;
+env HOSTNAME;
+{{- end }}
+
+{{ if .Flags.ShowRootExtra  -}}
+{{.RootExtra}}
+{{- end }}
+
+{{ if .Flags.ShowHttp  }}
+{{ if .Flags.ShowHttpWrapper  }}
+http {
+{{ end }}
+     
+    {{ if $.Flags.ShowMimeTypes  }}
+    include    {{$.RestyBase}}/nginx/conf/mime.types;
+    {{ end }}
+
+    include    {{$.TweakBase}}/http.conf;
+
+    {{$.HttpExtra}}
+
+    {{ if $cfg.EnableGzip -}}
+    gzip on;
+    gzip_comp_level {{ $cfg.GzipLevel }};
+    gzip_http_version 1.1;
+    gzip_min_length {{ $cfg.GzipMinLength}};
+    gzip_types {{ $cfg.GzipTypes }};
+    gzip_proxied any;
+    gzip_vary on;
+    {{- end }}
+
+    {{ if $.Flags.ShowInitWorker  -}}
+    init_worker_by_lua_file {{$.NginxBase}}/lua/phase/init_worker_phase.lua;
+    {{- end }}
+
+    {{ if eq $.Phase "running" }}
+    server {
+        {{ range $address := .Metrics.IpV4BindAddress -}}
+        listen    {{$address}}:{{$.Metrics.Port}} ssl;
+        {{- end}}
+        {{ range $address := .Metrics.IpV6BindAddress -}}
+        listen    {{$address}}:{{$.Metrics.Port}} ssl;
+        {{- end }}
+
+        include  {{$.TweakBase}}/http_server.conf;
+        ssl_certificate {{$.NginxBase}}/placeholder.crt;
+        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+        ssl_dhparam {{$.ShareBase}}/dhparam.pem;
+        ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
+        access_log off;
+
+        location /metrics {
+            content_by_lua_block {
+                require("metrics").collect()
+            }
+        }
+
+        location /clear {
+            content_by_lua_block {
+                require("metrics").clear()
+            }
+        }
+    }
+    {{ end }}
+
+    {{ range $_, $ft := .Frontends }}
+    {{ if eq $ft.Protocol "http" }}
+    server {
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        {{- end }}
+        server_name _;
+
+        include    {{$.TweakBase}}/http_server.conf;
+
+        {{ range $_, $loc := $ft.CustomLocation -}}
+        location @{{ $loc.Name }} {
+            internal;
+            {{ $loc.LocationRaw }}
+
+            set $location_mode sub;
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+        {{ end }}
+
+        location / {
+            set $location_mode root;
+            set $backend_protocol http;
+
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+    }
+    {{ end }}
+    {{ end }}
+     
+
+    {{ range $_, $ft := .Frontends }}
+    {{ if eq $ft.Protocol "https" }}
+    server {
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl  backlog={{$cfg.Backlog}};
+        {{- end }}
+        {{ range $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl backlog={{$cfg.Backlog}};
+        {{- end }}
+
+        {{ if and $cfg.EnableHTTP2 $ft.EnableHTTP2 }}
+        http2 on;
+        {{ end }}
+        server_name _;
+
+        include    {{$.TweakBase}}/http_server.conf;
+
+        ssl_certificate {{$.NginxBase}}/placeholder.crt;
+        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+        ssl_dhparam {{$.ShareBase}}/dhparam.pem;
+        ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
+
+
+        {{ range $_, $loc := $ft.CustomLocation -}}
+        location @{{ $loc.Name }} {
+            internal;
+            {{ $loc.LocationRaw }}
+
+            set $location_mode sub;
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+        {{ end }}
+
+
+        location / {
+            set $location_mode root;
+            set $backend_protocol http;
+
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            proxy_pass $backend_protocol://http_backend;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+    }
+    {{ end }}
+    {{ end }}
+
+    {{ range $_, $ft := .Frontends }}
+    {{ if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) }}
+    server {
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
+        http2 on;
+
+        include    {{$.TweakBase}}/grpc_server.conf;
+
+        location / {
+            set $location_mode root;
+            set $backend_protocol grpc;
+
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            grpc_pass  $backend_protocol://http_backend;
+            # could add http_header_filter/http_body_filter
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+    }
+    {{ end }}
+    {{ end }}
+
+    {{ range $_, $ft := .Frontends }}
+    {{ if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) }}
+    server {
+        {{ range $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} ssl;
+        {{- end }}
+        http2 on;
+
+        include    {{$.TweakBase}}/grpc_server.conf;
+
+        ssl_certificate {{$.NginxBase}}/placeholder.crt;
+        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+        ssl_dhparam {{$.ShareBase}}/dhparam.pem;
+        ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
+
+        location / {
+            set $location_mode root;
+            set $backend_protocol grpc;
+
+            rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
+            grpc_pass  $backend_protocol://http_backend;
+            # could add http_header_filter/http_body_filter
+
+            {{ if $cfg.EnablePrometheus -}}
+            log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
+            {{- end }}
+        }
+    }
+    {{ end }}
+    {{ end }}
+
+    upstream http_backend {
+        server 0.0.0.1:1234;   # just an invalid address as a place holder
+
+        balancer_by_lua_file {{$.NginxBase}}/lua/phase/balancer_phase.lua ;
+        include    {{$.TweakBase}}/upstream.conf;
+    }
+
+{{ if .Flags.ShowHttpWrapper  -}}
+}
+{{ end }}
+{{ end }}
+
+{{ if .Flags.ShowStream  }}
+stream {
+    include    {{$.TweakBase}}/stream-common.conf;
+
+    {{.StreamExtra}}
+
+    {{ if $.Flags.ShowInitWorker  -}}
+    init_worker_by_lua_file {{$.NginxBase}}/lua/phase/init_worker_phase.lua;
+    {{- end }}
+
+    {{ range $_, $ft := .Frontends }}
+    {{ if eq $ft.Protocol "tcp" }}
+    server {
+        include   {{$.TweakBase}}/stream-tcp.conf;
+        {{ range  $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}};
+        {{- end }}
+
+        preread_by_lua_file {{$.NginxBase}}/lua/l4_preread.lua;
+        proxy_pass stream_backend;
+    }
+    {{- end }}
+    {{- end }}
+
+    {{ range $port, $ft := .Frontends -}}
+    {{ if eq $ft.Protocol "udp" -}}
+    server {
+        include   {{$.TweakBase}}/stream-udp.conf;
+        {{ range  $address := $ft.IpV4BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} udp;
+        {{- end }}
+        {{ range  $address := $ft.IpV6BindAddress -}}
+        listen    {{$address}}:{{$ft.Port}} udp;
+        {{- end }}
+
+        preread_by_lua_file {{$.NginxBase}}/lua/l4_preread.lua;
+        proxy_pass stream_backend;
+    }
+    {{- end }}
+    {{- end }}
+
+    upstream stream_backend {
+        server 0.0.0.1:1234;   # just an invalid address as a place holder
+
+        balancer_by_lua_file {{$.NginxBase}}/lua/phase/balancer_phase.lua ;
+    }
+}
+{{ end }}

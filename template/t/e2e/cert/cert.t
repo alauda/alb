@@ -4,6 +4,11 @@ use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
 use Test::Nginx::Socket;
 
+my $base = $ENV{'TEST_BASE'};
+our $cert = <<_EOC_;
+$base/cert/tls.crt $base/cert/tls.key
+_EOC_
+
 our $http_config = <<_EOC_;
 server {
     listen 1880;
@@ -26,6 +31,7 @@ run_tests();
 __DATA__
 
 === TEST 1: cert test
+--- certificate eval: $::cert
 --- http_config eval: $::http_config
 --- alb_https_port: 8443,9443
 --- disable_init_worker

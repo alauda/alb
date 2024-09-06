@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -118,6 +119,8 @@ type ExternalAlbConfig struct {
 	BindNIC              *string            `yaml:"bindNIC" json:"bindNIC,omitempty"` // json string alb绑定网卡的配置 '{"nic":["eth0"]}'
 	Overwrite            *ExternalOverwrite `yaml:"overwrite" json:"overwrite,omitempty"`
 	Otel                 *otelt.OtelCrConf  `yaml:"otel" json:"otel,omitempty"`
+	ModeSecurity         *waft.WafCrConf    `yaml:"modsecurity" json:"modsecurity,omitempty"`
+	ReadonlyFS           *bool              `yaml:"readonlyFS" json:"readonlyFS,omitempty"`
 }
 
 type VipConfig struct {

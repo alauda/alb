@@ -28,10 +28,8 @@ func TestOtel(t *testing.T) {
 }
 
 var _ = Describe("otel related test", func() {
-
 	l := GinkgoLog()
 	Context("unit", func() {
-
 		It("resolve ip should ok", func() {
 			t := GinkgoT()
 
@@ -467,8 +465,6 @@ spec:
 
 		// TODO gateway
 		It("should generate policy from gateway cr", func() {
-
 		})
-
 	})
 })

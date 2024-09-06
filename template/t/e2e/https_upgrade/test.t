@@ -31,7 +31,7 @@ server {
 
     ssl_certificate     $base/cert/tls.crt;
     ssl_certificate_key $base/cert/tls.key;
-    ssl_dhparam $base/dhparam.pem;
+    ssl_dhparam $base/share/dhparam.pem;
 
     ssl_session_timeout  5m;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
@@ -122,6 +122,7 @@ __DATA__
 
 === TEST 1: test upgrade
 --- timeout: 100
+--- certificate eval: $::cert
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test_eval: require('e2e.https_upgrade.test').test()

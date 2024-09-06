@@ -1,4 +1,4 @@
-package controller
+package ngxconf
 
 import (
 	"io/ioutil"

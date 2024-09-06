@@ -17,10 +17,11 @@ import (
 
 type OverwriteCfg ExternalOverwrite
 
-// 现在修改一个配置修改更新3个地方
-//  1. alb v2bta1的cr
-//  2. external的默认配置
-//  3. albrun config用的fromenv/toenv
+// 现在修改一个配置修改更新
+// (must) . alb v2bta1的cr
+// (opt)  . external的默认配置
+// (must) . interval的merge逻辑
+//           . (如果是到deployment的环境变量的) (must) 改albrun config用的fromenv/toenv
 
 // tree like config use in operator.
 type ALB2Config struct {
@@ -35,6 +36,7 @@ type ALB2Config struct {
 
 type OperatorFlags struct {
 	DefaultIngressClass bool
+	ReadOnlyFs          bool
 }
 
 type ExtraConfig struct {
@@ -108,8 +110,13 @@ func mergeOperatorFlags(ec ExternalAlbConfig, a *ALB2Config) OperatorFlags {
 	if ec.DefaultIngressClass != nil {
 		defaultClass = *ec.DefaultIngressClass
 	}
+	readonly := true
+	if ec.ReadonlyFS != nil {
+		readonly = *ec.ReadonlyFS
+	}
 	return OperatorFlags{
 		DefaultIngressClass: defaultClass,
+		ReadOnlyFs:          readonly,
 	}
 }
 

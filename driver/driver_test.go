@@ -106,8 +106,8 @@ func TestLoadALByName(t *testing.T) {
 
 	alb, err := driver.LoadALBbyName(defaultNs, "alb-1")
 	a.NoError(err)
-	a.Equal(alb.Name, "alb-1")
-	a.Equal(alb.Namespace, defaultNs)
+	a.Equal(alb.Alb.Name, "alb-1")
+	a.Equal(alb.Alb.Namespace, defaultNs)
 	a.Equal(len(alb.Frontends), 1)
 	a.Equal(alb.Frontends[0].Name, "ft-1")
 	env.Stop()

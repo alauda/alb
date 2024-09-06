@@ -56,3 +56,6 @@ kubectl*
 fortio/*.json
 .flame/
 template/nginx/lua/vendor/opentelemetry
+*.kconf
+docs/.obsidian
+template/share/dhparam.pem

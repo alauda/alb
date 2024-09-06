@@ -55,7 +55,11 @@ spec:
         pathType: ImplementationSpecific
 `
 	kt.AssertKubectlApply(ingYaml)
-	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, kcfg)
+	drv, err := driver.NewDriver(driver.DrvOpt{
+		Ctx: ctx,
+		Cf:  kcfg,
+		Opt: driver.Cfg2opt(gcf),
+	})
 	assert.NoError(t, err)
 	ingc := NewController(drv, drv.Informers, gcf, log.L().WithName("ingress"))
 

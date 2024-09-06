@@ -12,10 +12,12 @@ import (
 	"github.com/fatih/structtag"
 )
 
-var validJSNameRegexp = regexp.MustCompile(`(?m)^[\pL_][\pL\pN_]*$`)
-var backquoteEscapeRegexp = regexp.MustCompile(`([$\\])`)
-var octalPrefixRegexp = regexp.MustCompile(`^0[0-7]`)
-var unicode8Regexp = regexp.MustCompile(`\\\\|\\U[\da-fA-F]{8}`)
+var (
+	validJSNameRegexp     = regexp.MustCompile(`(?m)^[\pL_][\pL\pN_]*$`)
+	backquoteEscapeRegexp = regexp.MustCompile(`([$\\])`)
+	octalPrefixRegexp     = regexp.MustCompile(`^0[0-7]`)
+	unicode8Regexp        = regexp.MustCompile(`\\\\|\\U[\da-fA-F]{8}`)
+)
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence#table
 var jsNumberOperatorPrecedence = map[token.Token]int{

@@ -233,7 +233,7 @@ func TestRuleOrder(t *testing.T) {
 	order := []string{}
 	for _, r := range rules {
 		order = append(order, r.Name)
-		t.Logf(r.Name)
+		t.Logf("%v", r.Name)
 	}
 	assert.Equal(t, expectOrder, order)
 }

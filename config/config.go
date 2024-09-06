@@ -260,6 +260,7 @@ func (n Names) GetLabelSourceType() string {
 func (n Names) GetLabelSourceIndex() string {
 	return fmt.Sprintf(FMT_SOURCE_INDEX, n.domain)
 }
+
 func (n Names) GetLabelSourceName() string {
 	return fmt.Sprintf(FMT_SOURCE_NAME, n.domain)
 }
@@ -294,6 +295,14 @@ func (n Names) GetAlbIngressRewriteRequestAnnotation() string {
 
 func (n Names) GetAlbRuleRewriteRequestAnnotation() string {
 	return fmt.Sprintf("alb.rule.%s/rewrite-request", n.domain)
+}
+
+func (n Names) GetAlbWafCmRefAnnotation() string {
+	return fmt.Sprintf("alb.modsecurity.%s/cmref", n.domain)
+}
+
+func (n Names) GetAlbWafUseRecommendAnnotation() string {
+	return fmt.Sprintf("alb.modsecurity.%s/use-recommend", n.domain)
 }
 
 type Flags struct {

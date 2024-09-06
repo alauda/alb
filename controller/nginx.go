@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"text/template"
 
 	"alauda.io/alb2/controller/cli"
 	m "alauda.io/alb2/controller/modules"
@@ -18,6 +17,9 @@ import (
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	gateway "alauda.io/alb2/gateway/nginx"
+	"alauda.io/alb2/pkg/controller/ngxconf"
+	. "alauda.io/alb2/pkg/controller/ngxconf"
+	. "alauda.io/alb2/pkg/controller/ngxconf/types"
 	"k8s.io/klog/v2"
 )
 
@@ -32,8 +34,9 @@ type NginxController struct {
 	log           logr.Logger
 	lc            *LeaderElection
 	PortProber    *PortProbe
-	albcli        cli.AlbCli
-	policycli     cli.PolicyCli
+	albcli        cli.AlbCli     // load alb tree from k8s
+	policycli     cli.PolicyCli  // fetch policy needed cr from k8s into alb tree
+	ngxcli        ngxconf.NgxCli // fetch ngxconf need cr from k8s into alb tree
 }
 
 func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *config.Config, log logr.Logger, leader *LeaderElection) *NginxController {
@@ -50,28 +53,11 @@ func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *c
 		lc:            leader,
 		albcli:        cli.NewAlbCli(kd, log),
 		policycli:     cli.NewPolicyCli(kd, log, cli.PolicyCliOpt{MetricsPort: cfg.GetMetricsPort()}),
+		ngxcli:        NewNgxCli(kd, log, NgxCliOpt{}),
 	}
 	return n
 }
 
-// +-------------------------+      +--------------------------+
-// | load from alb/ft/rule   |      |  load from gateway/route |
-// |      (cli/albcli)       |      |      (gateway/nginx)     |
-// +--------+----------------+      +--------------------------+
-//
-//	|                                            |
-//	|                                            |
-//	|   +----------------------------------+     |
-//	+-> |      types/loadbalancer          |<----+
-//	    +--------------+-------------------+
-//	                   |   fill with backend ips (cli/policy)
-//	    +--------------v--------------------+
-//	    |    types/loadbalancer            |
-//	    +--------------+--------------------+
-//	                   |   translate to policy (cli/policy)
-//	    +--------------v--------------------+
-//	    |          policy                   |
-//	    +-----------------------------------+
 func (nc *NginxController) GenerateConf() error {
 	nginxConfig, ngxPolicies, err := nc.GenerateNginxConfigAndPolicy()
 	if err != nil {
@@ -80,6 +66,28 @@ func (nc *NginxController) GenerateConf() error {
 	return nc.WriteConfig(nginxConfig, ngxPolicies)
 }
 
+// +-------------------------+      +--------------------------+
+// | load from alb/ft/rule   |      |  load from gateway/route |
+// |      (cli/albcli)       |      |      (gateway/nginx)     |
+// +--------+----------------+      +--------------------------+
+//
+//	   |                                            |
+//	   |   +----------------------------------+     |
+//	   +-> |    types/loadbalancer            |<----+
+//	       +--------------+-------------------+
+//	                      |   fill with backend ips (cli/policy)
+//	       +--------------v-------------------+
+//	       |    types/loadbalancer            |
+//	       +--------------+-------------------+
+//	                      |   fill with cm which be referenced (cli/nginx)
+//	       +--------------v-------------------+
+//	       |    types/loadbalancer            |
+//	       +--------------|-|-----------------+
+//	            +---------+ +------------+
+//	            |                        |
+//	+-----------v---------+    +---------v------------+
+//	|       policy.new    |    |    nginx.conf        |
+//	+---------------------+    +----------------------+
 func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig NginxTemplateConfig, nginxPolicy NgxPolicy, err error) {
 	alb, err := nc.GetLBConfig()
 	l := nc.log
@@ -99,6 +107,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if phase != m.PhaseTerminating {
 		phase = m.PhaseRunning
 	}
+
 	// TODO move to other goroutine
 	if nc.albcfg.IsEnableVIP() && nc.lc != nil && nc.lc.AmILeader() {
 		nc.log.Info("enable vip and I am the leader")
@@ -107,7 +116,10 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 		}
 	}
 
-	cfg, err := GenerateNginxTemplateConfig(alb, string(phase), newNginxParam(nc.albcfg), nc.albcfg)
+	if err = nc.ngxcli.FillUpRefCms(alb); err != nil {
+		return NginxTemplateConfig{}, NgxPolicy{}, err
+	}
+	cfg, err := nc.ngxcli.GenerateNginxTemplateConfig(alb, string(phase), nc.albcfg)
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
 	}
@@ -198,25 +210,11 @@ func MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, err
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
-	configWriter, err := os.Create(nc.NewConfigPath)
+	ngxconf, err := ngxconf.RenderNgxFromFile(nginxTemplateConfig, nc.TemplatePath)
 	if err != nil {
-		klog.Errorf("Failed to create new config file |%v| %s", nc.NewConfigPath, err.Error())
 		return err
 	}
-	defer configWriter.Close()
-
-	t, err := template.New("nginx.tmpl").ParseFiles(nc.TemplatePath)
-	if err != nil {
-		klog.Errorf("Failed to parse template %s", err.Error())
-		return err
-	}
-	err = t.Execute(configWriter, nginxTemplateConfig)
-	if err != nil {
-		klog.Error(err)
-		return err
-	}
-	if err := configWriter.Sync(); err != nil {
-		klog.Error(err)
+	if err := os.WriteFile(nc.NewConfigPath, []byte(ngxconf), 0o644); err != nil {
 		return err
 	}
 

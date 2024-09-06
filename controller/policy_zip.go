@@ -22,12 +22,13 @@ func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
 }
 
 func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path string, zip bool) error {
+	oldpath := path + ".old"
 	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
 	if err != nil {
 		klog.Error()
 		return err
 	}
-	policyWriter, err := os.Create(path)
+	policyWriter, err := os.Create(oldpath)
 	if err != nil {
 		klog.Errorf("Failed to create new policy file %s", err.Error())
 		return err
@@ -57,5 +58,9 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 		klog.Errorf("Write policy file failed %s", err.Error())
 		return err
 	}
-	return policyWriter.Sync()
+	err = policyWriter.Sync()
+	if err != nil {
+		return err
+	}
+	return os.Rename(oldpath, path)
 }

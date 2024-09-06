@@ -366,21 +366,21 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	}
 
 	if need.NeedHttp() && albhttpFt == nil {
-		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPPort)
+		name := fmt.Sprintf("%s-%05d", alb.Alb.Name, IngressHTTPPort)
 		c.log.Info("need http ft and ft not exist. create one", "name", name)
 
 		albhttpFt = &alb2v1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: alb.Namespace,
+				Namespace: alb.Alb.Namespace,
 				Labels: map[string]string{
-					alblabelKey: alb.Name,
+					alblabelKey: alb.Alb.Name,
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: alb2v2.SchemeGroupVersion.String(),
 						Kind:       alb2v1.ALB2Kind,
-						Name:       alb.Name,
+						Name:       alb.Alb.Name,
 						UID:        alb.Alb.UID,
 					},
 				},
@@ -398,20 +398,20 @@ func (c *Controller) generateExpectFrontend(alb *m.AlaudaLoadBalancer, ingress *
 	}
 	// TODO 当 alb 的默认证书变化时，已经创建的 ft 的默认证书不会变化，需要用户自己在去更新 ft 上的证书
 	if need.NeedHttps() && albhttpsFt == nil {
-		name := fmt.Sprintf("%s-%05d", alb.Name, IngressHTTPSPort)
+		name := fmt.Sprintf("%s-%05d", alb.Alb.Name, IngressHTTPSPort)
 		c.log.Info("need https ft and ft not exist create one", "name", name)
 		albhttpsFt = &alb2v1.Frontend{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: alb.Namespace,
+				Namespace: alb.Alb.Namespace,
 				Name:      name,
 				Labels: map[string]string{
-					alblabelKey: alb.Name,
+					alblabelKey: alb.Alb.Name,
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: alb2v2.SchemeGroupVersion.String(),
 						Kind:       alb2v2.ALB2Kind,
-						Name:       alb.Name,
+						Name:       alb.Alb.Name,
 						UID:        alb.Alb.UID,
 					},
 				},
@@ -477,7 +477,8 @@ func (c *Controller) getIngresHttpsFt(alb *m.AlaudaLoadBalancer) *m.Frontend {
 
 func (c *Controller) getIngresHttpFtRaw(alb *m.AlaudaLoadBalancer) *alb2v1.Frontend {
 	http := c.GetIngressHttpPort()
-	return alb.FindIngressFtRaw(http, m.ProtoHTTP)
+	ft := alb.FindIngressFtRaw(http, m.ProtoHTTP)
+	return ft
 }
 
 func (c *Controller) getIngresHttpsFtRaw(alb *m.AlaudaLoadBalancer) *alb2v1.Frontend {
@@ -816,6 +817,9 @@ func ruleIdentify(r *alb2v1.Rule) string {
 	}
 	for k, v := range r.Annotations {
 		if strings.HasPrefix(k, "alb") {
+			annotation = append(annotation, k+":"+v)
+		}
+		if strings.HasPrefix(k, "nginx.ingress") {
 			annotation = append(annotation, k+":"+v)
 		}
 	}

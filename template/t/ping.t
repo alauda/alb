@@ -63,20 +63,19 @@ __DATA__
 --- http_config eval: $::http_config
 --- lua_test
 	local F = require("F");local u = require("util");local h = require("test-helper");local httpc = require("resty.http").new();
-    local res, err = httpc:request_uri("http://127.0.0.1:80/t1")
+	local res, err = httpc:request_uri("http://127.0.0.1:80/t1")
 	u.log(F"{err}")
 	u.log(F"test res  {res.body} err {err}")
 	h.assert_curl_success(res,err,"ok")
---- response_body: ok
+
 
 === TEST 2: tcp ping/pong should ok 
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test
 	local F = require("F");local u = require("util");local h = require("test-helper");
-    local httpc = require("resty.http").new()
-
-    local res, err = httpc:request_uri("http://127.0.0.1:81/t1")
+	local httpc = require("resty.http").new()
+	local res, err = httpc:request_uri("http://127.0.0.1:81/t1")
+	u.log(F"tcp {err}")
 	u.log(F"test res  {res.body} err {err}")
 	h.assert_curl_success(res,err,"ok")
---- response_body: ok

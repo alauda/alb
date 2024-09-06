@@ -5,8 +5,10 @@ ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
 ARG RESTY_IMAGE_TAG="3.20"
 
 FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG}
-
-ARG RESTY_PCRE_BASE="http://prod-minio.alauda.cn/acp/pcre-8.45.tar.gz"
+# those arg will be replace in alb-gh-build-nginx
+ARG RESTY_PCRE_BASE="http://prod-minio.alauda.cn/acp/pcre-8.45.tar.gz" 
+ARG MODSECURITY_BASE="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity-v3.0.13.tar.gz"
+ARG MODSECURITY_NGINX_BASE="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity-nginx.zip"
 
 LABEL maintainer="congwu <congwu@alauda.io>"
 
@@ -51,6 +53,7 @@ ARG RESTY_CONFIG_OPTIONS="\
     --with-threads \
     --with-debug \
     --without-http_redis_module \
+    --add-module=/tmp/ModSecurity-nginx \
     --build=ALB \
     "
 ARG RESTY_CONFIG_OPTIONS_MORE=""
@@ -86,11 +89,32 @@ LABEL resty_eval_post_make="${RESTY_EVAL_POST_MAKE}"
 LABEL resty_luajit_options="${RESTY_LUAJIT_OPTIONS}"
 LABEL resty_pcre_options="${RESTY_PCRE_OPTIONS}"
 
+RUN echo "build modsecurity" &&  cat /etc/resolv.conf &&  sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories &&  apk add --no-cache --virtual .build-deps \
+        build-base \
+        coreutils \
+        git \
+        g++ flex bison yajl yajl-dev curl-dev geoip-dev doxygen zlib-dev pcre-dev libtool autoconf automake  linux-headers \
+    && mkdir -p /tmp/waf  && cd /tmp/waf \
+    && wget ${MODSECURITY_BASE} -O ./modsecurity-v3.0.13.tar.gz  \
+    && tar -zxvf ./modsecurity-v3.0.13.tar.gz \
+    && rm ./modsecurity-v3.0.13.tar.gz \
+    && mv ./modsecurity-v3.0.13 ./ModSecurity \
+    && ls \
+    && cd ./ModSecurity \
+    && ./build.sh && ./configure && make && make install \
+    && cd /tmp \
+    && wget ${MODSECURITY_NGINX_BASE} -O ./modsecurity-nginx.zip \
+    && unzip ./modsecurity-nginx.zip \
+    && rm -rf ./modsecurity-nginx.zip \
+    && mv ./ModSecurity-nginx-master ./ModSecurity-nginx \
+    && apk del .build-deps 
+
 RUN echo "build" && apk add --no-cache --virtual .build-deps \
         build-base \
         coreutils \
         curl \
         gd-dev \
+        yajl-dev  \
         geoip-dev \
         libxslt-dev \
         linux-headers \
@@ -103,6 +127,9 @@ RUN echo "build" && apk add --no-cache --virtual .build-deps \
         gd \
         geoip \
         libgcc \
+        yajl  \
+        libcurl \
+        libstdc++ \
         libxslt \
         zlib \
         ${RESTY_ADD_PACKAGE_RUNDEPS} \
@@ -157,6 +184,7 @@ RUN echo "build" && apk add --no-cache --virtual .build-deps \
         pcre-${RESTY_PCRE_VERSION}.tar.gz pcre-${RESTY_PCRE_VERSION} \
         openresty-${RESTY_VERSION}.tar.gz openresty-${RESTY_VERSION} \
     && apk del .build-deps \
+    && rm -rf /tmp \
     && mkdir -p /var/run/openresty 
 
 # Add additional binaries into PATH for convenience

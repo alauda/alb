@@ -53,6 +53,21 @@ spec:
                 type: string
               config:
                 properties:
+                  modsecurity:
+                    properties:
+                      cmRef:
+                        type: string
+                      enable:
+                        type: boolean
+                      transactionId:
+                        type: string
+                      useCoreRules:
+                        type: boolean
+                      useRecommend:
+                        type: boolean
+                    required:
+                    - enable
+                    type: object
                   otel:
                     properties:
                       enable:

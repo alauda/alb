@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 
+	put "alauda.io/alb2/pkg/utils/test_utils"
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
@@ -80,11 +81,11 @@ func (f *AlbWaitFileExt) WaitPolicyRegex(regexStr string) {
 	})
 }
 
-func (f *AlbWaitFileExt) WaitNgxPolicy(fn func(p NgxPolicy) (bool, error)) {
+func (f *AlbWaitFileExt) WaitNgxPolicy(fn func(p put.NgxPolicy) (bool, error)) {
 	p := f.alb.PolicyPath
 	f.waitFile(p, func(raw string) (bool, error) {
 		Logf("p %s  %s", p, raw)
-		p := NgxPolicy{}
+		p := put.NgxPolicy{}
 		err := json.Unmarshal([]byte(raw), &p)
 		if err != nil {
 			return false, fmt.Errorf("wait nginx policy fial err %v raw -- %s --", err, raw)
