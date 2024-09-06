@@ -8,9 +8,12 @@ chart: NOT_RELEASE
 * add cpaas.io/project label in ingress synced rule.
 * add support of [[modsecurity]]
 #### other
-* tweak github ci. we could build and test in github now.
-* deploy alb-operator via deployment. do not use csv anymore.
-* add MonitorDashboard in chart .
+* tweak github ci. we could build and test in github now
+* deploy alb-operator via deployment. do not use csv anymore
+* add MonitorDashboard in chart 
+* https and authed metrics
 * add source name/ns label in rule. (first 63 chars if name/ns is longer than 63)
-* api: filter project when list rules.
+* api: filter project when list rules
 * unquote cookie value when rewrite request header via var
+* swap policy
+* fix CORS when has multi-domain

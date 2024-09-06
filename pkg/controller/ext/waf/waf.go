@@ -82,10 +82,7 @@ func (w *Waf) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathInde
 // rule cr 转成 policy
 func (w *Waf) FromRuleCr(rule *m.Rule, r *ct.Rule) {
 	waf, snip, key := mergeWaf(rule)
-	if waf == nil {
-		return
-	}
-	if !waf.Enable {
+	if waf == nil || !waf.Enable {
 		return
 	}
 	r.ToLocation = &key
@@ -93,7 +90,7 @@ func (w *Waf) FromRuleCr(rule *m.Rule, r *ct.Rule) {
 	r.Waf = &WafInRule{
 		Raw:     waf.WafConf,
 		Snippet: snip,
-		Key:     *r.ToLocation,
+		Key:     key,
 	}
 }
 
@@ -121,9 +118,10 @@ func mergeWaf(r *m.Rule) (*WafCrConf, string, string) {
 	return nil, "", ""
 }
 
-// 如果reload的时间很长。。会跳到一个不存在的location中？这样会直接报错。到也不是不行.
+// 更新和删除配置不会有问题，因为现在的custom location的名字是固定的
+// 唯一可能的就是刚刚增加的时候，有可能旧的worker看到nginx 配置还是旧的。但是读到的policy已经是新的了。导致想去跳转到一个还不存在的location上去。
+// 只对长连接有影响。
 func (w *Waf) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cfg *config.Config) error {
-	// 遍历alb的rule，如果需要waf，在tmpl的ft的custom config中加location
 	custom_location := map[string]map[string]FtCustomLocation{}
 	for _, f := range alb.Frontends {
 		for _, r := range f.Rules {
@@ -145,7 +143,6 @@ func (w *Waf) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cf
 	for f, ftmap := range custom_location {
 		if _, has := tmpl_cfg.Frontends[f]; !has {
 			w.log.Info("ft not find?", "ft", f)
-			tmpl_cfg.Frontends[f] = FtConfig{}
 			continue
 		}
 		ft := tmpl_cfg.Frontends[f]
@@ -154,6 +151,7 @@ func (w *Waf) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cf
 			waf_custom = append(waf_custom, raw)
 		}
 		ft.CustomLocation = append(ft.CustomLocation, waf_custom...)
+		// make sure location are ordered
 		sort.Slice(ft.CustomLocation, func(i, j int) bool {
 			return ft.CustomLocation[i].Name < ft.CustomLocation[j].Name
 		})

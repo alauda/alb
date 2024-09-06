@@ -16,7 +16,8 @@ The following yaml.
 1. deploys an ALB, named as waf-alb.
 2. deploy a demo backend app: hello.
 4. deploy a ingress ing-waf-enable which define route `/waf-enable`. and set modsecurity rule which will block any req that query parameters test value contains test
-```
+
+```yaml
 apiVersion: crd.alauda.io/v2
 kind: ALB2
 metadata:
@@ -36,12 +37,8 @@ metadata:
     nginx.ingress.kubernetes.io/enable-modsecurity: "true"
     nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"
     nginx.ingress.kubernetes.io/modsecurity-snippet: |
-       modsecurity_rules '
         SecRuleEngine On
-        SecRule ARGS:test "\@contains test" "id:1234,deny,log"
-       ';
-       modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
-       modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;
+        SecRule ARGS:test "@contains test" "id:1234,deny,log"
   name: ing-waf-enable
 spec:
   ingressClassName: waf-alb
@@ -91,7 +88,7 @@ spec:
     spec:
       containers:
       - name: hello-world
-        image: docker.io/crccheck/hello-world:latest 
+        image: docker.io/hashicorp/http-echo
         imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
@@ -107,7 +104,7 @@ spec:
     - name: http
       port: 80
       protocol: TCP
-      targetPort: 80
+      targetPort: 5678
   selector:
     service_name: hello
   sessionAffinity: None
@@ -147,5 +144,5 @@ the order are rule ft,alb.
 
 if and only if there no modsecurity config in rule, then it will try to find config in ft. and if no config in ft, it will use config in alb.
 ### modsecuriry and coreruleset version
-modsecuriry: v3.0.13
+modsecuriry: v3.0.13  
 coreruleset: v4.4.0

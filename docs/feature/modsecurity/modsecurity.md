@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
       - name: hello-world
-        image: docker.io/crccheck/hello-world:latest 
+        image: docker.io/hashicorp/http-echo
         imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
@@ -105,7 +105,7 @@ spec:
     - name: http
       port: 80
       protocol: TCP
-      targetPort: 80
+      targetPort: 5678
   selector:
     service_name: hello
   sessionAffinity: None
@@ -149,5 +149,5 @@ spec:
 如果且仅当 rule 中没有 modsecurity 配置时，它将尝试在 ft 中查找配置。如果 ft 中没有配置，它将使用 alb 中的配置。
 
 ### ModSecurity 和 CoreRuleSet 版本
-ModSecurity: v3.0.13
+ModSecurity: v3.0.13  
 coreruleset: v4.4.0
