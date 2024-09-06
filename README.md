@@ -13,7 +13,7 @@ ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https
 
 ## Architecture
 
-![](docs/res/architecture.png)
+![](./docs/_res/architecture.png)
 
 ## Quick Start
 
