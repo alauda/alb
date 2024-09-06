@@ -1,7 +1,5 @@
 local _M = {}
 
-local F = require("F");
-local u = require("util")
 local h = require("test-helper");
 local cors = require("cors")
 

@@ -14,7 +14,7 @@ type WafConf struct {
 	// +optional
 	UseCoreRules bool `json:"useCoreRules"`
 	// +optional
-	UseRecommand bool `json:"useRecommand"`
+	UseRecommend bool `json:"useRecommend"`
 	// +optional
 	CmRef string `json:"cmRef"` // ns/name#section
 }

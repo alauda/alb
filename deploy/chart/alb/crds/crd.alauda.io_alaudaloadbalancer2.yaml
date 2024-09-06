@@ -205,7 +205,7 @@ spec:
                           type: string
                         useCoreRules:
                           type: boolean
-                        useRecommand:
+                        useRecommend:
                           type: boolean
                       required:
                         - enable
@@ -586,7 +586,7 @@ spec:
                           type: string
                         useCoreRules:
                           type: boolean
-                        useRecommand:
+                        useRecommend:
                           type: boolean
                       required:
                         - enable

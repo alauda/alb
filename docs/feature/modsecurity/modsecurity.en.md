@@ -122,7 +122,7 @@ spec:
 ### alb special annotation
 | Annotation                               | Type   | Applies To | Description                      |
 | ---------------------------------------- | ------ | ---------- | -------------------------------- |
-| "alb.modsecurity.cpaas.io/use-recommand" | bool   | ingress    | same as modsecurity.useRecommand |
+| "alb.modsecurity.cpaas.io/use-recommend" | bool   | ingress    | same as modsecurity.useRecommend |
 | "alb.modsecurity.cpaas.io/cmref"         | string | ingress    | same as modsecurity.cmRef        |
 
 ### cr
@@ -132,9 +132,9 @@ you could enable and config modsecurity in alb ft rule. they are use same struct
 { 
  "modsecurity": {
    "enable": true,         // enable or disable modsecurity
-   "transactionId": "$xx", // use id frmo nginx 
+   "transactionId": "$xx", // use id form nginx 
    "useCoreRules": true,   // add `modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;`
-   "useRecommand": true,    // add `modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;`
+   "useRecommend": true,    // add `modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;`
    "cmRef": "$ns/$name#$section"     // add config from configmap
  }
 }
@@ -143,6 +143,6 @@ you could enable and config modsecurity in alb ft rule. they are use same struct
 the order are rule ft,alb. 
 
 if and only if there no modsecurity config in rule, then it will try to find config in ft. and if no config in ft, it will use config in alb.
-### modsecuriry and coreruleset version
-modsecuriry: v3.0.13  
+### modsecurity and coreruleset version
+modsecurity: v3.0.13  
 coreruleset: v4.4.0

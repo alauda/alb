@@ -66,9 +66,9 @@ func (w *Waf) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathInde
 		hascf = true
 		wafcf.CmRef = ingress.Annotations[n.GetAlbWafCmRefAnnotation()]
 	}
-	if ingress.Annotations[n.GetAlbWafUseRecommandAnnotation()] != "" {
+	if ingress.Annotations[n.GetAlbWafUseRecommendAnnotation()] != "" {
 		hascf = true
-		wafcf.UseRecommand = ingress.Annotations[n.GetAlbWafUseRecommandAnnotation()] == "true"
+		wafcf.UseRecommend = ingress.Annotations[n.GetAlbWafUseRecommendAnnotation()] == "true"
 	}
 	if hascf {
 		waf.WafConf = wafcf
@@ -196,9 +196,9 @@ func GenLocation(cms map[string]*corev1.ConfigMap, r *ct.Rule) string {
 		coreruleset = "modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;"
 	}
 	trans_id := ""
-	recommand := ""
-	if waf.Raw.UseRecommand {
-		recommand = "modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;"
+	recommend := ""
+	if waf.Raw.UseRecommend {
+		recommend = "modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;"
 	}
 	if waf.Raw.TransactionId != "" {
 		trans_id = fmt.Sprintf("modsecurity_transaction_id \"%s\";", waf.Raw.TransactionId)
@@ -210,7 +210,7 @@ modsecurity on;
 %s
 %s
 %s
-	`, recommand, trans_id, cm, snip, coreruleset,
+	`, recommend, trans_id, cm, snip, coreruleset,
 	)
 }
 

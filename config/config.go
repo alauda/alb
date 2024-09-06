@@ -301,8 +301,8 @@ func (n Names) GetAlbWafCmRefAnnotation() string {
 	return fmt.Sprintf("alb.modsecurity.%s/cmref", n.domain)
 }
 
-func (n Names) GetAlbWafUseRecommandAnnotation() string {
-	return fmt.Sprintf("alb.modsecurity.%s/use-recommand", n.domain)
+func (n Names) GetAlbWafUseRecommendAnnotation() string {
+	return fmt.Sprintf("alb.modsecurity.%s/use-recommend", n.domain)
 }
 
 type Flags struct {

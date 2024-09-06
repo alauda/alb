@@ -125,7 +125,7 @@ spec:
 ### ALB 特殊注解
 | 注解                                     | 类型   | 适用对象 | 描述                              |
 |------------------------------------------|--------|----------|----------------------------------|
-| "alb.modsecurity.cpaas.io/use-recommand" | bool   | ingress  | 同 modsecurity.useRecommand      |
+| "alb.modsecurity.cpaas.io/use-recommend" | bool   | ingress  | 同 modsecurity.useRecommend      |
 | "alb.modsecurity.cpaas.io/cmref"         | string | ingress  | 同 modsecurity.cmRef             |
 
 ### CR
@@ -137,7 +137,7 @@ spec:
    "enable": true,         // 启用或禁用 modsecurity
    "transactionId": "$xx", // 使用来自 nginx 的 ID
    "useCoreRules": true,   // 添加 `modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;`
-   "useRecommand": true,   // 添加 `modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;`
+   "useRecommend": true,   // 添加 `modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;`
    "cmRef": "$ns/$name#$section" // 从 configmap 添加配置
  }
 }

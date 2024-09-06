@@ -80,7 +80,7 @@ spec:
                         type: string
                       useCoreRules:
                         type: boolean
-                      useRecommand:
+                      useRecommend:
                         type: boolean
                     required:
                     - enable

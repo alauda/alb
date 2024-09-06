@@ -68,7 +68,7 @@ var _ = Describe("waf", func() {
                 nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
                 nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"
                 alb.modsecurity.cpaas.io/cmref: "a/b#c"
-                alb.modsecurity.cpaas.io/use-recommand: "false"
+                alb.modsecurity.cpaas.io/use-recommend: "false"
                 nginx.ingress.kubernetes.io/modsecurity-snippet: |
                       a=b;
               name: demo
@@ -121,7 +121,7 @@ var _ = Describe("waf", func() {
 			{
                "cmRef": "a/b#c",
                "enable": true,
-               "useRecommand": false,
+               "useRecommend": false,
                "transactionId": "$request_id",
                "useCoreRules": true
             }`, "")
