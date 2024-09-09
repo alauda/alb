@@ -62,7 +62,7 @@ spec:
 `)
 		alb := &albv2.ALB2{}
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "alb-v2"}, alb)
-		fmt.Printf("createed %+v\n", alb.Spec.Config)
+		fmt.Printf("created %+v\n", alb.Spec.Config)
 		albc := kc.GetAlbClient()
 		v1alb, err := albc.CrdV1().ALB2s("cpaas-system").Get(ctx, "alb-v2", metav1.GetOptions{})
 		fmt.Printf("v1 origin alb %v %v\n", v1alb.ResourceVersion, v1alb.Spec)
@@ -221,7 +221,7 @@ spec:
 					true
 			},
 		})
-		// service上必须有servcie_name = alb2-${name}的label,监控才能采到这个alb
+		// service上必须有service_name = alb2-${name}的label,监控才能采到这个alb
 		svc := &corev1.Service{}
 		cli.Get(ctx, client.ObjectKey{Namespace: "cpaas-system", Name: "ares-alb2"}, svc)
 		assert.Equal(GinkgoT(), "alb2-ares-alb2", svc.Labels["service_name"])

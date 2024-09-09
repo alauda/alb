@@ -14,7 +14,7 @@ import (
 func PrettyCr(obj client.Object) string {
 	// TODO a better way
 	if IsNil(obj) {
-		return "isnill"
+		return "isnil"
 	}
 	out, err := json.Marshal(obj)
 	if err != nil {

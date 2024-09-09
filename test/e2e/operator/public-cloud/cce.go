@@ -58,7 +58,7 @@ var _ = Describe("public-cloud cce", func() {
 		env.Stop()
 	})
 
-	GIt("cce create lb svc with signlestack", func() {
+	GIt("cce create lb svc with singlestack", func() {
 		ns := "cpaas-system"
 		name := "ares-alb2"
 		alb := `

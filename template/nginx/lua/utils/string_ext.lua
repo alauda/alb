@@ -20,7 +20,7 @@ function _M.nil_or(first, second)
     return g_ext.nil_or(first, second, "")
 end
 -- remove_prefix
---  if prefix not exist return the orgin str
+--  if prefix not exist return the origin str
 -- @return string
 function _M.remove_prefix(s, prefix)
     local sub = string.sub

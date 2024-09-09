@@ -167,7 +167,7 @@ function _M.balance()
     if subsys.is_http_subsystem() and alb_ctx.var["http_cpaas_trace"] == "true" then
         alb_ctx.var.trace.upstream_ip = peer
         -- nginx will merge same response header into one.
-        -- if upstram is alb either, it will set response's header x-cpaas-trace too.
+        -- if upstream is alb either, it will set response's header x-cpaas-trace too.
         -- since that, at the first alb, the response' header will be a list of all trace info.
         ngx.header["x-cpaas-trace"] = common.json_encode(alb_ctx.var.trace, false)
     end

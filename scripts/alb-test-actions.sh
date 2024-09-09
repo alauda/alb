@@ -170,7 +170,7 @@ function alb-install-golang-test-dependency() {
   rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
   rm -rf ./golangci-lint-1.59.1-illumos-amd64
 
-  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree
+  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree node
   rm /usr/lib/python3.*/EXTERNALLY-MANAGED || true
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install
@@ -181,6 +181,7 @@ function alb-install-golang-test-dependency() {
   cd /tmp
   go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
   go install -v github.com/onsi/ginkgo/v2/ginkgo@latest
+  npm install -g cspell@latest
   cd -
   export GOFLAGS=-buildvcs=false
 }

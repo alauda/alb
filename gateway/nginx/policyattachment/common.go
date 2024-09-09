@@ -36,8 +36,8 @@ func getConfigList(ref Ref, allPolicy []CommonPolicyAttachment, cfg PolicyAttach
 	var gateway CommonPolicyAttachment
 	var route CommonPolicyAttachment
 	{
-		// get timeoutpolicy atttached to the chain of this ref
-		// TODO now,we just ignore overlaped policy.
+		// get timeoutpolicy attached to the chain of this ref
+		// TODO now,we just ignore overlapped policy.
 		for i, p := range allPolicy {
 			target := p.GetTargetRef()
 			log.Info("find p", "target", target, "name", p.GetObject().GetName(), "ns", p.GetObject().GetNamespace())

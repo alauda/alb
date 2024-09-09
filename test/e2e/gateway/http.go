@@ -538,7 +538,7 @@ spec:
 			map[string]interface{}{"ns": ns, "ns1": ns1, "class": f.AlbName}))
 		Logf("ret %s", ret)
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
-			// TODO it seems werid to have such same rule.
+			// TODO it seems weird to have such same rule.
 			name1 := "80-" + ns + "-g1-http-" + ns + "-h1-0-0"
 			name2 := "80-" + ns1 + "-g1-http-" + ns + "-h1-0-0"
 			bg := func(name string) ct.BackendGroup {
@@ -1069,7 +1069,7 @@ spec:
     - matches:
       - path:
           type: "PathPrefix"
-          value: "/bar/foor"
+          value: "/bar/foo"
       filters:
       - type: URLRewrite
         urlRewrite:
@@ -1091,7 +1091,7 @@ spec:
 			policy, _, _ := p.FindHttpPolicy(name)
 			log.Info("m1", "policy", PrettyJson(policy))
 			return policy != nil &&
-				*policy.RewritePrefixMatch == "/bar/foor" &&
+				*policy.RewritePrefixMatch == "/bar/foo" &&
 				policy.VHost == "xx.com" &&
 				*policy.RewriteReplacePrefix == "/bar", nil
 		})

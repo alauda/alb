@@ -78,10 +78,10 @@ func (tc *TimeoutPolicyConfig) FromConfig(m PolicyAttachmentConfig) error {
 }
 
 type TimeoutPolicy struct {
-	ctx      context.Context
-	log      logr.Logger
-	drv      *driver.KubernetesDriver
-	allPoliy []CommonPolicyAttachment
+	ctx       context.Context
+	log       logr.Logger
+	drv       *driver.KubernetesDriver
+	allPolicy []CommonPolicyAttachment
 }
 
 func NewTimeoutPolicy(ctx context.Context, log logr.Logger, drv *driver.KubernetesDriver) (*TimeoutPolicy, error) {
@@ -90,17 +90,17 @@ func NewTimeoutPolicy(ctx context.Context, log logr.Logger, drv *driver.Kubernet
 		return nil, err
 	}
 	return &TimeoutPolicy{
-		ctx:      ctx,
-		log:      log,
-		drv:      drv,
-		allPoliy: allPolicy,
+		ctx:       ctx,
+		log:       log,
+		drv:       drv,
+		allPolicy: allPolicy,
 	}, nil
 }
 
 func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *Rule, ref Ref) error {
 	log := t.log.V(3).WithName("onrule").WithValues("ref", ref.Describe())
-	log.V(5).Info("len of all timeout policy", "len", len(t.allPoliy))
-	config := getConfig(ref, t.allPoliy, PolicyAttachmentFilterConfig{AllowRouteKind: ALLRouteKind}, t.log.WithName("merge-attach"))
+	log.V(5).Info("len of all timeout policy", "len", len(t.allPolicy))
+	config := getConfig(ref, t.allPolicy, PolicyAttachmentFilterConfig{AllowRouteKind: ALLRouteKind}, t.log.WithName("merge-attach"))
 	if config == nil {
 		t.log.V(3).Info("could not find timeoutconfig ignore")
 		return nil

@@ -44,7 +44,7 @@ func StandAloneGatewayClassInit(ctx context.Context, cfg config.OperatorCfg, cli
 		return err
 	}
 	log.Info("already exist", "version", gclass.ResourceVersion)
-	// upddate
+	// update
 	if gclass.Labels == nil {
 		gclass.Labels = map[string]string{}
 	}

@@ -36,7 +36,7 @@ func TestUtilWithContextAndTimeout(t *testing.T) {
 		msgChan := make(chan string)
 		isTimeout := UtilWithContextAndTimeout(context.Background(), func() {
 			time.Sleep(100 * time.Second)
-			msgChan <- "shold never send"
+			msgChan <- "should never send"
 		}, 10*time.Millisecond, 20*time.Millisecond)
 		assert.Equal(t, isTimeout, true)
 		select {

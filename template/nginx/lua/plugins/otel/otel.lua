@@ -190,7 +190,7 @@ end
 ---@param span any
 function _M.inject_http_header(flags, span)
     local attrs = {}
-    if flags.report_http_reqeust_header then
+    if flags.report_http_request_header then
         for k, v in pairs(ngx.req.get_headers()) do
             attribute_set_string(attrs, "http.request.header." .. k, tostring(v))
         end

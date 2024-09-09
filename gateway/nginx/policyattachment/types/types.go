@@ -52,7 +52,7 @@ type CommonPolicyAttachment interface {
 	GetObject() client.Object
 }
 
-// a policy attchement config is sth that you could get/restore from config.
+// a policy attachment config is sth that you could get/restore from config.
 type IPolicyAttachmentConfig interface {
 	IntoConfig() PolicyAttachmentConfig
 	FromConfig(c PolicyAttachmentConfig)

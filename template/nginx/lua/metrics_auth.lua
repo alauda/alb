@@ -1,6 +1,6 @@
 local _M = {}
 
-local SKIP_METRICS_AURH = os.getenv("METRICS_AUTH") == "false"
+local SKIP_METRICS_AUTH = os.getenv("METRICS_AUTH") == "false"
 
 local function get_token()
     local authorization = ngx.req.get_headers()['authorization']
@@ -20,7 +20,7 @@ local function get_token()
 end
 
 function _M.verify_auth()
-    if SKIP_METRICS_AURH then
+    if SKIP_METRICS_AUTH then
         return
     end
     local token = get_token()

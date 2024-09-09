@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// a wapper of k8s driver include method only use in ingress.
+// a wrapper of k8s driver include method only use in ingress.
 type IngressDriver struct {
 	*driver.KubernetesDriver
 	log logr.Logger

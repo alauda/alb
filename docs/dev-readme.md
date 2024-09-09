@@ -42,7 +42,7 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 ** ctl/
 *** alb
 ** tools/
-*** twwak_gen
+*** tweak_gen
 ** tweak/
 * /etc/alb2/nginx/ (volume alb容器和nginx容器共享)
 ** nginx.conf
@@ -55,3 +55,9 @@ ALB (Alauda Load Balancer). a load balancer base on openresty which run in k8s. 
 follow by ./scripts/alb-lint-actions.sh
 ## git repo 
 https://gitlab-ce.alauda.cn/container-platform/alb2
+## code style
+- 所有的code style规则都必须以lint体现,否则不是必须要遵循的
+- fix all lint warning
+    - cspell check
+- keep same package alias in all go file
+- use snake_case in fn_name var_name (keep cspell happy)

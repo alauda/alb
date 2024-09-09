@@ -61,7 +61,7 @@ type AlbDeployUpdate struct {
 }
 
 // 这里的gatewayclass是共享型的gatewayclass,他的名字和alb是相同的
-// 独享型的gatewayclas的名字是固定的,是operator部署时直接创建的,和单独的某个alb的部署无关
+// 独享型的gatewayclass的名字是固定的,是operator部署时直接创建的,和单独的某个alb的部署无关
 
 func (d *AlbDeploy) Show() string {
 	return fmt.Sprintf("alb %v,depl %v,comm %v,port %v,ic %v,gc %v,svc %v",

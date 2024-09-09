@@ -23,7 +23,7 @@ function _M.gen_policy(size, http)
         certificate_map = {["443"] = {cert = default_443_cert, key = default_443_key}},
         http = {tcp = {[port] = rules}},
         backend_group = {
-            -- start fortio server via youself
+            -- start fortio server via yourself
             {name = "test-upstream-1", mode = "http", backends = {{address = "127.0.0.1", port = 8080, weight = 100}}}
         }
     }

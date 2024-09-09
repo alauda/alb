@@ -26,7 +26,7 @@ type OverwriteCfg ExternalOverwrite
 // tree like config use in operator.
 type ALB2Config struct {
 	ALBRunConfig
-	Project   ProjectConfig // project现在在alb内是直接从label中拿的,端口项目是直接从ft的label上拿的,albrun不关心projectcfg
+	Project   ProjectConfig // project现在在alb内是直接从label中拿的,端口项目是直接从ft的label上拿的,albrun不关心project-config
 	Vip       VipConfig     // albrun 也不关心lbsvc的annotation
 	Deploy    DeployConfig
 	Overwrite OverwriteCfg

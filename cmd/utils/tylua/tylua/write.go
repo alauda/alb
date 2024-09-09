@@ -13,10 +13,9 @@ import (
 )
 
 var (
-	validJSNameRegexp     = regexp.MustCompile(`(?m)^[\pL_][\pL\pN_]*$`)
-	backquoteEscapeRegexp = regexp.MustCompile(`([$\\])`)
-	octalPrefixRegexp     = regexp.MustCompile(`^0[0-7]`)
-	unicode8Regexp        = regexp.MustCompile(`\\\\|\\U[\da-fA-F]{8}`)
+	validJSNameRegexp = regexp.MustCompile(`(?m)^[\pL_][\pL\pN_]*$`)
+	octalPrefixRegexp = regexp.MustCompile(`^0[0-7]`)
+	unicode8Regexp    = regexp.MustCompile(`\\\\|\\U[\da-fA-F]{8}`)
 )
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence#table

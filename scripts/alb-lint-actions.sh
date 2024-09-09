@@ -2,6 +2,8 @@
 
 function alb-lint-all() (
   set -e
+  alb-lint-cspell
+  echo "lint cspell ok"
   alb-lint-bash
   echo "bash ok"
   alb-lint-go
@@ -10,6 +12,12 @@ function alb-lint-all() (
   echo "lua ok"
   # golangci-lint oom in ci
   golangci-lint -v run -c ./.golangci.yml
+)
+
+function alb-lint-cspell() (
+  cspell lint "./**/*.go" -c ./.cspell.json
+  cspell lint "./**/*.md" --exclude "./template/nginx/lua/vendor/*" -c ./.cspell.json
+  cspell lint "./**/*.lua" --exclude "./template/nginx/lua/vendor/*" -c ./.cspell.json
 )
 
 function alb-lint-golangci() {

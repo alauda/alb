@@ -75,7 +75,7 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 			keys := []reconcile.Request{}
 			for _, gw := range list.Items {
 				if string(gw.Spec.GatewayClassName) == *g.cfg.GatewaySelector.GatewayClass {
-					log.Info("gatewayclass mode alb change reconcile gateay", "gw-name", gw.Name, "gw-ns", gw.Namespace)
+					log.Info("gatewayclass mode alb change reconcile gateway", "gw-name", gw.Name, "gw-ns", gw.Namespace)
 					keys = append(keys, reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Namespace: gw.Namespace,
@@ -87,7 +87,7 @@ func (g *GatewayReconciler) watchAlb(b *ctrlBuilder.Builder) *ctrlBuilder.Builde
 			return keys
 		}
 		if g.cfg.GatewaySelector.GatewayName != nil {
-			log.Info("gateways mode alb change reconcile gateay")
+			log.Info("gateways mode alb change reconcile gateway")
 			return []reconcile.Request{
 				{
 					NamespacedName: *g.cfg.GatewaySelector.GatewayName,

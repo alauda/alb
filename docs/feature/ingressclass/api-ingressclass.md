@@ -1,7 +1,7 @@
 # 1. 概述
 如何只通过ingressclass来提供足够的信息，来显示ingressclass的下拉列表
 ## 1.1 编写目的
-1. 如何获取ingresclass，以及如何根据ingressclass上的annotation和label区分出这个ingressclas
+1. 如何获取ingresclass，以及如何根据ingressclass上的annotation和label区分出这个ingressclass
 2. 显示ingressclass 下拉列表时的注意事项
 ## 1.2 项目背景
 1. 在公有云上，可能会存在多个ingress controller，用户可能希望使用这些ingress controller而不是alb

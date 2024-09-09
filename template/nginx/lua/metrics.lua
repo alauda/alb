@@ -22,7 +22,7 @@ function _M.init()
 
     _metrics.mismatch_rule_requests = _prometheus:counter(
         "nginx_http_mismatch_rule_requests",
-        "Number of mistach rule requests",
+        "Number of mismatch rule requests",
         { "port", "method" }
     )
 

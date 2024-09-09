@@ -66,7 +66,7 @@ type DeploySpec struct {
 	Strategy       appv1.DeploymentStrategy
 	Tolerations    []corev1.Toleration
 	Shareprocess   *bool
-	SerivceAccount string
+	ServiceAccount string
 }
 
 type DeployContainerCfg struct {
@@ -166,7 +166,7 @@ func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
 			Tolerations:    dep.Spec.Template.Spec.Tolerations,
 			Shareprocess:   dep.Spec.Template.Spec.ShareProcessNamespace,
 			Affinity:       dep.Spec.Template.Spec.Affinity,
-			SerivceAccount: dep.Spec.Template.Spec.ServiceAccountName,
+			ServiceAccount: dep.Spec.Template.Spec.ServiceAccountName,
 		},
 		Alb:   albcfg,
 		Nginx: nginxcfg,
@@ -238,7 +238,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			Tolerations:    defaultTolerations,
 			Shareprocess:   pointer.To(true),
 			Affinity:       d.GenExpectAffinity(),
-			SerivceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
+			ServiceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
 		},
 		Alb: DeployContainerCfg{
 			Name:  "alb2",
@@ -398,7 +398,7 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 	depl.Spec.Template.Labels = cfg.Spec.PodLabel
 
 	spec.Affinity = cfg.Spec.Affinity
-	spec.ServiceAccountName = cfg.Spec.SerivceAccount
+	spec.ServiceAccountName = cfg.Spec.ServiceAccount
 
 	depl.Spec.Strategy = cfg.Spec.Strategy
 

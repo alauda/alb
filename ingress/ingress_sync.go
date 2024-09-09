@@ -202,7 +202,7 @@ func (c *Controller) doUpdateFt(fa *SyncFt) error {
 		c.log.Info("ft not-synced create it", "eft", f.Name, "ver", f.ResourceVersion, "id", f.UID, "cid", cft.UID)
 	}
 	for _, f := range fa.Update {
-		c.log.Info("ft not-synced update it ", "sepc", f.Spec)
+		c.log.Info("ft not-synced update it ", "spec", f.Spec)
 		cft, err := c.kd.UpdateFt(f)
 		if err != nil {
 			return err
@@ -248,7 +248,7 @@ func (c *Controller) generateExpect(alb *m.AlaudaLoadBalancer, ingress *networki
 	httpRule := []*alb2v1.Rule{}
 	httpsRule := []*alb2v1.Rule{}
 
-	// generate epxpect rules
+	// generate expect rules
 	for rIndex, r := range ingress.Spec.Rules {
 		host := strings.ToLower(r.Host)
 		if r.HTTP == nil {

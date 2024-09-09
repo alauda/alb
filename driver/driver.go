@@ -45,7 +45,7 @@ type KubernetesDriver struct {
 	n              config.Names
 }
 
-// we do not want to reply on the golbal config
+// we do not want to reply on the global config
 // define what we need here
 type Opt struct {
 	Domain              string

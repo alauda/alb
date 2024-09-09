@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func (g *PackageGenerator) Resovle() {
+func (g *PackageGenerator) Resolve() {
 	for _, file := range g.pkg.Syntax {
 		// log.Printf("gen for file %v", file.Name)
 		ast.Inspect(file, func(n ast.Node) bool {
@@ -17,7 +17,7 @@ func (g *PackageGenerator) Resovle() {
 				if x.Tok == token.IMPORT {
 					return false
 				}
-				g.ResovleFile(x)
+				g.ResolveFile(x)
 				return false
 			}
 			return true
@@ -45,19 +45,19 @@ func (g *PackageGenerator) AddPending(name string) {
 	g.pendingTypes[name] = true
 }
 
-func (g *PackageGenerator) ResovleFile(decl *ast.GenDecl) {
+func (g *PackageGenerator) ResolveFile(decl *ast.GenDecl) {
 	for _, spec := range decl.Specs {
 		ts, ok := spec.(*ast.TypeSpec)
 		if ok && ts.Name.IsExported() {
 			if g.IsPending(ts.Name.Name) {
 				log.Printf("resolve %v", ts.Name.Name)
-				g.ResovleTypeSpec(ts)
+				g.ResolveTypeSpec(ts)
 			}
 		}
 	}
 }
 
-func (g *PackageGenerator) ResovleTypeSpec(spec *ast.TypeSpec) {
+func (g *PackageGenerator) ResolveTypeSpec(spec *ast.TypeSpec) {
 	name := spec.Name.Name
 	s := strings.Builder{}
 	ok := g.writeTypeSpec(&s, spec)

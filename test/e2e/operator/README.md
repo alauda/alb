@@ -9,8 +9,8 @@
 
  3 * 2 * 2 = 12
  gateway disable and alb disable is meaningless. left 11
-## commom used mode
-###  1. global defualt 集群默认部署的alb
+## common used mode
+###  1. global default 集群默认部署的alb
     gateway enable-shared
     network host
     alb enable

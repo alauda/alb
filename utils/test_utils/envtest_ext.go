@@ -41,7 +41,7 @@ func (e *EnvtestExt) NotInitAlbCr() *EnvtestExt {
 }
 
 func (e *EnvtestExt) Kubectl() *Kubectl {
-	return NewKubectl(e.Base, e.cfg, e.log.WithName("kubctl"))
+	return NewKubectl(e.Base, e.cfg, e.log.WithName("kubectl"))
 }
 
 func (e *EnvtestExt) GetKubeCfgPath() string {

@@ -344,7 +344,7 @@ spec:
 `)
 			f.Wait(func() (bool, error) {
 				ft, err := f.K8sClient.GetAlbClient().CrdV1().Frontends("cpaas-system").Get(f.GetCtx(), "alb-dev-00080", metav1.GetOptions{})
-				Logf("shoule be 1 %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
+				Logf("should be 1 %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
 				if err != nil {
 					return false, err
 				}
@@ -370,7 +370,7 @@ spec:
 			assert.NoError(ginkgo.GinkgoT(), err)
 			f.Wait(func() (bool, error) {
 				ft, err := f.K8sClient.GetAlbClient().CrdV1().Frontends("cpaas-system").Get(f.GetCtx(), "alb-dev-00080", metav1.GetOptions{})
-				Logf("shoule be empty %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
+				Logf("should be empty %v %v %v", ft.Spec.Source, ft.Spec.ServiceGroup, err)
 				return ft.Spec.ServiceGroup == nil, nil
 			})
 		})
@@ -478,7 +478,7 @@ spec:
 				return len(rs.Items) == 1, nil
 			})
 
-			// 从没有端口到有端口 ngress status中的port应该发生对应变化
+			// 从没有端口到有端口 ingress status中的port应该发生对应变化
 			ing, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Get(ctx, ingname, metav1.GetOptions{})
 			GinkgoNoErr(err)
 			ing.Annotations["alb.networking.cpaas.io/tls"] = "svc.test=cpaas-system/svc.test-xtgdc"

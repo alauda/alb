@@ -15,43 +15,43 @@ import (
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-type CommonFiliter struct {
+type CommonFilter struct {
 	log logr.Logger
 	c   client.Client
 	ctx context.Context
 }
 
-func (c *CommonFiliter) Name() string {
-	return "CommonFiliter"
+func (c *CommonFilter) Name() string {
+	return "CommonFilter"
 }
 
-func (c *CommonFiliter) FilteListener(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
-	c.filteListenerConflictPorotocol(gateway, ls, allls)
+func (c *CommonFilter) FilteListener(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
+	c.filteListenerConflictProtocol(gateway, ls, allls)
 	c.filteListenerInvalidKind(gateway, ls, allls)
 }
 
-func (c *CommonFiliter) filteListenerInvalidKind(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
+func (c *CommonFilter) filteListenerInvalidKind(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	for _, l := range ls {
 		if l.AllowedRoutes == nil {
 			continue
 		}
 		// invalidKindState:= In
-		invalidskinds := []string{}
+		invalidkinds := []string{}
 		hasinvalid := false
 		for _, k := range l.AllowedRoutes.Kinds {
 			if !SUPPORT_KIND_SET.Contains(string(k.Kind)) {
 				hasinvalid = true
-				invalidskinds = append(invalidskinds, string(k.Kind))
+				invalidkinds = append(invalidkinds, string(k.Kind))
 			}
 		}
 		if hasinvalid {
-			allkindinvalid := len(invalidskinds) == len(l.AllowedRoutes.Kinds)
-			l.status.invalidKind(allkindinvalid, invalidskinds)
+			allkindinvalid := len(invalidkinds) == len(l.AllowedRoutes.Kinds)
+			l.status.invalidKind(allkindinvalid, invalidkinds)
 		}
 	}
 }
 
-func (c *CommonFiliter) filteListenerConflictPorotocol(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
+func (c *CommonFilter) filteListenerConflictProtocol(gateway client.ObjectKey, ls []*Listener, allls []*Listener) {
 	// TODO distinguish between protocol conflict and hostname conflict
 	log := c.log.WithValues("gateway", gateway)
 	// 1. mark listener conflict when port+protocol+hostname+port are the same
@@ -87,7 +87,7 @@ func (c *CommonFiliter) filteListenerConflictPorotocol(gateway client.ObjectKey,
 	}
 }
 
-func (c *CommonFiliter) FilteRoute(ref gv1.ParentReference, r *Route, ls *Listener) bool {
+func (c *CommonFilter) FilteRoute(ref gv1.ParentReference, r *Route, ls *Listener) bool {
 	// allow routes
 	key := client.ObjectKeyFromObject(r.route.GetObject())
 	accept, msg := c.routeCouldAttach(key, ls.gateway, &ls.Listener)
@@ -106,7 +106,7 @@ func (c *CommonFiliter) FilteRoute(ref gv1.ParentReference, r *Route, ls *Listen
 	return true
 }
 
-func (c *CommonFiliter) routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gv1.Listener) (bool, string) {
+func (c *CommonFilter) routeCouldAttach(route client.ObjectKey, gateway client.ObjectKey, ls *gv1.Listener) (bool, string) {
 	from := gv1.NamespacesFromSame
 	if ls.AllowedRoutes.Namespaces.From != nil {
 		from = *ls.AllowedRoutes.Namespaces.From

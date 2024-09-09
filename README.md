@@ -131,7 +131,7 @@ metadata:
   labels:
     alb2.cpaas.io/frontend: alb-demo-00080  # required, indicate the Frontend to which this rule belongs
     alb2.cpaas.io/name: alb-demo            # required, indicate the ALB to which this rule belongs
-  name: alb-demo-00080-topu
+  name: alb-demo-00080-test
   namespace: kube-system
 spec:
   backendProtocol: ""                       # as same as Frontend
@@ -265,3 +265,5 @@ spec:
       namespaces:
         from: All
 ```
+
+sadasdfadadf

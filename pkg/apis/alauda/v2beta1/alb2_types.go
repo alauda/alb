@@ -72,7 +72,7 @@ const (
 	CONTAINER_MODE = "container"
 )
 
-// 这里将所有的fied都设置为指针，这样只是为了方便merge
+// 这里将所有的field都设置为指针，这样只是为了方便merge
 // crd中所有的字段默认都是optional是通过注解完成的。
 // 我们配置了XPreserveUnknownFields 所以这个config可以被任意的增加和删除，主要保证真正使用的时候有默认值即可
 
@@ -97,7 +97,7 @@ type ExternalAlbConfig struct {
 	DefaultSSLStrategy   *string            `yaml:"defaultSSLStrategy" json:"defaultSSLStrategy,omitempty"`
 	IngressHTTPPort      *int               `yaml:"ingressHTTPPort" json:"ingressHTTPPort,omitempty"`
 	IngressHTTPSPort     *int               `yaml:"ingressHTTPSPort" json:"ingressHTTPSPort,omitempty"`
-	IngressController    *string            `yaml:"ingressController" json:"ingressController,omitempty"` // ingressclass的controller name # TODO 考虑去掉这个配置 ingressclass的controler就是应该是alb的name 不应该能配置
+	IngressController    *string            `yaml:"ingressController" json:"ingressController,omitempty"` // ingressclass的controller name # TODO 考虑去掉这个配置 ingressclass的controller就是应该是alb的name 不应该能配置
 	EnableGoMonitor      *bool              `yaml:"enableGoMonitor" json:"enableGoMonitor,omitempty"`     // 现在的监控实际上是nginx的监控 gomonitor指的是alb自己的监控 现在默认是关闭的，原因见https://jira.alauda.cn/browse/ACP-22070
 	EnableProfile        *bool              `yaml:"enableProfile" json:"enableProfile,omitempty"`         // 开启gomonitor的情况下是否开启profile，profile可能暴露敏感信息，所以只能是debug事手动开启
 	GoMonitorPort        *int               `yaml:"goMonitorPort" json:"goMonitorPort,omitempty"`

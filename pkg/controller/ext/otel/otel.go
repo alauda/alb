@@ -79,7 +79,7 @@ func (o *Otel) FromRuleCr(rule *m.Rule, r *ct.Rule) {
 	if !alb_otel.Need() && !rule_otel.Need() && !ft_otel.Need() {
 		return
 	}
-	cf, err := MergeWithDefualtJsonPatch([]*OtelCrConf{alb_otel, ft_otel, rule_otel}, *DEFAULT_OTEL.DeepCopy())
+	cf, err := MergeWithDefaultJsonPatch([]*OtelCrConf{alb_otel, ft_otel, rule_otel}, *DEFAULT_OTEL.DeepCopy())
 	if err != nil {
 		r.Config.Otel = nil
 		o.Log.Error(err, "merge otel cfg fail", "rulename", rule.Name)
@@ -118,7 +118,7 @@ var DEFAULT_OTEL = OtelCrConf{
 	},
 }
 
-func MergeWithDefualtJsonPatch(cfs []*OtelCrConf, default_v OtelCrConf) (OtelCrConf, error) {
+func MergeWithDefaultJsonPatch(cfs []*OtelCrConf, default_v OtelCrConf) (OtelCrConf, error) {
 	// default < alb < ft < rule
 	origin, err := json.Marshal(default_v)
 	if err != nil {
@@ -231,7 +231,7 @@ func ResolveDnsIfNeed(rawurl string) (string, error) {
 	}
 	ip := ips[0]
 	for _, p := range ips {
-		// perfer ipv4
+		// prefer ipv4
 		if !strings.Contains(p, ":") {
 			ip = p
 		}
@@ -241,10 +241,10 @@ func ResolveDnsIfNeed(rawurl string) (string, error) {
 }
 
 func getIngressOpt(in *nv1.Ingress) (enable, trustincoming *bool) {
-	enbaleAnnot := in.Annotations[OpenTelemetryEnable]
+	enableAnnot := in.Annotations[OpenTelemetryEnable]
 	trustAnnot := in.Annotations[OpenTelemetryTrustIncomingSpan]
-	if enbaleAnnot != "" {
-		enable = pointer.Bool(ToBoolOr(enbaleAnnot, false))
+	if enableAnnot != "" {
+		enable = pointer.Bool(ToBoolOr(enableAnnot, false))
 	}
 	if trustAnnot != "" {
 		trustincoming = pointer.Bool(ToBoolOr(trustAnnot, true))

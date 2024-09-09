@@ -152,7 +152,7 @@ func (c *Controller) getV2Alb() (*alb2v2.ALB2, error) {
 }
 
 func (c *Controller) RemoveIngressStatusAaddress(address []string, ing *n1.Ingress) error {
-	l := c.log.WithName("ing-satus").WithValues("ing", ing.Name, "ns", ing.Namespace)
+	l := c.log.WithName("ing-status").WithValues("ing", ing.Name, "ns", ing.Namespace)
 	addressMap := map[string]bool{}
 	for _, a := range address {
 		addressMap[a] = true
@@ -198,7 +198,7 @@ func (c *Controller) onAlbDelete(alb *alb2v2.ALB2) {
 	if err != nil {
 		l.Error(err, "remove finalizer fail")
 	}
-	l.Info("remeove alb finalizer ok. clean over")
+	l.Info("remove alb finalizer ok. clean over")
 }
 
 func (c *Controller) onAlbChangeUpdateIngressStatus(oldalb, newalb *alb2v2.ALB2) error {

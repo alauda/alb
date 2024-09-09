@@ -146,7 +146,7 @@ spec:
 			})
 		})
 
-		It("contaner mode alb could deploy on same node", func() {
+		It("container mode alb could deploy on same node", func() {
 			// lb-1的alb正常运行
 			WaitAlbReady(cli, l, ctx, ns, "lb-1")
 			// 部署一个容器网络的alb 在w1上

@@ -50,7 +50,7 @@ var _ = Describe("gateway", func() {
 			actx.Destroy()
 		})
 
-		It("create a stand alone gateay,and curl it", func() {
+		It("create a stand alone gateway,and curl it", func() {
 			err := actx.DeployEchoResty()
 			Expect(err).NotTo(HaveOccurred())
 			cli.CreateNsIfNotExist("g1")
@@ -92,7 +92,7 @@ spec:
           port: 80
           weight: 1
 `)
-			// get alb from gateay label
+			// get alb from gateway label
 			EventuallySuccess(func(g Gomega) {
 				gw, err := cli.GetGatewayClient().GatewayV1beta1().Gateways("g1").Get(ctx, "g1", metav1.GetOptions{})
 				GNoErr(g, err)
