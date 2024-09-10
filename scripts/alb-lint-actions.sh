@@ -1,6 +1,7 @@
 #!/bin/bash
 
 function alb-lint-all() (
+  cd $CUR_ALB_BASE
   set -e
   alb-lint-cspell
   echo "lint cspell ok"

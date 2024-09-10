@@ -85,7 +85,8 @@ function alb-go-build-unit-test() {
 
 function alb-go-unit-test() (
   set -e
-  local filter=${1:-""}
+  local concurrent=${1:-3}
+  local filter=${2:-""}
   # TODO it shoult include e2e test
   local s=$(date)
   echo "s $s"
@@ -93,7 +94,6 @@ function alb-go-unit-test() (
   local coverpkg_list=$(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
-  local concurrent=${2:-3}
   go test -p $concurrent -v -race -covermode=atomic -coverprofile=coverage.unit -coverpkg "$coverpkg" $(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local e=$(date)
   echo $s $e

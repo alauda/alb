@@ -334,7 +334,7 @@ func (a *AlbOperatorCtl) init(cfg AlbOperatorCfg) error {
 	l.Info("chart install", "out", out)
 
 	assert := NewDeploymentAssert(a.Kubecli, l)
-	assert.WaitReady(a.ctx, "alb-operator", cfg.OperatorNs)
+	assert.WaitReady(a.ctx, "alb-operator-ctl", cfg.OperatorNs)
 	if !cfg.DisableDefaultAlb {
 		assert.WaitReady(a.ctx, cfg.DefaultAlbName, cfg.DefaultAlbNS)
 	}

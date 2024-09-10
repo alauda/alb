@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	alog "alauda.io/alb2/utils/log"
@@ -66,7 +67,7 @@ func StartOperatorEnvOrDieWithOpt(cfg OperatorEnvCfg, exts ...func(e *OperatorEn
 	}
 	err := e.Start()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("start env fail %v", err))
 	}
 	return e
 }

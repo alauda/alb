@@ -83,9 +83,9 @@ func (a *AlbOperatorExt) Init(ctx context.Context, defaultVal string, csvMode bo
 	if !csvMode {
 		a.kubectl.VerboseKubectl("get sa -A")
 		a.kubectl.VerboseKubectl("get deployment -A")
-		cfg, err := a.genKubeCfgFromDeploymentServiceAccount(ctx, "alb-operator", "cpaas-system")
+		cfg, err := a.genKubeCfgFromDeploymentServiceAccount(ctx, "alb-operator-ctl", "cpaas-system")
 		if err != nil {
-			return err
+			return fmt.Errorf("get kubecfg fail %v", err)
 		}
 		a.operatorKubeCfg = cfg
 		cli, err := cliu.GetClient(ctx, cfg, cliu.InitScheme(runtime.NewScheme()))
@@ -113,7 +113,7 @@ func (a *AlbOperatorExt) genKubeCfgFromDeploymentServiceAccount(ctx context.Cont
 	}
 	account := depl.Spec.Template.Spec.ServiceAccountName
 	a.log.Info("account", "name", account)
-	token, err := CreateToken(a.kubectl, name, ns)
+	token, err := CreateToken(a.kubectl, account, ns)
 	if err != nil {
 		return nil, err
 	}
