@@ -26,6 +26,8 @@ function alb-lint-golangci() {
 }
 
 function alb-lint-in-ci() {
+  alb-lint-cspell
+  echo "spell ok"
   alb-lint-bash
   echo "bash ok"
   alb-lint-go
