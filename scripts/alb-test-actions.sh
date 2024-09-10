@@ -30,13 +30,19 @@ function alb-go-test-all-with-coverage() {
   tail -n +2 ./coverage.e2e >>./coverage.txt
 
   sed -e '1i\mode: atomic' ./coverage.txt >./coverage.txt.all
-  mv ./coverage.txt.all ./coverage.txt
-  _alb-go-coverage_gen ./coverage.txt
+  cat ./coverage.txt.all | grep -v main.go | grep -v test_utils | grep -v "albctl/cmd" | grep -v "deepcopy.go" | grep -v "pkg/apis/alauda/" >./coverage.txt
+  alb-go-coverage-gen ./coverage.txt
+  alb-go-coverage-show ./coverage.txt
 }
 
-function _alb-go-coverage_gen() (
+function alb-go-coverage-show() (
+  local c=${1-"./coverage.txt"}
+  go tool cover -func=$c | grep -v '100' | grep -v 'total:' | awk '{print $1, $2, substr($3, 1, length($3)-1)}' | sort -k3,3 -nr | column -t
+)
+
+function alb-go-coverage-gen() (
   local c=$1
-  go tool cover -html=$c -o coverage.html
+  go tool cover -html=$c -o ./coverage.html
   go tool cover -func=$c >./coverage.report
   local total=$(grep total ./coverage.report | awk '{print $3}')
   echo $total
@@ -170,7 +176,7 @@ function alb-install-golang-test-dependency() {
   rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
   rm -rf ./golangci-lint-1.59.1-illumos-amd64
 
-  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree node
+  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree nodejs npm
   rm /usr/lib/python3.*/EXTERNALLY-MANAGED || true
   pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
   alb-envtest-install
@@ -181,6 +187,7 @@ function alb-install-golang-test-dependency() {
   cd /tmp
   go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
   go install -v github.com/onsi/ginkgo/v2/ginkgo@latest
+  echo "install cspell"
   npm install -g cspell@latest
   cd -
   export GOFLAGS=-buildvcs=false

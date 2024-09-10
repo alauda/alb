@@ -265,5 +265,3 @@ spec:
       namespaces:
         from: All
 ```
-
-sadasdfadadf
