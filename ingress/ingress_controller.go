@@ -316,7 +316,7 @@ func (c *Controller) processNextWorkItem() bool {
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
-			c.log.Info("invalud workerq key type", "obj", obj)
+			c.log.Info("invalid workqueue key type", "obj", obj)
 			return nil
 		}
 		// Run the Reconcile, passing it the namespace/name string of the

@@ -34,7 +34,7 @@ end
 
 _M.inspect = inspect
 ---comment
----@param msg any # will be warpped with tostring
+---@param msg any # will be wrapped with tostring
 ---@param opt? table
 function _M.log(msg, opt)
     local caller = ""

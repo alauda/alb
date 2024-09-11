@@ -67,7 +67,7 @@ func (f *AlbWaitFileExt) WaitNginxConfigStr(regexStr string) {
 	p := f.alb.NginxCfgPath
 	f.WaitNginxConfig(func(raw string) (bool, error) {
 		match := regexMatch(raw, regexStr)
-		f.log.Info("match nginx confg regex", "str", regexStr, "path", p, "match", match)
+		f.log.Info("match nginx config regex", "str", regexStr, "path", p, "match", match)
 		return match, nil
 	})
 }
@@ -88,7 +88,7 @@ func (f *AlbWaitFileExt) WaitNgxPolicy(fn func(p put.NgxPolicy) (bool, error)) {
 		p := put.NgxPolicy{}
 		err := json.Unmarshal([]byte(raw), &p)
 		if err != nil {
-			return false, fmt.Errorf("wait nginx policy fial err %v raw -- %s --", err, raw)
+			return false, fmt.Errorf("wait nginx policy fail err %v raw -- %s --", err, raw)
 		}
 		return TestEq(func() bool {
 			ret, err := fn(p)

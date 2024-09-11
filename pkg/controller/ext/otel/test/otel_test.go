@@ -173,7 +173,7 @@ var _ = Describe("otel related test", func() {
 				},
 			}
 			for i, c := range cases {
-				real, err := otel.MergeWithDefualtJsonPatch(c.cfg, *otel.DEFAULT_OTEL.DeepCopy())
+				real, err := otel.MergeWithDefaultJsonPatch(c.cfg, *otel.DEFAULT_OTEL.DeepCopy())
 				l.Info("check", "i", i, "name", c.name)
 				l.Info("err", "err", err)
 				l.Info("real", "real", PrettyJson(real))
@@ -433,7 +433,7 @@ spec:
                     "flags": {
 						"hide_upstream_attrs": false,
 						"notrust_incoming_span": false,
-						"report_http_reqeust_header": false,
+						"report_http_request_header": false,
 						"report_http_response_header": false
 					},
                     "resource": {

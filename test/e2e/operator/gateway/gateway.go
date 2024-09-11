@@ -45,7 +45,7 @@ var _ = Describe("Operator Gateway", func() {
 		env.Stop()
 	})
 
-	// whhich used in global
+	// which used in global
 	GIt("case 1. deploy shared gateway", func() {
 		alb := `
 apiVersion: crd.alauda.io/v2beta1

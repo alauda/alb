@@ -90,7 +90,7 @@ var _ = Describe("chart", func() {
 		GinkgoNoErr(err)
 		_, err = kc.GetK8sClient().CoreV1().ServiceAccounts("cpaas-system").Get(ctx, "alb-operator", metav1.GetOptions{})
 		GinkgoNoErr(err)
-		dep, err := kc.GetK8sClient().AppsV1().Deployments("cpaas-system").Get(ctx, "alb-operator", metav1.GetOptions{})
+		dep, err := kc.GetK8sClient().AppsV1().Deployments("cpaas-system").Get(ctx, "alb-operator-ctl", metav1.GetOptions{})
 		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), dep.Spec.Template.Spec.ServiceAccountName, "alb-operator")
 
@@ -98,7 +98,7 @@ var _ = Describe("chart", func() {
 		GinkgoNoErr(err)
 		l.Info("depl", "sa", PrettyCr(sa))
 		assert.Equal(GinkgoT(), lo.Map(sa.ImagePullSecrets, func(k corev1.LocalObjectReference, _ int) string { return k.Name }), []string{"global-registry-auth", "xx"})
-		deplyaml, err := kt.Kubectl("get deployment -n cpaas-system alb-operator -o yaml")
+		deplyaml, err := kt.Kubectl("get deployment -n cpaas-system alb-operator-ctl -o yaml")
 		GinkgoNoErr(err)
 		l.Info("depl", "yaml", deplyaml)
 		assert.Equal(GinkgoT(), strings.Contains(deplyaml, "global-registry-auth,xx"), true)

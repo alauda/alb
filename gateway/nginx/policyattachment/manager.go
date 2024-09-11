@@ -16,7 +16,7 @@ type PolicyAttachmentManager struct {
 	timeout TimeoutPolicy
 }
 
-// manager of all policyattachment, recreate when rerener config.
+// manager of all policyattachment, recreate when re-render config.
 func NewPolicyAttachmentManager(ctx context.Context, drv *driver.KubernetesDriver, log logr.Logger) (*PolicyAttachmentManager, error) {
 	timeout, err := NewTimeoutPolicy(ctx, log.WithName("timeout"), drv)
 	if err != nil {

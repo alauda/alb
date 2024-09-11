@@ -1,4 +1,4 @@
-// utils only used in test,this package could not be used in dirver package
+// utils only used in test,this package could not be used in driver package
 package test_utils
 
 import (
@@ -42,7 +42,7 @@ func add[T client.Object](crs []client.Object, ocrs []T) []client.Object {
 	return ret
 }
 
-// reutrn sorted (via create order) cr
+// return sorted (via create order) cr
 func (f FakeResource) ListCr() []client.Object {
 	crs := []client.Object{}
 	crs = add(crs, SliceToPointerSlice(f.K8s.Namespaces))

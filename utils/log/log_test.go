@@ -17,7 +17,7 @@ func TestLog(_ *testing.T) {
 	l.V(4).Info("test v4")
 	l.V(5).Info("test v5")
 
-	l.Info("test taged", "a", "b")
+	l.Info("test tagged", "a", "b")
 	l.WithName("name1").Info("test with name", "a", "b")
 	l.WithName("name1").WithName("name2").Info("test with name", "a", "b")
 

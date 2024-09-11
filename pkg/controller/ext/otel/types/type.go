@@ -40,7 +40,7 @@ func (o *OtelConf) HasCollector() bool {
 // +k8s:deepcopy-gen=true
 type Flags struct {
 	HideUpstreamAttrs        bool `json:"hide_upstream_attrs"`
-	ReportHttpRequestHeader  bool `json:"report_http_reqeust_header"`
+	ReportHttpRequestHeader  bool `json:"report_http_request_header"`
 	ReportHttpResponseHeader bool `json:"report_http_response_header"`
 	NoTrustIncomingSpan      bool `json:"notrust_incoming_span"`
 }

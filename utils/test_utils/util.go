@@ -148,7 +148,7 @@ func PrettyCrs[T any](objs []T) string {
 
 func PrettyCr(obj interface{}) string {
 	if obj == nil || (reflect.ValueOf(obj).Kind() == reflect.Ptr && reflect.ValueOf(obj).IsNil()) {
-		return "isnill"
+		return "isnil"
 	}
 	out, err := json.Marshal(obj)
 	if err != nil {

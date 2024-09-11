@@ -111,7 +111,7 @@ func (l *LeaderElection) StartLeaderElectionLoop() error {
 					log.Info("ctx canceled", "id", id)
 				} else {
 					log.Error(nil, "leader lost", "id", id)
-					// IMPORTANT lossing leader means sth is wrong. let it just die.
+					// IMPORTANT losing leader means sth is wrong. let it just die.
 					// TODO we need a event system.
 					if !lcfg.SkipExit {
 						os.Exit(-1)
@@ -135,7 +135,7 @@ func (l *LeaderElection) StartLeaderElectionLoop() error {
 		log.Info("ctx canceled. leader election stop")
 		return nil
 	}
-	err = fmt.Errorf("impossiable,out of leader loop?")
+	err = fmt.Errorf("impossible,out of leader loop?")
 	log.Error(err, "id", id)
 	return err
 }

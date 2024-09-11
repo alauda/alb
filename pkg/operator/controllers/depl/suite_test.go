@@ -143,16 +143,16 @@ spec:
 
 	It("test migration", func() {
 		type tcase struct {
-			annotaion string
-			cfg       albv2.ExternalAlbConfig
+			annotation string
+			cfg        albv2.ExternalAlbConfig
 		}
 		cases := []tcase{
 			{
-				annotaion: `{"replicas":10}`,
-				cfg:       albv2.ExternalAlbConfig{Replicas: pointer.Int(10)},
+				annotation: `{"replicas":10}`,
+				cfg:        albv2.ExternalAlbConfig{Replicas: pointer.Int(10)},
 			},
 			{
-				annotaion: `{"resources":{"limits":{"cpu":"200m"}}}`,
+				annotation: `{"resources":{"limits":{"cpu":"200m"}}}`,
 				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
 					ExternalResource: &albv2.ExternalResource{
 						Limits: &albv2.ContainerResource{
@@ -162,7 +162,7 @@ spec:
 				}},
 			},
 			{
-				annotaion: `{"resources":{"limits":{"cpu":2}}}`,
+				annotation: `{"resources":{"limits":{"cpu":2}}}`,
 				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
 					ExternalResource: &albv2.ExternalResource{
 						Limits: &albv2.ContainerResource{
@@ -172,7 +172,7 @@ spec:
 				}},
 			},
 			{
-				annotaion: `{"resources":{"limits":{"cpu":"2"}}}`,
+				annotation: `{"resources":{"limits":{"cpu":"2"}}}`,
 				cfg: albv2.ExternalAlbConfig{Resources: &albv2.ExternalResources{
 					ExternalResource: &albv2.ExternalResource{
 						Limits: &albv2.ContainerResource{
@@ -185,7 +185,7 @@ spec:
 
 		for _, c := range cases {
 			cfg := albv2.ExternalAlbConfig{}
-			err := json.Unmarshal([]byte(c.annotaion), &cfg)
+			err := json.Unmarshal([]byte(c.annotation), &cfg)
 			assert.NoError(t, err)
 			t.Logf("cfg %v", utils.PrettyJson(cfg))
 			assert.Equal(t, cfg, c.cfg)

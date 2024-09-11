@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// dreprecated, use KubectlApply and InitSvcWithOpt.
+// deprecated, use KubectlApply and InitSvcWithOpt.
 // ingress service and end point
 type IngressCase struct {
 	Namespace string

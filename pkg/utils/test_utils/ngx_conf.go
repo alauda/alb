@@ -38,7 +38,7 @@ func FindNamedHttpLocationRaw(ngxconf string, port string, locname string) *gngc
 	if err != nil {
 		Panic()
 	}
-	// retur FindNestDirectives(p, "http",".server")
+	// FindNestDirectives(p, "http",".server")
 	for _, d := range p.FindDirectives("server") {
 		lss := d.GetBlock().FindDirectives("listen")
 		if len(lss) == 0 {

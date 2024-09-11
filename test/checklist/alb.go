@@ -111,7 +111,7 @@ var _ = Describe("checklist for alb", func() {
 
 		err := MockCluster(genv, p1env, l)
 		GinkgoAssert(err, "mock cluster fail")
-		l.Info("mock cluter")
+		l.Info("mock cluster")
 
 		for _, cr := range cfg.cringlobal {
 			genvkc.AssertKubectlApply(cr)

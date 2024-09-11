@@ -101,14 +101,14 @@ spec:
                             type: boolean
                           notrust_incoming_span:
                             type: boolean
-                          report_http_reqeust_header:
+                          report_http_request_header:
                             type: boolean
                           report_http_response_header:
                             type: boolean
                         required:
                         - hide_upstream_attrs
                         - notrust_incoming_span
-                        - report_http_reqeust_header
+                        - report_http_request_header
                         - report_http_response_header
                         type: object
                       resource:

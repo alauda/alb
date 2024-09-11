@@ -294,7 +294,7 @@ otel配置的完整shema可以通过crd查看  `kubectl get crd alaudaloadbalanc
     "flags": { 
         "hide_upstream_attrs": false # 是否上报alb关于upstream的规则的信息
         "notrust_incoming_span": false # # 是否使用请求中的otel信息
-        "report_http_reqeust_header": false # 是否上报请求header 
+        "report_http_request_header": false # 是否上报请求header 
         "report_http_response_header": false  # 是否上报响应header
     },
     "sampler": {
@@ -353,7 +353,7 @@ curl -v "http://$ALB_IP/" -H 'traceparent:00-xx-xx-02' 不上报
 | alb.upstream.svc_ns   | 转发到的svc的ns    |
 | alb.upstream.peer     | 转发到pod ip +端口 |
 
-#### 默认不上报，可以通过flag.report_http_reqeust_header 打开
+#### 默认不上报，可以通过flag.report_http_request_header 打开
 | name                         | 解释       |
 |------------------------------|----------|
 | http.request.header.<header> | 请求header |

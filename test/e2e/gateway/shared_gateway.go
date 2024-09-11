@@ -404,7 +404,7 @@ spec:
 		})
 	})
 
-	GIt("http route with uninterocp hostname with listener should mark as reject", func() {
+	GIt("http route with un-intercept hostname with listener should mark as reject", func() {
 		_ = f.AssertKubectlApply(Template(`
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

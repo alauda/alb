@@ -12,7 +12,7 @@ end
 
 function init(args)
     -- init and request use same lua env
-    -- reqeust reponses reqs defined in global could be used in request ,and could be accessed via thread.get
+    -- request responses reqs defined in global could be used in request ,and could be accessed via thread.get
 
    requests  = 0
    responses = 0

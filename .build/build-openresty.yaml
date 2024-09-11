@@ -19,7 +19,7 @@ spec:
       name: source
   tasks:
     - name: build-alb-nginx
-      timeout: 30m
+      timeout: 100m
       retries: 3
       taskRef:
         kind: ClusterTask

@@ -120,7 +120,7 @@ func TestGetBindIpConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(cfg.Nic), 0)
 
-	configStr = `{"wrongjson`
+	configStr = `{"wrong_json`
 	cfg, err = testGet(&configStr)
 	assert.NotNil(t, err)
 }

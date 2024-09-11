@@ -19,7 +19,7 @@ it should be renamed as openresty or resty-app ..
 		* lua-resty-balancer              https://github.com/openresty/lua-resty-balancer/archive/v0.04
 	3. ignore luarocks
 ### 如何更新alb-nginx镜像
-1. 更新alb-nginx/Dockerfile, alb-nginx流水线构建3rdparty/alb-nginx镜像
+1. 更新alb-nginx/Dockerfile, alb-nginx流水线构建 3rdparty/alb-nginx镜像
 2. 更新alb-nginx/alb-test-runner.dockerfile中的alb-nginx镜像版本号, alb-test-runner-image流水线构建test-runner镜像
 3. 更新本readme中的changelog, 修改chart/values.yaml中nginx镜像版本号
 4. 更新alb2流水线使用的test-runner镜像版本, 构建alb镜像
@@ -79,7 +79,7 @@ l3 callback
 1. 只有在master线程中读配置文件
 2. 读取配置文件之后，会直接更新l2
 3. 通过mlcache的delete 删除掉过期的配置
-3.1 当删除时，会调用ipc的boardcast，最终将所有worker的l1 cache的配置删除 (mlcache中注册了ipc，用lua-resty-worker-events做的所有worker的同步)
+3.1 当删除时，会调用ipc的broadcast，最终将所有worker的l1 cache的配置删除 (mlcache中注册了ipc，用lua-resty-worker-events做的所有worker的同步)
 4. 当获取数据时，会因为配置被删除了，而去从l2上获取信息 或者调用callback？当调用完毕之后会将结果缓存在l1上
 
 当每次请求到达时 调用get_upstream 会
@@ -92,7 +92,7 @@ l2 http_policy
     all_policies   all policy
 l2 cert_cache 
     domain         each domain
-    certficate_map all cert
+    certificate_map all cert
 l2 http_backend_cache
     backend_group all backend
 master每隔1s

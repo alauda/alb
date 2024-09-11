@@ -41,7 +41,7 @@
 
 ---@class Flags
 ---@field hide_upstream_attrs boolean
----@field report_http_reqeust_header boolean
+---@field report_http_request_header boolean
 ---@field report_http_response_header boolean
 ---@field notrust_incoming_span boolean
 

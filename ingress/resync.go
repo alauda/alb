@@ -18,7 +18,7 @@ func (c *Controller) StartResyncLoop(ctx context.Context) error {
 	resyncPeriod := time.Duration(cfg.GetResyncPeriod()) * time.Second
 
 	if !cfg.GetFlags().FullSync {
-		log.Info("periodicity sync disabled ingnore")
+		log.Info("periodicity sync disabled ignore")
 		return nil
 	}
 	log.Info("start periodicity sync", "period", resyncPeriod)

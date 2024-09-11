@@ -22,3 +22,27 @@ function alb-run-operator-in-local() (
 
   go run alauda.io/alb2/cmd/operator 2>&1 | tee ./gw.log
 )
+
+function alb-deploy-all-in-one() (
+  cat <<EOF | kubectl apply -f -
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+    name: alb-demo
+    namespace: cpaas-system
+spec:
+    address: "127.0.0.1"
+    type: "nginx" 
+    config:
+        antiAffinityKey: alb-demo
+        defaultSSLCert: cpaas-system/dex.tls
+        defaultSSLStrategy: Both
+        ingressHTTPPort: 1180
+        ingressHTTPSPort: 11443
+        loadbalancerName: alb-demo
+        metricsPort: 12345
+        projects:
+         - ALL_ALL
+        replicas: 1
+EOF
+)

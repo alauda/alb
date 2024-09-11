@@ -89,7 +89,7 @@ func (g *TyLua) Generate(pkg_names []string, boot string, out string) error {
 				typesOrder:   types_order,
 			}
 			g.packageGenerators[pkg.PkgPath] = pkgGen
-			pkgGen.Resovle()
+			pkgGen.Resolve()
 		}
 	}
 	codes := make([]string, len(know_types)+1)

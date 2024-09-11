@@ -53,7 +53,7 @@ type RouteFilter interface {
 }
 
 func NewGatewayReconciler(ctx context.Context, c client.Client, log logr.Logger, cfg *config.Config) GatewayReconciler {
-	commonFilter := CommonFiliter{log: log, c: c, ctx: ctx}
+	commonFilter := CommonFilter{log: log, c: c, ctx: ctx}
 	hostNameFilter := HostNameFilter{log: log}
 	gc := cfg.GetGatewayCfg()
 	reservedPortFilter := NewReservedPortFilter(log, []int{gc.ReservedPort, 1936, 11782})
@@ -213,7 +213,7 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 				r.invalidSectionName(ref, fmt.Sprintf("could not find this sectionName %v", key))
 				continue
 			}
-			// route are acceptped by default, unless some filter reject it.
+			// route are accepted by default, unless some filter reject it.
 			r.accept(ref)
 			for _, f := range g.invalidRoutefilter {
 				valid := f.FilteRoute(ref, r, ls)
@@ -464,9 +464,9 @@ func SameCondition(left []metav1.Condition, right []metav1.Condition) bool {
 }
 
 func sameAddress(origin []gv1.GatewayStatusAddress, latest []gv1.GatewayStatusAddress) bool {
-	orginset := sets.NewString(lo.Map(origin, func(s gv1.GatewayStatusAddress, _ int) string { return s.Value })...)
+	origin_set := sets.NewString(lo.Map(origin, func(s gv1.GatewayStatusAddress, _ int) string { return s.Value })...)
 	statusset := sets.NewString(lo.Map(latest, func(s gv1.GatewayStatusAddress, _ int) string { return s.Value })...)
-	return orginset.Equal(statusset)
+	return origin_set.Equal(statusset)
 }
 
 func sameGatewayStatus(origin gv1.GatewayStatus, latest gv1.GatewayStatus) bool {

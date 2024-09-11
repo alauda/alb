@@ -30,7 +30,7 @@ spec:
           - name: source
             workspace: source
         steps:
-          - image: docker-mirrors.alauda.cn/library/golang:1.22.5-alpine # keep it as same as alb docker builder.
+          - image: docker-mirrors.alauda.cn/library/golang:1.22.7-alpine # keep it as same as alb docker builder.
             name: build
             imagePullPolicy: IfNotPresent
             workingDir: '$(workspaces.source.path)'
@@ -65,7 +65,7 @@ spec:
             - $(tasks.nginx-build.results.ociContainerImageBuild-url)
         - name: scan-flags
           value:
-            - db.repository=build-harbor.alauda.cn/3rdparty/aquasec/trivy-db
+            - db.repository=build-harbor.alauda.cn/ops/aquasecurity/trivy-db
             - db.skip-update=false
         - name: quality-gate-rules
           value:

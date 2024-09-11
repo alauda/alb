@@ -153,7 +153,7 @@ function _car_log_err() {
   return
 }
 
-function _car_check_defualt_alb() (
+function _car_check_default_alb() (
   local cluster="$1"
   _car_log_info "====检查 $cluster 集群的默认alb===="
 
@@ -191,11 +191,11 @@ function check_alb_resource() (
     _car_log_info "目标升级版本是: $target_version, 无需检查alb的resource"
     return
   fi
-  _car_check_defualt_alb "global"
+  _car_check_default_alb "global"
   _car_check_user_alb "global"
 
   for cluster in $(list_running_cluster | grep -v global); do
-    _car_check_defualt_alb "$cluster"
+    _car_check_default_alb "$cluster"
     _car_check_user_alb "$cluster"
   done
 )
