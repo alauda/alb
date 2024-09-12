@@ -92,6 +92,14 @@ function alb-gh-release-alb() (
     local version=$(alb-github-gen-version)
     docker image inspect $IMAGE_REPO/alb:$version
     docker push $IMAGE_REPO/alb:$version
+    git fetch --all # https://github.com/JamesIves/github-pages-deploy-action/issues/74
+    # yes. we allow to re-release
+    git tag --delete alauda-alb2-$version || true
+    git push origin --delete alauda-alb2-$version || true
+    git tag alauda-alb2-$version
+    git push origin alauda-alb2-$version
+    git tag | cat
+    gh release delete alauda-alb2-$version || true
     .github/cr.sh --owner "alauda" --repo "alb" --charts-dir "./deploy/chart/alb" --skip-packaging "true" --pages-branch "gh-pages"
   fi
   return
@@ -145,8 +153,7 @@ function alb-gh-get-gobuild-ver() (
 )
 
 function alb-github-gen-version() {
-  local branch=$(echo "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g')
-  if [[ "$branch" == "master" ]]; then
+  if [[ "$RELEASE_TYPE" == "release" ]]; then
     echo v$CURRENT_VERSION
     return
   fi
