@@ -2,6 +2,7 @@ package otel_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"alauda.io/alb2/config"
@@ -32,14 +33,34 @@ var _ = Describe("otel related test", func() {
 	Context("unit", func() {
 		It("resolve ip should ok", func() {
 			t := GinkgoT()
-
-			addr, err := otel.ResolveDnsIfNeed("http://127.0.0.1:1234/a")
+			mock_lookup := func(host string) ([]string, error) {
+				if host == "localhost" {
+					return []string{"127.0.0.1"}, nil
+				}
+				if host == "ipv6" {
+					return []string{"fe80::fc54:ff:fe64:83fa"}, nil
+				}
+				return nil, fmt.Errorf("dns fail")
+			}
+			addr, err := otel.ResolveDnsIfNeedWithNet("http://127.0.0.1:1234/a", mock_lookup)
 			GinkgoNoErr(err)
 			assert.Equal(t, addr, "http://127.0.0.1:1234/a")
 
-			addr, err = otel.ResolveDnsIfNeed("https://localhost:1234/a")
+			addr, err = otel.ResolveDnsIfNeedWithNet("https://localhost:1234/a", mock_lookup)
 			GinkgoNoErr(err)
 			assert.Equal(t, addr, "https://127.0.0.1:1234/a")
+
+			addr, err = otel.ResolveDnsIfNeedWithNet("https://ipv6:1234/a", mock_lookup)
+			GinkgoNoErr(err)
+			assert.Equal(t, addr, "https://[fe80::fc54:ff:fe64:83fa]:1234/a")
+
+			addr, err = otel.ResolveDnsIfNeedWithNet("https://ipv6/a", mock_lookup)
+			GinkgoNoErr(err)
+			assert.Equal(t, addr, "https://[fe80::fc54:ff:fe64:83fa]/a")
+
+			addr, err = otel.ResolveDnsIfNeedWithNet("https://localhost/a", mock_lookup)
+			GinkgoNoErr(err)
+			assert.Equal(t, addr, "https://127.0.0.1/a")
 		})
 
 		It("merge with default should ok", func() {

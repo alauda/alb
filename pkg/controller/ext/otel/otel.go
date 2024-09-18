@@ -13,6 +13,7 @@ import (
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/pkg/controller/ext/otel/types"
 	. "alauda.io/alb2/pkg/utils"
+	"alauda.io/alb2/utils"
 	u "alauda.io/alb2/utils"
 	jp "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
@@ -213,7 +214,7 @@ func (o *Otel) ResolvePolicy(alb *ct.LoadBalancer, policy *ct.NgxPolicy) error {
 	return nil
 }
 
-func ResolveDnsIfNeed(rawurl string) (string, error) {
+func ResolveDnsIfNeedWithNet(rawurl string, lookup func(string) ([]string, error)) (string, error) {
 	url, err := url.Parse(rawurl)
 	if err != nil {
 		return "", err
@@ -222,7 +223,7 @@ func ResolveDnsIfNeed(rawurl string) (string, error) {
 	if net.ParseIP(host) != nil {
 		return rawurl, nil
 	}
-	ips, err := net.LookupHost(host)
+	ips, err := lookup(host)
 	if err != nil {
 		return "", err
 	}
@@ -236,8 +237,20 @@ func ResolveDnsIfNeed(rawurl string) (string, error) {
 			ip = p
 		}
 	}
-	url.Host = ip + ":" + url.Port()
+	if utils.IsValidIPv6(ip) {
+		ip = "[" + ip + "]"
+	}
+	if url.Port() == "" {
+		url.Host = ip
+	} else {
+		url.Host = ip + ":" + url.Port()
+	}
+
 	return url.String(), nil
+}
+
+func ResolveDnsIfNeed(rawurl string) (string, error) {
+	return ResolveDnsIfNeedWithNet(rawurl, net.LookupHost)
 }
 
 func getIngressOpt(in *nv1.Ingress) (enable, trustincoming *bool) {
