@@ -18,3 +18,4 @@ image: v3.18.2
 * unquote cookie value when rewrite request header via var
 * swap policy
 * fix CORS when has multi-domain
+* donot use placeholder crt/key

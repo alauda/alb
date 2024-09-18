@@ -77,8 +77,12 @@ http {
         {{- end }}
 
         include  {{$.TweakBase}}/http_server.conf;
-        ssl_certificate {{$.NginxBase}}/placeholder.crt;
-        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+
+        set $placeholder_crt "";
+        ssl_certificate $placeholder_crt;
+        set $placeholder_key "";
+        ssl_certificate_key $placeholder_key;
+
         ssl_dhparam {{$.ShareBase}}/dhparam.pem;
         ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
         access_log off;
@@ -160,8 +164,11 @@ http {
 
         include    {{$.TweakBase}}/http_server.conf;
 
-        ssl_certificate {{$.NginxBase}}/placeholder.crt;
-        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+        set $placeholder_crt "";
+        ssl_certificate $placeholder_crt;
+        set $placeholder_key "";
+        ssl_certificate_key $placeholder_key;
+
         ssl_dhparam {{$.ShareBase}}/dhparam.pem;
         ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
 
@@ -241,8 +248,11 @@ http {
 
         include    {{$.TweakBase}}/grpc_server.conf;
 
-        ssl_certificate {{$.NginxBase}}/placeholder.crt;
-        ssl_certificate_key {{$.NginxBase}}/placeholder.key;
+        set $placeholder_crt "";
+        ssl_certificate $placeholder_crt;
+        set $placeholder_key "";
+        ssl_certificate_key $placeholder_key;
+
         ssl_dhparam {{$.ShareBase}}/dhparam.pem;
         ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
 
