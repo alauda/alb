@@ -333,7 +333,7 @@ spec:
                   value: 80
                 - color: "#56A64B"
                   value: null
-            unit: s
+            unit: core
           overrides: []
         gridPos:
           h: 8
@@ -357,8 +357,7 @@ spec:
               uid: ${DS_PROMETHEUS}
             editorMode: builder
             expr: sum by(pod_name)
-              (container_cpu_usage_seconds_total_irate5m{pod_name=~"$name-.*",
-              image="", namespace=~"$namespace", vmcluster="$vmcluster"})
+              (container_cpu_usage_seconds_total_irate5m{pod_name=~"$name-.*", namespace=~"$namespace", vmcluster="$vmcluster"})
             legendFormat: ""
             range: true
             refId: A
@@ -430,8 +429,7 @@ spec:
               type: prometheus
               uid: ${DS_PROMETHEUS}
             editorMode: code
-            expr: sum by(pod_name) (container_memory_working_set_bytes{pod_name=~"$name-.*",
-              image="", namespace=~"$namespace", vmcluster="$vmcluster"})
+            expr: sum by(pod_name) (container_memory_working_set_bytes{pod_name=~"$name-.*",namespace=~"$namespace", vmcluster="$vmcluster"})
             legendFormat: ""
             range: true
             refId: A
@@ -506,7 +504,7 @@ spec:
             expr: sum by(pod_name)
               (container_network_receive_bytes_total_irate5m{pod_name=~"$name-.*",
               namespace=~"$namespace", vmcluster="$vmcluster"})
-            legendFormat: '{{.pod_name}}/receive'
+            legendFormat: '{{ printf "{{.pod_name}}/receive" }}'
             range: true
             refId: A
           - datasource:
@@ -518,7 +516,7 @@ spec:
               namespace=~"$namespace", vmcluster="$vmcluster"})
             hide: false
             interval: ""
-            legendFormat: '{{.pod_name}}/transmit'
+            legendFormat: '{{printf "{{.pod_name}}/transmit" }}'
             range: true
             refId: B
         title: Network Receive/Transmit
@@ -590,7 +588,7 @@ spec:
             editorMode: code
             expr: sum by(pod)
               (rate(container_fs_writes_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
-            legendFormat: '{{.pod}}/write'
+            legendFormat: '{{printf "{{.pod}}/write" }}'
             range: true
             refId: A
           - datasource:
@@ -600,7 +598,7 @@ spec:
             expr: sum by(pod)
               (rate(container_fs_reads_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
             hide: false
-            legendFormat: '{{.pod}}/reads'
+            legendFormat: '{{ printf "{{.pod}}/reads" }}'
             range: true
             refId: B
         title: Disk Read/Write Rate
