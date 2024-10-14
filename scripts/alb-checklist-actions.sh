@@ -23,3 +23,7 @@ function alb-sync-from-checklist() {
     md5sum $p
   done
 }
+
+function alb-checklist-test() (
+  ginkgo -v ./test/checklist
+)

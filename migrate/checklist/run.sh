@@ -1,14 +1,14 @@
 #!/bin/bash
 env
 set -o pipefail
-source helper.sh
-source ./custom/check-alb.sh
-echo "$@"
-BACKUP_DIR="./"
+# set -x
 if [[ -n "$2" ]]; then
-  prdb_version="$2"
+  export prdb_version="$2"
 fi
 if [[ -n "$3" ]]; then
-  target_version="$3"
+  export target_version="$3"
 fi
+export backup_dir="./"
+source helper.sh
+source ./custom/check-alb.sh
 eval "$1"

@@ -3,6 +3,7 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "prdb",
         "ingresclass",
         "ingressclasses",
         "auzure",
@@ -238,6 +239,7 @@
         "networkinginformers",
         "networkinglisters",
         // lazy to change
+        "portproject",
         "cmref",
         "metav",
         "internalinterfaces",

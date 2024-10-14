@@ -2,7 +2,6 @@ package checklist
 
 import (
 	"fmt"
-	_ "fmt"
 	"net/url"
 	"strings"
 
@@ -83,6 +82,40 @@ spec:
 	return nil
 }
 
+func EvalCheck(kconf string, args []string) (string, error) {
+	call_args := []string{"run.sh"}
+	call_args = append(call_args, args...)
+	out, err := NewCmd().
+		Env(map[string]string{"KUBECONFIG": kconf}).
+		Cwd(GetAlbBase()+"/migrate/checklist").
+		Call("bash", call_args...)
+	return out, err
+}
+
+func EvalCheckForClusters(kconf string, cmd string, prdb string, target string) (string, error) {
+	call_args := []string{"test.sh"}
+	call_args = append(call_args, "run-in-clusters", cmd)
+	out, err := NewCmd().
+		Env(map[string]string{
+			"KUBECONFIG":     kconf,
+			"target_version": target,
+			"prdb_version":   prdb,
+			"backup_dir":     "./",
+		}).
+		Cwd(GetAlbBase()+"/migrate/checklist").
+		Call("bash", call_args...)
+	return out, err
+}
+
+func EvalTest(args []string) (string, error) {
+	call_args := []string{"test.sh"}
+	call_args = append(call_args, args...)
+	out, err := NewCmd().
+		Cwd(GetAlbBase()+"/migrate/checklist").
+		Call("bash", call_args...)
+	return out, err
+}
+
 var _ = Describe("checklist for alb", func() {
 	type ctx struct {
 		Global  *EnvtestExt
@@ -93,9 +126,9 @@ var _ = Describe("checklist for alb", func() {
 		cringlobal  []string
 		crinproduct []string
 	}
+	base := InitBase()
+	l := alog.InitKlogV2(alog.LogCfg{ToFile: base + "/chlist.log"})
 	test := func(cfg cfg, t func(c ctx)) {
-		base := InitBase()
-		l := alog.InitKlogV2(alog.LogCfg{ToFile: base + "/chlist.log"})
 
 		global := BaseWithDir(base, "global")
 		genv := NewEnvtestExt(global, l).WithName("global").Crds([]string{GetAlbBase() + "/scripts/yaml/crds/extra/mock"})
@@ -391,9 +424,6 @@ spec:
 	})
 
 	GIt("should check alb resources", func() {
-		// 本质上是检查默认alb的ingress http port在关闭的情况下，是否还有旧的http port 在
-		// 在3.10之后才会有这个问题
-		// 本质上要检查的是apprelease和ft
 		cringlobal := []string{
 			`
 apiVersion: operator.alauda.io/v1alpha1
@@ -582,8 +612,8 @@ spec:
 				Cwd(GetAlbBase()+"/migrate/checklist").
 				Call("bash", "run.sh", "check_alb_hr", "v3.6.1", "v3.8.1")
 			GinkgoAssert(err, "")
-			GinkgoAssertTrue(!strings.Contains(out, "p1 集群的alb test1 hr 还在但是alb不在了"), "")
-			GinkgoAssertTrue(strings.Contains(out, "p1 集群的alb test2 hr 还在但是alb不在了"), "")
+			GinkgoAssertTrue(!strings.Contains(out, "p1 集群的alb p1-test1 hr还在但是alb不在了"), "")
+			GinkgoAssertTrue(strings.Contains(out, "p1 集群的alb p1-test2 hr还在但是alb不在了"), "")
 			_ = out
 		})
 	})
@@ -659,11 +689,257 @@ spec:
 			out, err := NewCmd().
 				Env(map[string]string{"KUBECONFIG": c.Global.GetKubeCfgPath()}).
 				Cwd(GetAlbBase()+"/migrate/checklist").
-				Call("bash", "run.sh", "check_alb", "v3.6.1", "v3.8.1")
+				Call("bash", "run.sh", "check_alb_legacy", "v3.6.1", "v3.8.1")
 			GinkgoAssert(err, "")
 			GinkgoAssertTrue(strings.Contains(out, "集群 global 的rule的ingress test-ing 不存在"), "")
 			GinkgoAssertTrue(strings.Contains(out, "集群 global 的rule的ingress b 不存在"), "")
 			GinkgoAssertTrue(!strings.Contains(out, "集群 global 的rule的ingress a 不存在"), "")
+			_ = out
+		})
+	})
+
+	GIt("should check alb exist but hr not exist", func() {
+		cr_in_global := []string{
+			`
+
+`,
+		}
+		cr_in_product := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test-b
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test-a-1
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+`,
+		}
+		test(cfg{cringlobal: cr_in_global, crinproduct: cr_in_product}, func(c ctx) {
+			out, err := EvalCheck(c.Global.GetKubeCfgPath(), []string{"check_alb_hr", "v3.6.1", "v3.8.1"})
+			GinkgoNoErr(err)
+			GinkgoAssertTrue(strings.Contains(out, "集群的alb p1-test-a hr还在但是alb不在了"), "")
+			GinkgoAssertTrue(strings.Contains(out, "集群的alb p1-test-a-1 alb还在但是hr不在了"), "")
+			GinkgoAssertTrue(strings.Contains(out, "集群的alb p1-test-b alb还在但是hr不在了"), "")
+		})
+	})
+
+	GIt("compare ver should ok", func() {
+		type Case struct {
+			args   []string
+			expect string
+		}
+		cases := []Case{
+			{args: []string{"v3.6.1", "eq", "v3.8.1"}, expect: "false"},
+			{args: []string{"v3.6.1", "eq", "v3.6.1"}, expect: "true"},
+
+			{args: []string{"v3.6.1", "lt", "v3.8.1"}, expect: "true"},
+			{args: []string{"v3.6.1", "lt", "v3.4.1"}, expect: "false"},
+			{args: []string{"v3.6.1", "le", "v3.8.1"}, expect: "true"},
+			{args: []string{"v3.6.1", "le", "v3.6.1"}, expect: "true"},
+
+			{args: []string{"v3.6.1", "gt", "v3.4.1"}, expect: "true"},
+			{args: []string{"v3.6.1", "gt", "v3.8.1"}, expect: "false"},
+			{args: []string{"v3.6.1", "ge", "v3.4.1"}, expect: "true"},
+			{args: []string{"v3.6.1", "ge", "v3.8.1"}, expect: "false"},
+		}
+		for _, c := range cases {
+			args := []string{"_alb_compare_ver"}
+			args = append(args, c.args...)
+			out, err := EvalTest(args)
+			GinkgoNoErr(err)
+			GinkgoAssertTrue(strings.Contains(out, c.expect), "")
+		}
+	})
+
+	GIt("should notice portproject need re-add to configmap cur (,3.8.2) and target (,3.8.2)", func() {
+		cr_in_global := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test-no-port
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    name: test-no-port
+    port-info: "true"
+  name: test-no-port-port-info
+  namespace: cpaas-system
+data:
+  range: '[]'
+`,
+		}
+		cr_in_product := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test-without-port-cm
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-09-24T15:49:17Z"
+  labels:
+    name: test
+    port-info: "true"
+  name: test-port-info
+  namespace: cpaas-system
+data:
+  range: '[{"port":"111-2233","projects":["ALL_ALL"]}]'
+`,
+		}
+		test(cfg{cringlobal: cr_in_global, crinproduct: cr_in_product}, func(c ctx) {
+			out, err := EvalCheckForClusters(c.Global.GetKubeCfgPath(), "check_alb_port_project", "v3.6.1", "v3.8.1")
+			GinkgoNoErr(err)
+			_ = out
+		})
+	})
+
+	GIt("should notice portproject need re-add to hr, target [3.8.2,3.12.0)", func() {
+		cr_in_global := []string{
+			`
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+    name: p1-test
+    namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    projects:
+      - ALL_ALL
+    replicas: 1
+    portProjects: '[]'
+---
+apiVersion: app.alauda.io/v1
+kind: HelmRequest
+metadata:
+    name: p1-test-a
+    namespace: cpaas-system
+spec:
+  chart: stable/alauda-alb2
+  clusterName: p1
+  namespace: cpaas-system
+  values:
+    address: 192.168.0.201
+    projects:
+      - ALL_ALL
+    replicas: 1
+    portProjects: '[{"port":"111-2233","projects":["ALL_ALL"]}]'
+`,
+		}
+		cr_in_product := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    name: test
+    port-info: "true"
+  name: test-port-info
+  namespace: cpaas-system
+data:
+  range: '[{"port":"111-2233","projects":["ALL_ALL"]}]'
+---
+apiVersion: crd.alauda.io/v1
+kind: ALB2
+metadata:
+  name: test-a
+  namespace: cpaas-system
+spec:
+  address: 127.0.0.1
+  type: nginx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    name: test-a
+    port-info: "true"
+  name: test-a-port-info
+  namespace: cpaas-system
+data:
+  range: '[{"port":"111-2233","projects":["ALL_ALL"]}]'
+`,
+		}
+		test(cfg{cringlobal: cr_in_global, crinproduct: cr_in_product}, func(c ctx) {
+			out, err := EvalCheckForClusters(c.Global.GetKubeCfgPath(), "check_alb_port_project", "v3.8.2", "v3.12.0")
+			GinkgoNoErr(err)
+			GinkgoAssertTrue(strings.Contains(out, `集群 p1 的 alb test 的端口项目信息 configmap 与 hr不一致 cm: [{"port":"111-2233","projects":["ALL_ALL"]}] hr: []  请更新hr p1-test`), "")
+			_ = out
+		})
+
+	})
+
+	GIt("should notice mis used cpaas-system project ", func() {
+		cr_in_global := []string{}
+		cr_in_product := []string{
+			`
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  labels:
+    alb2.cpaas.io/frontend: cpaas-system-11780  # required, indicate the Frontend to which this rule belongs
+    alb2.cpaas.io/name: cpaas-system            # required, indicate the ALB to which this rule belongs
+  name: x-60080-1
+  namespace: cpaas-system
+spec:
+  source:
+    name: test-ing
+    namespace: cpaas-system
+    type: ingress
+  type: ""
+  url: /
+  vhost: ""
+`,
+		}
+		test(cfg{cringlobal: cr_in_global, crinproduct: cr_in_product}, func(c ctx) {
+			out, err := EvalCheckForClusters(c.Global.GetKubeCfgPath(), "check_alb_default_http", "v3.12.2", "v3.18.0")
+			GinkgoNoErr(err)
+			GinkgoAssertTrue(strings.Contains(out, `发现用户自建规则 |x-60080-1`), "")
 			_ = out
 		})
 	})

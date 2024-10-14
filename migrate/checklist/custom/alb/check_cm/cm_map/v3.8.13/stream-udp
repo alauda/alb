@@ -1,3 +1,3 @@
 proxy_next_upstream_tries 5;
 proxy_connect_timeout      5s;
-proxy_timeout              60s;
+proxy_timeout              120s;
