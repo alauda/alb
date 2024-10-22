@@ -153,7 +153,7 @@ function _M.test_error_reason()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/500", {})
         u.logs(res, err)
         h.assert_eq(res.status, 500)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 324")
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read 324 byte data from backend")
     end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1", {})
@@ -171,7 +171,7 @@ function _M.test_error_reason()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/404", {})
         u.logs(res, err, "should 404")
         h.assert_eq(res.status, 404)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 293")
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read 293 byte data from backend")
     end
     do
         local res, err = httpc:request_uri("http://127.0.0.1:28080/", {})
@@ -225,7 +225,7 @@ function _M.test_error_reason()
         -- 现在是后端直接返回的504 所以报错应该是backenderror
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/timeout", {})
         u.logs(res, err)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 314")
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read 314 byte data from backend")
         h.assert_eq(res.status, 504)
     end
 end
@@ -334,7 +334,7 @@ function _M.test_metrics()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/404", {})
         u.logs(res, err)
         h.assert_eq(res.status, 404)
-        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read from backend 293")
+        h.assert_eq(res.headers["X-ALB-ERR-REASON"], "BackendError : read 293 byte data from backend")
         h.assert_contains(get_metrics(), [[alb_error{port="80"} 1]])
     end
     do

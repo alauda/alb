@@ -178,6 +178,14 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 			}
 		}
 	}
+
+	if nicMap["lo"] {
+		ipv4Address = append(ipv4Address, "127.0.0.1")
+		if enableIpv6 {
+			ipv6Address = append(ipv6Address, "::1")
+		}
+	}
+
 	if len(ipv4Address) == 0 {
 		klog.Info("[bind_nic] could not find any ipv4 address bind 0.0.0.0")
 		ipv4Address = append(ipv4Address, "0.0.0.0")
@@ -186,6 +194,7 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 		klog.Info("[bind_nic] could not find any ipv6 address and enableIpv6 bind [::]")
 		ipv6Address = append(ipv6Address, "[::]")
 	}
+
 	ipv4Address = utils.StrListRemoveDuplicates(ipv4Address)
 	ipv6Address = utils.StrListRemoveDuplicates(ipv6Address)
 	sort.Strings(ipv4Address)
