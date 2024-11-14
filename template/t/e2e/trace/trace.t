@@ -18,7 +18,6 @@ _EOC_
 
 
 log_level("info");
-workers(1);
 master_process_enabled("on");
 no_shuffle();
 no_root_location();
@@ -27,9 +26,6 @@ run_tests();
 __DATA__
 
 === TEST 1: trace test
---- policy eval: ""
 --- http_config eval: $::http_config
---- disable_init_worker
---- init_worker_eval: require("mock_worker_init").init_worker()
 --- timeout: 9999999
 --- lua_test_eval: require("e2e.trace.trace").test()

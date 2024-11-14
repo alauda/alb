@@ -121,8 +121,8 @@ run_tests();
 __DATA__
 
 === TEST 1: test upgrade
---- timeout: 100
 --- certificate eval: $::cert
+--- timeout: 99999999
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test_eval: require('e2e.https_upgrade.test').test()

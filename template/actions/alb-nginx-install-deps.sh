@@ -14,11 +14,13 @@ openresty=$1
 if [[ -n "$OPENRESTY_BUILD_TRARGRT_DIR" ]]; then
   openresty=$OPENRESTY_BUILD_TRARGRT_DIR
 fi
-if [[ -z "$openresty" && -f "/usr/local/openresty" ]]; then
+
+if [[ -z "$openresty" && -d "/usr/local/openresty" ]]; then
   openresty="/usr/local/openresty"
   echo "use default $openresty "
 fi
-if [[ -z "$openresty" && -f "/opt/openresty" ]]; then
+
+if [[ -z "$openresty" && -d "/opt/openresty" ]]; then
   openresty="/opt/openresty"
   echo "use default $openresty "
 fi
@@ -28,7 +30,13 @@ if [ -z "$openresty" ]; then
   exit 1
 fi
 
-export PATH=$openresty/bin:$PATH
+function alb-ng-install-test-deps() (
+  luarocks --lua-version 5.1 --tree $openresty/luajit install luacov
+  luarocks --lua-version 5.1 --tree $openresty/luajit install cluacov
+  luarocks --lua-version 5.1 install luacov
+  luarocks --lua-version 5.1 install luacov-console
+  luarocks --lua-version 5.1 install luacov-html
+)
 
 function alb-ng-install-deps() (
   env
@@ -168,6 +176,7 @@ function install-lua-resty-http() (
   rm -rf ./.$name
   return
 )
+
 function install-opentelemetry-lua() (
   # md5sum ./opentelemetry-lua-0.2.6.zip
   # 77f4488e669c80d53c3d9977f35017ed  ./opentelemetry-lua-0.2.6.zip

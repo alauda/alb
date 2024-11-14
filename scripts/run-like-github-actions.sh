@@ -19,6 +19,8 @@ function alb-gh-test-alb-nginx() (
   local image=$(docker images | grep theseedoaa/alb | head -1 | awk '{printf "%s:%s",$1,$2}')
   echo "test nginx $image"
   ./scripts/run-like-ci-nginx.sh $image
+  ls
+  cat ./luacov.summary
 )
 
 function alb-gh-build-alb() (

@@ -1,0 +1,8 @@
+reporter = "html"
+html = {}
+include = {
+   ".*/template/nginx/lua/.*"
+}
+exclude = {
+    ".*/template/nginx/lua/vendor/.*",
+}

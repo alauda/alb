@@ -182,6 +182,9 @@ function _M.update_policy(policy_raw, via)
 
     local old_policy_raw = shm.get_policy_raw()
     local old_policy_data = common.json_decode(old_policy_raw)
+    if old_policy_raw == policy_raw then
+        return
+    end
 
     if common.table_equals(policy_data, old_policy_data) then
         return

@@ -13,10 +13,14 @@ our @EXPORT_OK = qw( gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lu
 
 my $ALB_BASE = $ENV{'TEST_BASE'};
 
+my $LUACOV = $ENV{'LUACOV'};
+
 
 sub tgl_log(@msgs) {
    warn "[tgl_log]  @msgs\n";
 }
+
+tgl_log("lua cov $LUACOV");
 
 sub gen_lua_test($block) {
     my $lua_test_mode = "false";
@@ -95,11 +99,26 @@ sub write_file($policy,$p) {
 }
 
 sub gen_custom_init($block) {
-	my $init_worker = " init_worker_by_lua_file $ALB_BASE/nginx/lua/phase/init_worker_phase.lua; ";
+	my $init_worker  = <<__END;
+init_worker_by_lua_block {
+    require("mock_worker_init").init_worker()
+}
+__END
+
     if (defined $block->disable_init_worker) {
         $init_worker = "";
     }
     my $init = "";
+    if ($LUACOV eq "true") {
+        $init = <<__END;
+init_by_lua_block {
+   if ngx.config.subsystem == "http" then
+       require 'luacov.tick'
+       jit.off()
+    end
+}
+__END
+    }
 
     if (defined $block->enable_nyi) {
         my $name = $block->enable_nyi;
@@ -245,7 +264,8 @@ sub gen_ngx_tmpl_via_block($block) {
     my $mock_backend = gen_mock_backend($block->mock_backend // "");
     my $http_config = $block->http_config // "";
     my $lua_test_full = gen_lua_test($block);
-    my $lua_path= "/usr/local/lib/lua/?.lua;$ALB_BASE/nginx/lua/?.lua;$ALB_BASE/t/?.lua;$ALB_BASE/t/lib/?.lua;$ALB_BASE/nginx/lua/vendor/?.lua;;";
+    my $default_lua_path = "/usr/local/lib/lua/?.lua;$ALB_BASE/nginx/lua/?.lua;$ALB_BASE/nginx/lua/vendor/?.lua;";
+    my $lua_path= "$default_lua_path;$ALB_BASE/t/?.lua;$ALB_BASE/?.lua;$ALB_BASE/t/lib/?.lua;;";
 
     my $default_ngx_cfg = gen_ngx_tmpl_conf($init_full,$stream_config,$lua_path,$mock_backend,$http_config,$lua_test_full);
     $default_ngx_cfg = gen_https_port_config($block->alb_https_port // "",$default_ngx_cfg);

@@ -86,6 +86,7 @@ function _M.sync_backends()
     local backends_data = shm.get_backends()
     if not backends_data then
         balancers = {}
+        ngx_log(ngx.ERR, "no backends data")
         return
     end
 

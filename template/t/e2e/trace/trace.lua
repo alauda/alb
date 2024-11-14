@@ -6,6 +6,7 @@ local h = require "test-helper"
 local common = require "utils.common"
 local dsl = require "match_engine.dsl"
 local ups = require "match_engine.upstream"
+local ph = require "t.lib.policy_helper"
 
 local default_443_cert =
 "-----BEGIN CERTIFICATE-----\nMIIFFTCCAv2gAwIBAgIUNcaMWCswms56XCvj8nxC/5AKxtUwDQYJKoZIhvcNAQEL\nBQAwGjEYMBYGA1UEAwwPNDQzLmRlZmF1bHQuY29tMB4XDTIyMDUxOTA5MjEzMVoX\nDTMyMDUxNjA5MjEzMVowGjEYMBYGA1UEAwwPNDQzLmRlZmF1bHQuY29tMIICIjAN\nBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvMqeEYs9K/DrbZ3FXj7yZaVRexub\na4OF0S/jg2qXrTK8FwPQ1MJiVxPL2jNeE7PT1fCNujb3+fZ/way99FJ0KpmbqEeP\nGt8490oqHZl7LuiEklrSiNp5qOJERsxgNrtq5RILIC1wH9eu0dNilwnCldzEXqFJ\n4+vZqPQfNxk//0vSOxsapl/nEPze6aMy+sUnyFJoq3ti/O02sV/p5sOQX3NcPoXU\n23PTr1xMDVQ7IpuR4GkxbmIVdAMuGWA2udYN0H3ou1VVy+je3RVF7xD2V/lMI3RL\nzLinfWxyNBUOoswylWRjdgwfrz5EkGuN58uT+o28Lx0APw06gwZ0eXb0cKdaYM0X\n04p4d3r//KLgm5WZpvDrjCC3aP02Yk1rITAu9owx+fNjIuEuPJtfin6r9Cjed7xL\n9CgdlFONDkNPxMz52qnf9Jbuf4HPTa/jDw7ICG8FAR8RwljJ7ohFCmullfXtumpX\nbT8+4DK1+H1fqkLV4lCWtQwn8ULqqCDQJZszco5KcnNnenqKgNPLVe7t6/ZxDZ8j\nMYAyGIR+DMDp0tLjfHD26IjEzF/n3E0pZiTXFaRirjKcFd523qEWvZeZc0nSykhH\nBUYXgxh2Nqi3Cv9VxA6sHVto5GvQBWq0kl6Qo9IGof51+4HCm++8/bCpf2Gcv/kI\ny39JIHMSGCa4ztcCAwEAAaNTMFEwHQYDVR0OBBYEFDawzxBvztJOekhp/DU9GKo+\nsnc9MB8GA1UdIwQYMBaAFDawzxBvztJOekhp/DU9GKo+snc9MA8GA1UdEwEB/wQF\nMAMBAf8wDQYJKoZIhvcNAQELBQADggIBACd2Z9XyESvQ4MfYMUID2DCmuVGBDhyo\n8cN88nuy+plrcYSpsthp55C+dhhfJRocES0NkpIVojpiQiPQdAyLFKb1M1Mcd9bg\n+qtYrOH2lS0Uem2s366D8LLJSOzWv/f75wUHe3eyivzW73zcM3znr5TrAFrCkUBF\npkK90G1VEznpD+VDvXYfcXklTZ7lMVZJ1ck2MDYPkh3nGtCyY6z+r41vJo/OcW8A\ncxicgsKXjEiXOH42B8ugad5gK27gA/FKwtTNPPU4K0UeDCAJaY+L7USjbrUgeQ17\nmjCOrY53OjyjjD4YjsE9EqsU/Hc9lqIUdCktZEDrLKfjGT1raaqDlSzEYYcs/oai\n0Ka3MXao2czYEJz6YZIOtp7FatRUBajCZ3NJeTgPFMZn10g7CktJR5QJDvvqbUBs\nHCddmahNPdgQwjxGVfoAI5SDH2QnIlj3bLivU+4oqR7hO7Nmhx9BtNRdHhM+M+wp\nsLvVETvtZdHC3RX4rX4pAl/r7pjhC7n0tbn3XyK96yZ4Yu/E+d/Cqhs0+rssqLzH\nDtMZCMOsaZi1AUEtc2cmZweOXEHeEoyPn3nJeVLfW2+dThlK/i9RaZbPThTS/GdK\nCU530BEDG+y/I5p6dndYySm2+LJiC0Xso1S1gLa7NccV8Y1E9Y8026J3lpvMilhP\nBwA4jE77yBPI\n-----END CERTIFICATE-----";
@@ -101,13 +102,8 @@ function _M.as_backend()
     ngx.say "from backend"
 end
 
-local p = require "config.policy_fetch"
-function _M.set_policy(policy)
-    p.update_policy(policy, "manual")
-end
-
 function _M.set_policy_lua(policy_table)
-    require("policy_helper").set_policy_lua(policy_table)
+    ph.set_policy_lua(policy_table)
 end
 
 function _M.test_policy_cache()
@@ -116,8 +112,6 @@ function _M.test_policy_cache()
     h.assert_is_nil(err)
     h.assert_eq(up, "test-upstream-1")
     u.logs(up, policy, err)
-    -- TODO FIXME wait backend sync
-    ngx.sleep(3)
 
     local httpc = require "resty.http".new()
     do
@@ -292,22 +286,6 @@ function _M.test_trace()
     end
 end
 
-function _M.test()
-    local s = _M
-    u.logs "in test"
-
-    s.set_policy_lua(default_policy())
-    s.test_error_reason()
-    s.set_policy_lua(default_policy())
-    s.test_policy_cache()
-
-    s.set_policy_lua(default_policy())
-    s.test_trace()
-
-    s.set_policy_lua(default_policy())
-    s.test_metrics()
-end
-
 local function get_metrics()
     local res, err = u.httpc():request_uri("https://127.0.0.1:1936/metrics", { ssl_verify = false })
     h.assert_is_nil(err)
@@ -344,6 +322,25 @@ function _M.test_metrics()
         h.assert_eq(res.headers["X-ALB-ERR-REASON"], "InvalidUpstream : no rule match")
         h.assert_contains(get_metrics(), [[alb_error{port="80"} 2]])
     end
+end
+
+function _M.test()
+    local s = _M
+    u.logs "in test"
+    u.logs "test error reason"
+    s.set_policy_lua(default_policy())
+    u.logs "after test error reason"
+    s.test_error_reason()
+    u.logs "test policy cache. set policy"
+    s.set_policy_lua(default_policy())
+    u.logs "test policy cache. after set policy"
+    s.test_policy_cache()
+
+    s.set_policy_lua(default_policy())
+    s.test_trace()
+    u.logs "test metrics"
+    s.set_policy_lua(default_policy())
+    s.test_metrics()
 end
 
 return _M

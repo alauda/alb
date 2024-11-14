@@ -37,6 +37,18 @@ local ipc = {
 
 function _M.init_l4()
     local cache = _M
+    local ok, err = ev.configure {
+        shm = subsystem .. "_ipc_shared_dict", -- defined by "lua_shared_dict"
+        timeout = 5, -- life time of event data in shm
+        interval = 1, -- poll interval (seconds)
+
+        wait_interval = 0.010, -- wait before retry fetching event data
+        wait_max = 0.5 -- max wait time before discarding event
+    }
+    if not ok then
+        ngx.log(ngx.ERR, "failed to start event system: ", err)
+        return
+    end
     cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", {lru_size = 2000, ttl = 30, neg_ttl = 5, ipc = ipc})
 end
 

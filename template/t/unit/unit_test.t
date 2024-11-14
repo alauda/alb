@@ -14,8 +14,8 @@ run_tests();
 __DATA__
 
 === TEST 1: unit tests 
---- policy eval: ""
 --- http_config eval: ""
+--- disable_init_worker
 --- lua_test_eval: require("unit.unit_test").test()
 
 

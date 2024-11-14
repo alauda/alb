@@ -39,6 +39,9 @@ jobs:
   build-alb:
     name: Build alb
     runs-on: ubuntu-22.04
+    outputs:
+      go-coverage: ${{ steps.alb-test.outputs.GO_COVERAGE }}
+      lua-coverage: ${{ steps.nginx-test.outputs.LUA_COVERAGE }}
     strategy:
       matrix:
         platform:
@@ -91,6 +94,7 @@ jobs:
           name: ${{ env.artifactName }}
           path: ${{ env.artifactPath }}
       - name: test alb go 
+        id: alb-test
         if: ${{ (matrix.platform ==  'linux/amd64' ) && (!inputs.skip_test) }}
         env:
             MATRIX_PLATFORM: "${{ matrix.platform }}"
@@ -98,13 +102,22 @@ jobs:
           set -x
           echo "FROM --platform=\${{ matrix.platform }} | $MATRIX_PLATFORM "
           ./scripts/run-like-github-actions.sh test-alb-go
+          go_cov=$(grep total ./coverage.report | awk '{print $3}' | awk -F% '{print $1}' )
+          echo "go_cov is |||$go_cov|||"
+          echo "GO_COVERAGE=$go_cov" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
       - name: test alb nginx
+        id: nginx-test
         if: ${{ (matrix.platform ==  'linux/amd64' ) && (!inputs.skip_test) }}
         env:
             MATRIX_PLATFORM: "${{matrix.platform }}"
         run: |
           set -x
           ./scripts/run-like-github-actions.sh test-alb-nginx
+          cat ./luacov.summary
+          line_cov=$(cat ./luacov.summary |grep Total|awk '{print $4}'|awk -F% '{print $1}')
+          echo "LUA_COVERAGE=$line_cov" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
   release-alb:
     name: Release alb
     runs-on: ubuntu-22.04
@@ -156,6 +169,8 @@ jobs:
         run: |
           echo "gen alb chart"
           env
+          export branch=$(echo "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" | sed 's|/|-|g')
+          echo "$branch"
           ./scripts/run-like-github-actions.sh gen-chart-artifact
       - uses: actions/upload-artifact@v4
         with:
@@ -171,3 +186,45 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
            ./scripts/run-like-github-actions.sh release-alb
+  update-coverage:
+    name: update coverage
+    runs-on: ubuntu-22.04
+    needs: [build-alb,release-alb]
+    env:
+      GO_COVERAGE: ${{ needs.build-alb.outputs.go-coverage }}
+      LUA_COVERAGE: ${{ needs.build-alb.outputs.lua-coverage }}
+    steps:
+      - name: debug
+        run: |
+          env
+          set -x
+          echo "GO_COVERAGE=$GO_COVERAGE"
+          echo "LUA_COVERAGE=$LUA_COVERAGE"
+      - name: Checkout gh-pages
+        uses: actions/checkout@v3
+        with:
+          ref: gh-pages
+      - name: Create Badges
+        shell: bash
+        run: |
+          set -x
+          npm i -g badgen-cli
+          GO_COLOR=$(node -p '+process.env.GO_COVERAGE >= 95 ? `green` : `orange`')
+          LUA_COLOR=$(node -p '+process.env.LUA_COVERAGE >= 95 ? `green` : `orange`')
+          mkdir -p badges
+          badgen -j go-coverage -s "$GO_COVERAGE%" -c $GO_COLOR > badges/go-coverage.svg
+          badgen -j lua-coverage -s $LUA_COVERAGE% -c $LUA_COLOR > badges/lua-coverage.svg
+      - name: Deploy Badges
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update badges [skip ci]"
+          branch: gh-pages
+          skip_fetch: true
+          skip_checkout: true
+      # Without this, will get Error:
+      # Can't find 'action.yml', 'action.yaml' or 'Dockerfile' under '/home/runner/work/coverage-badge-action/coverage-badge-action/action.yml'.
+      # Did you forget to run actions/checkout before running your local action?
+      - name: Checkout Back
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}

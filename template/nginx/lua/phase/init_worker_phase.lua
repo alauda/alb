@@ -18,7 +18,7 @@ local cache = require "config.cache"
 if subsys.is_http_subsystem() then
     cache.init_l7()
 else
-    cache.init_l7()
+    cache.init_l4()
 end
 
 if ngx_worker.id() == 0 then

@@ -7,8 +7,15 @@ if [[ -n "$CUR_ALB_BASE" ]]; then
 fi
 
 function alb-install-nginx-test-dependency() {
-  apk update && apk add luarocks luacheck lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
+  apk update && apk add luarocks luacheck lua-dev lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
+  mkdir /tmp && export TMP=/tmp # luarocks need this
+  cp /usr/bin/luarocks-5.1 /usr/bin/luarocks
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run YAML::PP
+  luarocks
+  (
+    source ./template/actions/alb-nginx-install-deps.sh
+    alb-ng-install-test-deps
+  )
 }
 
 function alb-install-nginx-test-dependency-ubuntu() {
@@ -41,8 +48,7 @@ fi
 
 function alb-test-all-in-ci-nginx() {
   # base image build-harbor.alauda.cn/3rdparty/alb-nginx:v3.9-57-gb40a7de
-
-  set -e # exit on err
+  set -ex # exit on err
   echo alb is $ALB
   export PATH=$PATH:/alb/tools/
   which tweak_gen
@@ -54,12 +60,17 @@ function alb-test-all-in-ci-nginx() {
   local end_install=$(date +"%Y %m %e %T.%6N")
   #   alb-lint-lua # TODO
   local end_check=$(date +"%Y %m %e %T.%6N")
+  export LUACOV=true
   test-nginx-in-ci
   local end_test=$(date +"%Y %m %e %T.%6N")
   echo "start " $start
   echo "install " $end_install
   echo "check" $end_check
   echo "test" $end_test
+  pwd
+  luacov-console $PWD/template/nginx/lua/
+  luacov-console $PWD/template/nginx/lua/ -s
+  luacov-console $PWD/template/nginx/lua/ -s >./luacov.summary
 }
 
 function test-nginx-local() {
@@ -169,7 +180,7 @@ function configmap_to_file() {
 
 function alb-nginx-watch-log() (
   echo "watch log"
-  tail -F ./template/servroot/logs/error.http.log | python -u -c '
+  tail -F ./template/servroot/logs/error.log | python -u -c '
 import sys
 for line in sys.stdin:
     if "keepalive connection" in line:

@@ -1,6 +1,7 @@
 local _M = {}
 
 function _M.test()
+    ngx.log(ngx.INFO, "life: test https upgrade")
 	local F = require("F");local u = require("util");local h = require("test-helper");local httpc = require("resty.http").new();
     local res, err = httpc:request_uri("https://127.0.0.1/lua",{
         headers = {
@@ -23,9 +24,10 @@ function _M.test()
         -- https://trac.nginx.org/nginx/ticket/1992
         h.assert_not_contains(out,"upgrade",F"curl 1.1 to https with http2")
     end
-    do 
-        local out = u.shell_curl([[  curl -k -H "xxx: curl" -H "Upgrade: websocket"  "https://127.0.0.1:3443/curl" ]])
+    do
+        local out,err = u.shell_curl([[  curl -v -k -H "xxx: curl" -H "Upgrade: websocket"  "https://127.0.0.1:3443/curl" ]])
         local curl_https_without_http2 = string.find(out, "upgrade") ~= nil
+        u.log("\nout  "..tostring(out).."\nerr\n"..tostring(err).."\n")
         u.log("\ncurl 1.1 to https without http2 "..tostring(curl_https_without_http2).."\n")
         h.assert_contains(out,"upgrade",F"curl 1.1 to https without http2")
     end

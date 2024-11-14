@@ -1,4 +1,6 @@
 # ALB -- Another Load Balancer
+[![go-cov](https://alauda.github.io/alb/badges/go-coverage.svg)](https://alauda.github.io/alb/badges/go-coverage.svg)
+[![lua-cov](https://alauda.github.io/alb/badges/lua-coverage.svg)](https://alauda.github.io/alb/badges/lua-coverage.svg)
 
 ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https://github.com/openresty/) with years of production experience from Alauda.
 
