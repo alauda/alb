@@ -18,12 +18,12 @@ global:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb2
-      tag: v3.19.0-beta.8.gf67be197
+      tag: v3.19.0-beta.9.g9fd3b202
     nginx:
       code: gitlab-ce.alauda.cn/container-platform/alb2
       support_arm: true
       repository: acp/alb-nginx
-      tag: "v3.19.0-beta.8.gf67be197"
+      tag: "v3.19.0-beta.9.g9fd3b202"
 resources:
   alb:
     limits:
