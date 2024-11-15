@@ -1,20 +1,20 @@
-<svg width="114.9" height="20" viewBox="0 0 1149 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="go-coverage: 20%">
-  <title>go-coverage: 20%</title>
-  <linearGradient id="SEFgm" x2="0" y2="100%">
+<svg width="125.9" height="20" viewBox="0 0 1259 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="go-coverage: 76.1%">
+  <title>go-coverage: 76.1%</title>
+  <linearGradient id="yQRjf" x2="0" y2="100%">
     <stop offset="0" stop-opacity=".1" stop-color="#EEE"/>
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
-  <mask id="WZivY"><rect width="1149" height="200" rx="30" fill="#FFF"/></mask>
-  <g mask="url(#WZivY)">
+  <mask id="XahFX"><rect width="1259" height="200" rx="30" fill="#FFF"/></mask>
+  <g mask="url(#XahFX)">
     <rect width="789" height="200" fill="#555"/>
-    <rect width="360" height="200" fill="#F73" x="789"/>
-    <rect width="1149" height="200" fill="url(#SEFgm)"/>
+    <rect width="470" height="200" fill="#F73" x="789"/>
+    <rect width="1259" height="200" fill="url(#yQRjf)"/>
   </g>
   <g aria-hidden="true" fill="#fff" text-anchor="start" font-family="Verdana,DejaVu Sans,sans-serif" font-size="110">
     <text x="60" y="148" textLength="689" fill="#000" opacity="0.25">go-coverage</text>
     <text x="50" y="138" textLength="689">go-coverage</text>
-    <text x="844" y="148" textLength="260" fill="#000" opacity="0.25">20%</text>
-    <text x="834" y="138" textLength="260">20%</text>
+    <text x="844" y="148" textLength="370" fill="#000" opacity="0.25">76.1%</text>
+    <text x="834" y="138" textLength="370">76.1%</text>
   </g>
   
 </svg>
