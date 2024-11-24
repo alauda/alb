@@ -1,0 +1,59 @@
+name: alb-perf
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        type: string
+        description: name of the test
+        required: true
+      chart:
+        type: string
+        description: which alb you want to test
+        required: true
+      loop_count:
+        type: string
+        description: perf mutli times
+        required: false
+        default: "1"
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  build:
+    name: perf
+    runs-on: k2
+    strategy:
+      matrix:
+        platform:
+        - linux/amd64
+    steps:
+    - uses: actions/checkout@v4
+    - name: Configure Git
+      run: |
+        git config user.name "$GITHUB_ACTOR"
+        git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+    - uses: docker/setup-buildx-action@v3
+    - name: perf
+      env:
+        ALB_PERF_NAME: "${{ github.event.inputs.name }}"
+        ABL_PERF_CHART: "${{ github.event.inputs.chart }}"
+        ABL_PERF_LOOP_COUNT: "${{ github.event.inputs.loop_count }}"
+      run: |
+        echo "test start"
+        env |grep ALB_PERF
+        git remote update
+        git status; git log --pretty=oneline --abbrev-commit | head -n 10
+        cd ~/apps/atop/alb-test-operator/
+        rm -rf ./alb-perf-report/*
+        source ./scripts/atop.actions.sh
+        atop-init-venv
+        kind delete cluster --name simple-perf || true
+        docker ps
+        n=${ABL_PERF_LOOP_COUNT}
+        for i in $(seq 1 $n); do
+          echo "loop  $i/$n"
+          atop-perf-kind ${ALB_PERF_NAME}-$i $ABL_PERF_CHART
+          sleep 60
+        done
+        atop-report-kind
+        echo "test over"
