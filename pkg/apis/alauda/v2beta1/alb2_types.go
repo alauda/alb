@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
 )
 
 const (
@@ -118,9 +120,13 @@ type ExternalAlbConfig struct {
 	AntiAffinityKey      *string            `yaml:"antiAffinityKey" json:"antiAffinityKey,omitempty"`
 	BindNIC              *string            `yaml:"bindNIC" json:"bindNIC,omitempty"` // json string alb绑定网卡的配置 '{"nic":["eth0"]}'
 	Overwrite            *ExternalOverwrite `yaml:"overwrite" json:"overwrite,omitempty"`
-	Otel                 *otelt.OtelCrConf  `yaml:"otel" json:"otel,omitempty"`
-	ModeSecurity         *waft.WafCrConf    `yaml:"modsecurity" json:"modsecurity,omitempty"`
-	ReadonlyFS           *bool              `yaml:"readonlyFS" json:"readonlyFS,omitempty"`
+
+	Otel         *otelt.OtelCrConf `yaml:"otel" json:"otel,omitempty"`
+	ModeSecurity *waft.WafCrConf   `yaml:"modsecurity" json:"modsecurity,omitempty"`
+	Auth         *auth_t.AuthCr    `json:"auth,omitempty"`
+
+	ReadonlyFS *bool `yaml:"readonlyFS" json:"readonlyFS,omitempty"`
+	// timeout TimeoutConf
 }
 
 type VipConfig struct {

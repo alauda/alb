@@ -1,38 +1,37 @@
 package ngxconf
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"alauda.io/alb2/utils/dirhash"
+	"github.com/go-logr/logr"
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/controller/types"
-	"alauda.io/alb2/utils"
-	"k8s.io/klog/v2"
-
-	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
-	"alauda.io/alb2/pkg/controller/ext/waf"
+	cus "alauda.io/alb2/pkg/controller/extctl"
 	. "alauda.io/alb2/pkg/controller/ngxconf/types"
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
+	pm "alauda.io/alb2/pkg/utils/metrics"
+	"alauda.io/alb2/utils"
 )
 
 type NgxCli struct {
 	drv *driver.KubernetesDriver
 	log logr.Logger
 	opt NgxCliOpt
-	waf *waf.Waf
+	cus cus.ExtCtl
 }
+
 type NgxCliOpt struct{}
 
 func NewNgxCli(drv *driver.KubernetesDriver, log logr.Logger, opt NgxCliOpt) NgxCli {
@@ -40,45 +39,22 @@ func NewNgxCli(drv *driver.KubernetesDriver, log logr.Logger, opt NgxCliOpt) Ngx
 		drv: drv,
 		log: log,
 		opt: opt,
-		waf: waf.NewWaf(log),
+		cus: cus.NewExtensionCtl(cus.ExtCtlCfgOpt{Log: log, Domain: drv.Opt.Domain}),
 	}
-}
-
-func (c *NgxCli) FillUpRefCms(alb *LoadBalancer) error {
-	// 实际上也应该是由ext/waf做的，但是目前没有同类的东西，所以这里直接做
-	if alb.CmRefs == nil {
-		alb.CmRefs = map[string]*corev1.ConfigMap{}
-	}
-	cms := map[client.ObjectKey]string{}
-	for _, f := range alb.Frontends {
-		for _, r := range f.Rules {
-			if r.Waf != nil && r.Waf.Raw.CmRef != "" {
-				ns, name, _, err := waf.ParseCmRef(r.Waf.Raw.CmRef)
-				if err != nil {
-					continue
-				}
-				cms[client.ObjectKey{Namespace: ns, Name: name}] = r.Waf.Key
-			}
-		}
-	}
-	for cm_key, waf_key := range cms {
-		cm := &corev1.ConfigMap{}
-		err := c.drv.Cli.Get(c.drv.Ctx, cm_key, cm)
-		if err != nil {
-			c.log.Error(err, "get waf used cm fail", "waf", waf_key, "cm", cm_key.String())
-			continue
-		}
-		alb.CmRefs[cm_key.String()] = cm
-	}
-	return nil
 }
 
 func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase string, cfg *config.Config) (*NginxTemplateConfig, error) {
+	s := time.Now()
+	defer func() {
+		pm.Write("gen-nginx-conf", float64(time.Since(s).Milliseconds()))
+	}()
 	nginxParam := newNginxParam(cfg)
+	s_bind_ip := time.Now()
 	ipv4, ipv6, err := GetBindIp(cfg)
 	if err != nil {
 		return nil, err
 	}
+	pm.Write("gen-nginx-conf/bind-ip", float64(time.Since(s_bind_ip).Milliseconds()))
 	fts := make(map[string]FtConfig)
 	for _, ft := range alb.Frontends {
 		if ft.Conflict {
@@ -95,11 +71,22 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 	}
 	// calculate hash by tweak dir
 	tweakBase := cfg.GetNginxCfg().TweakDir
-	hash, err := dirhash.HashDir(tweakBase, ".conf", dirhash.DefaultHash)
+	hash := "default"
+	s_hash := time.Now()
+	if tweakBase != "" {
+		hash, err = dirhash.HashDir(tweakBase, ".conf", dirhash.DefaultHash)
+		if err != nil {
+			c.log.Error(err, "failed to calculate hash")
+			return nil, err
+		}
+	}
+	pm.Write("gen-nginx-conf/hash-tweak", float64(time.Since(s_hash).Milliseconds()))
+
+	resolver, err := getDnsResolver()
 	if err != nil {
-		klog.Error(err)
 		return nil, err
 	}
+
 	tmpl_cfg := &NginxTemplateConfig{
 		Name:      alb.Name,
 		TweakBase: tweakBase,
@@ -108,6 +95,7 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 		ShareBase: "/etc/alb2/nginx",
 		Frontends: fts,
 		TweakHash: hash,
+		Resolver:  resolver,
 		Phase:     phase,
 		Metrics: MetricsConfig{
 			Port:            nginxParam.MetricsPort,
@@ -117,11 +105,57 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 		NginxParam: nginxParam,
 		Flags:      DefaulNgxTmplFlags(),
 	}
-	err = c.waf.UpdateNgxTmpl(tmpl_cfg, alb, cfg)
+	err = c.cus.UpdateNgxTmpl(tmpl_cfg, alb, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return tmpl_cfg, nil
+}
+
+func getDnsResolver() (string, error) {
+	f, err := os.Open("/etc/resolv.conf")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+	return getDnsResolverRaw(string(raw))
+}
+
+func getDnsResolverRaw(raw string) (string, error) {
+	var nameservers []string
+	scanner := bufio.NewScanner(strings.NewReader(raw))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "nameserver") {
+			parts := strings.Fields(line)
+			if len(parts) == 2 {
+				nameservers = append(nameservers, parts[1])
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	// dual-stack and ipv4 first
+	for _, ip := range nameservers {
+		if utils.IsIPv4(ip) {
+			return ip, nil
+		}
+	}
+	for _, ip := range nameservers {
+		if utils.IsIPv6(ip) {
+			return "[" + ip + "]", nil
+		}
+	}
+	return "", fmt.Errorf("no nameserver found in %v", raw)
 }
 
 func NgxTmplCfgFromYaml(ngx string) (*NginxTemplateConfig, error) {
@@ -139,16 +173,8 @@ func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, 
 		return nil, nil, err
 	}
 
-	networkInfo, err := GetCurrentNetwork()
-	if err != nil {
-		return nil, nil, err
-	}
-	return getBindIp(bindNICConfig, networkInfo, cfg.GetNginxCfg().EnableIpv6)
-}
-
-func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 bool) (ipv4Address []string, ipv6Address []string, err error) {
+	enableIpv6 := cfg.GetNginxCfg().EnableIpv6
 	if len(bindNICConfig.Nic) == 0 {
-		klog.Info("[bind_nic] without config bind 0.0.0.0")
 		ipv4 := []string{"0.0.0.0"}
 		ipv6 := []string{"[::]"}
 		if !enableIpv6 {
@@ -156,7 +182,14 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 		}
 		return ipv4, ipv6, nil
 	}
+	networkInfo, err := GetCurrentNetwork()
+	if err != nil {
+		return nil, nil, err
+	}
+	return getBindIp(bindNICConfig, networkInfo, enableIpv6)
+}
 
+func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 bool) (ipv4Address []string, ipv6Address []string, err error) {
 	ipv4Address = []string{}
 	ipv6Address = []string{}
 
@@ -187,11 +220,9 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 	}
 
 	if len(ipv4Address) == 0 {
-		klog.Info("[bind_nic] could not find any ipv4 address bind 0.0.0.0")
 		ipv4Address = append(ipv4Address, "0.0.0.0")
 	}
 	if enableIpv6 && len(ipv6Address) == 0 {
-		klog.Info("[bind_nic] could not find any ipv6 address and enableIpv6 bind [::]")
 		ipv6Address = append(ipv6Address, "[::]")
 	}
 
@@ -199,7 +230,6 @@ func getBindIp(bindNICConfig BindNICConfig, networkInfo NetWorkInfo, enableIpv6 
 	ipv6Address = utils.StrListRemoveDuplicates(ipv6Address)
 	sort.Strings(ipv4Address)
 	sort.Strings(ipv6Address)
-	klog.Infof("[bind_nic] bind ipv4 %v ip v6 %v", ipv4Address, ipv6Address)
 	return ipv4Address, ipv6Address, nil
 }
 
@@ -211,6 +241,7 @@ type InterfaceInfo struct {
 
 type NetWorkInfo = map[string]InterfaceInfo
 
+// TODO  GetCurrentNetwork maybe slow (80ms),但是标准库中获取interface本质上也是先获取所有的nic
 func GetCurrentNetwork() (NetWorkInfo, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -265,7 +296,7 @@ func GetBindNICConfig(base string) (BindNICConfig, error) {
 	}
 	defer jsonFile.Close()
 
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	jsonStr := string(byteValue)
 	if len(strings.TrimSpace(jsonStr)) == 0 {
 		return BindNICConfig{}, nil
