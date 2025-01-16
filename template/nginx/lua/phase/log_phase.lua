@@ -1,3 +1,5 @@
+-- format:on style:emmy
+
 local metrics = require("metrics")
 local pm = require("plugins.core.plugin_manager")
 
@@ -6,4 +8,6 @@ if not ngx.ctx.alb_ctx then
     return
 end
 metrics.log()
-pm.log_hook(ngx.ctx.alb_ctx)
+if ngx.ctx.alb_ctx.matched_policy then
+    pm.log_hook(ngx.ctx.alb_ctx)
+end

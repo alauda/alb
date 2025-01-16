@@ -59,5 +59,5 @@ type IPolicyAttachmentConfig interface {
 }
 
 type PolicyAttachmentHandle interface {
-	OnRule(ft *Frontend, rule *Rule, ref Ref) error
+	OnRule(ft *Frontend, rule *InternalRule, ref Ref) error
 }

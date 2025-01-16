@@ -2,43 +2,96 @@ package cli
 
 import (
 	"strings"
+	"time"
 
+	"alauda.io/alb2/controller/modules"
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
-	cus "alauda.io/alb2/pkg/controller/custom_config"
+	ext "alauda.io/alb2/pkg/controller/extctl"
+	pm "alauda.io/alb2/pkg/utils/metrics"
 	"github.com/go-logr/logr"
-	"k8s.io/klog/v2"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // cli to fetch loadbalancer from alb/ft/rule
 type AlbCli struct {
 	drv *driver.KubernetesDriver
 	log logr.Logger
-	cus cus.CustomCfgCtl
+	cus ext.ExtCtl
 }
 
 func NewAlbCli(drv *driver.KubernetesDriver, log logr.Logger) AlbCli {
 	return AlbCli{
 		drv: drv,
 		log: log,
-		cus: cus.NewCustomCfgCtl(cus.CustomCfgOpt{
+		cus: ext.NewExtensionCtl(ext.ExtCtlCfgOpt{
 			Log:    log,
 			Domain: drv.Opt.Domain,
 		}),
 	}
 }
 
+func (c *AlbCli) RuleToInternalRule(mr *modules.Rule, ir *InternalRule) {
+	mrs := mr.Spec
+
+	// rule-meta
+	meta := RuleMeta{}
+	meta.RuleID = mr.Name
+	meta.Type = mrs.Type
+	meta.Source = mrs.Source
+	meta.Priority = mrs.Priority
+	ir.RuleMeta = meta
+
+	// rule-match
+	match := RuleMatch{}
+	match.DSLX = mrs.DSLX
+	ir.RuleMatch = match
+
+	// rule-cert
+	cert := RuleCert{}
+	cert.CertificateName = mrs.CertificateName
+	cert.Domain = mrs.Domain
+	ir.RuleCert = cert
+
+	// rule-upstream
+	// 在redirect的情况下，service group为null 是正常的
+	if mrs.ServiceGroup != nil {
+		up := RuleUpstream{}
+		up.BackendProtocol = strings.ToLower(mrs.BackendProtocol)
+		up.SessionAffinityPolicy = mrs.ServiceGroup.SessionAffinityPolicy
+		up.SessionAffinityAttr = mrs.ServiceGroup.SessionAffinityAttribute
+		if up.Services == nil {
+			up.Services = []*BackendService{}
+		}
+		for _, svc := range mrs.ServiceGroup.Services {
+			up.Services = append(up.Services, &BackendService{
+				ServiceNs:   svc.Namespace,
+				ServiceName: svc.Name,
+				ServicePort: svc.Port,
+				Weight:      svc.Weight,
+			})
+		}
+		// will be init in fillup backend phase
+		up.BackendGroup = &BackendGroup{}
+		ir.RuleUpstream = up
+	}
+	ext := RuleExt{}
+	ir.Config = ext
+	// rule-ext
+	c.cus.ToInternalRule(mr, ir)
+}
+
 func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
-	// TODO we should merge mAlb and cAlb to one struct.
-	// mAlb LoadBalancer struct from modules package used in driver.
-	// cAlb LoadBalancer struct from controller package.
 	kd := *c.drv
+	s := time.Now()
 	mAlb, err := kd.LoadALBbyName(ns, name)
 	if err != nil {
-		klog.Error("load mAlb fail", err)
+		c.log.Error(err, "load m-alb fail")
 		return nil, err
 	}
+	pm.Write("load-m-alb", float64(time.Since(s).Milliseconds()))
 
 	cAlb := &LoadBalancer{
 		Name:      mAlb.Alb.Name,
@@ -47,6 +100,7 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 		Labels:    mAlb.Alb.Labels,
 	}
 
+	c.log.Info("ft len", "alb", name, "ft", len(mAlb.Frontends))
 	// mft frontend struct from modules package.
 	for _, mft := range mAlb.Frontends {
 		ft := &Frontend{
@@ -56,61 +110,25 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 			Protocol:        mft.Spec.Protocol,
 			Rules:           RuleList{},
 			CertificateName: mft.Spec.CertificateName,
-			BackendProtocol: mft.Spec.BackendProtocol,
+			BackendProtocol: strings.ToLower(mft.Spec.BackendProtocol),
 			Labels:          mft.Labels,
 		}
 		if !ft.IsValidProtocol() {
-			klog.Errorf("frontend %s %s has no valid protocol", ft.FtName, ft.Protocol)
+			c.log.Info("frontend has no valid protocol", "ft", ft.FtName, "protocol", ft.Protocol)
 			ft.Protocol = albv1.FtProtocolTCP
 		}
 
 		if ft.Port <= 0 {
-			klog.Errorf("frontend %s has an invalid port %d", ft.FtName, ft.Port)
+			c.log.Info("frontend has an invalid port ", "ft", ft.FtName, "port", ft.Port)
 			continue
 		}
 
+		c.log.Info("rule", "ft", ft.FtName, "rule", len(mft.Rules))
 		// translate rule cr to our rule struct
 		for _, marl := range mft.Rules {
-			arl := marl.Spec
-			rule := &Rule{
-				Config: &RuleConfigInPolicy{},
-				RuleID: marl.Name,
-				SameInRuleCr: SameInRuleCr{
-					Priority:         arl.Priority,
-					DSLX:             arl.DSLX,
-					URL:              arl.URL,
-					RewriteBase:      arl.RewriteBase,
-					RewriteTarget:    arl.RewriteTarget,
-					EnableCORS:       arl.EnableCORS,
-					CORSAllowHeaders: arl.CORSAllowHeaders,
-					CORSAllowOrigin:  arl.CORSAllowOrigin,
-					BackendProtocol:  arl.BackendProtocol,
-					RedirectURL:      arl.RedirectURL,
-					VHost:            arl.VHost,
-					Source:           arl.Source,
-					RedirectCode:     arl.RedirectCode,
-				},
-				Type:            arl.Type,
-				Domain:          strings.ToLower(arl.Domain),
-				Description:     arl.Description,
-				CertificateName: arl.CertificateName,
-			}
-			if arl.ServiceGroup != nil {
-				rule.SessionAffinityPolicy = arl.ServiceGroup.SessionAffinityPolicy
-				rule.SessionAffinityAttr = arl.ServiceGroup.SessionAffinityAttribute
-				if rule.Services == nil {
-					rule.Services = []*BackendService{}
-				}
-				for _, svc := range arl.ServiceGroup.Services {
-					rule.Services = append(rule.Services, &BackendService{
-						ServiceNs:   svc.Namespace,
-						ServiceName: svc.Name,
-						ServicePort: svc.Port,
-						Weight:      svc.Weight,
-					})
-				}
-			}
-			c.cus.FromRuleCr(marl, rule)
+			// arl := marl.Spec
+			rule := &InternalRule{}
+			c.RuleToInternalRule(marl, rule)
 			ft.Rules = append(ft.Rules, rule)
 		}
 
@@ -131,8 +149,46 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 				})
 			}
 		}
-
 		cAlb.Frontends = append(cAlb.Frontends, ft)
 	}
+	cAlb.Refs = RefMap{
+		ConfigMap: map[client.ObjectKey]*corev1.ConfigMap{},
+		Secret:    map[client.ObjectKey]*corev1.Secret{},
+	}
 	return cAlb, nil
+}
+
+func (c *AlbCli) CollectAndFetchRefs(lb *LoadBalancer) {
+	s := time.Now()
+	defer func() {
+		e := time.Now()
+		pm.Write("collect-refs", float64(e.UnixMilli())-float64(s.UnixMilli()))
+	}()
+	s_pick_refs := time.Now()
+	for _, ft := range lb.Frontends {
+		for _, rule := range ft.Rules {
+			c.cus.CollectRefs(rule, lb.Refs)
+		}
+	}
+	pm.Write("collect-refs/pick-refs", float64(time.Since(s_pick_refs).Milliseconds()))
+	for k := range lb.Refs.ConfigMap {
+		cm := &corev1.ConfigMap{}
+		err := c.drv.Cli.Get(c.drv.Ctx, k, cm)
+		if err != nil {
+			c.log.Error(err, "get cm fail", "cm", k)
+			delete(lb.Refs.ConfigMap, k)
+			continue
+		}
+		lb.Refs.ConfigMap[k] = cm
+	}
+	for k := range lb.Refs.Secret {
+		secret := &corev1.Secret{}
+		err := c.drv.Cli.Get(c.drv.Ctx, k, secret)
+		if err != nil {
+			c.log.Error(err, "get secret fail", "secret", k)
+			delete(lb.Refs.Secret, k)
+			continue
+		}
+		lb.Refs.Secret[k] = secret
+	}
 }

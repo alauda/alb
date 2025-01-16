@@ -30,7 +30,7 @@ func NewPolicyAttachmentManager(ctx context.Context, drv *driver.KubernetesDrive
 	}, nil
 }
 
-func (pm *PolicyAttachmentManager) OnRule(ft *Frontend, rule *Rule, ref Ref) error {
+func (pm *PolicyAttachmentManager) OnRule(ft *Frontend, rule *InternalRule, ref Ref) error {
 	// TODO 当一个policyattachment出错时,应该如何处理？
 	err := pm.timeout.OnRule(ft, rule, ref)
 	if err != nil {

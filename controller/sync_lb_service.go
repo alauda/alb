@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -10,6 +11,8 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/samber/lo"
+
+	pm "alauda.io/alb2/pkg/utils/metrics"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +25,10 @@ import (
 
 // in container mode, we want to create/update loadbalancer tcp/udp service,use it as high available solution.
 func (nc *NginxController) SyncLbSvcPort(frontends []*types.Frontend) error {
+	s := time.Now()
+	defer func() {
+		pm.Write("sync-lb-svc", float64(time.Since(s).Milliseconds()))
+	}()
 	return MixProtocolLbSvc{nc: nc}.sync(nc.Ctx, frontends)
 }
 

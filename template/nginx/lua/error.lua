@@ -12,6 +12,7 @@ _M.InvalidBalancer = "InvalidBalancer"
 _M.BackendError = "BackendError"
 _M.TimeoutViaAlb = "TimeoutViaAlb"
 _M.TimeoutViaBackend = "TimeoutViaBackend"
+_M.AUTHFAIL = "AuthFail"
 
 ---comment
 -- exit with code 500 Internal Server Error
@@ -25,6 +26,7 @@ function _M.exit_with_code(reason, msg, code)
     if msg ~= nil then
         reason = reason .. " : " .. tostring(msg)
     end
+    ngx.log(ngx.ERR, reason)
     if subsys.is_http_subsystem() then
         ngx.header[ErrReason] = reason
         ngx.ctx.is_alb_err = true

@@ -30,7 +30,7 @@ function _M.json_encode(data, empty_table_as_object)
         json.encode_empty_table_as_object(empty_table_as_object or false) -- 空的table默认为array
     end
     json.encode_sparse_array(true)
-    pcall(function(data) -- luacheck: ignore
+    pcall(function (data) -- luacheck: ignore
         json_value = json.encode(data)
     end, data)
     return json_value
@@ -42,7 +42,7 @@ end
 ---@return table|nil
 function _M.json_decode(str)
     local json_value = nil
-    pcall(function(str) -- luacheck: ignore
+    pcall(function (str) -- luacheck: ignore
         json_value = json.decode(str)
     end, str)
     return json_value
@@ -148,10 +148,6 @@ end
 -- it returns value of ngx.var[request_uri]
 function _M.lua_ngx_var(ngx_var)
     local var_name = string_sub(ngx_var, 2)
-    if var_name:match("^%d+$") then
-        var_name = tonumber(var_name)
-    end
-
     return ngx.var[var_name]
 end
 
@@ -214,6 +210,7 @@ end
 function _M.access_or(s, keys, default)
     if _M.has_key(s, keys) then
         local v = s
+        ---@cast v -nil
         for _, key in ipairs(keys) do
             v = v[key]
         end
@@ -239,6 +236,7 @@ end
 
 ---
 --- milliseconds to seconds,if ms is nil return nil
+--- @param ms number|nil
 ---@return number|nil
 function _M.ms2sec(ms)
     if ms == nil or ms == json.null then

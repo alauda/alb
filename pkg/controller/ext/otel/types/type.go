@@ -1,28 +1,9 @@
 package types
 
-type OtelInCommon struct {
-	Otel OtelConf `json:"otel"`
-}
-
-type OtelInPolicy struct {
-	OtelRef *string   `json:"otel_ref"`
-	Otel    *OtelConf `json:"otel,omitempty"`
-	Hash    string    `json:"-"`
-}
-
-// the otel config in cr
-
 // +k8s:deepcopy-gen=true
 type OtelCrConf struct {
 	Enable   bool `json:"enable"`
 	OtelConf `json:",inline"`
-}
-
-func (o *OtelCrConf) Need() bool {
-	if o == nil {
-		return false
-	}
-	return o.Enable
 }
 
 // +k8s:deepcopy-gen=true
@@ -31,6 +12,13 @@ type OtelConf struct {
 	Sampler  *Sampler          `json:"sampler,omitempty"`
 	Flags    *Flags            `json:"flags,omitempty"`
 	Resource map[string]string `json:"resource,omitempty"`
+}
+
+func (o *OtelCrConf) Need() bool {
+	if o == nil {
+		return false
+	}
+	return o.Enable
 }
 
 func (o *OtelConf) HasCollector() bool {
@@ -59,11 +47,11 @@ type Collector struct {
 	RequestTimeout int    `json:"request_timeout"`
 }
 
-// --                          opts.drop_on_queue_full: if true, drop span when queue is full, otherwise force process batches, default true
-// --                          opts.max_queue_size: maximum queue size to buffer spans for delayed processing, default 2048
-// --                          opts.batch_timeout: maximum duration for constructing a batch, default 5s
-// --                          opts.inactive_timeout: timer interval for processing batches, default 2s
-// --                          opts.max_export_batch_size: maximum number of spans to process in a single batch, default 256
+// -- opts.drop_on_queue_full: if true, drop span when queue is full, otherwise force process batches, default true
+// -- opts.max_queue_size: maximum queue size to buffer spans for delayed processing, default 2048
+// -- opts.batch_timeout: maximum duration for constructing a batch, default 5s
+// -- opts.inactive_timeout: timer interval for processing batches, default 2s
+// -- opts.max_export_batch_size: maximum number of spans to process in a single batch, default 256
 
 // +k8s:deepcopy-gen=true
 type BatchSpanProcessor struct {
@@ -81,7 +69,7 @@ type Sampler struct {
 // +k8s:deepcopy-gen=true
 type SamplerOptions struct {
 	// +optional
-	ParentName *string `json:"parent_name"` // name of parent if parent_base sampler
+	ParentName *string `json:"parent_name"` // name of parent if parent_base sampler -- do not omitempty, it should not be overwrite
 	// +optional
-	Fraction *string `json:"fraction,omitempty"` // k8s does not like float, so use string
+	Fraction *string `json:"fraction"` // k8s does not like float, so use string -- do not omitempty, it should not be overwrite
 }

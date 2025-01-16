@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"alauda.io/alb2/config"
+	ct "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/ingress"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -189,6 +190,65 @@ var _ = Describe("otel related test", func() {
 								HideUpstreamAttrs:   false,
 							},
 							Resource: map[string]string{"x.x": "a1", "a": "b"},
+						},
+					},
+				},
+				{
+					name: "override parent_name",
+					cfg: []*OtelCrConf{
+						{
+							Enable: true,
+							OtelConf: OtelConf{
+								Exporter: &Exporter{
+									Collector: &Collector{
+										Address:        "http://127.0.0.1:4318",
+										RequestTimeout: 1000,
+									},
+								},
+								Sampler: &Sampler{
+									Name: "parent_base",
+									Options: &SamplerOptions{
+										ParentName: pointer.String("trace_id_ratio"),
+										Fraction:   pointer.String("0.1"),
+									},
+								},
+							},
+						},
+						{
+							Enable: true,
+							OtelConf: OtelConf{
+								Sampler: &Sampler{
+									Name: "parent_base",
+									Options: &SamplerOptions{
+										ParentName: pointer.String("always_on"),
+									},
+								},
+							},
+						},
+					},
+					expect: OtelCrConf{
+						Enable: true,
+						OtelConf: OtelConf{
+							Exporter: &Exporter{
+								Collector: &Collector{
+									Address:        "http://127.0.0.1:4318",
+									RequestTimeout: 1000,
+								},
+								BatchSpanProcessor: &BatchSpanProcessor{
+									MaxQueueSize:    2048,
+									InactiveTimeout: 2,
+								},
+							},
+							Sampler: &Sampler{
+								Name: "parent_base",
+								Options: &SamplerOptions{
+									ParentName: pointer.String("always_on"),
+								},
+							},
+							Flags: &Flags{
+								NoTrustIncomingSpan: false,
+								HideUpstreamAttrs:   false,
+							},
 						},
 					},
 				},
@@ -428,10 +488,11 @@ spec:
 			GinkgoNoErr(err)
 			policy, err := GetPolicy(PolicyGetCtx{Ctx: ctx, Name: "a1", Ns: "cpaas-system", Drv: drv, L: l})
 			GinkgoNoErr(err)
-			l.Info("policy", "policy", PrettyJson(policy))
-
+			policy_80 := policy.Http.GetPoliciesByPort(80)[0]
+			key := policy_80.Config.Refs[ct.Otel]
+			l.Info("policy", "policy", PrettyJson(policy), "key", key, "p", policy_80.Config.Refs)
 			GinkgoAssertJsonEq(
-				policy.CommonConfig[*policy.Http.GetPoliciesByPort(80)[0].Config.Otel.OtelRef].Otel.Otel,
+				policy.SharedConfig[key].Otel,
 				`
 		        {
                     "exporter": {

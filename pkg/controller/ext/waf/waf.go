@@ -9,10 +9,10 @@ import (
 	. "alauda.io/alb2/controller/types"
 	. "alauda.io/alb2/pkg/controller/ext/waf/types"
 	. "alauda.io/alb2/pkg/controller/ngxconf/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	m "alauda.io/alb2/controller/modules"
 	ct "alauda.io/alb2/controller/types"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -20,12 +20,13 @@ import (
 	nv1 "k8s.io/api/networking/v1"
 )
 
-type Waf struct {
-	log logr.Logger
+type WafCtl struct {
+	log    logr.Logger
+	domain string
 }
 
-func NewWaf(l logr.Logger) *Waf {
-	return &Waf{log: l}
+func NewWaf(l logr.Logger, domain string) *WafCtl {
+	return &WafCtl{log: l, domain: domain}
 }
 
 const (
@@ -36,7 +37,8 @@ const (
 )
 
 // 根据ingress 生成rule
-func (w *Waf) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule, domain string) {
+func (w *WafCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule) {
+	domain := w.domain
 	if ingress == nil || rule == nil || ingress.Annotations == nil {
 		return
 	}
@@ -80,18 +82,23 @@ func (w *Waf) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathInde
 }
 
 // rule cr 转成 policy
-func (w *Waf) FromRuleCr(rule *m.Rule, r *ct.Rule) {
+func (w *WafCtl) ToInternalRule(rule *m.Rule, r *ct.InternalRule) {
 	waf, snip, key := mergeWaf(rule)
 	if waf == nil || !waf.Enable {
 		return
 	}
-	r.ToLocation = &key
-
-	r.Waf = &WafInRule{
+	r.Config.Waf = &WafInternal{
 		Raw:     waf.WafConf,
 		Snippet: snip,
 		Key:     key,
 	}
+}
+
+func (w *WafCtl) ToPolicy(rule *ct.InternalRule, r *ct.Policy, refs ct.RefMap) {
+	if rule.Config.Waf == nil {
+		return
+	}
+	r.ToLocation = &rule.Config.Waf.Key
 }
 
 func getWafAnnotation(obj metav1.ObjectMeta) string {
@@ -118,24 +125,39 @@ func mergeWaf(r *m.Rule) (*WafCrConf, string, string) {
 	return nil, "", ""
 }
 
+func (w *WafCtl) CollectRefs(r *ct.InternalRule, refs RefMap) {
+	waf := r.Config.Waf
+	if waf == nil || waf.Raw.CmRef == "" {
+		return
+	}
+	ns, name, _, err := ParseCmRef(waf.Raw.CmRef)
+	if err != nil {
+		w.log.Error(err, "invalid cmref", "cmref", waf.Raw.CmRef)
+		return
+	}
+	key := client.ObjectKey{Namespace: ns, Name: name}
+	refs.ConfigMap[key] = nil
+}
+
 // 更新和删除配置不会有问题，因为现在的custom location的名字是固定的
 // 唯一可能的就是刚刚增加的时候，有可能旧的worker看到nginx 配置还是旧的。但是读到的policy已经是新的了。导致想去跳转到一个还不存在的location上去。
 // 只对长连接有影响。
-func (w *Waf) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cfg *config.Config) error {
+func (w *WafCtl) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cfg *config.Config) {
 	custom_location := map[string]map[string]FtCustomLocation{}
 	for _, f := range alb.Frontends {
 		for _, r := range f.Rules {
-			if r.Waf == nil {
+			waf := r.Config.Waf
+			if waf == nil {
 				continue
 			}
 			if _, ok := custom_location[f.String()]; !ok {
 				custom_location[f.String()] = map[string]FtCustomLocation{}
 			}
-			key := r.Waf.Key
+			key := waf.Key
 			if _, has := custom_location[f.String()][key]; !has {
 				custom_location[f.String()][key] = FtCustomLocation{
 					Name:        key,
-					LocationRaw: GenLocation(alb.CmRefs, r),
+					LocationRaw: GenLocation(alb.Refs, r),
 				}
 			}
 		}
@@ -157,11 +179,10 @@ func (w *Waf) UpdateNgxTmpl(tmpl_cfg *NginxTemplateConfig, alb *LoadBalancer, cf
 		})
 		tmpl_cfg.Frontends[f] = ft
 	}
-	return nil
 }
 
-func GenLocation(cms map[string]*corev1.ConfigMap, r *ct.Rule) string {
-	waf := r.Waf
+func GenLocation(cms RefMap, r *ct.InternalRule) string {
+	waf := r.Config.Waf
 	if waf.Snippet != "" {
 		waf.Raw.CmRef = ""
 		waf.Raw.UseCoreRules = false
@@ -169,7 +190,7 @@ func GenLocation(cms map[string]*corev1.ConfigMap, r *ct.Rule) string {
 	if waf.Raw.CmRef != "" {
 		waf.Raw.UseCoreRules = false
 	}
-	pickCm := func(cms map[string]*corev1.ConfigMap, ref string) string {
+	pickCm := func(cms RefMap, ref string) string {
 		if ref == "" {
 			return ""
 		}
@@ -177,8 +198,11 @@ func GenLocation(cms map[string]*corev1.ConfigMap, r *ct.Rule) string {
 		if err != nil {
 			return ""
 		}
-		key := fmt.Sprintf("%s/%s", ns, name)
-		if cm, has := cms[key]; has {
+		key := client.ObjectKey{
+			Namespace: ns,
+			Name:      name,
+		}
+		if cm, has := cms.ConfigMap[key]; has {
 			return cm.Data[section]
 		}
 		return ""
@@ -227,4 +251,7 @@ func ParseCmRef(ref string) (ns, name, section string, err error) {
 	name = name_and_section[0]
 	section = name_and_section[1]
 	return ns, name, section, nil
+}
+
+func (c *WafCtl) UpdatePolicyAfterUniq(ext *ct.PolicyExt) {
 }

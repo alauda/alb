@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,11 +118,6 @@ type FrontendSpec struct {
 	// backendProtocol defines protocol used by backend servers, it could be https/http/grpc
 	BackendProtocol string    `json:"backendProtocol"`
 	Config          *FTConfig `json:"config,omitempty"`
-}
-
-type FTConfig struct {
-	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
-	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"`
 }
 
 type FrontendStatus struct {
@@ -241,9 +237,16 @@ type RuleSpec struct {
 	Source *Source `json:"source,omitempty"`
 }
 
+type FTConfig struct {
+	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
+	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"`
+	Auth         *auth_t.AuthCr    `json:"auth,omitempty"`
+}
+
 type RuleConfigInCr struct {
 	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
 	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"` // waf 是个泛指，内部目前是指ModeSecurity，但是在cr上，还是用具体的ModeSecurity这个名字
+	Auth         *auth_t.AuthCr    `json:"auth,omitempty"`
 }
 
 func (r *Rule) GetWaf() *waft.WafCrConf {

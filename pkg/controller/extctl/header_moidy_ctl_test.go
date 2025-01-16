@@ -1,4 +1,4 @@
-package custom_config
+package extctl
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"alauda.io/alb2/controller/modules"
 	. "alauda.io/alb2/controller/types"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/utils/log"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,9 +24,9 @@ func TestRuleConfig(t *testing.T) {
 	type TestCase struct {
 		ingressAnnotation    map[string]string
 		expectRuleAnnotation map[string]string
-		expectRuleConfig     *RuleConfigInPolicy
+		expectRuleConfig     *RuleExt
 	}
-	empty := &RuleConfigInPolicy{}
+	empty := &RuleExt{}
 	case1 := TestCase{
 		map[string]string{},
 		map[string]string{},
@@ -35,7 +36,7 @@ func TestRuleConfig(t *testing.T) {
 	case2 := TestCase{
 		map[string]string{ALBIngressRewriteResponseAnnotation: `{"headers":{"aa":"bb"}}`},
 		map[string]string{RuleRewriteResponseAnnotation: `{"headers":{"aa":"bb"}}`},
-		&RuleConfigInPolicy{
+		&RuleExt{
 			RewriteResponse: &RewriteResponseConfig{
 				Headers: map[string]string{
 					"aa": "bb",
@@ -67,7 +68,7 @@ func TestRuleConfig(t *testing.T) {
 		{
 			map[string]string{ALBIngressRewriteRequestAnnotation: `{"headers_var":{"a":"cookie_b"},"headers_add_var":{"aa":["cookie_b"]}}`},
 			map[string]string{RuleRewriteRequestAnnotation: `{"headers_var":{"a":"cookie_b"},"headers_add_var":{"aa":["cookie_b"]}}`},
-			&RuleConfigInPolicy{
+			&RuleExt{
 				RewriteRequest: &RewriteRequestConfig{
 					HeadersVar: map[string]string{
 						"a": "cookie_b",
@@ -80,7 +81,11 @@ func TestRuleConfig(t *testing.T) {
 		},
 	}
 	for i, c := range cases {
-		ruleAnnotation := legacyGenerateRuleAnnotationFromIngressAnnotation("xx", c.ingressAnnotation, cfg.Domain)
+		ctl := HeaderModifyCtl{
+			domain: cfg.Domain,
+			log:    log.L(),
+		}
+		ruleAnnotation := ctl.GenRewriteResponseOrRequestRuleAnnotation("xx", c.ingressAnnotation, cfg.Domain)
 		assert.Equal(t, ruleAnnotation, c.expectRuleAnnotation, fmt.Sprintf("case %v fail", i+1))
 		rule := &modules.Rule{
 			Rule: &albv1.Rule{
@@ -90,14 +95,16 @@ func TestRuleConfig(t *testing.T) {
 				},
 			},
 		}
-		p := &RuleConfigInPolicy{}
-		ruleInPolicyFromRuleAnnotation(rule, cfg.Domain, p)
-		assert.Equal(t, p, c.expectRuleConfig, fmt.Sprintf("case %v fail", i+1))
+		ir := &InternalRule{
+			Config: RuleExt{},
+		}
+		ctl.ToInternalRule(rule, ir)
+		assert.Equal(t, ir.Config, *c.expectRuleConfig, fmt.Sprintf("case %v fail", i+1))
 	}
 
 	type RuleTestCase struct {
 		ruleAnnotation   map[string]string
-		expectRuleConfig *RuleConfigInPolicy
+		expectRuleConfig *RuleExt
 	}
 	// if rule annotation is invalid, rule config should be nil.
 	ruleCase1 := RuleTestCase{
@@ -124,8 +131,13 @@ func TestRuleConfig(t *testing.T) {
 				},
 			},
 		}
-		p := &RuleConfigInPolicy{}
-		ruleInPolicyFromRuleAnnotation(rule, cfg.Domain, p)
-		assert.Equal(t, p, c.expectRuleConfig)
+		ir := &InternalRule{Config: RuleExt{}}
+
+		ctl := HeaderModifyCtl{
+			domain: cfg.Domain,
+			log:    log.L(),
+		}
+		ctl.ToInternalRule(rule, ir)
+		assert.Equal(t, ir.Config, *c.expectRuleConfig)
 	}
 }

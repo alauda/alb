@@ -97,7 +97,7 @@ func NewTimeoutPolicy(ctx context.Context, log logr.Logger, drv *driver.Kubernet
 	}, nil
 }
 
-func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *Rule, ref Ref) error {
+func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *InternalRule, ref Ref) error {
 	log := t.log.V(3).WithName("onrule").WithValues("ref", ref.Describe())
 	log.V(5).Info("len of all timeout policy", "len", len(t.allPolicy))
 	config := getConfig(ref, t.allPolicy, PolicyAttachmentFilterConfig{AllowRouteKind: ALLRouteKind}, t.log.WithName("merge-attach"))
@@ -112,10 +112,6 @@ func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *Rule, ref Ref) error {
 		return err
 	}
 	log.V(5).Info("timeout cfg ", "cfg", timeout)
-
-	if rule.Config == nil {
-		rule.Config = &RuleConfigInPolicy{}
-	}
 	timeoutCfg := gatewayPolicy.TimeoutPolicyConfig(timeout)
 	rule.Config.Timeout = &timeoutCfg
 	return nil

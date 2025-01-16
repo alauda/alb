@@ -1,4 +1,4 @@
-package waf_type
+package types
 
 // +k8s:deepcopy-gen=true
 type WafCrConf struct {
@@ -19,8 +19,8 @@ type WafConf struct {
 	CmRef string `json:"cmRef"` // ns/name#section
 }
 
-type WafInRule struct {
-	Key     string
-	Raw     WafConf
-	Snippet string
+type WafInternal struct {
+	Key     string  // 要跳转到的 nginx location
+	Raw     WafConf // 其他的waf的配置
+	Snippet string  // nginx location 的配置
 }

@@ -1,3 +1,5 @@
+-- format:on style:emmy
+
 local resource_new = require("opentelemetry.resource").new
 local our_exporter_client_new = require("plugins.otel.tracer_http_client").new
 local otlp_exporter_new = require("opentelemetry.trace.exporter.otlp").new
@@ -8,7 +10,12 @@ local always_on_sampler_new = require("opentelemetry.trace.sampling.always_on_sa
 local parent_base_sampler_new = require("opentelemetry.trace.sampling.parent_base_sampler").new
 local trace_id_ratio_sampler_new = require("opentelemetry.trace.sampling.trace_id_ratio_sampler").new
 
-local sampler_factory = {always_off = always_off_sampler_new, always_on = always_on_sampler_new, parent_base = parent_base_sampler_new, trace_id_ratio = trace_id_ratio_sampler_new}
+local sampler_factory = {
+    always_off = always_off_sampler_new,
+    always_on = always_on_sampler_new,
+    parent_base = parent_base_sampler_new,
+    trace_id_ratio = trace_id_ratio_sampler_new
+}
 
 local _M = {}
 ---comment
@@ -21,14 +28,14 @@ function _M.get_sampleer(conf)
         return sampler_factory[sampler_name](), nil
     end
     local s_opt = conf.sampler.options
-    if s_opt == nil then
+    if type(s_opt) ~= "table" then
         return nil, "no opt"
     end
     local fraction = 0.5
-    if s_opt.fraction ~= nil then
+    if type(s_opt.fraction) == "string" then
         fraction = tonumber(s_opt.fraction)
         if fraction == nil then
-            return nil, "invalid fraction " .. tostring(s_opt.fraction)
+            return nil, "invalid fraction " .. s_opt.fraction
         end
     end
 
@@ -38,6 +45,9 @@ function _M.get_sampleer(conf)
 
     if sampler_name ~= "parent_base" then
         return nil, "sampler not exist"
+    end
+    if type(s_opt.parent_name) ~= "string" then
+        return nil, "invalid parent name"
     end
     if sampler_name == "parent_base" and sampler_factory[s_opt.parent_name] == nil then
         return nil, "no parent sampler"
@@ -52,9 +62,10 @@ end
 ---@return Tracer? tracer
 ---@return string? error
 function _M.create_tracer(conf, resource_attrs)
-    local collect_request_header = {["Content-Type"] = "application/json"}
+    local collect_request_header = { ["Content-Type"] = "application/json" }
     -- our_exporter_client_new are skip ssl_verify in default
-    local exporter = otlp_exporter_new(our_exporter_client_new(conf.exporter.collector.address, conf.exporter.collector.request_timeout, collect_request_header))
+    local exporter = otlp_exporter_new(our_exporter_client_new(conf.exporter.collector.address,
+        conf.exporter.collector.request_timeout, collect_request_header))
     -- create span processor
     local batch_span_processor = batch_span_processor_new(exporter, conf.exporter.batch_span_processor)
     -- create sampler
@@ -63,7 +74,8 @@ function _M.create_tracer(conf, resource_attrs)
         return nil, err
     end
     -- create tracer provider
-    local tp = tracer_provider_new(batch_span_processor, {resource = resource_new(unpack(resource_attrs)), sampler = sampler})
+    local tp = tracer_provider_new(batch_span_processor,
+        { resource = resource_new(unpack(resource_attrs)), sampler = sampler })
     -- create tracer
     return tp:tracer("opentelemetry-lua")
 end

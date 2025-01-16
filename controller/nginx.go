@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"alauda.io/alb2/controller/cli"
 	m "alauda.io/alb2/controller/modules"
@@ -17,9 +18,9 @@ import (
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	gateway "alauda.io/alb2/gateway/nginx"
-	"alauda.io/alb2/pkg/controller/ngxconf"
 	. "alauda.io/alb2/pkg/controller/ngxconf"
 	. "alauda.io/alb2/pkg/controller/ngxconf/types"
+	pm "alauda.io/alb2/pkg/utils/metrics"
 	"k8s.io/klog/v2"
 )
 
@@ -34,9 +35,9 @@ type NginxController struct {
 	log           logr.Logger
 	lc            *LeaderElection
 	PortProber    *PortProbe
-	albcli        cli.AlbCli     // load alb tree from k8s
-	policycli     cli.PolicyCli  // fetch policy needed cr from k8s into alb tree
-	ngxcli        ngxconf.NgxCli // fetch ngxconf need cr from k8s into alb tree
+	albcli        cli.AlbCli    // load alb tree from k8s
+	policycli     cli.PolicyCli // fetch policy needed cr from k8s into alb tree
+	ngxcli        NgxCli        // fetch ngxconf need cr from k8s into alb tree
 }
 
 func NewNginxController(kd *driver.KubernetesDriver, ctx context.Context, cfg *config.Config, log logr.Logger, leader *LeaderElection) *NginxController {
@@ -101,6 +102,7 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 	if len(alb.Frontends) == 0 {
 		l.Info("No service bind to this nginx now ", "key", nc.albcfg.GeKey())
 	}
+	nc.albcli.CollectAndFetchRefs(alb)
 
 	nginxPolicy = nc.policycli.GenerateAlbPolicy(alb)
 	phase := state.GetState().GetPhase()
@@ -116,9 +118,6 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 		}
 	}
 
-	if err = nc.ngxcli.FillUpRefCms(alb); err != nil {
-		return NginxTemplateConfig{}, NgxPolicy{}, err
-	}
 	cfg, err := nc.ngxcli.GenerateNginxTemplateConfig(alb, string(phase), nc.albcfg)
 	if err != nil {
 		return NginxTemplateConfig{}, NgxPolicy{}, fmt.Errorf("generate nginx.conf fail %v", err)
@@ -127,6 +126,11 @@ func (nc *NginxController) GenerateNginxConfigAndPolicy() (nginxTemplateConfig N
 }
 
 func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
+	s := time.Now()
+	defer func() {
+		pm.Write("gen-lb-config", float64(time.Since(s).Milliseconds()))
+	}()
+
 	log := nc.log
 	cfg := nc.albcfg
 	ns := cfg.GetNs()
@@ -205,12 +209,15 @@ func MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, err
 		}
 		alb.Frontends = append(alb.Frontends, ft)
 	}
-
 	return alb, nil
 }
 
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
-	ngxconf, err := ngxconf.RenderNgxFromFile(nginxTemplateConfig, nc.TemplatePath)
+	s := time.Now()
+	defer func() {
+		pm.Write("update-file", float64(time.Since(s).Milliseconds()))
+	}()
+	ngxconf, err := RenderNgxFromFile(nginxTemplateConfig, nc.TemplatePath)
 	if err != nil {
 		return err
 	}

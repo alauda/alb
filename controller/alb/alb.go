@@ -14,6 +14,7 @@ import (
 	"alauda.io/alb2/driver"
 	gctl "alauda.io/alb2/gateway/ctl"
 	"alauda.io/alb2/ingress"
+	pm "alauda.io/alb2/pkg/utils/metrics"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
@@ -136,6 +137,8 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 
 		nctl := ctl.NewNginxController(drv, ctx, a.albCfg, l.WithName("nginx"), a.le)
 		nctl.PortProber = a.portProbe
+
+		l.Info("reload: ctl init", "cost", time.Since(startTime))
 		// do leader stuff
 		if a.le.AmILeader() {
 			if a.portProbe != nil {
@@ -145,6 +148,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 				}
 			}
 		}
+		l.Info("reload: leader update", "cost", time.Since(startTime))
 
 		if a.albCfg.GetFlags().DisablePeriodGenNginxConfig {
 			l.Info("reload: period regenerated config disabled")
@@ -155,6 +159,7 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 			l.Error(err, "generate conf failed")
 			return
 		}
+		l.Info("time", "policy-gen", pm.Read())
 
 		if err := nctl.ReloadLoadBalancer(); err != nil {
 			l.Error(err, "reload load balancer failed")
@@ -175,7 +180,6 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 }
 
 func (a *Alb) StartGoMonitorLoop(ctx context.Context) {
-	// TODO fixme
 	// TODO how to stop it? use http server with ctx.
 	log := a.log.WithName("monitor")
 	flags := a.albCfg.GetFlags()

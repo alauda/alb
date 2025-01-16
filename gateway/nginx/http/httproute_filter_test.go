@@ -28,7 +28,7 @@ func MockCtx() HttpCtx {
 }
 
 func TestHttpFilterHeaderModify(t *testing.T) {
-	rule := albType.Rule{}
+	rule := albType.InternalRule{}
 	h := NewHttpProtocolTranslate(nil, log.Log.WithName("test"), config.DefaultMock())
 	err := h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 		{
@@ -83,7 +83,7 @@ func TestHttpFilterRedirect(t *testing.T) {
 	port := gv1.PortNumber(90)
 
 	{
-		rule := albType.Rule{}
+		rule := albType.InternalRule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
@@ -96,13 +96,14 @@ func TestHttpFilterRedirect(t *testing.T) {
 			},
 		})
 		t.Logf("%+v", rule)
-		assert.Equal(t, *rule.RedirectScheme, "https")
-		assert.Equal(t, *rule.RedirectHost, "a.com")
-		assert.Equal(t, *rule.RedirectPort, 90)
-		assert.Equal(t, rule.RedirectCode, 302)
+		rd := rule.Config.Redirect
+		assert.Equal(t, *rd.RedirectScheme, "https")
+		assert.Equal(t, *rd.RedirectHost, "a.com")
+		assert.Equal(t, *rd.RedirectPort, 90)
+		assert.Equal(t, rd.RedirectCode, 302)
 	}
 	{
-		rule := albType.Rule{}
+		rule := albType.InternalRule{}
 		h.applyHttpFilterOnRule(MockCtx(), &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
@@ -118,11 +119,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 			},
 		})
 		t.Logf("%+v", rule)
-		assert.Equal(t, *rule.RedirectScheme, "https")
-		assert.Equal(t, *rule.RedirectHost, "a.com")
-		assert.Equal(t, rule.RedirectURL, "/abc")
-		assert.Equal(t, *rule.RedirectPort, 90)
-		assert.Equal(t, rule.RedirectCode, 302)
+		rd := rule.Config.Redirect
+		assert.Equal(t, *rd.RedirectScheme, "https")
+		assert.Equal(t, *rd.RedirectHost, "a.com")
+		assert.Equal(t, rd.RedirectURL, "/abc")
+		assert.Equal(t, *rd.RedirectPort, 90)
+		assert.Equal(t, rd.RedirectCode, 302)
 	}
 	{
 		ctx := MockCtx()
@@ -139,7 +141,7 @@ func TestHttpFilterRedirect(t *testing.T) {
 				},
 			},
 		}
-		rule := albType.Rule{}
+		rule := albType.InternalRule{}
 		h.applyHttpFilterOnRule(ctx, &rule, []gv1.HTTPRouteFilter{
 			{
 				Type: gv1.HTTPRouteFilterRequestRedirect,
@@ -155,12 +157,13 @@ func TestHttpFilterRedirect(t *testing.T) {
 			},
 		})
 		t.Logf("%+v", rule)
-		assert.Equal(t, *rule.RedirectScheme, "https")
-		assert.Equal(t, *rule.RedirectHost, "a.com")
-		assert.Equal(t, *rule.RedirectPrefixMatch, "/abc")
-		assert.Equal(t, *rule.RedirectReplacePrefix, "/xxx")
-		assert.Equal(t, *rule.RedirectPort, 90)
-		assert.Equal(t, rule.RedirectCode, 302)
+		rd := rule.Config.Redirect
+		assert.Equal(t, *rd.RedirectScheme, "https")
+		assert.Equal(t, *rd.RedirectHost, "a.com")
+		assert.Equal(t, *rd.RedirectPrefixMatch, "/abc")
+		assert.Equal(t, *rd.RedirectReplacePrefix, "/xxx")
+		assert.Equal(t, *rd.RedirectPort, 90)
+		assert.Equal(t, rd.RedirectCode, 302)
 	}
 }
 
@@ -180,7 +183,7 @@ func TestHttpFilterRewrite(t *testing.T) {
 			},
 		},
 	}
-	rule := albType.Rule{}
+	rule := albType.InternalRule{}
 	h.applyHttpFilterOnRule(ctx, &rule, []gv1.HTTPRouteFilter{
 		{
 			Type: gv1.HTTPRouteFilterURLRewrite,
@@ -192,6 +195,7 @@ func TestHttpFilterRewrite(t *testing.T) {
 		},
 	})
 	t.Logf("%+v", rule)
-	assert.Equal(t, *rule.RewritePrefixMatch, "/abc")
-	assert.Equal(t, *rule.RewriteReplacePrefix, "/xxx")
+	rw := rule.Config.Rewrite
+	assert.Equal(t, *rw.RewritePrefixMatch, "/abc")
+	assert.Equal(t, *rw.RewriteReplacePrefix, "/xxx")
 }

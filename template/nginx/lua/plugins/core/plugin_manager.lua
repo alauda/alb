@@ -1,43 +1,48 @@
--- format:on
+-- format:on style:emmy
+
 ---@class Plugin
 ---@field after_rule_match_hook fun(ctx: AlbCtx)
----@field header_filter_hook fun(ctx: AlbCtx)
+---@field response_header_filter_hook fun(ctx: AlbCtx)
 ---@field log_hook fun(ctx: AlbCtx)
 ---@class PluginManager
 ---@field plugins { [string]: Plugin }
 ---@field name string
-local _m = {plugins = {}, self_plugins = {}} -- self_plugins need to access via : syntax
+local _m = { plugins = {} } -- self_plugins need to access via : syntax
 
 function _m.init()
     local otel = require("plugins.otel.otel")
-    table.insert(_m.plugins, otel)
+    local auth = require("plugins.auth.auth")
+    _m.plugins = {
+        ["auth"] = auth,
+        ["otel"] = otel,
+    }
+end
+
+---@param ctx AlbCtx
+---@param hook string
+function _m._call_hook(ctx, hook)
+    local plugins = ctx.matched_policy.plugins or {}
+    for _, p_name in ipairs(plugins) do
+        local p = _m.plugins[p_name]
+        if p ~= nil and p[hook] then
+            p[hook](ctx)
+        end
+    end
 end
 
 ---@param ctx AlbCtx
 function _m.after_rule_match_hook(ctx)
-    for _, p in ipairs(_m.plugins) do
-        if p.after_rule_match_hook then
-            p.after_rule_match_hook(ctx)
-        end
-    end
+    _m._call_hook(ctx, "after_rule_match_hook")
 end
 
 ---@param ctx AlbCtx
-function _m.header_filter_hook(ctx)
-    for _, p in ipairs(_m.plugins) do
-        if p.header_filter_hook then
-            p.header_filter_hook(ctx)
-        end
-    end
+function _m.response_header_filter_hook(ctx)
+    _m._call_hook(ctx, "response_header_filter_hook")
 end
 
 ---@param ctx AlbCtx
 function _m.log_hook(ctx)
-    for _, p in ipairs(_m.plugins) do
-        if p.log_hook then
-            p.log_hook(ctx)
-        end
-    end
+    _m._call_hook(ctx, "log_hook")
 end
 
 _m.init()
