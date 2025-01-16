@@ -1,0 +1,31 @@
+apiVersion: cluster.alauda.io/v1alpha1
+kind: ModulePlugin
+metadata:
+  annotations:
+    cpaas.io/module-name: "alb"
+    cpaas.io/display-name: '{"en": "ALB Operator", "zh": "ALB Operator"}'
+    cpaas.io/built-in-plugin: "true"
+  labels:
+    cpaas.io/module-type: plugin
+    cpaas.io/module-name: alb
+    cpaas.io/auto-install: "true"
+  name: alb
+spec:
+  name: alb
+  logo: ""
+  description:
+    en: "Load Balancer Operator"
+    zh: "负载均衡器 Operator"
+  deleteable: false
+  labelCluster: "false"
+  appReleases:
+  - name: alauda-alb2
+    chartVersions:
+    - name: acp/chart-alauda-alb2
+      releaseName: alauda-alb2
+      version: v3.19.0-beta.10.g6bb115e1
+  mainChart: acp/chart-alauda-alb2
+  upgradeRiskLevel: High
+  upgradeRiskDescription: "升级期间可能会短暂影响用户已部署的应用的访问."
+  upgradeRiskDescriptionEn: "During the upgrade, there may be a temporary impact on the access to applications already deployed by users."
+

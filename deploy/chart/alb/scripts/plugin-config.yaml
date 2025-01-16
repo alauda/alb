@@ -1,0 +1,83 @@
+supportedUpgradeVersions: ">= v1.0.0"
+mustUpgrade: false
+valuesTemplates:
+  acp/chart-alauda-alb2: |
+    <<- $replicas := .Alb2Nodes | len >>
+    <<- $address := .VIP >>
+    <<- $ingressHTTPPort := 0 >>
+    <<- $ingressHTTPSPort := .Alb2Port >>
+    <<- $metricsPort := 11782 >>
+    <<- $loadbalancerName := .SystemNamespace >>
+    <<- $defaultSSLCert := (printf "%s/%s" .SystemNamespace .SystemNamespace) >>
+    <<- $defaultSSLStrategy := "Always" >>
+    <<- $nodeSelector := (printf "cpaas-system-alb: %s" (quote "")) >>
+    <<- $projects := .SystemNamespace >>
+
+    <<- if eq .ClusterName "global" >>
+      <<- if (and (eq .ClusterType "Baremetal") (eq .Base.DeployType "ImportedGlobal")) >>
+        <<- $nodeSelector = (printf "node-role.kubernetes.io/control-plane: %s" (quote "")) >>
+      <<- else >>
+        <<- labelClusterNode "global" "ingress" "true" .Base.Ingress.Controller.Nodes >>
+        <<- $nodeSelector = (printf "ingress: %s" (quote "true")) >>
+      <<- end >>
+      <<- $replicas = (len .Base.Ingress.Controller.Nodes) >>
+      <<- $ingressHTTPPort = .Base.HTTP.HTTPPort >>
+      <<- $ingressHTTPSPort = .Base.HTTP.HTTPSPort >>
+      <<- $loadbalancerName = "global-alb2" >>
+      <<- $defaultSSLCert = (printf "%s/dex.tls" .SystemNamespace) >>
+      <<- if .Base.HTTP.ForceRedirectHTTPS >>
+        <<- $defaultSSLStrategy = "Always" >>
+      <<- else >>
+        <<- $defaultSSLStrategy = "Both" >>
+      <<- end >>
+      <<- $projects = "cpaas-system" >>
+    <<- else >>
+      <<- $ns := (lookup .ClusterName "v1" "Namespace" "" .SystemNamespace) >>
+      <<- if $ns >>
+        <<- $key := (printf "%s/project" .LabelBaseDomain) >>
+        <<- $label := (index $ns "metadata" "labels" $key) >>
+        <<- if ne (string $label) .SystemNamespace >>
+          <<- label .ClusterName $ns $key .SystemNamespace >>
+        <<- end >>
+      <<- end >>
+    <<- end >>
+
+    replicas: << $replicas >>
+    address: << $address >>
+    defaultSSLCert: << $defaultSSLCert >>
+    defaultSSLStrategy: << $defaultSSLStrategy >>
+    ingressHTTPPort: << $ingressHTTPPort >>
+    ingressHTTPSPort: << $ingressHTTPSPort >>
+    metricsPort: << $metricsPort >>
+    antiAffinityKey: system
+    gateway:
+      enable: false
+    loadbalancerName: << $loadbalancerName >>
+    projects:
+      - << $projects >>
+    <<- if (and (ne .ProvisionType "Registered") (or (eq .ClusterType "Baremetal") (eq .ClusterType "OCP") (eq .ClusterType "Imported") ) ) >>
+    nodeSelector:
+      << $nodeSelector >>
+    <<- end >>
+    <<- if (or (eq .ProvisionType "Registered") (and (ne .ClusterType "Baremetal") (ne .ClusterType "OCP") (ne .ClusterType "Imported"))) >>
+    vip:
+      allocateLoadBalancerNodePorts: true
+      enableLbSvc: << ne .ProvisionType "Registered" >>
+      <<- if (and (ne .ProvisionType "Registered") (eq .ClusterType "HuaweiCloudCCE")) >>
+      lbSvcAnnotations:
+        kubernetes.io/elb.class: union
+        kubernetes.io/elb.autocreate: '{
+          "type": "public",
+          "bandwidth_name": "cce-bandwidth-<< .ClusterName >>-<< .SystemNamespace >>",
+          "bandwidth_chargemode": "traffic",
+          "bandwidth_size": 5,
+          "bandwidth_sharetype": "PER",
+          "eip_type": "5_bgp"
+        }'
+        kubernetes.io/elb.lb-algorithm: ROUND_ROBIN
+        kubernetes.io/elb.health-check-flag: 'on'
+        kubernetes.io/elb.health-check-option: '{"protocol":"TCP","delay":"5","timeout":"10","max_retries":"3"}'
+      lbSvcIpFamilyPolicy: SingleStack
+      <<- end >>
+    networkMode: container
+    <<- end >>

@@ -40,7 +40,7 @@ spec:
                 memory: "4G"
               limits:
                 cpu: "6"
-                memory: "4G"              
+                memory: "4G"
             script: |
               #!/bin/sh
               scripts/go-test.sh
@@ -188,14 +188,45 @@ spec:
                 memory: "4G"
               limits:
                 cpu: "4"
-                memory: "4G"              
+                memory: "4G"
             script: |
               #!/bin/sh
               ./scripts/nginx-test.sh
-    - name: build-alb-chart
+    - name: update-module-plugin
       runAfter:
         - nginx-build
         - alb-build
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: build_git_version_shart
+          value: $(build.git.version.short)
+      taskSpec:
+        description: |
+          set the version
+        workspaces:
+          - name: source
+            workspace: source
+        params:
+          - name: build_git_version_shart
+            type: string
+        steps:
+          - name: set-version
+            image: build-harbor.alauda.cn/ops/alpine:latest
+            imagePullPolicy: IfNotPresent
+            workingDir: $(workspaces.source.path)
+            script: |
+              #!/bin/sh
+              sed -i "s|version: .*|version: $(params.build_git_version_shart)|g" ./deploy/chart/alb/module-plugin.yaml
+              cat ./deploy/chart/alb/module-plugin.yaml
+            resources:
+              requests:
+                cpu: 100m
+                memory: 100Mi
+    - name: build-alb-chart
+      runAfter:
+        - update-module-plugin
       timeout: 30m
       retries: 0
       taskRef:
@@ -221,7 +252,7 @@ spec:
         - name: values
           value:
             - .global.images.alb2.tag=$(build.git.version.docker)
-            - .global.images.nginx.tag=$(build.git.version.docker) 
+            - .global.images.nginx.tag=$(build.git.version.docker)
     - name: commit-push
       taskRef:
         name: alauda-git-commit-push
