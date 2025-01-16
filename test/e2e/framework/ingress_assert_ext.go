@@ -145,7 +145,6 @@ func (i *IngressExt) InitIngressCase(ingressCase IngressCase) {
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-// TODO: use f.AssertKubectlApply
 func (i *IngressExt) CreateIngress(ns, name string, path string, svc string, port int) {
 	f := i.kc
 	_, err := f.GetK8sClient().NetworkingV1().Ingresses(ns).Create(context.Background(), &networkingv1.Ingress{

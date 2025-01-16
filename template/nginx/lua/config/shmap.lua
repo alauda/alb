@@ -97,8 +97,9 @@ function _M.set_backends(value)
     ngx_shared[current_subsystem .. "_backend_cache"]:set("backend_group", value)
 end
 
+--- @return string|nil
 function _M.get_backends()
-    return ngx_shared[current_subsystem .. "_backend_cache"]:get("backend_group")
+    return ngx_shared[current_subsystem .. "_backend_cache"]:get("backend_group") --[[@as string|nil]]
 end
 
 return _M

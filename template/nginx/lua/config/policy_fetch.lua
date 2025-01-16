@@ -83,32 +83,32 @@ end
 ---@param policy table
 ---@param old_policy table
 local function update_stream_cache(policy, old_policy)
-    local backend_group = common.access_or(policy, {"backend_group"}, {})
+    local backend_group = common.access_or(policy, { "backend_group" }, {})
     shm.set_backends(common.json_encode(backend_group, true))
 
-    local stream_tcp_policy = common.access_or(policy, {"stream", "tcp"}, {})
-    local old_stream_tcp_policy = common.access_or(old_policy, {"stream", "tcp"}, {})
+    local stream_tcp_policy = common.access_or(policy, { "stream", "tcp" }, {})
+    local old_stream_tcp_policy = common.access_or(old_policy, { "stream", "tcp" }, {})
     update_stream_policy_cache(stream_tcp_policy, old_stream_tcp_policy, "tcp")
 
-    local stream_udp_policy = common.access_or(policy, {"stream", "udp"}, {})
-    local old_stream_udp_policy = common.access_or(old_policy, {"stream", "udp"}, {})
+    local stream_udp_policy = common.access_or(policy, { "stream", "udp" }, {})
+    local old_stream_udp_policy = common.access_or(old_policy, { "stream", "udp" }, {})
     update_stream_policy_cache(stream_udp_policy, old_stream_udp_policy, "udp")
 end
 
 ---@param policy table|nil
 ---@param old_policy table|nil
 local function update_http_cache(policy, old_policy)
-    local certificate_map = common.access_or(policy, {"certificate_map"}, {})
-    local old_certificate_map = common.access_or(old_policy, {"certificate_map"}, {})
+    local certificate_map = common.access_or(policy, { "certificate_map" }, {})
+    local old_certificate_map = common.access_or(old_policy, { "certificate_map" }, {})
 
-    local http_policy = common.access_or(policy, {"http", "tcp"}, {})
-    local old_http_policy = common.access_or(old_policy, {"http", "tcp"}, {})
+    local http_policy = common.access_or(policy, { "http", "tcp" }, {})
+    local old_http_policy = common.access_or(old_policy, { "http", "tcp" }, {})
 
-    local backend_group = common.access_or(policy, {"backend_group"}, {})
+    local backend_group = common.access_or(policy, { "backend_group" }, {})
     shm.set_backends(common.json_encode(backend_group, true))
 
-    local new_config = common.access_or(policy, {"config"}, {})
-    local old_config = common.access_or(old_policy, {"config"}, {})
+    local new_config = common.access_or(policy, { "config" }, {})
+    local old_config = common.access_or(old_policy, { "config" }, {})
     -- ngx.log(ngx.ERR, string.format("newconfig %s", common.json_encode(new_config, true)))
     -- ngx.log(ngx.ERR, string.format("oldconfig %s", common.json_encode(old_config, true)))
 
@@ -116,6 +116,7 @@ local function update_http_cache(policy, old_policy)
     -- since that we have to insert a json string....
 
     -- update cert cache
+    -- TODO get_table_diff_keys 是递归的。。可能特别慢
     for domain, reason in pairs(common.get_table_diff_keys(certificate_map, old_certificate_map)) do
         local lower_domain = string_lower(domain)
         if reason == common.DIFF_KIND_REMOVE then
@@ -149,7 +150,7 @@ local function update_http_cache(policy, old_policy)
             cache.rule_cache:delete(key)
         end
     end
-
+    -- TODO config的key是hash，我们不用比较完整的配置
     -- update config cache
     for name, reason in pairs(common.get_table_diff_keys(new_config, old_config)) do
         --- 更新cache，这样下次就会直接从shdict中读新的值
@@ -185,7 +186,6 @@ function _M.update_policy(policy_raw, via)
     if old_policy_raw == policy_raw then
         return
     end
-
     if common.table_equals(policy_data, old_policy_data) then
         return
     end

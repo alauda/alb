@@ -19,6 +19,7 @@ end
 function _M.nil_or(first, second)
     return g_ext.nil_or(first, second, "")
 end
+
 -- remove_prefix
 --  if prefix not exist return the origin str
 -- @return string
@@ -48,6 +49,31 @@ function _M.lines_grep(s, regex)
         end
     end
     return lines
+end
+
+function _M.contains(str, sub)
+    return str:find(sub, 1, true) ~= nil
+end
+
+function _M.start_with(str, start)
+    return str:sub(1, #start) == start
+end
+
+function _M.end_with(str, ending)
+    return ending == "" or str:sub(- #ending) == ending
+end
+
+function _M.split(str, delimiter)
+    local result               = {}
+    local from                 = 1
+    local delim_from, delim_to = string.find(str, delimiter, from)
+    while delim_from do
+        table.insert(result, string.sub(str, from, delim_from - 1))
+        from                 = delim_to + 1
+        delim_from, delim_to = string.find(str, delimiter, from)
+    end
+    table.insert(result, string.sub(str, from))
+    return result
 end
 
 return _M

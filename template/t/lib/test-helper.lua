@@ -114,9 +114,14 @@ function _M.fail(msg)
     ngx.exit(ngx.ERR)
 end
 
+---comment
+---@param url any
+---@param req_cfg any
+---@return table res
+---@return any err
 function _M.just_curl(url, req_cfg)
     local res, err = u.curl(url, req_cfg)
-    return res, err
+    return _M.curl_res_simple(res), err
 end
 
 --- curl and assert
@@ -136,9 +141,14 @@ function _M.assert_curl(url, req_cfg, assert_cfg)
     return res
 end
 
+function _M.curl_res_simple(res)
+    setmetatable(res.headers, nil)
+    return { body = res.body, headers = res.headers, status = res.status }
+end
+
 function _M.curl_res_to_string(res)
-    local t = { body = res.body, headers = res.headers, status = res.status }
-    return c.json_encode(t)
+    local ret = _M.curl_res_simple(res)
+    return c.json_encode(ret)
 end
 
 function _M.assert_curl_success(res, err, body)

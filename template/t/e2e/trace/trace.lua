@@ -1,12 +1,10 @@
 -- format:on
 local _M = {}
-local F = require "F"
 local u = require "util"
 local h = require "test-helper"
 local common = require "utils.common"
-local dsl = require "match_engine.dsl"
 local ups = require "match_engine.upstream"
-local ph = require "t.lib.policy_helper"
+local ph = require "policy_helper"
 
 local default_443_cert =
 "-----BEGIN CERTIFICATE-----\nMIIFFTCCAv2gAwIBAgIUNcaMWCswms56XCvj8nxC/5AKxtUwDQYJKoZIhvcNAQEL\nBQAwGjEYMBYGA1UEAwwPNDQzLmRlZmF1bHQuY29tMB4XDTIyMDUxOTA5MjEzMVoX\nDTMyMDUxNjA5MjEzMVowGjEYMBYGA1UEAwwPNDQzLmRlZmF1bHQuY29tMIICIjAN\nBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAvMqeEYs9K/DrbZ3FXj7yZaVRexub\na4OF0S/jg2qXrTK8FwPQ1MJiVxPL2jNeE7PT1fCNujb3+fZ/way99FJ0KpmbqEeP\nGt8490oqHZl7LuiEklrSiNp5qOJERsxgNrtq5RILIC1wH9eu0dNilwnCldzEXqFJ\n4+vZqPQfNxk//0vSOxsapl/nEPze6aMy+sUnyFJoq3ti/O02sV/p5sOQX3NcPoXU\n23PTr1xMDVQ7IpuR4GkxbmIVdAMuGWA2udYN0H3ou1VVy+je3RVF7xD2V/lMI3RL\nzLinfWxyNBUOoswylWRjdgwfrz5EkGuN58uT+o28Lx0APw06gwZ0eXb0cKdaYM0X\n04p4d3r//KLgm5WZpvDrjCC3aP02Yk1rITAu9owx+fNjIuEuPJtfin6r9Cjed7xL\n9CgdlFONDkNPxMz52qnf9Jbuf4HPTa/jDw7ICG8FAR8RwljJ7ohFCmullfXtumpX\nbT8+4DK1+H1fqkLV4lCWtQwn8ULqqCDQJZszco5KcnNnenqKgNPLVe7t6/ZxDZ8j\nMYAyGIR+DMDp0tLjfHD26IjEzF/n3E0pZiTXFaRirjKcFd523qEWvZeZc0nSykhH\nBUYXgxh2Nqi3Cv9VxA6sHVto5GvQBWq0kl6Qo9IGof51+4HCm++8/bCpf2Gcv/kI\ny39JIHMSGCa4ztcCAwEAAaNTMFEwHQYDVR0OBBYEFDawzxBvztJOekhp/DU9GKo+\nsnc9MB8GA1UdIwQYMBaAFDawzxBvztJOekhp/DU9GKo+snc9MA8GA1UdEwEB/wQF\nMAMBAf8wDQYJKoZIhvcNAQELBQADggIBACd2Z9XyESvQ4MfYMUID2DCmuVGBDhyo\n8cN88nuy+plrcYSpsthp55C+dhhfJRocES0NkpIVojpiQiPQdAyLFKb1M1Mcd9bg\n+qtYrOH2lS0Uem2s366D8LLJSOzWv/f75wUHe3eyivzW73zcM3znr5TrAFrCkUBF\npkK90G1VEznpD+VDvXYfcXklTZ7lMVZJ1ck2MDYPkh3nGtCyY6z+r41vJo/OcW8A\ncxicgsKXjEiXOH42B8ugad5gK27gA/FKwtTNPPU4K0UeDCAJaY+L7USjbrUgeQ17\nmjCOrY53OjyjjD4YjsE9EqsU/Hc9lqIUdCktZEDrLKfjGT1raaqDlSzEYYcs/oai\n0Ka3MXao2czYEJz6YZIOtp7FatRUBajCZ3NJeTgPFMZn10g7CktJR5QJDvvqbUBs\nHCddmahNPdgQwjxGVfoAI5SDH2QnIlj3bLivU+4oqR7hO7Nmhx9BtNRdHhM+M+wp\nsLvVETvtZdHC3RX4rX4pAl/r7pjhC7n0tbn3XyK96yZ4Yu/E+d/Cqhs0+rssqLzH\nDtMZCMOsaZi1AUEtc2cmZweOXEHeEoyPn3nJeVLfW2+dThlK/i9RaZbPThTS/GdK\nCU530BEDG+y/I5p6dndYySm2+LJiC0Xso1S1gLa7NccV8Y1E9Y8026J3lpvMilhP\nBwA4jE77yBPI\n-----END CERTIFICATE-----";
@@ -86,6 +84,8 @@ function _M.as_backend()
     end
     if string.find(ngx.var.uri, "sleep") then
         local t = tonumber(ngx.var.arg_sleep)
+        ---@cast t -nil
+
         u.logs("sleep in backend start", t)
         ngx.sleep(t)
         u.logs("sleep in backend over", t)
@@ -235,9 +235,11 @@ function _M.test_trace()
         h.assert_eq(type(cpaas_trace), "table")
         local trace1 = common.json_decode(cpaas_trace[1])
         u.logs(trace1)
+        ---@cast trace1 -nil
         h.assert_eq(trace1.rule, "trace1")
         h.assert_eq(trace1.upstream, "trace1")
         local trace2 = common.json_decode(cpaas_trace[2])
+        ---@cast trace2 -nil
         u.logs(trace2)
         h.assert_eq(trace2.rule, "trace2")
         h.assert_eq(trace2.upstream, "trace2")
@@ -249,7 +251,7 @@ function _M.test_trace()
         u.logs(res)
         local cpaas_trace = res.headers["x-cpaas-trace"]
         h.assert_eq(type(cpaas_trace), "string")
-        local trace = common.json_decode(cpaas_trace)
+        local trace = common.json_decode(cpaas_trace) or {}
         u.logs(trace)
         h.assert_eq(trace.rule, "t6")
         h.assert_eq(trace.upstream, "test-upstream-1")
@@ -259,7 +261,7 @@ function _M.test_trace()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t7/detail", { headers = { ["cpaas-trace"] = "true" } })
         u.logs(res, err)
         h.assert_eq(res.status, 200)
-        local trace = common.json_decode(res.headers["x-cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"]) or {}
         h.assert_eq(trace.rule, "t7")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)
@@ -268,7 +270,7 @@ function _M.test_trace()
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/detail", { headers = { ["cpaas-trace"] = "true" } })
         u.logs(res, err)
         h.assert_eq(res.status, 200)
-        local trace = common.json_decode(res.headers["x-cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"]) or {}
         h.assert_eq(trace.rule, "1")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)
@@ -279,7 +281,7 @@ function _M.test_trace()
         u.logs(res, err)
         h.assert_eq(res.status, 200)
         h.assert_eq(res.body, "from backend\n")
-        local trace = common.json_decode(res.headers["x-cpaas-trace"])
+        local trace = common.json_decode(res.headers["x-cpaas-trace"]) or {}
         h.assert_eq(trace.rule, "2")
         h.assert_eq(trace.upstream, "test-upstream-1")
         u.logs(trace)

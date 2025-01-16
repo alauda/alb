@@ -4,7 +4,7 @@ ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.25.3
 FROM ${GO_BUILD_BASE} AS go_builder
 
 ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=https://goproxy.cn,https://build-nexus.alauda.cn/repository/golang,direct
 COPY ./ /alb/
 WORKDIR /alb
 ENV GOFLAGS=-buildvcs=false
@@ -15,6 +15,8 @@ RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-static' -v -o /out/albctl alauda.io/alb2/cmd/utils/albctl
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/tweak_gen alauda.io/alb2/cmd/utils/tweak_gen
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/ngx_gen alauda.io/alb2/cmd/utils/ngx_gen
+RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/dirhash alauda.io/alb2/cmd/utils/dirhash
+RUN go install github.com/mccutchen/go-httpbin/v2/cmd/go-httpbin@latest && cp /go/bin/go-httpbin /out/
 RUN ldd /out/albctl || true
 
 FROM ${OPENRESTY_BASE} AS base
@@ -38,11 +40,13 @@ COPY ./pkg/controller/ngxconf/nginx.tmpl /alb/ctl/template/nginx/nginx.tmpl
 COPY run-alb.sh /alb/ctl/run-alb.sh
 COPY --from=go_builder /out/tweak_gen /alb/tools/tweak_gen
 COPY --from=go_builder /out/ngx_gen /alb/tools/ngx_gen
+COPY --from=go_builder /out/dirhash /alb/tools/dirhash
 COPY --from=go_builder /out/alb /alb/ctl/alb
 COPY --from=go_builder /out/migrate /alb/ctl/tools/
 COPY --from=go_builder /out/operator /alb/ctl/operator
 COPY --from=go_builder /alb/migrate/backup /alb/ctl/tools/backup
 COPY --from=go_builder /out/albctl /alb/ctl/tools/albctl
+COPY --from=go_builder /out/go-httpbin /alb/tools/go-httpbin
 
 ENV PATH=$PATH:/usr/local/openresty/luajit/bin:/usr/local/openresty/nginx/sbin:/usr/local/openresty/bin:/usr/local/openresty/openssl/bin/
 ENV NGINX_TEMPLATE_PATH /alb/ctl/template/nginx/nginx.tmpl

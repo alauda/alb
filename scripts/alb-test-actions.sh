@@ -57,12 +57,11 @@ function alb-run-checklist-test() (
 
 function alb-run-all-e2e-test() (
   set -e
-  # TODO 覆盖率
   local concurrent=${1:-3}
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
   if [[ "$filter" != "" ]]; then
-    ginkgo --fail-fast -focus "$filter" ./test/e2e
+    ginkgo --fail-fast -focus "$filter" ./test/e2e | tee ./all.e2e.log
     return
   fi
 
@@ -70,7 +69,8 @@ function alb-run-all-e2e-test() (
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
   unset DEV_MODE                          # dev_mode 会导致k8s只启动一个 无法并行测试。。
   rm ./test/e2e/ginkgo-node-*.log || true # clean old test log
-  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e --fail-fast -p -nodes $concurrent ./test/e2e
+  ginkgo -v -cover -covermode=atomic -coverpkg="$coverpkg" -coverprofile=coverage.e2e --fail-fast -p -nodes $concurrent ./test/e2e | tee ./all.e2e.log
+  # for ci
   if [ -f ./debug ]; then
     while true; do
       echo "debug"
@@ -87,14 +87,13 @@ function alb-go-unit-test() (
   set -e
   local concurrent=${1:-3}
   local filter=${2:-""}
-  # TODO it shoult include e2e test
   local s=$(date)
   echo "s $s"
   # https://github.com/ory/go-acc
   local coverpkg_list=$(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
   local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
 
-  go test -p $concurrent -v -race -covermode=atomic -coverprofile=coverage.unit -coverpkg "$coverpkg" $(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter")
+  go test -p $concurrent -v -race -covermode=atomic -coverprofile=coverage.unit -coverpkg "$coverpkg" $(go list ./... | grep -v 'alb2/test/' | grep -v "/pkg/client" | grep -v migrate | sort | uniq | grep "$filter") | tee ./unit_test.log
   local e=$(date)
   echo $s $e
 )
@@ -176,9 +175,7 @@ function alb-install-golang-test-dependency() {
   rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
   rm -rf ./golangci-lint-1.59.1-illumos-amd64
 
-  apk update && apk add python3 py3-pip curl git build-base jq iproute2 openssl tree nodejs npm util-linux-misc
-  rm /usr/lib/python3.*/EXTERNALLY-MANAGED || true
-  pip install crossplane -i https://mirrors.aliyun.com/pypi/simple
+  apk update && apk add curl git build-base jq yq iproute2 openssl tree nodejs npm util-linux-misc
   alb-envtest-install
   git config --global --add safe.directory $PWD
   go version

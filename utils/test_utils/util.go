@@ -52,6 +52,14 @@ func GenCert(domain string) (key, cert string, err error) {
 	return string(keyByte), string(certByte), nil
 }
 
+func RESTFromKubeConfigFile(p string) (*rest.Config, error) {
+	cfg_bytes, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+	return clientcmd.RESTConfigFromKubeConfig(cfg_bytes)
+}
+
 func RESTFromKubeConfig(raw string) (*rest.Config, error) {
 	return clientcmd.RESTConfigFromKubeConfig([]byte(raw))
 }

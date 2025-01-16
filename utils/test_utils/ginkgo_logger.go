@@ -11,6 +11,8 @@ type GinkgoLogSink struct {
 	prefix string
 }
 
+// Deprecated
+// 字符串中含有%时， %v的处理是错的..
 func GinkgoLog() logr.Logger {
 	return logr.New(GinkgoLogSink{})
 }

@@ -317,9 +317,9 @@ func TestNeedEnqueueObject(t *testing.T) {
 		return runCases
 	}(testCases)
 
-	env := test_utils.NewFakeEnv()
-	env.AssertStart()
 	for index, testCase := range runCases {
+		env := test_utils.NewFakeEnv()
+		env.AssertStart()
 		t.Logf("case %d: %s\n", index, testCase.description)
 		a := assert.New(t)
 		defer cancel()
@@ -349,9 +349,8 @@ func TestNeedEnqueueObject(t *testing.T) {
 		t.Logf("class reason %v", reason)
 
 		a.Equal(testCase.shouldEnqueue, need, testCase.description)
-		env.ClearFakes(testCase.fakeResource)
+		env.Stop()
 	}
-	env.Stop()
 }
 
 func TestFindUnSyncedIngress(t *testing.T) {

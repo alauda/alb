@@ -37,6 +37,12 @@ function _M.test()
     local status = sext.lines_grep(metrics.body, [[nginx_http_status{port="80",rule="r1]])
     u.logs("after clear", status)
     h.assert_eq(#status, 0)
+    local res = h.assert_curl("http://127.0.0.1:80/t1", { ssl_verify = false })
+    h.assert_eq(res.body, "ok\n")
+    local metrics = h.assert_curl("https://127.0.0.1:1936/metrics", { ssl_verify = false })
+    local status = sext.lines_grep(metrics.body, [[nginx_http_status{port="80",rule="r1]])
+    u.logs("after clear re ", status)
+
 end
 
 return _M

@@ -35,19 +35,22 @@ end
 function _M.test()
     -- LuaFormatter off
     local policy = {
-        http = {tcp = {["80"] = {
-            {rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "u1", config = {timeout = {proxy_read_timeout_ms = "300"}}}}}
+        http = {
+            tcp = {
+                ["80"] = {
+                    { rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "u1", config = { timeout = { proxy_read_timeout_ms = "300" } } } }
+            }
         },
         backend_group = {
-            {name = "u1", mode = "http", backends = {{address = "127.0.0.1", port = 1880, weight = 100}}, }}
-        }
+            { name = "u1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100 } }, } }
+    }
     -- LuaFormatter on
     require("policy_helper").set_policy_lua(policy)
     do
         u.logs "error from backend without body"
         local res, err = u.curl("http://127.0.0.1/t1/404-without-body")
         u.logs(res, err)
-        h.assert_eq(res.status,404)
+        h.assert_eq(res.status, 404)
         h.assert_eq(res.body, "")
     end
 
@@ -73,7 +76,6 @@ function _M.test()
         h.assert_eq(res.status, 504)
         h.assert_eq(res.body, "")
     end
-
 end
 
 return _M

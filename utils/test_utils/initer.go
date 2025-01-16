@@ -41,7 +41,9 @@ func InitCrds(base string, cfg *rest.Config, crds []string) error {
 // create cpaas-system ns
 func InitAlbCr(base string, cfg *rest.Config) error {
 	InitAlbNs(base, cfg)
-	InitCrds(base, cfg, AlbCrds())
+	crds := AlbCrds()
+	fmt.Println("int crds", crds)
+	InitCrds(base, cfg, crds)
 	return nil
 }
 

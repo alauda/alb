@@ -2,6 +2,7 @@
 
 function alb-lint-all() (
   cd $CUR_ALB_BASE
+  echo "alb-lint-all"
   set -e
   alb-lint-cspell
   echo "lint cspell ok"
@@ -48,12 +49,21 @@ function alb-lint-bash-fix() {
 }
 
 function alb-lint-go() {
+  # shellcheck disable=SC2046
   if [ ! "$(gofmt -l $(find . -type f -name '*.go' | grep -v ".deepcopy"))" = "" ]; then
     echo "go fmt check fail"
     return 1
   fi
   alb-lint-go-build
   alb-list-kind-e2e
+}
+
+function alb-lint-gofumpt() {
+  gofumpt -l ./
+}
+
+function alb-lint-gofumpt-fix() {
+  alb-lint-gofumpt | xargs gofumpt -w
 }
 
 function alb-lint-go-build() {
@@ -71,10 +81,11 @@ function alb-lint-go-fix {
 }
 
 function alb-lint-lua-install() {
-  # https://github.com/Koihik/LuaFormatter
-  # use VS Marketplace Link: https://marketplace.visualstudio.com/items?itemName=Koihik.vscode-lua-format
-  sudo luarocks install --server=https://luarocks.org/dev luaformatter #lua-format
-  sudo luarocks install luacheck
+  luarocks install luacheck
+  rm ./linux-x64.tar.gz || true
+  wget https://github.com/CppCXY/EmmyLuaCodeStyle/releases/download/1.5.6/linux-x64.tar.gz
+  tar -xvf linux-x64.tar.gz
+  mv ./linux-x64/bin/CodeFormat /usr/bin/CodeFormat
 }
 
 function alb-lint-lua-need-format() {
@@ -86,6 +97,11 @@ function alb-lint-lua-need-format() {
 }
 
 function alb-lint-lua() (
+  alb-lint-lua-luacheck
+  alb-lint-lua-emmy
+)
+
+function alb-lint-lua-luacheck() (
   while read -r f; do
     luacheck $f
     if [[ $? -ne 0 ]]; then
@@ -94,28 +110,32 @@ function alb-lint-lua() (
       return
     fi
   done < <(alb-lua-list-all-app-file)
-
-  # before i find a beeter way to format lua, disable this
-  # the recommended way is to use lus-ls https://github.com/LuaLS/lua-language-server in vscode
-  return
-  #   # TODO add all lua file
-  #   while read -r f; do
-  #     lua-format --check -v $f
-  #     if [[ $? -ne 0 ]]; then
-  #       echo "need format $f"
-  #       exit 1
-  #       return
-  #     fi
-  #   done < <(alb-lua-list-all-needformat-file)
-
-  echo "lua ok"
 )
 
-function alb-lua-lint-format-fix() (
-  # shellcheck disable=SC2068
+function alb-lint-lua-emmy-all() (
+  CodeFormat check -w . -c ./.editorconfig -ig "vendor/*;" 2>&1 | grep Check
+)
+
+function alb-lint-lua-emmy() (
   while read -r f; do
-    lua-format -i -v $f
-  done < <(alb-lua-list-all-needformat-file)
+    if head -n 1 "$f" | grep 'format:on' | grep 'style:emmy'; then
+      alb-lint-lua-emmy-format-check $f
+    fi
+  done < <(alb-lua-list-all-file)
+)
+
+function alb-lint-lua-emmy-format-check() (
+  local f=$1
+  CodeFormat check -f $f -c ./.editorconfig
+  return
+)
+
+function alb-lint-lua-emmy-format-install-arch() (
+  yay -S code-format-bin
+)
+
+function alb-lint-lua-emmy-format-fix() (
+  return
 )
 
 function alb-lua-list-all-file() {
@@ -129,20 +149,6 @@ function alb-lua-list-all-test-file() {
 
 function alb-lua-list-all-app-file() {
   find $PWD/template/nginx/lua -type f | grep '\.lua' | grep -v 'types.lua' | grep -v 'vendor' | grep -v 'lua/resty/'
-}
-
-function alb-lua-list-all-needformat-file() {
-  # TODO install luaformatter in ci
-  if [[ -z $(which lua-format) ]]; then
-    # echo "lua-format not installed"
-    return
-  fi
-  while read -r f; do
-    if [[ "false" == "$(alb-lint-lua-need-format $f)" ]]; then
-      continue
-    fi
-    echo $f
-  done < <(alb-lua-list-all-file)
 }
 
 function alb-init-git-hook {

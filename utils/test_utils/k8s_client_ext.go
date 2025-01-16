@@ -2,6 +2,7 @@ package test_utils
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
@@ -164,4 +165,29 @@ func (f *K8sClient) CreateNsIfNotExist(name string) error {
 		return err
 	}
 	return nil
+}
+
+func (f *K8sClient) GetPods(ns string, labelSel string) ([]corev1.Pod, error) {
+	pods, err := f.k8sClient.CoreV1().Pods(ns).List(f.ctx, metav1.ListOptions{LabelSelector: labelSel})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("should at least get one")
+	}
+	return pods.Items, nil
+}
+
+func (f *K8sClient) GetPodIp(ns string, labelSel string) ([]string, error) {
+	ips := []string{}
+	pods, err := f.GetPods(ns, labelSel)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range pods {
+		if p.Status.Phase == "Running" {
+			ips = append(ips, p.Status.PodIP)
+		}
+	}
+	return ips, nil
 }

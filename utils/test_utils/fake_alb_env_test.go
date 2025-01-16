@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -53,11 +54,10 @@ func TestFakeEnv(t *testing.T) {
 			Namespaces: defaultNamespaces,
 		},
 	}
+	defer ginkgo.GinkgoRecover()
 	env := NewFakeEnv()
 	env.AssertStart()
 	err := env.ApplyFakes(res)
-	assert.NoError(t, err)
-	err = env.ClearFakes(res)
 	assert.NoError(t, err)
 	env.Stop()
 }

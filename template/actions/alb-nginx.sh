@@ -1,13 +1,12 @@
 #!/bin/bash
 source ./template/actions/dev.actions.sh
 source ./scripts/alb-lint-actions.sh
-
 if [[ -n "$CUR_ALB_BASE" ]]; then
   export ALB=$CUR_ALB_BASE
 fi
 
 function alb-install-nginx-test-dependency() {
-  apk update && apk add luarocks luacheck lua-dev lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
+  apk update && apk add luarocks sudo luacheck lua-dev lua perl-app-cpanminus wget curl make build-base perl-dev git neovim bash yq jq tree fd openssl
   mkdir /tmp && export TMP=/tmp # luarocks need this
   cp /usr/bin/luarocks-5.1 /usr/bin/luarocks
   cpanm --mirror-only --mirror https://mirrors.tuna.tsinghua.edu.cn/CPAN/ -v --notest Test::Nginx IPC::Run YAML::PP
@@ -16,6 +15,7 @@ function alb-install-nginx-test-dependency() {
     source ./template/actions/alb-nginx-install-deps.sh
     alb-ng-install-test-deps
   )
+  alb-lint-lua-install
 }
 
 function alb-install-nginx-test-dependency-ubuntu() {
@@ -58,7 +58,6 @@ function alb-test-all-in-ci-nginx() {
     alb-install-nginx-test-dependency
   fi
   local end_install=$(date +"%Y %m %e %T.%6N")
-  #   alb-lint-lua # TODO
   local end_check=$(date +"%Y %m %e %T.%6N")
   export LUACOV=true
   test-nginx-in-ci
@@ -68,9 +67,13 @@ function alb-test-all-in-ci-nginx() {
   echo "check" $end_check
   echo "test" $end_test
   pwd
+  alb-nginx-luacov-summary
+}
+
+function alb-nginx-luacov-summary() {
+  luacov # luacov-html
   luacov-console $PWD/template/nginx/lua/
-  luacov-console $PWD/template/nginx/lua/ -s
-  luacov-console $PWD/template/nginx/lua/ -s >./luacov.summary
+  luacov-console $PWD/template/nginx/lua/ -s | tee ./luacov.summary
 }
 
 function test-nginx-local() {
@@ -96,10 +99,23 @@ function test-nginx-in-ci() (
   alb-nginx-test $1
 )
 
+function alb-nginx-unit-test() (
+  local m=$1
+  export ALB_LUA_UNIT_TEST_CASE=$m
+  alb-nginx-test $PWD/template/t/unit/unit_test.t
+)
+
+function alb-nginx-test-with-coverage() (
+  alb-nginx-test $1
+  alb-nginx-luacov-summary | grep $2
+)
+
 function alb-nginx-test() (
   set -e
   set -x
   echo "alb-nginx-test" alb is $ALB
+  # ngx_gen_install
+  # tweak_gen_install
   local t1=$(date)
   # struct of a nginx test
   # /
@@ -183,6 +199,8 @@ function alb-nginx-watch-log() (
   tail -F ./template/servroot/logs/error.log | python -u -c '
 import sys
 for line in sys.stdin:
+    if "notice" in line:
+        continue
     if "keepalive connection" in line:
         continue
     if line.startswith("20"):
@@ -260,9 +278,6 @@ function alb-nginx-build-tylua() (
 )
 
 function alb-nginx-tylua() (
-  local coverpkg_list=$(go list ./... | grep -v e2e | grep -v test | grep -v "/pkg/client" | grep -v migrate | sort | uniq)
-  local coverpkg=$(echo "$coverpkg_list" | tr "\n" ",")
-  ./cmd/utils/tylua/bin/tylua $coverpkg NgxPolicy ./template/nginx/lua/types/ngxpolicy.types.lua
-
+  ./cmd/utils/tylua/bin/tylua ./template/nginx/lua/types/ngxpolicy.types.lua
   return
 )

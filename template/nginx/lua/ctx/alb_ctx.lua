@@ -18,10 +18,11 @@ local var_proxy = require "ctx.var_proxy"
 
 ---@class AlbCtx
 ---@field matched_policy Policy
----@field send_count number
----@field var table
+---@field send_count number  retry_count
+---@field peer PeerConf      valid only after the balance phase
+---@field var table          var proxy
 ---@field otel OtelCtx?
----@field peer PeerConf
+---@field auth AuthCtx?
 
 ---@param ctx AlbCtx
 function _M.get_last_upstream_status(ctx)

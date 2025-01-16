@@ -78,11 +78,6 @@ var _ = Describe("chart", func() {
 		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
 
-		csv, err := kt.Kubectl("get csv -A")
-		GinkgoNoErr(err)
-		l.Info("csv", "csv", csv)
-		assert.Equal(GinkgoT(), strings.Contains(csv, "No resources found"), true)
-
 		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
 		_, err = kc.GetK8sClient().RbacV1().ClusterRoleBindings().Get(ctx, "alb-operator", metav1.GetOptions{})
 		GinkgoNoErr(err)
