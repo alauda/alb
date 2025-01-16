@@ -3,8 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -169,66 +167,6 @@ var _ = Describe("auth", func() {
 		})
 		fmt.Printf("%+v", aa)
 		assert.Equal(t, aa, AA{A: A{F1: "123", F2: "xyz"}, B: "hi"})
-	})
-
-	It("reassign in struct should ok ", func() {
-		type A struct {
-			F1 string `key:"f1"`
-			F2 string `key:"f2"`
-			F3 string `key:"f3"`
-		}
-
-		type B struct {
-			F1 string   `key:"f1"`
-			F2 []string `key:"f2" trans:"split_str"`
-			F3 bool     `key:"f3" trans:"from_bool"`
-		}
-
-		type Case struct {
-			a        A
-			expect_b B
-		}
-		cases := []Case{
-			{
-				a: A{
-					F1: "xx",
-					F2: "a,b,c",
-					F3: "true",
-				},
-				expect_b: B{
-					F1: "xx",
-					F2: []string{"a", "b", "c"},
-					F3: true,
-				},
-			},
-			{
-				a: A{
-					F1: "",
-					F2: "a",
-					F3: "false",
-				},
-				expect_b: B{
-					F1: "",
-					F2: []string{"a"},
-					F3: false,
-				},
-			},
-		}
-		for _, c := range cases {
-			b := B{}
-			err := ReassignStructViaMapping(&c.a, &b, ReassignStructOpt{
-				Resolver: map[string]func(l reflect.Value, r reflect.Value, root reflect.Value) error{
-					"split_str": func(l reflect.Value, r reflect.Value, _ reflect.Value) error {
-						strs := strings.Split(l.String(), ",")
-						r.Set(reflect.ValueOf(strs))
-						return nil
-					},
-				},
-			})
-			assert.NoError(t, err)
-			assert.Equal(t, b, c.expect_b)
-		}
-		fmt.Println("test")
 	})
 
 	It("resolve ingress annotation should ok ", func() {

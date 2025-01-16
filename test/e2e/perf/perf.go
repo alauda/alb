@@ -77,7 +77,7 @@ var _ = Describe("rule perf", func() {
 			GinkgoNoErr(err)
 		}
 		defer pprof.StopCPUProfile()
-		count := 1
+		count := 500
 		for i := 1; i <= count; i++ {
 			l.Info("perf policy", "i", i, "a", count)
 			_, _, err := cli.GetPolicyAndNgx(ctx)
@@ -86,7 +86,7 @@ var _ = Describe("rule perf", func() {
 		e := time.Now()
 		// l.Info("xx", "p", utils.PrettyJson(policy.SharedConfig))
 		l.Info("xx", "t", pm.Read())
-		l.Info("xx", "all", e.UnixMilli()-s.UnixMilli())
+		l.Info("xx", "all", e.UnixMilli()-s.UnixMilli(), "avg", (e.UnixMilli()-s.UnixMilli())/int64(count))
 	})
 })
 

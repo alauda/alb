@@ -82,7 +82,7 @@ type ForwardAuthPolicy struct {
 	Url                 VarString            `json:"url" key:"url" trans:"resolve_varstring"`
 	Method              string               `json:"method" key:"method"`
 	AuthHeaders         map[string]VarString `json:"auth_headers" key:"proxy_set_headers" trans:"resolve_proxy_set_headers"`
-	InvalidAuthReqCmRef bool                 `json:"invalid_auth_req_cm_ref" key:"invalid_auth_req_cm_ref"`
+	InvalidAuthReqCmRef bool                 `json:"invalid_auth_req_cm_ref"`
 	AuthRequestRedirect VarString            `json:"auth_request_redirect" key:"request_redirect" trans:"resolve_varstring"`
 	UpstreamHeaders     []string             `json:"upstream_headers" key:"response_headers"`
 	AlwaysSetCookie     bool                 `json:"always_set_cookie" key:"always_set_cookie"`

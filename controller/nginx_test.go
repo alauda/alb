@@ -90,7 +90,7 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 		env.Stop()
 	}()
 	kt := test_utils.NewKubectl("", env.GetCfg(), l)
-	out, err := kt.Kubectl("get crd -A")
+	_, err := kt.Kubectl("get crd -A")
 	assert.NoError(t, err)
 
 	cfg := config.DefaultMock()
@@ -101,7 +101,7 @@ func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, 
 	config.UseMock(cfg)
 	err = env.ApplyFakes(res)
 	assert.NoError(t, err)
-	out, err = kt.Kubectl("get frontends -A")
+	_, err = kt.Kubectl("get frontends -A")
 	assert.NoError(t, err)
 	drv, err := driver.NewDriver(driver.NewDrvOpt(ctx, env.GetCfg(), cfg))
 	assert.NoError(t, err)

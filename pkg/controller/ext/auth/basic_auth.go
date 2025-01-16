@@ -23,7 +23,7 @@ func (f BasicAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *Au
 		SecretType: "",
 		AuthType:   "",
 	}
-	_ = ReassignStructViaMapping(auth_ingress, auth_cr.Basic, ReassignStructOpt{})
+	_ = ReAssignAuthIngressBasicToBasicAuthInCr(&auth_ingress.AuthIngressBasic, auth_cr.Basic, nil)
 }
 
 func (b BasicAuthCtl) ToPolicy(basic *BasicAuthInCr, p *AuthPolicy, refs ct.RefMap, rule string) {
@@ -35,7 +35,7 @@ func (b BasicAuthCtl) ToPolicy(basic *BasicAuthInCr, p *AuthPolicy, refs ct.RefM
 		Err:      "",
 	}
 	p.Basic = bp
-	_ = ReassignStructViaMapping(basic, bp, ReassignStructOpt{})
+	_ = ReAssignBasicAuthInCrToBasicAuthPolicy(basic, bp, nil)
 	if bp.AuthType != "basic" {
 		bp.Err = "only support basic auth"
 		return

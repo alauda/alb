@@ -3,7 +3,6 @@ package auth
 import (
 	"fmt"
 	"net/url"
-	"reflect"
 	"strings"
 
 	ct "alauda.io/alb2/controller/types"
@@ -27,16 +26,9 @@ func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *
 		AlwaysSetCookie:     false,
 		SigninRedirectParam: "",
 	}
-	_ = ReassignStructViaMapping(auth_ingress, auth_cr.Forward, ReassignStructOpt{
-		Resolver: map[string]func(l, r reflect.Value, _ reflect.Value) error{
-			"resolve_response_headers": func(l, r reflect.Value, _ reflect.Value) error {
-				ls := l.Interface().(string)
-				if ls == "" {
-					return nil
-				}
-				r.Set(reflect.ValueOf(strings.Split(ls, ",")))
-				return nil
-			},
+	_ = ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, auth_cr.Forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
+		Resolve_response_headers: func(ls string) ([]string, error) {
+			return strings.Split(ls, ","), nil
 		},
 	})
 }
@@ -52,45 +44,32 @@ func (f ForwardAuthCtl) ToPolicy(forward *ForwardAuthInCr, p *AuthPolicy, refs c
 		AlwaysSetCookie:     false,
 		SigninUrl:           []string{},
 	}
-	err := ReassignStructViaMapping(forward, fp, ReassignStructOpt{
-		Resolver: map[string]func(l, r reflect.Value, root reflect.Value) error{
-			"resolve_varstring": func(l, r reflect.Value, _ reflect.Value) error {
-				ls := l.Interface().(string)
-				var_str, err := ParseVarString(ls)
+	err := ReAssignForwardAuthInCrToForwardAuthPolicy(forward, fp, &ReAssignForwardAuthInCrToForwardAuthPolicyOpt{
+		Resolve_proxy_set_headers: func(cm_ref string) (map[string]VarString, error) {
+			rv := map[string]VarString{}
+			if cm_ref == "" {
+				return rv, nil
+			}
+			cm_key, err := ParseStringToObjectKey(cm_ref)
+			if err != nil {
+				return nil, err
+			}
+			cm, ok := refs.ConfigMap[cm_key]
+			if !ok {
+				fp.InvalidAuthReqCmRef = true
+				log.Info("cm not found", "key", cm_key)
+				return nil, nil
+			}
+			for k, v := range cm.Data {
+				var_str, err := ParseVarString(v)
 				if err != nil {
-					return err
+					return nil, err
 				}
-				r.Set(reflect.ValueOf(var_str))
-				return nil
-			},
-			"resolve_proxy_set_headers": func(l, r reflect.Value, root reflect.Value) error {
-				cm_ref := l.Interface().(string)
-				if cm_ref == "" {
-					return nil
-				}
-				root_real := root.Interface().(*ForwardAuthPolicy)
-				root_real.AuthHeaders = map[string]VarString{}
-				cm_key, err := ParseStringToObjectKey(cm_ref)
-				if err != nil {
-					return err
-				}
-				rv := r.Interface().(map[string]VarString)
-				cm, ok := refs.ConfigMap[cm_key]
-				if !ok {
-					root_real.InvalidAuthReqCmRef = true
-					log.Info("cm not found", "key", cm_key)
-					return nil
-				}
-				for k, v := range cm.Data {
-					var_str, err := ParseVarString(v)
-					if err != nil {
-						return err
-					}
-					rv[k] = var_str
-				}
-				return nil
-			},
+				rv[k] = var_str
+			}
+			return rv, nil
 		},
+		Resolve_varstring: ParseVarString,
 	})
 	if err != nil {
 		log.Error(err, "gen policy fail")

@@ -238,6 +238,7 @@ function _apd_find_ng_worker_pid_in_docker() (
 )
 
 function alb-perf-go-policy-gen() (
+  export RULE_PERF="true"
   ginkgo -focus "should ok when has 5k rule" -v ./test/e2e
   go tool pprof -raw ./test/e2e/rule-perf-cpu >cpu.raw
   stackcollapse-go.pl ./cpu.raw >cpu.folded

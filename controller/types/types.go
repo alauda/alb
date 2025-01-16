@@ -1,9 +1,6 @@
 package types
 
 import (
-	"reflect"
-	"strings"
-
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
@@ -234,7 +231,7 @@ const (
 	Timeout         PolicyExtKind = "timeout"
 	Otel            PolicyExtKind = "otel"
 	Waf             PolicyExtKind = "waf"
-	AUTH            PolicyExtKind = "auth"
+	Auth            PolicyExtKind = "auth"
 )
 
 type PolicyExt struct {
@@ -250,33 +247,43 @@ type PolicyExtCfg struct {
 	Refs map[PolicyExtKind]string `json:"refs"`
 }
 
+// TODO use code-gen
 func (p *PolicyExt) Clean(key PolicyExtKind) {
-	vp := reflect.ValueOf(p)
-	tp := reflect.TypeOf(*p)
-	for i := 0; i < tp.NumField(); i++ {
-		tf := tp.Field(i)
-		kind := strings.Split(tf.Tag.Get("json"), ",")[0]
-		if kind == string(key) {
-			vp.Elem().Field(i).SetZero()
-		}
+	if key == RewriteRequest {
+		p.RewriteRequest = nil
+	}
+	if key == RewriteResponse {
+		p.RewriteResponse = nil
+	}
+	if key == Timeout {
+		p.Timeout = nil
+	}
+	if key == Otel {
+		p.Otel = nil
+	}
+	if key == Auth {
+		p.Auth = nil
 	}
 }
 
 // 将其转换为map方便后续去重
+// TODO use code-gen
 func (p PolicyExt) ToMaps() PolicyExtMap {
 	m := PolicyExtMap{}
-	vp := reflect.ValueOf(p)
-	tp := reflect.TypeOf(p)
-	for i := 0; i < tp.NumField(); i++ {
-		tf := tp.Field(i)
-		kind := strings.Split(tf.Tag.Get("json"), ",")[0]
-		vf := vp.Field(i)
-		ext := PolicyExt{}
-		vext := reflect.ValueOf(&ext)
-		if !vf.IsNil() {
-			vext.Elem().Field(i).Set(vf)
-			m[PolicyExtKind(kind)] = &ext
-		}
+	if p.RewriteResponse != nil {
+		m[RewriteResponse] = &PolicyExt{RewriteResponse: p.RewriteResponse}
+	}
+	if p.RewriteRequest != nil {
+		m[RewriteRequest] = &PolicyExt{RewriteRequest: p.RewriteRequest}
+	}
+	if p.Timeout != nil {
+		m[Timeout] = &PolicyExt{Timeout: p.Timeout}
+	}
+	if p.Otel != nil {
+		m[Otel] = &PolicyExt{Otel: p.Otel}
+	}
+	if p.Auth != nil {
+		m[Auth] = &PolicyExt{Auth: p.Auth}
 	}
 	return m
 }

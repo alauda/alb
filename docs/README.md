@@ -6,4 +6,5 @@
 [[rules]]  
 [[errorpage]]  
 [[feature/otel/otel]]  
-[[modsecurity.en]]  
+[[modsecurity.en]]
+[[auth]]

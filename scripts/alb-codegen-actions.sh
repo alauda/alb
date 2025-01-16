@@ -75,3 +75,16 @@ function alb-gen-depgraph() (
   goda graph "alauda.io/alb2/... - alauda.io/alb2/utils/... - alauda.io/alb2/pkg/utils/... - alauda.io/alb2/pkg/apis/... - alauda.io/alb2/pkg/client/...  - alauda.io/alb2/migrate/...  - alauda.io/alb2/test/..." >./alb.dep
   cat ./alb.dep | dot -Tsvg -o graph.svg
 )
+
+function alb-gen-mapping() (
+  while read -r file; do
+    echo "rm $file"
+    rm "$file"
+  done < <(find ./ -name "codegen_mapping_*" -type f)
+  go run ./cmd/utils/map_gen/main.go
+  while read -r file; do
+    echo "fmt $file"
+    go fmt "$file"
+    gofumpt -w "$file"
+  done < <(find ./ -name "codegen_mapping_*" -type f)
+)
