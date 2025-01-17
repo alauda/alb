@@ -1,20 +1,20 @@
-<svg width="135.9" height="20" viewBox="0 0 1359 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="lua-coverage: 65.98%">
-  <title>lua-coverage: 65.98%</title>
-  <linearGradient id="Ysicm" x2="0" y2="100%">
+<svg width="135.9" height="20" viewBox="0 0 1359 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="lua-coverage: 61.85%">
+  <title>lua-coverage: 61.85%</title>
+  <linearGradient id="hLmQk" x2="0" y2="100%">
     <stop offset="0" stop-opacity=".1" stop-color="#EEE"/>
     <stop offset="1" stop-opacity=".1"/>
   </linearGradient>
-  <mask id="giRGp"><rect width="1359" height="200" rx="30" fill="#FFF"/></mask>
-  <g mask="url(#giRGp)">
+  <mask id="btbfF"><rect width="1359" height="200" rx="30" fill="#FFF"/></mask>
+  <g mask="url(#btbfF)">
     <rect width="819" height="200" fill="#555"/>
     <rect width="540" height="200" fill="#F73" x="819"/>
-    <rect width="1359" height="200" fill="url(#Ysicm)"/>
+    <rect width="1359" height="200" fill="url(#hLmQk)"/>
   </g>
   <g aria-hidden="true" fill="#fff" text-anchor="start" font-family="Verdana,DejaVu Sans,sans-serif" font-size="110">
     <text x="60" y="148" textLength="719" fill="#000" opacity="0.25">lua-coverage</text>
     <text x="50" y="138" textLength="719">lua-coverage</text>
-    <text x="874" y="148" textLength="440" fill="#000" opacity="0.25">65.98%</text>
-    <text x="864" y="138" textLength="440">65.98%</text>
+    <text x="874" y="148" textLength="440" fill="#000" opacity="0.25">61.85%</text>
+    <text x="864" y="138" textLength="440">61.85%</text>
   </g>
   
 </svg>
