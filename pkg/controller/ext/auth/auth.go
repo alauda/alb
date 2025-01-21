@@ -16,25 +16,6 @@ import (
 	ngt "alauda.io/alb2/pkg/controller/ngxconf/types"
 )
 
-// [nginx.ingress.kubernetes.io/auth-realm]
-// [nginx.ingress.kubernetes.io/auth-secret]
-// [nginx.ingress.kubernetes.io/auth-secret-type]
-// [nginx.ingress.kubernetes.io/auth-type]
-
-// [nginx.ingress.kubernetes.io/auth-url]
-// [nginx.ingress.kubernetes.io/auth-method]
-// [nginx.ingress.kubernetes.io/auth-proxy-set-headers] # 从configmap中获取，go部分将其转换成具体的map
-// [nginx.ingress.kubernetes.io/auth-request-redirect]
-// [nginx.ingress.kubernetes.io/auth-response-headers]
-// [nginx.ingress.kubernetes.io/auth-signin]
-// [nginx.ingress.kubernetes.io/auth-always-set-cookie]
-// [nginx.ingress.kubernetes.io/auth-signin-redirect-param] # go部分根据这个annotation修改sign的var_string
-
-// not supported
-// [nginx.ingress.kubernetes.io/auth-snippet]
-// [nginx.ingress.kubernetes.io/auth-cache-duration]
-// [nginx.ingress.kubernetes.io/auth-cache-key]
-
 type AuthCtl struct {
 	L       logr.Logger
 	domain  string
@@ -57,7 +38,7 @@ func NewAuthCtl(l logr.Logger, domain string) *AuthCtl {
 
 func (a *AuthCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule) {
 	auth_ingress := AuthIngress{}
-	_ = ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("alb.ingress.%s/index/%d-%d", a.domain, ruleIndex, pathIndex), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
+	_ = ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("index.%d-%d.alb.ingress.%s", ruleIndex, pathIndex, a.domain), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
 	if auth_ingress.Enable == "false" {
 		return
 	}

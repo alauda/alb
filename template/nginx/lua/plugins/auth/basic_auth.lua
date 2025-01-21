@@ -83,7 +83,7 @@ _m.verify = function (pass, hash)
     local calculate_hash = crypt.apr1(pass, hash.salt)
 
     if calculate_hash == hash.hash then
-        lru:set(cache_key, pass, 60 * 60)
+        lru:set(cache_key, pass, 5 * 60)
         return true
     end
     return false

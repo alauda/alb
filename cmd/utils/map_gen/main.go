@@ -77,6 +77,21 @@ func find_field_via_key(t reflect.Type, key string) *reflect.StructField {
 	return nil
 }
 
+func field_type(v reflect.Type) string {
+	if v.Kind() == reflect.Ptr ||
+		v.Kind() == reflect.Interface ||
+		v.Kind() == reflect.Slice ||
+		v.Kind() == reflect.Map ||
+		v.Kind() == reflect.Chan ||
+		v.Kind() == reflect.Func {
+		return "pointer"
+	}
+	if v.Kind() == reflect.String {
+		return "string"
+	}
+	return "other"
+}
+
 func trans(lt reflect.Type, rt reflect.Type) (string, error) {
 	TEMPLATE := `
 package {{.pkg}}
@@ -120,7 +135,17 @@ var ReAssign{{.from}}To{{.to}}Trans = map[string]func(lt *{{.from}}, rt *{{.to}}
 func ReAssign{{.from}}To{{.to}}(lt *{{.from}}, rt *{{.to}}, opt *ReAssign{{.from}}To{{.to}}Opt) error {
     {{ range $name, $field_cfg := .field_map }}
     {{ if not $field_cfg.trans_name  -}}
-    rt{{$field_cfg.r_access}} = lt{{$field_cfg.l_access}}
+		{{ if eq $field_cfg.type "pointer" }}
+    	if lt{{$field_cfg.l_access}} != nil {
+          rt{{$field_cfg.r_access}} = lt{{$field_cfg.l_access}}
+    	}
+        {{ else if eq $field_cfg.type "string" }}
+        if lt{{$field_cfg.l_access}} != "" {
+          rt{{$field_cfg.r_access}} = lt{{$field_cfg.l_access}}
+        }
+        {{ else }}
+        rt{{$field_cfg.r_access}} = lt{{$field_cfg.l_access}}
+        {{ end }}
     {{- end -}}
     {{- end }}
     for _, m := range ReAssign{{.from}}To{{.to}}Trans {
@@ -162,6 +187,7 @@ func ReAssign{{.from}}To{{.to}}(lt *{{.from}}, rt *{{.to}}, opt *ReAssign{{.from
 		fieldCfg := make(map[string]string)
 		fieldCfg["l_access"] = "." + lf.Name
 		fieldCfg["r_access"] = "." + rf.Name
+		fieldCfg["type"] = field_type(rf.Type)
 
 		// 检查是否需要特殊转换
 		trans := upperFirst(rf.Tag.Get("trans"))

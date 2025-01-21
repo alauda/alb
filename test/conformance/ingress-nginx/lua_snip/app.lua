@@ -4,6 +4,10 @@ if ngx.var.uri == "/ok" then
     return
 end
 local id = ngx.var.http_id
+if id == nil then
+    ngx.say("ok")
+    return
+end
 ngx.log(ngx.INFO, "im app " .. id)
 local h, err = ngx.req.get_headers()
 if err ~= nil then

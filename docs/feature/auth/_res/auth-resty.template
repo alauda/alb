@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-resty-lua
+data:
+  nginx.conf: |
+    events {
+      worker_connections 1024;
+    }
+    http {
+      lua_shared_dict state 10m;
+      lua_package_path '/usr/local/lib/lua/?.lua;/usr/local/openresty/lualib/?.lua;/usr/local/openresty/site/lualib/?.lua;/alb/nginx/lua/?.lua;;';
+      lua_package_cpath '/usr/local/lib/lua/?.so;;';
+      server {
+        listen 80;
+        access_log /dev/stdout;
+        error_log /dev/stdout info;
+        location /state {
+          content_by_lua_file /etc/nginx/state.lua;
+        }
+        location /auth {
+          content_by_lua_file /etc/nginx/auth.lua;
+        }
+        location / {
+          content_by_lua_file /etc/nginx/app.lua;
+        }
+      }
+    }
+
+  state.lua: |
+    ngx.req.read_body()
+    ngx.log(ngx.INFO,"im state " .. ngx.var.http_id .. " " .. tostring(ngx.var.request_method) .. " " .. tostring(ngx.req.get_body_data()))
+    local id = ngx.var.http_id
+    local c = require("utils.common")
+
+    if ngx.shared.state:get(id) == nil then
+        ngx.shared.state:set(id, c.json_encode({}, true))
+    end
+
+    if ngx.var.request_method == "PUT" then
+        ngx.shared.state:set(id .. "-cfg", ngx.req.get_body_data())
+        ngx.log(ngx.INFO,"im set cfg " .. id .. " " .. ngx.req.get_body_data())
+        ngx.say("OK")
+        return
+    end
+    if ngx.var.request_method == "GET" then
+        local out = ngx.shared.state:get(id) or "{}"
+        ngx.log(ngx.INFO, "state is " .. id .. " " .. tostring(out))
+        ngx.header["Content-Type"] = "application/json"
+        ngx.say(out)
+    end
+
+  auth.lua: |
+    local c = require("utils.common")
+    ngx.log(ngx.INFO, "im auth")
+    local id = ngx.var.http_id
+    local h, err = ngx.req.get_headers()
+    if err ~= nil then
+        ngx.log(ngx.ERR, "err: " .. tostring(err))
+    end
+
+    if ngx.shared.state:get(id) == nil then
+        local data = c.json_encode({}, true)
+        ngx.log(ngx.ERR, "init state ", data, id)
+        ngx.shared.state:set(id, data)
+    end
+
+    ngx.log(ngx.ERR, "state is " .. id .. " " .. tostring(ngx.shared.state:get(id)))
+    local data = c.json_decode(ngx.shared.state:get(id))
+    data["/auth"] = h
+    data["auth-meta"] = {
+        method = ngx.var.request_method,
+        uri = ngx.var.request_uri,
+    }
+    ngx.shared.state:set(id, c.json_encode(data))
+
+    for k, v in pairs(h) do
+        ngx.log(ngx.ERR, "auth " .. tostring(k) .. " : " .. tostring(v))
+    end
+
+    ngx.log(ngx.ERR, "state cfg ", ngx.shared.state:get(id .. "-cfg"))
+    local cfg = c.json_decode(ngx.shared.state:get(id .. "-cfg"))
+    for k, v in pairs(cfg.auth_response_header) do
+        ngx.header[k] = v
+    end
+
+    ngx.log(ngx.ERR, "auth exit with " .. tostring(cfg.auth_exit))
+    ngx.status = cfg.auth_exit
+    ngx.exit(cfg.auth_exit)
+    ngx.say(cfg.auth_response_body)
+
+  app.lua: |
+    local c = require("utils.common")
+    ngx.log(ngx.INFO, "im app")
+    local id = ngx.var.http_id
+    
+    if ngx.var.uri == "/ok" or id == nil then
+        ngx.say("ok")
+        return
+    end
+    local h, err = ngx.req.get_headers()
+    if err ~= nil then
+        ngx.log(ngx.ERR, "err: " .. tostring(err))
+    end
+
+
+    local data = c.json_decode(ngx.shared.state:get(id))
+    data["/"] = h
+    data["app-meta"] = {
+        method = ngx.var.request_method,
+        uri = ngx.var.request_uri,
+    }
+    ngx.shared.state:set(id, c.json_encode(data))
+
+    for k, v in pairs(h) do
+        ngx.log(ngx.ERR, "app " .. tostring(k) .. " : " .. tostring(v))
+    end
+
+    local cfg = c.json_decode(ngx.shared.state:get(id .. "-cfg"))
+    for k, v in pairs(cfg.app_response_header) do
+        ngx.header[k] = v
+    end
+    ngx.status = cfg.app_exit
+    ngx.say(cfg.app_response_body)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-resty
+  labels:
+    k8s-app: auth-resty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: auth-resty
+  template:
+    metadata:
+      labels:
+        k8s-app: auth-resty
+    spec:
+      containers:
+        - name: auth-resty
+          image: ALB_IMAGE
+          command: ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+          ports:
+            - containerPort: 80
+              hostPort: 60080
+          volumeMounts:
+            - name: lua
+              mountPath: /etc/nginx
+      volumes:
+        - name: lua
+          configMap:
+            name: auth-resty-lua
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-server
+  labels:
+    k8s-app: auth-resty
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    k8s-app: auth-resty
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-server
+  labels:
+    k8s-app: auth-resty
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    k8s-app: auth-resty

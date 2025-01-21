@@ -46,9 +46,14 @@ var ReAssignForwardAuthInCrToForwardAuthPolicyTrans = map[string]func(lt *Forwar
 
 func ReAssignForwardAuthInCrToForwardAuthPolicy(lt *ForwardAuthInCr, rt *ForwardAuthPolicy, opt *ReAssignForwardAuthInCrToForwardAuthPolicyOpt) error {
 	rt.AlwaysSetCookie = lt.AlwaysSetCookie
-	rt.Method = lt.Method
 
-	rt.UpstreamHeaders = lt.UpstreamHeaders
+	if lt.Method != "" {
+		rt.Method = lt.Method
+	}
+
+	if lt.UpstreamHeaders != nil {
+		rt.UpstreamHeaders = lt.UpstreamHeaders
+	}
 
 	for _, m := range ReAssignForwardAuthInCrToForwardAuthPolicyTrans {
 		err := m(lt, rt, opt)

@@ -21,7 +21,6 @@ function _m.do_forward_auth_if_need(auth_cfg, ctx)
             ngx.header["Set-Cookie"] = ret.cookie
         end
         if ret.code ~= 302 then
-            ngx.log(ngx.ERR, "[wg] auth fail: ", ret.error_reason)
             alb_err.exit_with_code(alb_err.AUTHFAIL, ret.error_reason, ret.code)
             ngx.say(ret.body)
             return
@@ -141,6 +140,7 @@ function _m.send_auth_request(auth, ctx)
     ret.url = req.url
 
     local httpc = require("resty.http").new()
+    httpc:set_timeout(5 * 1000) -- TODO timeout
     local res, err = httpc:request_uri(req.url, req)
     if err ~= nil then
         ngx.log(ngx.ERR, "do auth, send request fail: ", tostring(err))

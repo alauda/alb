@@ -19,15 +19,20 @@ type ForwardAuthCtl struct {
 func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *AuthCr) {
 	auth_cr.Forward = &ForwardAuthInCr{
 		Url:                 "",
-		Method:              "",
+		Method:              "GET",
 		AuthHeadersCmRef:    "",
 		AuthRequestRedirect: "",
+		UpstreamHeaders:     []string{},
 		Signin:              "",
 		AlwaysSetCookie:     false,
 		SigninRedirectParam: "",
 	}
 	_ = ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, auth_cr.Forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
 		Resolve_response_headers: func(ls string) ([]string, error) {
+			ls = strings.TrimSpace(ls)
+			if ls == "" {
+				return []string{}, nil
+			}
 			return strings.Split(ls, ","), nil
 		},
 	})

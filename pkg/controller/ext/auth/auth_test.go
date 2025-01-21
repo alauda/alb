@@ -169,7 +169,7 @@ var _ = Describe("auth", func() {
 		assert.Equal(t, aa, AA{A: A{F1: "123", F2: "xyz"}, B: "hi"})
 	})
 
-	It("resolve ingress annotation should ok ", func() {
+	It("resolve ingress annotation should ok", func() {
 		type Case struct {
 			title       string
 			annotations map[string]string
@@ -186,7 +186,16 @@ var _ = Describe("auth", func() {
 				},
 				rule_assert: func(mr *av1.Rule) {
 					assert.Equal(t, mr.Spec.Config.Auth.Forward.Url, "https://$host/oauth2/auth")
+					assert.Equal(t, mr.Spec.Config.Auth.Forward.UpstreamHeaders, []string{})
 					assert.Equal(t, mr.Spec.Config.Auth.Forward.Signin, "https://$host/oauth2/start?rd=$escaped_request_uri")
+					l.Info("default value", "json", u.PrettyJson(mr.Spec.Config.Auth))
+					GinkgoAssertJsonEq(mr.Spec.Config.Auth.Basic, `
+                    {
+     					"url": "https://$host/oauth2/auth",
+        				"method": "GET",
+        				"signin": "https://$host/oauth2/start?rd=$escaped_request_uri"
+                    }
+					`, "")
 				},
 			},
 			{
@@ -205,8 +214,8 @@ var _ = Describe("auth", func() {
 				annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/auth-url":       "https://$host/oauth2/auth",
 					"nginx.ingress.kubernetes.io/auth-signin":    "https://$host/oauth2/start?rd=$escaped_request_uri",
-					"alb.ingress.cpaas.io/index/0-0/auth-url":    "a.com",
-					"alb.ingress.cpaas.io/index/0-0/auth-signin": "b.com",
+					"index.0-0.alb.ingress.cpaas.io/auth-url":    "a.com",
+					"index.0-0.alb.ingress.cpaas.io/auth-signin": "b.com",
 				},
 				rule_assert: func(mr *av1.Rule) {
 					assert.Equal(t, mr.Spec.Config.Auth.Forward.Url, "a.com")
@@ -243,7 +252,7 @@ var _ = Describe("auth", func() {
                         "auth_type": "basic",
                         "realm": "default",
                         "secret": "cpaas-system/auth-secret",
-                        "secret_type": "auth-file",
+                        "secret_type": "auth-file"
                     }
 					`, "")
 				},
@@ -286,6 +295,7 @@ var _ = Describe("auth", func() {
 							Forward: &ForwardAuthInCr{
 								Url:              "https://$host/oauth2/auth",
 								AuthHeadersCmRef: "cpaas-system/auth-cm",
+								UpstreamHeaders:  nil,
 							},
 						},
 					},
@@ -345,14 +355,15 @@ var _ = Describe("auth", func() {
 						{Name: "auth-file", Namespace: "cpaas-system"}: {
 							Type: corev1.SecretTypeOpaque,
 							Data: map[string][]byte{
-								//             foo:$apr1$qICNZ61Q$2iooiJVUAMmprq258/ChP1                   //  cspell:disable-line
-								"auth": []byte("Zm9vOiRhcHIxJHFJQ05aNjFRJDJpb29pSlZVQU1tcHJxMjU4L0NoUDE"), //  cspell:disable-line
+								// 对secret中data的解码是client-go做的，这里我们是mock secret，所以不需要base64
+								"auth": []byte("foo:$apr1$qICNZ61Q$2iooiJVUAMmprq258/ChP1"), //  cspell:disable-line
 							},
 						},
 					},
 				},
 				p_assert: func(p *Policy) {
 					l.Info("policy", "auth", u.PrettyJson(p.Config.Auth))
+
 					/* cspell:disable-next-line */
 					GinkgoAssertJsonEq(p.Config.Auth.Basic.Secret["foo"], `{"algorithm":"apr1","hash":"2iooiJVUAMmprq258/ChP1","name":"foo","salt":"qICNZ61Q"}`, "")
 				},
@@ -376,7 +387,7 @@ var _ = Describe("auth", func() {
 						{Name: "auth-map", Namespace: "cpaas-system"}: {
 							Type: corev1.SecretTypeOpaque,
 							Data: map[string][]byte{
-								"foo": []byte("JGFwcjEkcUlDTlo2MVEkMmlvb2lKVlVBTW1wcnEyNTgvQ2hQMQ"), //  cspell:disable-line
+								"foo": []byte("$apr1$qICNZ61Q$2iooiJVUAMmprq258/ChP1"), //  cspell:disable-line
 							},
 						},
 					},
@@ -395,7 +406,7 @@ var _ = Describe("auth", func() {
 			}
 			a_ctl := NewAuthCtl(l, "cpaas.io")
 			a_ctl.ToPolicy(c.rule, p, c.refs)
-			l.Info("policy", "p", pretty.Sprint(p))
+			l.Info("policy", "title", c.title, "p", pretty.Sprint(p))
 			c.p_assert(p)
 		}
 	})

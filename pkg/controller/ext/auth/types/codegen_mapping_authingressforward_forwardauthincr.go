@@ -33,13 +33,30 @@ var ReAssignAuthIngressForwardToForwardAuthInCrTrans = map[string]func(lt *AuthI
 }
 
 func ReAssignAuthIngressForwardToForwardAuthInCr(lt *AuthIngressForward, rt *ForwardAuthInCr, opt *ReAssignAuthIngressForwardToForwardAuthInCrOpt) error {
-	rt.Method = lt.Method
-	rt.AuthHeadersCmRef = lt.ProxySetHeaders
-	rt.AuthRequestRedirect = lt.RequestRedirect
+	if lt.Method != "" {
+		rt.Method = lt.Method
+	}
 
-	rt.Signin = lt.Signin
-	rt.SigninRedirectParam = lt.SigninRedirectParam
-	rt.Url = lt.Url
+	if lt.ProxySetHeaders != "" {
+		rt.AuthHeadersCmRef = lt.ProxySetHeaders
+	}
+
+	if lt.RequestRedirect != "" {
+		rt.AuthRequestRedirect = lt.RequestRedirect
+	}
+
+	if lt.Signin != "" {
+		rt.Signin = lt.Signin
+	}
+
+	if lt.SigninRedirectParam != "" {
+		rt.SigninRedirectParam = lt.SigninRedirectParam
+	}
+
+	if lt.Url != "" {
+		rt.Url = lt.Url
+	}
+
 	for _, m := range ReAssignAuthIngressForwardToForwardAuthInCrTrans {
 		err := m(lt, rt, opt)
 		if err != nil {

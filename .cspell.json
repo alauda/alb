@@ -3,6 +3,8 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "HOSTIP",
+        "htpasswd",
         "testlink",
         "rshift",
         "restry",
@@ -697,5 +699,18 @@
         "shmap",
         "trimed",
         "notemptystring",
+        // make cspell happy
+        "Zm9vOiRhcHIxJHFJQ05aNjFRJDJpb29pSlZVQU1tcHJxMjU4L0NoUDE=",
+        "JGFwcjEkcUlDTlo2MVEkMmlvb2lKVlVBTW1wcnEyNTgvQ2hQMQ==",
+        "qICNZ61Q",
+        "2iooiJVUAMmprq258",
+        "NDFKQV",
+        "Flbj",
+        "Etrel",
+        "Jhcg",
+        "Ympo",
+    ],
+    "ignoreRegExpList": [
+        "foo:.*"
     ]
 }

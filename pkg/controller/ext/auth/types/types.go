@@ -36,6 +36,7 @@ type ForwardAuthInCr struct {
 	Url string `json:"url,omitempty" key:"url"`
 
 	// +optional
+	// +kubebuilder:default="GET"
 	Method string `json:"method,omitempty" key:"method"`
 	// +optional
 	AuthHeadersCmRef string `json:"auth_headers_cm_ref,omitempty" key:"proxy_set_headers"`
@@ -46,6 +47,7 @@ type ForwardAuthInCr struct {
 	// +optional
 	Signin string `json:"signin,omitempty" key:"signin"`
 	// +optional
+	// +kubebuilder:default=false
 	AlwaysSetCookie bool `json:"always_set_cookie,omitempty" key:"always_set_cookie" trans:"from_bool"`
 	// +optional
 	SigninRedirectParam string `json:"signin_redirect_param,omitempty" key:"signin_redirect_param"`

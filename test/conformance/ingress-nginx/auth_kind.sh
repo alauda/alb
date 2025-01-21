@@ -12,6 +12,15 @@ function auth-note() {
   return
 }
 
+function auth-ingress-nginx-conformance() (
+  local chart=$1
+  auth-kind $chart
+
+  kind get kubeconfig --name=auth >~/.kube/auth
+  export KUBECONFIG=~/.kube/auth
+  ginkgo -v ./test/conformance/ingress-nginx
+)
+
 function auth-kind() (
   local chart="$1"
 
@@ -289,7 +298,7 @@ function loop() (
   md5sum $PWD/bin/alb
   local alb_pod=$(kubectl get po -n cpaas-system --no-headers | grep auth | awk '{print $1}')
   kubectl cp $PWD/bin/alb cpaas-system/$alb_pod:/alb/ctl/alb -c alb2
-#   kubectl cp $PWD/template/nginx/lua cpaas-system/$alb_pod:/alb/nginx/luax -c nginx
-#   ./bin/tools/dirhash ./template/nginx/lua
-#   kubectl exec -n cpaas-system $alb_pod -c nginx -- sh -c 'rm -rf /alb/nginx/lua && mv /alb/nginx/luax /alb/nginx/lua &&  /alb/tools/dirhash /alb/nginx/lua/'
+  #   kubectl cp $PWD/template/nginx/lua cpaas-system/$alb_pod:/alb/nginx/luax -c nginx
+  #   ./bin/tools/dirhash ./template/nginx/lua
+  #   kubectl exec -n cpaas-system $alb_pod -c nginx -- sh -c 'rm -rf /alb/nginx/lua && mv /alb/nginx/luax /alb/nginx/lua &&  /alb/tools/dirhash /alb/nginx/lua/'
 )

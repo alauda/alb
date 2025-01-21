@@ -72,12 +72,14 @@ spec:
                         description: auth via forward request
                         properties:
                           always_set_cookie:
+                            default: false
                             type: boolean
                           auth_headers_cm_ref:
                             type: string
                           auth_request_redirect:
                             type: string
                           method:
+                            default: GET
                             type: string
                           signin:
                             type: string

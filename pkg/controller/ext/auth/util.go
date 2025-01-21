@@ -10,6 +10,9 @@ import (
 // 这里我们假设不会有这种异常的annotation
 func ParseVarString(s string) (VarString, error) {
 	ret := VarString{}
+	if strings.TrimSpace(s) == "" {
+		return ret, nil
+	}
 	if !strings.Contains(s, "$") {
 		ret = append(ret, s)
 		return ret, nil

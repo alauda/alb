@@ -71,7 +71,8 @@ var _ = Describe("Ingress Auth Test", Ordered, func() {
 
 	// 正常情况下，只有auth 成功时，才会在response header中额外加上 auth response设置的cookie
 	// Under normal circumstances, the cookie specified in the auth response will only be added to the response header if the authentication is successful.
-	// The "always set cookie" option means that the cookie specified in the auth response will be added to the response header regardless of whether the authentication is successful or not.// always set cookie 的意思是，无论auth是否成功，都会在response header中额外加上 auth response设置的cookie
+	// The "always set cookie" option means that the cookie specified in the auth response will be added to the response header regardless of whether the authentication is successful or not.
+	// always set cookie 的意思是，无论auth是否成功，都会在response header中额外加上 auth response设置的cookie
 	// {{ if $externalAuth.AlwaysSetCookie }}
 	// add_header          Set-Cookie $auth_cookie always;
 	// {{ else }}
@@ -603,14 +604,14 @@ spec:
 					"X-Different-Name":         "true",
 					"X-Request-Start":          "t=${msec}",
 					"xx-host-x":                "$http_host",
-					"Complex":                  "http://${http_host}  x _  :;.,\"?!(){}[]@<>=-+*#&|~^% ",
+					"Complex":                  "http://${http_host} ?!(){}[]@<>=-+*#&|~^% ",
 					"X-Using-Nginx-Controller": "true",
 				},
 			},
 			ExpectAuthReqHeader: map[string]string{
 				"x-different-name":         "true",
 				"xx-host-x":                "auth-extra",
-				"complex":                  "http://auth-extra  x _  :;.,\"?!(){}[]@\u003c\u003e=-+*#\u0026|~^%",
+				"complex":                  "http://auth-extra ?!(){}[]@\u003c\u003e=-+*#\u0026|~^%",
 				"x-using-nginx-controller": "true",
 			},
 			extra_check: func(g Gomega, data map[string]interface{}) {

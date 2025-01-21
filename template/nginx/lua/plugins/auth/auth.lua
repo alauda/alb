@@ -34,30 +34,6 @@ function _m.response_header_filter_hook(ctx)
     forward_auth.add_cookie_if_need(ctx)
 end
 
--- [nginx.ingress.kubernetes.io/auth-keepalive]
--- [nginx.ingress.kubernetes.io/auth-keepalive-requests]
--- [nginx.ingress.kubernetes.io/auth-keepalive-timeout]
-
--- [nginx.ingress.kubernetes.io/auth-realm]
--- [nginx.ingress.kubernetes.io/auth-secret]
--- [nginx.ingress.kubernetes.io/auth-secret-type]
--- [nginx.ingress.kubernetes.io/auth-type]
-
-
--- [nginx.ingress.kubernetes.io/auth-url]
--- [nginx.ingress.kubernetes.io/auth-method]
--- [nginx.ingress.kubernetes.io/auth-proxy-set-headers] # 从configmap中获取，go部分将其转换成具体的map
--- [nginx.ingress.kubernetes.io/auth-request-redirect]
--- [nginx.ingress.kubernetes.io/auth-response-headers]
--- [nginx.ingress.kubernetes.io/auth-signin]
--- [nginx.ingress.kubernetes.io/auth-always-set-cookie]
--- [nginx.ingress.kubernetes.io/auth-signin-redirect-param] # go部分根据这个annotation修改sign的var_string
--- not supported
--- [nginx.ingress.kubernetes.io/auth-snippet]
--- [nginx.ingress.kubernetes.io/auth-cache-duration]
--- [nginx.ingress.kubernetes.io/auth-cache-key]
-
----
 ---@param ctx AlbCtx
 ---@return AuthPolicy?
 ---@return any? error
