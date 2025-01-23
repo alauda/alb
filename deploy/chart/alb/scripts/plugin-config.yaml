@@ -16,20 +16,23 @@ valuesTemplates:
     <<- if eq .ClusterName "global" >>
       <<- if (and (eq .ClusterType "Baremetal") (eq .Base.DeployType "ImportedGlobal")) >>
         <<- $nodeSelector = (printf "node-role.kubernetes.io/control-plane: %s" (quote "")) >>
+        <<- $ingressHTTPPort = 0 >>
+        <<- $ingressHTTPSPort = 0 >>
+        <<- $defaultSSLStrategy = "Always" >>
       <<- else >>
         <<- labelClusterNode "global" "ingress" "true" .Base.Ingress.Controller.Nodes >>
         <<- $nodeSelector = (printf "ingress: %s" (quote "true")) >>
+        <<- $ingressHTTPPort = .Base.HTTP.HTTPPort >>
+        <<- $ingressHTTPSPort = .Base.HTTP.HTTPSPort >>
+        <<- if .Base.HTTP.ForceRedirectHTTPS >>
+          <<- $defaultSSLStrategy = "Always" >>
+        <<- else >>
+          <<- $defaultSSLStrategy = "Both" >>
+        <<- end >>
       <<- end >>
       <<- $replicas = (len .Base.Ingress.Controller.Nodes) >>
-      <<- $ingressHTTPPort = .Base.HTTP.HTTPPort >>
-      <<- $ingressHTTPSPort = .Base.HTTP.HTTPSPort >>
       <<- $loadbalancerName = "global-alb2" >>
       <<- $defaultSSLCert = (printf "%s/dex.tls" .SystemNamespace) >>
-      <<- if .Base.HTTP.ForceRedirectHTTPS >>
-        <<- $defaultSSLStrategy = "Always" >>
-      <<- else >>
-        <<- $defaultSSLStrategy = "Both" >>
-      <<- end >>
       <<- $projects = "cpaas-system" >>
     <<- else >>
       <<- $ns := (lookup .ClusterName "v1" "Namespace" "" .SystemNamespace) >>

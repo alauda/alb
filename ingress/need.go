@@ -58,9 +58,12 @@ func getIngressFtTypes(ing *networkingv1.Ingress, c *config.Config) Need {
 			}
 		}
 	}
-	// NOTE 实现了关闭80端口的能力
+	// NOTE 实现了关闭80/443端口的能力
 	if c.GetIngressHttpPort() == 0 {
 		needFtTypes.Remove(m.ProtoHTTP)
+	}
+	if c.GetIngressHttpsPort() == 0 {
+		needFtTypes.Remove(m.ProtoHTTPS)
 	}
 	return Need{
 		s: needFtTypes,
