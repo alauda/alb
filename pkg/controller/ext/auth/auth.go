@@ -38,7 +38,11 @@ func NewAuthCtl(l logr.Logger, domain string) *AuthCtl {
 
 func (a *AuthCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule) {
 	auth_ingress := AuthIngress{}
-	_ = ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("index.%d-%d.alb.ingress.%s", ruleIndex, pathIndex, a.domain), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
+	err := ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("index.%d-%d.alb.ingress.%s", ruleIndex, pathIndex, a.domain), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
+	if err != nil {
+		a.L.Error(err, "failed to resolve auth ingress", "ing", ingress.Name, "ing-ns", ingress.Namespace)
+		return
+	}
 	if auth_ingress.Enable == "false" {
 		return
 	}

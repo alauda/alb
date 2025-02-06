@@ -172,7 +172,6 @@ func (c *Controller) RemoveIngressStatusAaddress(address []string, ing *n1.Ingre
 		ing.Status.LoadBalancer.Ingress = status
 		newing, err := c.kd.UpdateIngressStatus(ing)
 		if err != nil {
-			c.log.Error(err, "delete ingress status update fail")
 			return err
 		}
 		c.log.Info("update ingress status to remove myself success", "myself", addressMap, "new", status, "old", old.Status.LoadBalancer.Ingress, "diff", cmp.Diff(old.Status, newing.Status))
@@ -191,7 +190,10 @@ func (c *Controller) onAlbDelete(alb *alb2v2.ALB2) {
 
 	addressList := listAddress(alb).ToList()
 	for _, ing := range ings {
-		_ = c.RemoveIngressStatusAaddress(addressList, ing)
+		err = c.RemoveIngressStatusAaddress(addressList, ing)
+		if err != nil {
+			l.Error(err, "remove ingress status fail")
+		}
 	}
 	controllerutil.RemoveFinalizer(alb, cfg.Alb2Finalizer)
 	_, err = c.kd.ALBClient.CrdV2beta1().ALB2s(c.GetNs()).Update(c.kd.Ctx, alb, metav1.UpdateOptions{})
@@ -223,7 +225,10 @@ func (c *Controller) onAlbChangeUpdateIngressStatus(oldalb, newalb *alb2v2.ALB2)
 	// 当是project变化时，要把当前的address去掉
 	// 当alb变化时，所有的ingress都要resync一次，那时会保证需要设置的status都更新上去了，所以这里我们直接把所有的地址都去掉就行了
 	for _, ing := range ings {
-		_ = c.RemoveIngressStatusAaddress(addressList, ing)
+		err = c.RemoveIngressStatusAaddress(addressList, ing)
+		if err != nil {
+			l.Error(err, "remove ingress status fail")
+		}
 	}
 	return nil
 }

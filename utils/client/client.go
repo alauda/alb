@@ -21,6 +21,7 @@ import (
 
 // init controller runtime client
 
+//nolint:errcheck
 func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = albv2.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)
@@ -52,6 +53,8 @@ func GetClient(ctx context.Context, cfg *rest.Config, scheme *runtime.Scheme) (c
 	if err != nil {
 		return nil, err
 	}
+
+	//nolint:errcheck
 	go func() {
 		_ = cache.Start(ctx)
 	}()

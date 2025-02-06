@@ -517,7 +517,10 @@ func (c *Controller) GenerateRule(
 	var priority int = DefaultPriority
 	priorityKey := fmt.Sprintf(FMT_ALBRulePriorityAnnotation, c.Domain, ruleIndex, pathIndex)
 	if annotations[priorityKey] != "" {
-		priority64, _ := strconv.ParseInt(annotations[priorityKey], 10, 64)
+		priority64, err := strconv.ParseInt(annotations[priorityKey], 10, 64)
+		if err != nil {
+			c.log.Error(err, "parse priority fail", "ing", ingInfo, "priority", annotations[priorityKey])
+		}
 		if priority64 != 0 {
 			priority = int(priority64)
 		}

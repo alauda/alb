@@ -222,7 +222,7 @@ var (
 
 func init() {
 	once.Do(func() {
-		cert, key, _ := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{})
+		cert, key, _ := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{}) //nolint:errcheck
 		metricsCert = Certificate{
 			Cert: string(cert),
 			Key:  string(key),

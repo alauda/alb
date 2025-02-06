@@ -218,6 +218,7 @@ func (a Analyze) read_logs() ([]LogEntry, error) {
 	return logEntries, nil
 }
 
+//nolint:errcheck
 func timeOnly(t time.Time) time.Time {
 	ret, _ := time.Parse(time.TimeOnly, fmt.Sprintf("%02d:%02d:%02d", t.Hour(), t.Minute(), t.Second()))
 	return ret

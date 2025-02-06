@@ -352,7 +352,7 @@ func (r *RuleSpec) Identity() string {
 	b.WriteString(fmt.Sprintf("%v", r.RedirectCode))
 	b.WriteString(r.RewriteBase)
 	b.WriteString(r.RewriteTarget)
-	conf, _ := json.Marshal(r.Config)
+	conf, _ := json.Marshal(r.Config) //nolint:errcheck
 	b.WriteString(string(conf))
 	return b.String()
 }

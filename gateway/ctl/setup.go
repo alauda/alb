@@ -20,6 +20,7 @@ import (
 
 var scheme = runtime.NewScheme()
 
+//nolint:errcheck
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
 	_ = gv1a2t.AddToScheme(scheme)

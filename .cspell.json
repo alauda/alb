@@ -3,6 +3,7 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "nolint",
         "HOSTIP",
         "htpasswd",
         "testlink",

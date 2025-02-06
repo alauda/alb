@@ -16,7 +16,10 @@ func ResolverStructFromAnnotation(t interface{}, annotation map[string]string, o
 		t_field := t_type.Field(i)
 		v_field := t_val.Field(i)
 		if v_field.Kind() == reflect.Struct && t_field.Anonymous {
-			_ = ResolverStructFromAnnotation(v_field.Addr().Interface(), annotation, opt)
+			err := ResolverStructFromAnnotation(v_field.Addr().Interface(), annotation, opt)
+			if err != nil {
+				return err
+			}
 		}
 
 		tag := t_field.Tag.Get("annotation")

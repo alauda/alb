@@ -53,7 +53,10 @@ func main() {
 	fmt.Printf("-----")
 	fmt.Printf("%s", s)
 	fmt.Printf("write to %s", os.Args[1])
-	_ = os.WriteFile(os.Args[1], []byte(s), 0o644)
+	err := os.WriteFile(os.Args[1], []byte(s), 0o644)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func resolve_embed(hm LuaHintMap, key string) string {

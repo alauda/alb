@@ -17,13 +17,18 @@ type BasicAuthCtl struct {
 }
 
 func (f BasicAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *AuthCr) {
-	auth_cr.Basic = &BasicAuthInCr{
+	basic := &BasicAuthInCr{
 		Realm:      "",
 		Secret:     "",
 		SecretType: "",
 		AuthType:   "",
 	}
-	_ = ReAssignAuthIngressBasicToBasicAuthInCr(&auth_ingress.AuthIngressBasic, auth_cr.Basic, nil)
+	err := ReAssignAuthIngressBasicToBasicAuthInCr(&auth_ingress.AuthIngressBasic, auth_cr.Basic, nil)
+	if err != nil {
+		f.l.Error(err, "failed to assign auth ingress basic to basic auth in cr")
+		return
+	}
+	auth_cr.Basic = basic
 }
 
 func (b BasicAuthCtl) ToPolicy(basic *BasicAuthInCr, p *AuthPolicy, refs ct.RefMap, rule string) {
@@ -35,7 +40,12 @@ func (b BasicAuthCtl) ToPolicy(basic *BasicAuthInCr, p *AuthPolicy, refs ct.RefM
 		Err:      "",
 	}
 	p.Basic = bp
-	_ = ReAssignBasicAuthInCrToBasicAuthPolicy(basic, bp, nil)
+	err := ReAssignBasicAuthInCrToBasicAuthPolicy(basic, bp, nil)
+	if err != nil {
+		bp.Err = "failed to reassign"
+		return
+	}
+
 	if bp.AuthType != "basic" {
 		bp.Err = "only support basic auth"
 		return

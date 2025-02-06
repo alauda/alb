@@ -237,9 +237,15 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 	var err error
 	defer func() {
 		if err != nil {
-			_ = setLastReloadStatus(FAILED, StatusFileParentPath)
+			err := setLastReloadStatus(FAILED, StatusFileParentPath)
+			if err != nil {
+				klog.Errorf("failed to set last reload status to failed: %v", err)
+			}
 		} else {
-			_ = setLastReloadStatus(SUCCESS, StatusFileParentPath)
+			err := setLastReloadStatus(SUCCESS, StatusFileParentPath)
+			if err != nil {
+				klog.Errorf("failed to set last reload status to success: %v", err)
+			}
 		}
 	}()
 
@@ -253,7 +259,7 @@ func (nc *NginxController) ReloadLoadBalancer() error {
 
 	// Update config and policy files
 	if configChanged {
-		diffOutput, _ := exec.Command("diff", "-u", nc.OldConfigPath, nc.NewConfigPath).CombinedOutput()
+		diffOutput, _ := exec.Command("diff", "-u", nc.OldConfigPath, nc.NewConfigPath).CombinedOutput() //nolint:errcheck
 		klog.Infof("NGINX configuration diff\n")
 		klog.Infof("%v\n", string(diffOutput))
 

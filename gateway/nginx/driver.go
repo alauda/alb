@@ -18,6 +18,7 @@ import (
 
 var scheme = runtime.NewScheme()
 
+//nolint:errcheck
 func init() {
 	_ = gv1.AddToScheme(scheme)
 }
@@ -160,7 +161,10 @@ func listGatewayByClassName(kd *driver.KubernetesDriver, className string) ([]*g
 		return nil, err
 	}
 	for _, gateway := range gateways {
-		_ = utils.AddTypeInformationToObject(scheme, gateway)
+		err := utils.AddTypeInformationToObject(scheme, gateway)
+		if err != nil {
+			return nil, err
+		}
 		if string(gateway.Spec.GatewayClassName) == className {
 			ret = append(ret, gateway)
 		}
@@ -168,6 +172,7 @@ func listGatewayByClassName(kd *driver.KubernetesDriver, className string) ([]*g
 	return ret, nil
 }
 
+//nolint:errcheck
 func listRoutes(kd *driver.KubernetesDriver) ([]gateway.CommonRoute, error) {
 	ret := []gateway.CommonRoute{}
 	httpList, err := kd.Informers.Gateway.HttpRoute.Lister().List(labels.Everything())

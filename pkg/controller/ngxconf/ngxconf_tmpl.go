@@ -296,7 +296,10 @@ func GetBindNICConfig(base string) (BindNICConfig, error) {
 	}
 	defer jsonFile.Close()
 
-	byteValue, _ := io.ReadAll(jsonFile)
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		return BindNICConfig{}, err
+	}
 	jsonStr := string(byteValue)
 	if len(strings.TrimSpace(jsonStr)) == 0 {
 		return BindNICConfig{}, nil

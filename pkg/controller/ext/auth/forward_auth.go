@@ -17,7 +17,7 @@ type ForwardAuthCtl struct {
 }
 
 func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *AuthCr) {
-	auth_cr.Forward = &ForwardAuthInCr{
+	forward := &ForwardAuthInCr{
 		Url:                 "",
 		Method:              "GET",
 		AuthHeadersCmRef:    "",
@@ -27,7 +27,7 @@ func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *
 		AlwaysSetCookie:     false,
 		SigninRedirectParam: "",
 	}
-	_ = ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, auth_cr.Forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
+	err := ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, auth_cr.Forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
 		Resolve_response_headers: func(ls string) ([]string, error) {
 			ls = strings.TrimSpace(ls)
 			if ls == "" {
@@ -36,6 +36,11 @@ func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *
 			return strings.Split(ls, ","), nil
 		},
 	})
+	if err != nil {
+		f.l.Error(err, "failed to reassign auth ingress forward to forward auth in cr")
+		return
+	}
+	auth_cr.Forward = forward
 }
 
 func (f ForwardAuthCtl) ToPolicy(forward *ForwardAuthInCr, p *AuthPolicy, refs ct.RefMap, rule string) {
@@ -97,23 +102,29 @@ func (f ForwardAuthCtl) ToPolicy(forward *ForwardAuthInCr, p *AuthPolicy, refs c
 }
 
 // https://github.com/kubernetes/ingress-nginx/blob/d1dc3e827f818ee23a08af09e9a7be0b12af1736/internal/ingress/controller/template/template.go#L1156
-func buildAuthSignURL(authSignURL, authRedirectParam string) string {
-	u, _ := url.Parse(authSignURL)
+func buildAuthSignURL(authSignURL, authRedirectParam string) (string, error) {
+	u, err := url.Parse(authSignURL)
+	if err != nil {
+		return "", err
+	}
 	q := u.Query()
 	if authRedirectParam == "" {
 		authRedirectParam = "rd"
 	}
 	if len(q) == 0 {
-		return fmt.Sprintf("%s?%s=$pass_access_scheme://$http_host$escaped_request_uri", authSignURL, authRedirectParam)
+		return fmt.Sprintf("%s?%s=$pass_access_scheme://$http_host$escaped_request_uri", authSignURL, authRedirectParam), nil
 	}
 
 	if q.Get(authRedirectParam) != "" {
-		return authSignURL
+		return authSignURL, nil
 	}
-	return fmt.Sprintf("%s&%s=$pass_access_scheme://$http_host$escaped_request_uri", authSignURL, authRedirectParam)
+	return fmt.Sprintf("%s&%s=$pass_access_scheme://$http_host$escaped_request_uri", authSignURL, authRedirectParam), nil
 }
 
 func resolve_signin_url(signin_url string, redirect_param string) (VarString, error) {
-	full := buildAuthSignURL(signin_url, redirect_param)
+	full, err := buildAuthSignURL(signin_url, redirect_param)
+	if err != nil {
+		return []string{}, err
+	}
 	return ParseVarString(full)
 }

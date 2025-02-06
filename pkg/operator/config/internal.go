@@ -333,6 +333,7 @@ func IsPointToString(p *string, expect string) bool {
 }
 
 // less 1c will be 1. 600m=>1 1800m>2 2000m>2
+// nolint:errcheck
 func CpuPresetToCore(v string) int {
 	// cpu limit could have value like 200m, need some calculation
 	re := regexp.MustCompile(`([0-9]+)m`)
@@ -343,5 +344,5 @@ func CpuPresetToCore(v string) int {
 		val_decimal, _ := strconv.Atoi(string_decimal)
 		val = int(math.Ceil(float64(val_decimal) / 1000))
 	}
-	return val
+	return max(val, 1)
 }

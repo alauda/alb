@@ -108,7 +108,11 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{Interface: d.Client.CoreV1().Events("")},
 	)
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
 		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", albCfg.GetAlbName()), Host: hostname},
@@ -345,7 +349,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	_ = func(obj interface{}) error {
+	func(obj interface{}) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -366,7 +370,6 @@ func (c *Controller) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
 			c.log.Info("invalid workqueue key type", "obj", obj)
-			return nil
 		}
 		// Run the Reconcile, passing it the namespace/name string of the
 		// Foo resource to be synced.
@@ -374,12 +377,10 @@ func (c *Controller) processNextWorkItem() bool {
 			// Put the item back on the workqueue to handle any transient errors.
 			c.log.Info("requeue", "ing", key, "err", err, "requeue", reque)
 			c.workqueue.AddRateLimited(key)
-			return nil
 		}
 		// Finally, if no error occurs we Forget this item, so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		return nil
 	}(obj)
 
 	return true
