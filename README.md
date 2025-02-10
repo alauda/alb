@@ -267,3 +267,12 @@ spec:
       namespaces:
         from: All
 ```
+## release-note
+[release-note](./docs/release-note/README.md)
+## features
+[containermode](./docs/feature/containermode/api-containermode-gateway-deploy.md)  
+[ingressclass](./docs/feature/ingressclass/api-ingressclass.md)  
+[rules](./docs/feature/rule/rules.md)  
+[otel](./docs/feature/otel/otel.md)  
+[waf](./docs/feature/modsecurity/modsecurity.en)  
+[auth](./docs/feature/auth/auth.md)  
