@@ -1,7 +1,10 @@
 {{- if .Values.defaultAlb }}
 {{- $global := .Values.global }}
-{{- $value_without_global := unset .Values "global" }}
-{{- $cfg :=  $value_without_global }}
+{{- $value_copy := deepCopy .Values }}
+{{- $value_without_global := unset $value_copy "global" }}
+{{- $value_without_console := unset $value_without_global "alaudaConsole" }}
+{{- $value_clean := $value_without_console }}
+{{- $cfg :=  $value_clean }}
 {{ $fullProjects := .Values.projects  | uniq }}
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
