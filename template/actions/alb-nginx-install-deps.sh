@@ -214,6 +214,7 @@ function install-lua-resty-mlcache() (
 )
 
 function install-lua-resty-cookie() (
+  # https://github.com/xiangnanscu/lua-resty-cookie
   # md5sum ./lua-resty-cookie-0.01.opm.tar cfd011d1eb1712b47abd9cdffb7bc90b
   local online="https://opm.openresty.org/api/pkg/fetch?account=xiangnanscu&name=lua-resty-cookie&op=eq&version=$LUA_RESTY_COOKIE_VERSION"
   local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar"

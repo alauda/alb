@@ -1,148 +1,239 @@
----@class NgxPolicy
----@field certificate_map table<string,Certificate>
----@field http HttpPolicy
----@field stream StreamPolicy
----@field config CommonPolicyConfig
----@field backend_group 
+--- @alias CJSON_NULL userdata
+--- @class NgxPolicy
+--- @field backend_group BackendGroup[]
+--- @field certificate_map table<string, Certificate>
+--- @field config table<string, RefBox>
+--- @field http HttpPolicy
+--- @field stream StreamPolicy
 
 
----@class HttpPolicy
----@field tcp table<number,Policies>
+--- @class HttpPolicy
+--- @field tcp table<number, Policy[]>
 
 
----@alias CommonPolicyConfig table<string,CommonPolicyConfigVal>
-
----@class CommonPolicyConfigVal
----@field type string
----@field otel? OtelInCommon
+--- @class StreamPolicy
+--- @field tcp table<number, Policy[]>
+--- @field udp table<number, Policy[]>
 
 
----@class StreamPolicy
----@field tcp table<number,Policies>
----@field udp table<number,Policies>
+--- @class BackendGroup
+--- @field backends Backend[]
+--- @field mode string
+--- @field name string
+--- @field session_affinity_attribute string
+--- @field session_affinity_policy string
 
 
----@alias Policies (Policy | nil)[]
----@class Certificate
----@field cert string
----@field key string
+--- @class Certificate
+--- @field cert string
+--- @field key string
 
 
----@class OtelInCommon
----@field otel OtelConf
+--- @class RefBox
+--- @field note string?
+--- @field type string
+--- @field auth AuthPolicy?
+--- @field otel OtelConf?
+--- @field rewrite_request RewriteRequestConfig?
+--- @field rewrite_response RewriteResponseConfig?
+--- @field timeout TimeoutPolicyConfig?
 
 
----@class OtelConf
----@field exporter? Exporter
----@field sampler? Sampler
----@field flags? Flags
----@field resource? table<string,string>
+--- @class PolicyExt
+--- @field auth AuthPolicy?
+--- @field otel OtelConf?
+--- @field rewrite_request RewriteRequestConfig?
+--- @field rewrite_response RewriteResponseConfig?
+--- @field timeout TimeoutPolicyConfig?
 
 
----@class Flags
----@field hide_upstream_attrs boolean
----@field report_http_request_header boolean
----@field report_http_response_header boolean
----@field notrust_incoming_span boolean
+--- @class Backend
+--- @field address string
+--- @field ns string
+--- @field otherclusters boolean
+--- @field port number
+--- @field svc string
+--- @field weight number
 
 
----@class Exporter
----@field collector? Collector
----@field batch_span_processor? BatchSpanProcessor
+--- @class Policy
+--- @field backend_protocol string
+--- @field config PolicyExtCfg
+--- @field internal_dsl any[]
+--- @field plugins string[]
+--- @field rule string
+--- @field subsystem string
+--- @field to_location string?
+--- @field upstream string
+--- @field source_name string
+--- @field source_ns string
+--- @field source_type string
+--- @field cors_allow_headers string
+--- @field cors_allow_origin string
+--- @field enable_cors boolean
+--- @field redirect_code number
+--- @field redirect_host string?
+--- @field redirect_port number?
+--- @field redirect_prefix_match string?
+--- @field redirect_replace_prefix string?
+--- @field redirect_scheme string?
+--- @field redirect_url string
+--- @field rewrite_base string
+--- @field rewrite_prefix_match string?
+--- @field rewrite_replace_prefix string?
+--- @field rewrite_target string
+--- @field url string
+--- @field vhost string
 
 
----@class Collector
----@field address string
----@field request_timeout number /* int */
+--- @class AuthPolicy
+--- @field basic_auth BasicAuthPolicy?
+--- @field forward_auth ForwardAuthPolicy?
 
 
----@class BatchSpanProcessor
----@field max_queue_size number /* int */
----@field scheduled_delay number /* int */
----@field export_timeout number /* int */
+--- @class LegacyExtInPolicy
+--- @field cors_allow_headers string
+--- @field cors_allow_origin string
+--- @field enable_cors boolean
+--- @field redirect_code number
+--- @field redirect_host string?
+--- @field redirect_port number?
+--- @field redirect_prefix_match string?
+--- @field redirect_replace_prefix string?
+--- @field redirect_scheme string?
+--- @field redirect_url string
+--- @field rewrite_base string
+--- @field rewrite_prefix_match string?
+--- @field rewrite_replace_prefix string?
+--- @field rewrite_target string
+--- @field url string
+--- @field vhost string
 
 
----@class Sampler
----@field name string
----@field options? SamplerOptions
+--- @class OtelConf
+--- @field exporter Exporter?
+--- @field flags Flags?
+--- @field resource table<string, string>
+--- @field sampler Sampler?
 
 
----@class SamplerOptions
----@field parent_name? string
----@field fraction? string
+--- @class PolicyExtCfg
+--- @field refs table<string, string>
+--- @field auth AuthPolicy?
+--- @field otel OtelConf?
+--- @field rewrite_request RewriteRequestConfig?
+--- @field rewrite_response RewriteResponseConfig?
+--- @field timeout TimeoutPolicyConfig?
 
 
----@class Policy
----@field internal_dsl 
----@field upstream string
----@field rule string
----@field config? RuleConfigInPolicy
----@field SameInRuleCr SameInRuleCr
----@field SameInPolicy SameInPolicy
----@field source_type? string
----@field source_name? string
----@field source_ns? string
+--- @class RewriteRequestConfig
+--- @field headers table<string, string>
+--- @field headers_add table<string, string[]>
+--- @field headers_add_var table<string, string[]>
+--- @field headers_remove string[]
+--- @field headers_var table<string, string>
 
 
----@class SameInRuleCr
----@field url string
----@field rewrite_base string
----@field rewrite_target string
----@field enable_cors boolean
----@field cors_allow_headers string
----@field cors_allow_origin string
----@field backend_protocol string
----@field redirect_url string
----@field vhost string
----@field redirect_code number /* int */
----@field source? Source
+--- @class RewriteResponseConfig
+--- @field headers table<string, string>
+--- @field headers_add table<string, string[]>
+--- @field headers_remove string[]
 
 
----@class SameInPolicy
----@field rewrite_prefix_match? string
----@field rewrite_replace_prefix? string
----@field redirect_scheme? string
----@field redirect_host? string
----@field redirect_port? number /* int */
----@field redirect_prefix_match? string
----@field redirect_replace_prefix? string
+--- @class Source
+--- @field source_name string
+--- @field source_ns string
+--- @field source_type string
 
 
----@class RuleConfigInPolicy
----@field rewrite_response? RewriteResponseConfig
----@field rewrite_request? RewriteRequestConfig
----@field timeout? TimeoutPolicyConfig
----@field otel? OtelInPolicy
+--- @class TimeoutPolicyConfig
+--- @field proxy_connect_timeout_ms number?
+--- @field proxy_read_timeout_ms number?
+--- @field proxy_send_timeout_ms number?
 
 
----@class RewriteResponseConfig
----@field headers? table<string,string>
----@field headers_remove? 
----@field headers_add? table<string,>
+--- @class Cors
+--- @field cors_allow_headers string
+--- @field cors_allow_origin string
+--- @field enable_cors boolean
 
 
----@class RewriteRequestConfig
----@field headers? table<string,string>
----@field headers_var? table<string,string>
----@field headers_remove? 
----@field headers_add? table<string,>
----@field headers_add_var? table<string,>
+--- @class RedirectConf
+--- @field redirect_code number
+--- @field redirect_host string?
+--- @field redirect_port number?
+--- @field redirect_prefix_match string?
+--- @field redirect_replace_prefix string?
+--- @field redirect_scheme string?
+--- @field redirect_url string
 
 
----@class TimeoutPolicyConfig
----@field proxy_connect_timeout_ms? number /* uint */
----@field proxy_send_timeout_ms? number /* uint */
----@field proxy_read_timeout_ms? number /* uint */
+--- @class RewriteConf
+--- @field rewrite_base string
+--- @field rewrite_prefix_match string?
+--- @field rewrite_replace_prefix string?
+--- @field rewrite_target string
+--- @field url string
 
 
----@class Source
----@field name string
----@field namespace string
----@field type string
+--- @class Vhost
+--- @field vhost string
 
 
----@class OtelInPolicy
----@field otel_ref? string
----@field otel? OtelConf
+--- @class BasicAuthPolicy
+--- @field auth_type string
+--- @field err string
+--- @field realm string
+--- @field secret table<string, BasicAuthHash>
+
+
+--- @class Exporter
+--- @field batch_span_processor BatchSpanProcessor?
+--- @field collector Collector?
+
+
+--- @class Flags
+--- @field hide_upstream_attrs boolean
+--- @field notrust_incoming_span boolean
+--- @field report_http_request_header boolean
+--- @field report_http_response_header boolean
+
+
+--- @class ForwardAuthPolicy
+--- @field always_set_cookie boolean
+--- @field auth_headers table<string, string[]>
+--- @field auth_request_redirect string[]
+--- @field invalid_auth_req_cm_ref boolean
+--- @field method string
+--- @field signin_url string[]
+--- @field upstream_headers string[]
+--- @field url string[]
+
+
+--- @class Sampler
+--- @field name string
+--- @field options (SamplerOptions|CJSON_NULL)
+
+
+--- @class BasicAuthHash
+--- @field algorithm string
+--- @field hash string
+--- @field name string
+--- @field salt string
+
+
+--- @class BatchSpanProcessor
+--- @field inactive_timeout number
+--- @field max_queue_size number
+
+
+--- @class Collector
+--- @field address string
+--- @field request_timeout number
+
+
+--- @class SamplerOptions
+--- @field fraction (string|CJSON_NULL)
+--- @field parent_name (string|CJSON_NULL)
 
 

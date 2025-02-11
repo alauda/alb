@@ -4,6 +4,7 @@ apiVersion: ait.alauda.io/v1alpha2
 metadata:
   labels:
     cpaas.io/dashboard.folder: container-platform
+    cpaas.io/dashboard.tag.built-in: "true"
   name: albstatus
   namespace: "cpaas-system"
 spec:

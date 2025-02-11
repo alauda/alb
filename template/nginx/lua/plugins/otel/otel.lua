@@ -1,4 +1,4 @@
--- format:on
+-- format:on style:emmy
 -- local _id_generator = require("opentelemetry.trace.id_generator")
 local span_kind = require("opentelemetry.trace.span_kind")
 local span_status = require("opentelemetry.trace.span_status")
@@ -18,7 +18,7 @@ local _ = c
 ---@field context_token string | nil
 ---@field cfg OtelConf | nil
 
-local _M = {name = "otel"}
+local _M = { name = "otel" }
 
 local lru, err = lrucache.new(200) -- 200 different tracers should be enough..
 if not lru then
@@ -35,45 +35,36 @@ local HOSTNAME = os.getenv("HOSTNAME") or ""
 local l = ngx.log
 local E = ngx.ERR
 
----@param ctx AlbCtx
-function _M.is_need(ctx)
-    return _M.get_otel_ref(ctx) ~= nil
-end
-
----@param ctx AlbCtx
----@return string | nil
-function _M.get_otel_ref(ctx)
-    local config = ctx.matched_policy.config
-    if config == nil or config.otel == nil or config.otel.otel_ref == nil then
-        return nil
+---@param policy Policy
+---@return OtelConf? config
+---@return string? hash
+local get_otel_config = function (policy)
+    local ret, err = cache.get_refed_config(policy, "otel")
+    if err ~= nil or ret == nil then
+        return nil, nil
     end
-    return config.otel.otel_ref
+    return ret.config, ret.hash
 end
 
 ---@param ctx AlbCtx
 ---@return Tracer | nil
 ---@return string | nil error
 function _M.get_tracer_lru(ctx)
-    local ref = _M.get_otel_ref(ctx)
-    if ref == nil then
-        return nil
+    local otel, hash = get_otel_config(ctx.matched_policy)
+    if otel == nil or hash == nil then
+        return nil, "[otel] get config error "
     end
-
-    local conf, err = cache.get_config(ref)
-    if err ~= nil or conf.otel == nil or conf.otel.otel == nil then
-        return nil, "[otel] get config error " .. tostring(err)
-    end
-    local otel = conf.otel.otel
+    --- @cast otel -nil
     ctx.otel.cfg = otel
-
-    local hash = ref
     local tracer = lru:get(hash)
     if tracer ~= nil then
         -- l(E, "[otel] get tracer from cache ")
         return tracer
     end
 
-    local resource_attrs = {attr.string("hostname", HOSTNAME), attr.string("service.name", ALB_NAME), attr.string("service.namespace", ALB_NS), attr.string("service.type", "alb"), attr.string("service.version", ALB_VER), attr.string("service.instance.id", MY_POD_NAME)}
+    local resource_attrs = { attr.string("hostname", HOSTNAME), attr.string("service.name", ALB_NAME), attr.string(
+        "service.namespace", ALB_NS), attr.string("service.type", "alb"), attr.string("service.version", ALB_VER), attr
+        .string("service.instance.id", MY_POD_NAME) }
     local user_attrs = otel.resource or {}
     -- l(E, "[otel] user attr ", c.json_encode(user_attrs), "\n")
     for k, v in pairs(user_attrs) do
@@ -94,7 +85,7 @@ end
 ---@param ctx AlbCtx
 ---@return OtelCtx
 function _M.init_our_ctx(ctx)
-    ctx.otel = {context_token = nil, cfg = nil}
+    ctx.otel = { context_token = nil, cfg = nil }
     return ctx.otel
 end
 
@@ -109,9 +100,6 @@ end
 
 ---@param ctx AlbCtx
 function _M.after_rule_match_hook(ctx)
-    if not _M.is_need(ctx) then
-        return
-    end
     local our = _M.init_our_ctx(ctx)
     local tracer, err = _M.get_tracer_lru(ctx)
     if tracer == nil then
@@ -125,12 +113,14 @@ function _M.after_rule_match_hook(ctx)
         upstream_context = trace_context_propagator:extract(context, ngx.req)
     end
     -- TODO add more attributes via config
-    local attributes = {attr.string("net.host.name", ctx.var.host), attr.string("http.request.method", ctx.var.method), attr.string("http.scheme", ctx.var.scheme), attr.string("http.target", ctx.var.request_uri), attr.string("http.user_agent", ctx.var.http_user_agent)}
+    local attributes = { attr.string("net.host.name", ctx.var.host), attr.string("http.request.method", ctx.var.method),
+        attr.string("http.scheme", ctx.var.scheme), attr.string("http.target", ctx.var.request_uri), attr.string(
+        "http.user_agent", ctx.var.http_user_agent) }
 
     _M.inject_rule_source_attribute(ctx, attributes)
 
     local span_name = ctx.var.method .. " " .. ctx.var.request_uri
-    local otel_ctx = tracer:start(upstream_context, span_name, {kind = span_kind.server, attributes = attributes})
+    local otel_ctx = tracer:start(upstream_context, span_name, { kind = span_kind.server, attributes = attributes })
     if otel_ctx == nil then
         l(E, "[otel] start span failed")
         return
@@ -205,4 +195,5 @@ function _M.inject_http_header(flags, span)
         span:set_attributes(a)
     end
 end
+
 return _M

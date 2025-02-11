@@ -23,7 +23,7 @@ function _M.header_name(self)
 end
 
 function _M.new(self)
-    local o = {session_affinity_attribute = nil, session_affinity_policy = nil}
+    local o = { session_affinity_attribute = nil, session_affinity_policy = nil }
 
     setmetatable(o, self)
     self.__index = self
@@ -66,7 +66,7 @@ function _M.set_cookie(self, value)
         httponly = true,
         secure = ngx.var.https == "on"
     }
--- LuaFormatter on
+    -- LuaFormatter on
 
     local ok
     ok, err = cookie:set(cookie_data)

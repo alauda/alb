@@ -124,6 +124,8 @@ func EmptyFeatureCr() *unstructured.Unstructured {
 
 // create a new feature base on origin.
 // origin will not be modified
+//
+//nolint:errcheck
 func FeatureCr(origin *unstructured.Unstructured, name string, ns string, host string) *unstructured.Unstructured {
 	// apiVersion: infrastructure.alauda.io/v1alpha1
 	// kind: Feature

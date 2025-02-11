@@ -1,11 +1,14 @@
 package ngxconf
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	. "alauda.io/alb2/pkg/controller/ngxconf/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -123,4 +126,43 @@ func TestGetBindIpConfig(t *testing.T) {
 	configStr = `{"wrong_json`
 	cfg, err = testGet(&configStr)
 	assert.NotNil(t, err)
+}
+
+func TestNginxConf(t *testing.T) {
+	tmpl_cfg := NginxTemplateConfig{
+		Name:      "xx",
+		TweakBase: "xx",
+		NginxBase: "/alb/nginx",
+		RestyBase: "/usr/local/openresty",
+		ShareBase: "/etc/alb2/nginx",
+		Frontends: map[string]FtConfig{},
+		Resolver:  "127.0.0.1",
+		TweakHash: "",
+		Phase:     "running",
+		Metrics: MetricsConfig{
+			Port:            1111,
+			IpV4BindAddress: []string{},
+			IpV6BindAddress: []string{},
+		},
+		NginxParam: NginxParam{EnableIPV6: true},
+		Flags:      DefaulNgxTmplFlags(),
+	}
+	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)
+	assert.NoError(t, err)
+	fmt.Println(ngx_cfg)
+	assert.True(t, strings.Contains(ngx_cfg, "resolver 127.0.0.1;"))
+}
+
+func TestResolve(t *testing.T) {
+	dns, err := getDnsResolverRaw(`
+nameserver 10.4.0.10
+`)
+	assert.NoError(t, err)
+	assert.Equal(t, dns, "10.4.0.10")
+
+	dns, err = getDnsResolverRaw(`
+nameserver fd00:10:98::a
+`)
+	assert.NoError(t, err)
+	assert.Equal(t, dns, "[fd00:10:98::a]")
 }

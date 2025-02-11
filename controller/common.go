@@ -163,6 +163,6 @@ func generatePatchPortProjectPayload(labels map[string]string, desiredProjects [
         "value": %s
           }]`
 
-	raw, _ := json.Marshal(newLabels)
+	raw, _ := json.Marshal(newLabels) //nolint:errcheck
 	return []byte(fmt.Sprintf(patchPayloadTemplate, "replace", raw))
 }

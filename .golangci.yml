@@ -21,6 +21,8 @@ issues:
       linters:
         - errcheck
 linters-settings:
+  errcheck:
+    check-blank: true
   gocritic:
     disabled-checks:
       - ifElseChain

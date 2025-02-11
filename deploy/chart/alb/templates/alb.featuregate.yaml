@@ -1,0 +1,15 @@
+{{ if .Capabilities.APIVersions.Has "ait.alauda.io/v1alpha2" -}}
+{{ $publicCloudProvider := .Values.global.publicCloudProvider }}
+{{ $clusterType := .Values.global.cluster.type }}
+{{ if has $clusterType $publicCloudProvider }}
+apiVersion: alauda.io/v1
+kind: ClusterAlaudaFeatureGate
+metadata:
+  name: alb2
+  namespace: '{{.Values.global.namespace}}'
+spec:
+  description: "增强型负载均衡，为应用提供丰富功能的负载均衡策略和配置，集群级功能开关添加于 v3.12"
+  enabled: true
+  stage: GA
+{{ end }}
+{{- end }}

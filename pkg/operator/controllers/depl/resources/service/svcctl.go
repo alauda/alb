@@ -289,7 +289,7 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 		delete(svc.Annotations, k)
 	}
 
-	jsonstr, _ := json.Marshal(albcfg.Vip.LbSvcAnnotations)
+	jsonstr, _ := json.Marshal(albcfg.Vip.LbSvcAnnotations) //nolint:errcheck
 	svc.Annotations[s.originAnnotationKey()] = string(jsonstr)
 	for k, v := range albcfg.Vip.LbSvcAnnotations {
 		svc.Annotations[k] = v
@@ -320,7 +320,7 @@ func (s *SvcCtl) findNeedDeleteAnnotation(origin map[string]string, latest map[s
 		return []string{}
 	}
 	originCfg := map[string]string{}
-	_ = json.Unmarshal([]byte(val), &originCfg)
+	_ = json.Unmarshal([]byte(val), &originCfg) //nolint:errcheck
 	return mapset.NewSetFromMapKeys(originCfg).Difference(mapset.NewSetFromMapKeys(latest)).ToSlice()
 }
 

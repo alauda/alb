@@ -210,6 +210,12 @@ func listRule(ctx Ctx) error {
 	if err != nil {
 		return err
 	}
+	rule_maps := map[string]InternalRule{}
+	for _, ft := range lb.Frontends {
+		for _, r := range ft.Rules {
+			rule_maps[r.RuleID] = *r
+		}
+	}
 	err = pcli.FillUpBackends(lb)
 	if err != nil {
 		return err
@@ -238,7 +244,7 @@ func listRule(ctx Ctx) error {
 				Name:         p.Rule,
 				Port:         int(port),
 				RealPriority: p.ComplexPriority,
-				Host:         parse_host(p.DSLX),
+				Host:         parse_host(rule_maps[p.Rule].DSLX),
 				Matches:      PrettyCompactJson(p.InternalDSL),
 				Policy:       *p,
 				Upstream:     backens_maps[p.Rule],

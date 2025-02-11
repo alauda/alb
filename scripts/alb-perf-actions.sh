@@ -42,7 +42,7 @@ function alb-perf() (
   echo "worker pid is |$worker_id|"
 
   alb-flame-stap-lua $perf_case $worker_id "$((perf_time - 20))" &
-  alb-flame-perf-ng $worker_id 20 &
+  alb-flame-perf-ng $perf_case $worker_id 20 &
   sleep 3 # wait stap start
 
   # time to run fortio
@@ -69,7 +69,7 @@ function alb-perf-docker() (
   echo "worker pid is |$worker_id| $root"
 
   alb-flame-stap-lua $perf_case $worker_id "$((perf_time - 20))" "$root" &
-  alb-flame-perf-ng $worker_id 23 &
+  alb-flame-perf-ng $perf_case $worker_id 23 &
   echo "---$LINENO---"
   sleep 3 # wait stap start
   set -x
@@ -169,7 +169,14 @@ function _run_alb_nginx() (
 
 function alb-flame-stap-lua() (
   local key=$1
+  mkdir -p ./.fg/$key
   local pid=$2
+  if [[ -z "$pid" ]]; then
+    pid=$(cat ./template/servroot/logs/nginx.pid)
+    echo "$pid"
+    ps -aux | grep $pid
+    sleep 3
+  fi
   local time=${3-"120"}
   local root=${4-""}
   echo "start perf stap lua"
@@ -180,20 +187,28 @@ function alb-flame-stap-lua() (
   fi
   eval "sudo $STAPXX_BASE/stap++ $flag $STAPXX_BASE/samples/lj-lua-stacks.sxx --skip-badvars -x $pid --arg time=$time >$key.bt"
   echo "stop capture lua stack for $pid"
-  _ng_stap_lua_gen_svg ./$key.bt ./$key.svg $root
+  _ng_stap_lua_gen_svg ./.fg/$key/$key.bt ./.fg/$key/$key.svg $root
   if [[ -n "$OPEN_SVG" ]]; then
-    firefox ./$key.svg
+    firefox ./.fg/$key/$key.svg
   fi
 )
 
 function alb-flame-perf-ng() (
-  local pid=$1
+  local key=$1
+  mkdir -p ./.fg/$key
+  local pid=$2
+  if [[ -z "$pid" ]]; then
+    pid=$(cat ./template/servroot/logs/nginx.pid)
+    echo "$pid"
+    ps -aux | grep $pid
+    sleep 3
+  fi
   local time=${2-"20"}
   echo "capture nginx stack for $pid for $time seconds"
   sudo perf record -a -g -p $pid --call-graph dwarf -- sleep $time
-  sudo perf script | stackcollapse-perf.pl | flamegraph.pl >nginx.svg
+  sudo perf script | stackcollapse-perf.pl | flamegraph.pl >./.fg/$key/nginx.svg
   if [[ -n "$OPEN_SVG" ]]; then
-    firefox ./nginx.svg
+    firefox ./.fg/$key/nginx.svg
   fi
 )
 
@@ -220,4 +235,12 @@ function _apd_find_ng_worker_pid_in_docker() (
   local container_name=$1
   local pid=$(_docker-ps-via-id $container_name | grep 'nginx: worker process' | awk '{print $2}' | head -n1)
   echo $pid
+)
+
+function alb-perf-go-policy-gen() (
+  export RULE_PERF="true"
+  ginkgo -focus "should ok when has 5k rule" -v ./test/e2e
+  go tool pprof -raw ./test/e2e/rule-perf-cpu >cpu.raw
+  stackcollapse-go.pl ./cpu.raw >cpu.folded
+  flamegraph.pl ./cpu.folded >./cpu.svg
 )

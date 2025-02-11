@@ -211,7 +211,8 @@ func (a *AlbK8sCtx) DeployEchoResty() error {
 		return err
 	}
 	a.Log.Info("nginx", "image", nginx)
-	return e.Deploy(EchoCfg{Name: "echo-resty", Image: nginx, Ip: "v4"})
+	_, err = e.Deploy(EchoCfg{Name: "echo-resty", Image: nginx, Ip: "v4"})
+	return err
 }
 
 func (a *AlbK8sCtx) Destroy() error {

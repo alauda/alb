@@ -503,21 +503,30 @@ func (c *Controller) GenerateRule(
 	ingInfo := fmt.Sprintf("%s/%s:%v:%v", ingress.Namespace, ingress.Name, ft.Spec.Port, pathIndex)
 
 	annotations := ingress.GetAnnotations()
+
 	rewriteTarget := annotations[ALBRewriteTargetAnnotation]
+
 	vhost := annotations[ALBVHostAnnotation]
+
 	enableCORS := annotations[ALBEnableCORSAnnotation] == "true"
 	corsAllowHeaders := annotations[ALBCORSAllowHeadersAnnotation]
 	corsAllowOrigin := annotations[ALBCORSAllowOriginAnnotation]
+
 	backendProtocol := strings.ToLower(annotations[ALBBackendProtocolAnnotation])
+
 	var priority int = DefaultPriority
 	priorityKey := fmt.Sprintf(FMT_ALBRulePriorityAnnotation, c.Domain, ruleIndex, pathIndex)
 	if annotations[priorityKey] != "" {
-		priority64, _ := strconv.ParseInt(annotations[priorityKey], 10, 64)
+		priority64, err := strconv.ParseInt(annotations[priorityKey], 10, 64)
+		if err != nil {
+			c.log.Error(err, "parse priority fail", "ing", ingInfo, "priority", annotations[priorityKey])
+		}
 		if priority64 != 0 {
 			priority = int(priority64)
 		}
 	}
 
+	// rule-ext redirect
 	var (
 		redirectURL  string
 		redirectCode int
@@ -637,7 +646,7 @@ func (c *Controller) GenerateRule(
 	ruleRes.Labels[cfg.GetLabelSourceName()] = CutSize(ingress.Name, 63)
 	ruleRes.Labels[cfg.GetLabelSourceNs()] = CutSize(ingress.Namespace, 63)
 	ruleRes.Labels[cfg.GetLabelSourceIndex()] = fmt.Sprintf("%d-%d", ruleIndex, pathIndex)
-	c.cus.IngressToRule(ingress, ruleIndex, pathIndex, ruleRes)
+	c.cus.IngressAnnotationToRule(ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
 }
 

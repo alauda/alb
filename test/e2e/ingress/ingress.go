@@ -148,11 +148,10 @@ var _ = ginkgo.Describe("Ingress", func() {
 
 		assert.Equal(ginkgo.GinkgoT(), rule.Spec.ServiceGroup.Services[0].Port, 8080)
 
-		f.WaitPolicy(func(policyRaw string) bool {
-			fmt.Printf("policyRaw %s", policyRaw)
-			hasRule := PolicyHasRule(policyRaw, 80, ruleName)
-			hasPod := PolicyHasBackEnds(policyRaw, ruleName, `[]`)
-			return hasRule && hasPod
+		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
+			rp, _, _ := p.FindHttpPolicy(ruleName)
+			fmt.Printf("policy %#v", rp)
+			return rp != nil && rp.RedirectCode == 302, nil
 		})
 	})
 
@@ -578,7 +577,6 @@ spec:
 				rule := f.WaitIngressRule(ingname, ns, 1)[0]
 				GinkgoAssertStringEq(ruleName, rule.Name, "")
 			}
-
 		})
 		ginkgo.It("should create rule with project label", func() {
 			f.AssertKubectlApply(`

@@ -12,7 +12,6 @@ import (
 )
 
 func PrettyCr(obj client.Object) string {
-	// TODO a better way
 	if IsNil(obj) {
 		return "isnil"
 	}

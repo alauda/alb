@@ -77,7 +77,7 @@ func (t *TcpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.F
 		backendGroup := &ctltype.BackendGroup{
 			Name: name,
 		}
-		rule := ctltype.Rule{}
+		rule := ctltype.InternalRule{}
 		rule.Type = ctltype.RuleTypeGateway
 		rule.Source = &albv1.Source{
 			Type:      modules.TypeTCPRoute,

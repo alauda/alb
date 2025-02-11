@@ -77,5 +77,4 @@ __DATA__
 === TEST 1: waf
 --- custom_location_raw eval: $::loc
 --- mock_backend eval: "1880 $::tt"
---- init_worker_eval: require("mock_worker_init").init_worker()
 --- lua_test_eval eval: "require('$::tt').test()"

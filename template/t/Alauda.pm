@@ -76,14 +76,14 @@ sub write_file($content,$file) {
 }
 
 sub get_test_name($file) {
+    warn "#wg test_name $file \n";
+    # xx/alb2/template/t/e2e/auth_test/auth_test.t  ==> e2e.auth_test.auth_test
+    # 这样可以被直接require
     my $dirname = dirname($file);
-    my $ALB_BASEname = basename($file, qr/\.[^.]*$/);
-    $ALB_BASEname=~s/.t//;
-    $file = "$dirname/$ALB_BASEname";
     $file =~ m{^.*?/t/(.*)$};  # 匹配/t/后面的部分，捕获到$1中
     my $suffix = $1;  # 获取捕获的后缀部分
     $suffix =~ s{/}{.}g;  # 将后缀部分中的/替换为.
-    # warn "suffix is $suffix base $ALB_BASEname \n";
+    $suffix =~ s{\.t}{}g;  # 将后缀部分中的.t去掉
     return $suffix;
 }
 

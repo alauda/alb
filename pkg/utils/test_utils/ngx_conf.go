@@ -103,3 +103,35 @@ func FindNestDirectives(p *gngc.Config, root string, directiveName string) gngc.
 	}
 	return nil
 }
+
+func PickStreamServerListen(cfgRaw string) ([]string, error) {
+	ret := []string{}
+	p, err := gngp.NewStringParser(cfgRaw, gngp.WithSkipValidDirectivesErr()).Parse()
+	if err != nil {
+		return nil, err
+	}
+	ss := p.FindDirectives("stream")[0].GetBlock().FindDirectives("server")
+	for _, s := range ss {
+		lss := s.GetBlock().FindDirectives("listen")
+		for _, ls := range lss {
+			ret = append(ret, strings.Join(ls.GetParameters(), " "))
+		}
+	}
+	return ret, nil
+}
+
+func PickHttpServerListen(cfgRaw string) ([]string, error) {
+	ret := []string{}
+	p, err := gngp.NewStringParser(cfgRaw, gngp.WithSkipValidDirectivesErr()).Parse()
+	if err != nil {
+		return nil, err
+	}
+	ss := p.FindDirectives("http")[0].GetBlock().FindDirectives("server")
+	for _, s := range ss {
+		lss := s.GetBlock().FindDirectives("listen")
+		for _, ls := range lss {
+			ret = append(ret, ls.GetParameters()...)
+		}
+	}
+	return ret, nil
+}

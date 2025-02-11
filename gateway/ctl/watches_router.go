@@ -16,6 +16,7 @@ import (
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+//nolint:errcheck
 func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Builder {
 	log := g.log.WithName("watchroute")
 	ctx := g.ctx

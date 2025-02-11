@@ -59,6 +59,14 @@ type DrvOpt struct {
 	Opt Opt
 }
 
+func NewDrvOpt(ctx context.Context, cf *rest.Config, cfg *config.Config) DrvOpt {
+	return DrvOpt{
+		Ctx: ctx,
+		Cf:  cf,
+		Opt: Cfg2opt(cfg),
+	}
+}
+
 func NewDriver(opt DrvOpt) (*KubernetesDriver, error) {
 	drv, err := getKubernetesDriverFromCfg(opt.Ctx, opt.Cf)
 	if err != nil {

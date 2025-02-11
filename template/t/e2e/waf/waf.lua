@@ -90,8 +90,9 @@ function _M.test()
 
     -- hit p1 rule
     local res, err = h.just_curl("http://127.0.0.1:80/p1?testparam=test")
+    u.logs("curl err", err)
     h.assert_eq(err, nil)
-    u.logs(h.curl_res_to_string(res))
+    u.logs("curl res", h.curl_res_to_string(res))
     h.assert_eq(res.status, 403)
 
     local res, err = h.just_curl("http://127.0.0.1:80/redirect_p1?testparam=redirect")

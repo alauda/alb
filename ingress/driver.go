@@ -71,7 +71,11 @@ func (kd *IngressDriver) FindIngressRule() ([]*alb2v1.Rule, error) {
 }
 
 func (kd *IngressDriver) ListAllIngress() ([]*n1.Ingress, error) {
-	ings, err := kd.Informers.K8s.Ingress.Lister().Ingresses("").List(labels.Everything())
+	return kd.ListIngressInNs("")
+}
+
+func (kd *IngressDriver) ListIngressInNs(ns string) ([]*n1.Ingress, error) {
+	ings, err := kd.Informers.K8s.Ingress.Lister().Ingresses(ns).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}

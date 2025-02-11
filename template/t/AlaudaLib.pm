@@ -13,7 +13,7 @@ our @EXPORT_OK = qw( gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lu
 
 my $ALB_BASE = $ENV{'TEST_BASE'};
 
-my $LUACOV = $ENV{'LUACOV'};
+my $LUACOV = $ENV{'LUACOV'} // '';
 
 
 sub tgl_log(@msgs) {
@@ -291,8 +291,11 @@ metrics:
   port: 1936
   ipV4BindAddress: [0.0.0.0]
 backlog: 2048
+resolver: 127.0.0.1
 rootExtra: |
     env TEST_BASE;
+    env ALB_LUA_UNIT_TEST_CASE;
+    env ALB_LUA_TEST_CFG;
 streamExtra: |
     lua_package_path "$lua_path";
     $init_full

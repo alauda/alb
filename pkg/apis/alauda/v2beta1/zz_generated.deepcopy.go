@@ -22,6 +22,7 @@ limitations under the License.
 package v2beta1
 
 import (
+	authtypes "alauda.io/alb2/pkg/controller/ext/auth/types"
 	types "alauda.io/alb2/pkg/controller/ext/otel/types"
 	waftypes "alauda.io/alb2/pkg/controller/ext/waf/types"
 	v1 "k8s.io/api/core/v1"
@@ -454,6 +455,11 @@ func (in *ExternalAlbConfig) DeepCopyInto(out *ExternalAlbConfig) {
 		in, out := &in.ModeSecurity, &out.ModeSecurity
 		*out = new(waftypes.WafCrConf)
 		**out = **in
+	}
+	if in.Auth != nil {
+		in, out := &in.Auth, &out.Auth
+		*out = new(authtypes.AuthCr)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.ReadonlyFS != nil {
 		in, out := &in.ReadonlyFS, &out.ReadonlyFS

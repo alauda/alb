@@ -1,0 +1,11 @@
+{{ if .Capabilities.APIVersions.Has "ait.alauda.io/v1alpha2" -}}
+apiVersion: alauda.io/v1
+kind: ClusterAlaudaFeatureGate
+metadata:
+  name: loadbalancer-service
+  namespace: '{{.Values.global.namespace}}'
+spec:
+  description: "LoadBalancer类型Service，添加于v3.10"
+  enabled: true
+  stage: GA
+{{- end }}

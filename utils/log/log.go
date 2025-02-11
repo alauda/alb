@@ -66,6 +66,7 @@ func getLogCfgFromEnv() LogCfg {
 	return cfg
 }
 
+//nolint:errcheck
 func InitKlogV2(cfg LogCfg) logr.Logger {
 	flags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klogv2.InitFlags(flags)

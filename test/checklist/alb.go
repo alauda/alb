@@ -129,7 +129,6 @@ var _ = Describe("checklist for alb", func() {
 	base := InitBase()
 	l := alog.InitKlogV2(alog.LogCfg{ToFile: base + "/chlist.log"})
 	test := func(cfg cfg, t func(c ctx)) {
-
 		global := BaseWithDir(base, "global")
 		genv := NewEnvtestExt(global, l).WithName("global").Crds([]string{GetAlbBase() + "/scripts/yaml/crds/extra/mock"})
 		genv.AssertStart()
@@ -911,7 +910,6 @@ data:
 			GinkgoAssertTrue(strings.Contains(out, `集群 p1 的 alb test 的端口项目信息 configmap 与 hr不一致 cm: [{"port":"111-2233","projects":["ALL_ALL"]}] hr: []  请更新hr p1-test`), "")
 			_ = out
 		})
-
 	})
 
 	GIt("should notice mis used cpaas-system project ", func() {

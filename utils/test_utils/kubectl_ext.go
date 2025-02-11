@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
+	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -19,6 +19,14 @@ type Kubectl struct {
 	kubeCfgPath string
 	base        string
 	log         logr.Logger
+}
+
+func KubectlViaEnv() (*Kubectl, error) {
+	cfg, err := RESTFromKubeConfigFile(os.Getenv("KUBECONFIG"))
+	if err != nil {
+		return nil, err
+	}
+	return NewKubectl("", cfg, log.L()), nil
 }
 
 // if base =="" it will create /tmp/kubectl-xx else create base/kubectl-xx
@@ -81,20 +89,17 @@ func (k *Kubectl) Kubectl(cmds ...string) (string, error) {
 	if len(cmds) == 1 {
 		cmds = strings.Split(cmds[0], " ")
 	}
-	cmds = append(cmds, "--kubeconfig", k.kubeCfgPath)
-	k.log.Info("cmd", "cmds", cmds)
-	cmd := exec.Command("kubectl", cmds...)
-	stdout, err := cmd.CombinedOutput()
+	out, err := NewCmd().Env(map[string]string{"KUBECONFIG": k.kubeCfgPath}).Call("kubectl", cmds...)
 	if err != nil {
-		return "", fmt.Errorf("eval %s %s err: %v", cmd, stdout, err)
+		return "", fmt.Errorf("eval |%s| %s err: %v", cmds, out, err)
 	}
-	return string(stdout), nil
+	return string(out), nil
 }
 
 func (k *Kubectl) AssertKubectl(cmds ...string) string {
 	ret, err := k.Kubectl(cmds...)
 	assert.Nil(ginkgo.GinkgoT(), err, "")
-	return ret
+	return strings.TrimSpace(ret)
 }
 
 func (k *Kubectl) AssertKubectlOmgea(o gomega.Gomega, cmds ...string) string {

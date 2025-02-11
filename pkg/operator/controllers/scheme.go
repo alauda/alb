@@ -13,6 +13,7 @@ import (
 	gv1a2t "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+//nolint:errcheck
 func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = albv2.AddToScheme(scheme)
 	_ = appsv1.AddToScheme(scheme)

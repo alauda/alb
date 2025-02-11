@@ -24,11 +24,13 @@ import (
 	"time"
 
 	"alauda.io/alb2/config"
+	ctl "alauda.io/alb2/controller"
 	"alauda.io/alb2/driver"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	informerv2 "alauda.io/alb2/pkg/client/informers/externalversions/alauda/v2beta1"
 	listerv1 "alauda.io/alb2/pkg/client/listers/alauda/v1"
-	cus "alauda.io/alb2/pkg/controller/custom_config"
+	cus "alauda.io/alb2/pkg/controller/extctl"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -84,7 +86,7 @@ type Controller struct {
 	log                  logr.Logger
 	IngressSelect
 	*config.Config
-	cus cus.CustomCfgCtl
+	cus cus.ExtCtl
 }
 
 // NewController returns a new sample controller
@@ -106,7 +108,11 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{Interface: d.Client.CoreV1().Events("")},
 	)
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
 		corev1.EventSource{Component: fmt.Sprintf("alb2-%s", albCfg.GetAlbName()), Host: hostname},
@@ -127,7 +133,7 @@ func NewController(d *driver.KubernetesDriver, informers driver.Informers, albCf
 			cfg: Cfg2IngressSelectOpt(albCfg),
 			drv: d,
 		},
-		cus: cus.NewCustomCfgCtl(cus.CustomCfgOpt{
+		cus: cus.NewExtensionCtl(cus.ExtCtlCfgOpt{
 			Log:    log,
 			Domain: albCfg.Domain,
 		}),
@@ -221,6 +227,40 @@ func (c *Controller) setUpEventHandler() error {
 	if err != nil {
 		return err
 	}
+	// watch ns change it may add or remove project label which alb care
+	_, err = c.kd.Informers.K8s.Namespace.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(old, latest interface{}) {
+			newNs := latest.(*corev1.Namespace)
+			oldNs := old.(*corev1.Namespace)
+			if oldNs.ResourceVersion == newNs.ResourceVersion {
+				return
+			}
+			if reflect.DeepEqual(oldNs.Labels, newNs.Labels) {
+				return
+			}
+			oldNsProject := mapset.NewSet(ctl.GetOwnProjectsFromLabel(oldNs.Name, oldNs.Labels, c.Domain)...)
+			newNsProject := mapset.NewSet(ctl.GetOwnProjectsFromLabel(newNs.Name, newNs.Labels, c.Domain)...)
+			if oldNsProject.Equal(newNsProject) {
+				return
+			}
+			alb, err := c.kd.LoadALBbyName(c.Ns, c.Name)
+			if err != nil {
+				c.log.Error(err, "reprocess ns ingress when ns changed failed")
+			}
+			albProject := mapset.NewSet(ctl.GetOwnProjectsFromAlb(alb.Alb)...)
+			if len((oldNsProject.Union(newNsProject)).Intersect(albProject).ToSlice()) == 0 {
+				return
+			}
+			err = c.syncNs(newNs.Name)
+			if err != nil {
+				c.log.Error(err, "reprocess all ingress when ns changed failed")
+			}
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -256,6 +296,19 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 	<-stopCh
 	c.log.Info("Shutting down workers")
 
+	return nil
+}
+
+func (c *Controller) syncNs(ns string) error {
+	ings, err := c.kd.ListIngressInNs(ns)
+	if err != nil {
+		return err
+	}
+	// ensure legacy ingresses will be transformed
+	for _, ing := range ings {
+		c.log.Info(fmt.Sprintf("enqueue unprocessed ing: %s/%s %s", ing.Namespace, ing.Name, ing.ResourceVersion))
+		c.enqueue(IngKey(ing))
+	}
 	return nil
 }
 
@@ -296,7 +349,7 @@ func (c *Controller) processNextWorkItem() bool {
 	}
 
 	// We wrap this block in a func so we can defer c.workqueue.Done.
-	_ = func(obj interface{}) error {
+	func(obj interface{}) {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
 		// do not want this work item being re-queued. For example, we do
@@ -317,7 +370,6 @@ func (c *Controller) processNextWorkItem() bool {
 			// process a work item that is invalid.
 			c.workqueue.Forget(obj)
 			c.log.Info("invalid workqueue key type", "obj", obj)
-			return nil
 		}
 		// Run the Reconcile, passing it the namespace/name string of the
 		// Foo resource to be synced.
@@ -325,12 +377,10 @@ func (c *Controller) processNextWorkItem() bool {
 			// Put the item back on the workqueue to handle any transient errors.
 			c.log.Info("requeue", "ing", key, "err", err, "requeue", reque)
 			c.workqueue.AddRateLimited(key)
-			return nil
 		}
 		// Finally, if no error occurs we Forget this item, so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		return nil
 	}(obj)
 
 	return true

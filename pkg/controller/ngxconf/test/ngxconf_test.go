@@ -150,7 +150,7 @@ var _ = DescribeTable("ngx config should work",
 				set $location_mode sub;
 				rewrite_by_lua_file /alb/nginx/lua/phase/l7_rewrite_phase.lua;
 				proxy_pass $backend_protocol://http_backend;
-				header_filter_by_lua_file /alb/nginx/lua/l7_header_filter.lua;
+				header_filter_by_lua_file /alb/nginx/lua/phase/l7_header_filter_phase.lua;
 			`))
 		},
 	),

@@ -2,6 +2,7 @@ package test_utils
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -14,7 +15,8 @@ type Cmd struct {
 }
 
 func NewCmd() *Cmd {
-	return &Cmd{logcmd: true, logout: true, cwd: ""}
+	log := os.Getenv("ALB_LOG_CMD") == "true"
+	return &Cmd{logcmd: log, logout: log, cwd: ""}
 }
 
 func (c *Cmd) Logout(logout bool) *Cmd {

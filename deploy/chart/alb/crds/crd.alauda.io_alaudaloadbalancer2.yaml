@@ -134,6 +134,46 @@ spec:
                   properties:
                     antiAffinityKey:
                       type: string
+                    auth:
+                      properties:
+                        basic:
+                          properties:
+                            auth_type:
+                              description: only support basic now
+                              type: string
+                            realm:
+                              type: string
+                            secret:
+                              type: string
+                            secret_type:
+                              description: auth-file|auth-map
+                              type: string
+                          type: object
+                        forward:
+                          description: auth via forward request
+                          properties:
+                            always_set_cookie:
+                              default: false
+                              type: boolean
+                            auth_headers_cm_ref:
+                              type: string
+                            auth_request_redirect:
+                              type: string
+                            method:
+                              default: GET
+                              type: string
+                            signin:
+                              type: string
+                            signin_redirect_param:
+                              type: string
+                            upstream_headers:
+                              items:
+                                type: string
+                              type: array
+                            url:
+                              type: string
+                          type: object
+                      type: object
                     backlog:
                       type: integer
                     bindNIC:
@@ -515,6 +555,46 @@ spec:
                   properties:
                     antiAffinityKey:
                       type: string
+                    auth:
+                      properties:
+                        basic:
+                          properties:
+                            auth_type:
+                              description: only support basic now
+                              type: string
+                            realm:
+                              type: string
+                            secret:
+                              type: string
+                            secret_type:
+                              description: auth-file|auth-map
+                              type: string
+                          type: object
+                        forward:
+                          description: auth via forward request
+                          properties:
+                            always_set_cookie:
+                              default: false
+                              type: boolean
+                            auth_headers_cm_ref:
+                              type: string
+                            auth_request_redirect:
+                              type: string
+                            method:
+                              default: GET
+                              type: string
+                            signin:
+                              type: string
+                            signin_redirect_param:
+                              type: string
+                            upstream_headers:
+                              items:
+                                type: string
+                              type: array
+                            url:
+                              type: string
+                          type: object
+                      type: object
                     backlog:
                       type: integer
                     bindNIC:

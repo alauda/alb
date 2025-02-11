@@ -1,0 +1,1 @@
+---@alias var_string string a string may contain nginx variable

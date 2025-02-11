@@ -361,7 +361,6 @@ func (c *Config) GetNetworkMode() ControllerNetWorkMode {
 	return ControllerNetWorkMode(c.Controller.NetworkMode)
 }
 
-// TODO a better name
 func (c *Config) IsEnableAlb() bool {
 	return c.Controller.Flags.EnableAlb
 }

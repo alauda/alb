@@ -8,7 +8,7 @@ import (
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *types.Rule, filters []gv1.HTTPRouteFilter) error {
+func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *types.InternalRule, filters []gv1.HTTPRouteFilter) error {
 	log := h.log.WithValues("ctx", ctx.ToString())
 
 	headerModifyFilter := []gv1.HTTPHeaderFilter{}
@@ -53,7 +53,7 @@ func (h *HttpProtocolTranslate) applyHttpFilterOnRule(ctx HttpCtx, rule *types.R
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.Rule, filters []gv1.HTTPHeaderFilter) error {
+func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.InternalRule, filters []gv1.HTTPHeaderFilter) error {
 	if len(filters) == 0 {
 		return nil
 	}
@@ -71,9 +71,6 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.Rule, filter
 		remove = append(remove, f.Remove...)
 	}
 
-	if rule.Config == nil {
-		rule.Config = &types.RuleConfigInPolicy{}
-	}
 	rule.Config.RewriteRequest = &types.RewriteRequestConfig{
 		Headers:       set,
 		HeadersAdd:    add,
@@ -82,7 +79,11 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.Rule, filter
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *types.Rule, redirect gv1.HTTPRequestRedirectFilter) error {
+func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, r *types.InternalRule, redirect gv1.HTTPRequestRedirectFilter) error {
+	if r.Config.Redirect == nil {
+		r.Config.Redirect = &types.RedirectConf{}
+	}
+	rule := r.Config.Redirect
 	if redirect.StatusCode != nil {
 		rule.RedirectCode = *redirect.StatusCode
 	}
@@ -115,14 +116,22 @@ func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, rule *types.Rul
 	return nil
 }
 
-func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, rule *types.Rule, rewrite gv1.HTTPURLRewriteFilter) error {
+func (h *HttpProtocolTranslate) applyRewriteFilter(ctx HttpCtx, r *types.InternalRule, rewrite gv1.HTTPURLRewriteFilter) error {
+	if r.Config.Vhost == nil {
+		r.Config.Vhost = &types.Vhost{}
+	}
+
 	if rewrite.Hostname != nil {
-		rule.VHost = string(*rewrite.Hostname)
+		r.Config.Vhost.VHost = string(*rewrite.Hostname)
 	}
 	path := rewrite.Path
 	if path == nil {
 		return nil
 	}
+	if r.Config.Rewrite == nil {
+		r.Config.Rewrite = &types.RewriteConf{}
+	}
+	rule := r.Config.Rewrite
 	if path.ReplaceFullPath != nil {
 		rule.RewriteBase = ".*"
 		rule.RewriteTarget = *rewrite.Path.ReplaceFullPath

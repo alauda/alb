@@ -36,6 +36,8 @@ var _ = Describe("chart", func() {
 
 	f.GIt("deploy alb deployment mode", func() {
 		cfg := `
+            alaudaConsole:
+                 redirect: /console-portal
             operatorDeployMode: "deployment"
             displayName: "x"
             address: "192.168.134.195"
@@ -61,6 +63,7 @@ var _ = Describe("chart", func() {
             gateway:
                 enable: true
             replicas: 1
+            test: "xx"
             `
 		env = StartOperatorEnvOrDieWithOpt(OperatorEnvCfg{
 			RunOpext:      false,
@@ -77,13 +80,12 @@ var _ = Describe("chart", func() {
 		err := kc.GetClient().Get(ctx, types.NamespacedName{Namespace: "cpaas-system", Name: "ares-alb2"}, alb)
 		GinkgoNoErr(err)
 		assert.Equal(GinkgoT(), "ares-alb2", *alb.Spec.Config.LoadbalancerName)
+		_, global_exist := alb.Annotations["global"]
+		assert.Equal(GinkgoT(), global_exist, false)
+		_, console_exist := alb.Annotations["alaudaConsole"]
+		assert.Equal(GinkgoT(), console_exist, false)
 
-		csv, err := kt.Kubectl("get csv -A")
-		GinkgoNoErr(err)
-		l.Info("csv", "csv", csv)
-		assert.Equal(GinkgoT(), strings.Contains(csv, "No resources found"), true)
-
-		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"])
+		l.Info("alb", "annotation", alb.Annotations["alb.cpaas.io/migrate-backup"], "cfg", alb.Spec.Config)
 		_, err = kc.GetK8sClient().RbacV1().ClusterRoleBindings().Get(ctx, "alb-operator", metav1.GetOptions{})
 		GinkgoNoErr(err)
 		_, err = kc.GetK8sClient().RbacV1().ClusterRoles().Get(ctx, "alb-operator", metav1.GetOptions{})

@@ -10,7 +10,7 @@ function _M.httpc()
 end
 
 function _M.get_caller_info(f, t)
-    local msg=""
+    local msg = ""
     for i = f, t do
         local callerinfo = debug.getinfo(i)
         local caller = sext.remove_prefix(callerinfo.source, "@") .. " " .. tostring(callerinfo.currentline)
@@ -23,12 +23,18 @@ function _M.curl(url, cfg)
     local httpc = require("resty.http").new()
     if cfg == nil then
         local res, err = httpc:request_uri(url, { method = "GET" })
+        if res.headers then
+            setmetatable(res.headers, nil)
+        end
         return res, err
     end
     if cfg.method == nil then
         cfg.method = "GET"
     end
     local res, err = httpc:request_uri(url, cfg)
+    if res.headers then
+        setmetatable(res.headers, nil)
+    end
     return res, err
 end
 
@@ -105,6 +111,17 @@ function _M.file_read_to_string(path)
         return nil, "could not read file content"
     end
     return raw, nil
+end
+
+---@param t table
+---@return integer
+function _M.count_table_as_map_length(t)
+    -- shame for lua
+    local n = 0
+    for _ in pairs(table) do
+        n = n + 1
+    end
+    return n
 end
 
 return _M

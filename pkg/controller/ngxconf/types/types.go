@@ -4,21 +4,23 @@ import albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 
 // a config used for nginx.tmpl to generate nginx.conf
 type NginxTemplateConfig struct {
-	Name        string              `yaml:"name"`
-	TweakBase   string              `yaml:"tweakBase"` // /alb/tweak
-	NginxBase   string              `yaml:"nginxBase"` // /alb/nginx
-	RestyBase   string              `yaml:"restyBase"` // /usr/local/openresty/
-	ShareBase   string              `yaml:"shareBase"` // the /etc/alb2/nginx
-	Frontends   map[string]FtConfig `yaml:"frontends"`
-	Metrics     MetricsConfig       `yaml:"metrics"`
-	TweakHash   string              `yaml:"tweakHash"`
-	Phase       string              `yaml:"phase"`
-	Base        string              `yaml:"base"`
-	NginxParam  `yaml:",inline"`
-	RootExtra   string `yaml:"rootExtra"`
-	HttpExtra   string `yaml:"httpExtra"`
-	StreamExtra string `yaml:"streamExtra"`
-	Flags       Flags  `yaml:"flags"` // render part of nginx.conf. used in AlaudaLib.pm
+	Name            string              `yaml:"name"`
+	TweakBase       string              `yaml:"tweakBase"` // /alb/tweak
+	NginxBase       string              `yaml:"nginxBase"` // /alb/nginx
+	RestyBase       string              `yaml:"restyBase"` // /usr/local/openresty/
+	ShareBase       string              `yaml:"shareBase"` // the /etc/alb2/nginx
+	Frontends       map[string]FtConfig `yaml:"frontends"`
+	Metrics         MetricsConfig       `yaml:"metrics"`
+	Resolver        string              `yaml:"resolver"`
+	ResolverTimeout string              `yaml:"resolver_timeout"`
+	TweakHash       string              `yaml:"tweakHash"`
+	Phase           string              `yaml:"phase"`
+	Base            string              `yaml:"base"`
+	NginxParam      `yaml:",inline"`
+	RootExtra       string `yaml:"rootExtra"`
+	HttpExtra       string `yaml:"httpExtra"`
+	StreamExtra     string `yaml:"streamExtra"`
+	Flags           Flags  `yaml:"flags"` // render part of nginx.conf. used in AlaudaLib.pm
 }
 
 type FtConfig struct {

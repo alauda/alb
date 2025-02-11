@@ -51,7 +51,7 @@ func (h *HttpProtocolTranslate) SetPolicyAttachmentHandle(handle gatewayPolicyTy
 	h.handle = handle
 }
 
-func (h *HttpProtocolTranslate) applyPolicyAttachmentOnRule(ft *ctltype.Frontend, ref gatewayPolicyType.Ref, rule *ctltype.Rule) error {
+func (h *HttpProtocolTranslate) applyPolicyAttachmentOnRule(ft *ctltype.Frontend, ref gatewayPolicyType.Ref, rule *ctltype.InternalRule) error {
 	if h.handle == nil {
 		return nil
 	}
@@ -97,9 +97,7 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*ngxtype.Listener, ftMap ngx
 		ft := &ctltype.Frontend{}
 		ft.Port = albv1.PortNumber(port)
 		ft.Protocol = albv1.FtProtocolHTTP
-		rules := []*ctltype.Rule{}
-		// TODO now each match will generate a rule, that seems odd.
-		// the essence of this problem is : how could we sort policy without dslx?
+		rules := []*ctltype.InternalRule{}
 		for _, ctx := range ctxList {
 			rule, err := h.generateHttpRule(ctx)
 			if err != nil {
@@ -127,12 +125,12 @@ func (h *HttpProtocolTranslate) translateHttp(lss []*ngxtype.Listener, ftMap ngx
 	return nil
 }
 
-func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*ctltype.Rule, error) {
+func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*ctltype.InternalRule, error) {
 	route := ctx.httpRoute
 	gRule := route.Spec.Rules[ctx.ruleIndex]
 	match := gRule.Matches[ctx.matchIndex]
 
-	rule := &ctltype.Rule{}
+	rule := &ctltype.InternalRule{}
 	rule.Source = &albv1.Source{
 		Type:      modules.TypeHttpRoute,
 		Namespace: ctx.httpRoute.Namespace,
@@ -196,7 +194,7 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*ngxtype.Listener, ftMap ng
 		ft := &ctltype.Frontend{}
 		ft.Port = albv1.PortNumber(port)
 		ft.Protocol = albv1.FtProtocolHTTPS
-		rules := []*ctltype.Rule{}
+		rules := []*ctltype.InternalRule{}
 		for _, ctx := range ctxList {
 			rule, err := h.generateHttpsRule(ctx)
 			if err != nil {
@@ -226,12 +224,12 @@ func (h *HttpProtocolTranslate) translateHttps(lss []*ngxtype.Listener, ftMap ng
 	return nil
 }
 
-func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*ctltype.Rule, error) {
+func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*ctltype.InternalRule, error) {
 	route := ctx.httpRoute
 	gRule := route.Spec.Rules[ctx.ruleIndex]
 	match := gRule.Matches[ctx.matchIndex]
 
-	rule := &ctltype.Rule{}
+	rule := &ctltype.InternalRule{}
 	rule.Source = &albv1.Source{
 		Type:      modules.TypeHttpRoute,
 		Namespace: ctx.httpRoute.Namespace,

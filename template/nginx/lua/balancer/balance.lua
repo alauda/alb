@@ -1,4 +1,4 @@
--- format:on
+-- format:on style:emmy
 -- THIS MODULE EVALED IN BOTH HTTP AND STREAM CTX
 local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
@@ -19,7 +19,7 @@ local _M = {}
 local balancers = {}
 
 local DEFAULT_LB_ALG = "round_robin"
-local IMPLEMENTATIONS = {round_robin = round_robin, chash = chash, sticky = sticky}
+local IMPLEMENTATIONS = { round_robin = round_robin, chash = chash, sticky = sticky }
 
 local function get_implementation(backend)
     local name = DEFAULT_LB_ALG
@@ -72,7 +72,9 @@ local function sync_backend(backend)
     -- here we check if `balancer` is the instance of `implementation`
     -- if it is not then we deduce LB algorithm has changed for the backend
     if getmetatable(balancer) ~= implementation then
-        ngx_log(ngx.INFO, string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name, implementation.name))
+        ngx_log(ngx.INFO,
+            string_format("LB algorithm changed from %s to %s, resetting the instance", balancer.name,
+                implementation.name))
 
         balancer = implementation:new(backend)
         balancer:sync(backend)
@@ -89,7 +91,6 @@ function _M.sync_backends()
         ngx_log(ngx.ERR, "no backends data")
         return
     end
-
     local new_backends, err = common.json_decode(backends_data)
     if not new_backends then
         ngx_log(ngx.ERR, "could not parse backends data: ", err)
@@ -135,7 +136,7 @@ function _M.balance()
         return
     end
 
-    alb_ctx.peer = {peer = peer, conf = balancer:get_peer_conf(peer)}
+    alb_ctx.peer = { peer = peer, conf = balancer:get_peer_conf(peer) }
     -- TODO 在实现retrypolicy时这里需要被重写。注意测试。
     ngx_balancer.set_more_tries(1)
     -- TODO FIXME
@@ -149,15 +150,17 @@ function _M.balance()
     -- https://github.com/openresty/lua-nginx-module/pull/1600
     -- ngx.log(ngx.NOTICE, "send timeout "..common.json_encode(policy))
 
-    if common.has_key(policy, {"config", "timeout"}) then
+    if common.has_key(policy, { "config", "timeout" }) then
         local timeout = policy.config.timeout
+        ---@cast timeout -nil
         local proxy_connect_timeout_secs = ms2sec(timeout.proxy_connect_timeout_ms)
         local proxy_send_timeout_secs = ms2sec(timeout.proxy_send_timeout_ms)
         local proxy_read_timeout_secs = ms2sec(timeout.proxy_read_timeout_ms)
         -- ngx.log(ngx.NOTICE,
         -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
         --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
-        local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs, proxy_read_timeout_secs)
+        local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs,
+            proxy_read_timeout_secs)
         if err ~= nil then
             ngx.log(ngx.ERR, err)
             e.exit(e.InvalidBalancer, "set timeout fail")

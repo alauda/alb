@@ -11,6 +11,7 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	ngxconf "alauda.io/alb2/pkg/controller/ngxconf"
+	ptu "alauda.io/alb2/pkg/utils/test_utils"
 	"alauda.io/alb2/utils"
 	"alauda.io/alb2/utils/log"
 	"alauda.io/alb2/utils/test_utils"
@@ -36,8 +37,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"1",
 			[]*Policy{
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 5}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 5}},
 			},
 			args{0, 1},
 			false,
@@ -45,8 +46,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"2",
 			[]*Policy{
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 4}},
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 4}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 5}},
 			},
 			args{0, 1},
 			true,
@@ -54,8 +55,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"3",
 			[]*Policy{
-				{ComplexPriority: 99, SameInRuleCr: SameInRuleCr{Priority: 5}},
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 5}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 99, Priority: 5}},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 5}},
 			},
 			args{0, 1},
 			false,
@@ -63,8 +64,8 @@ func TestPolicies_Less(t *testing.T) {
 		{
 			"4",
 			[]*Policy{
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 100}, Rule: "a"},
-				{ComplexPriority: 100, SameInRuleCr: SameInRuleCr{Priority: 100}, Rule: "b"},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "a"},
+				{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "b"},
 			},
 			args{0, 1},
 			true,
@@ -79,24 +80,35 @@ func TestPolicies_Less(t *testing.T) {
 	}
 }
 
-func GenPolicyAndConfig(t *testing.T, env test_utils.FakeAlbEnv, res test_utils.FakeResource) (*NgxPolicy, string, error) {
+func GenPolicyAndConfig(t *testing.T, res test_utils.FakeResource) (*NgxPolicy, string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	env := test_utils.NewFakeEnv()
+	env.AssertStart()
+	l := log.L()
+	defer func() {
+		cancel()
+		env.Stop()
+	}()
+	kt := test_utils.NewKubectl("", env.GetCfg(), l)
+	_, err := kt.Kubectl("get crd -A")
+	assert.NoError(t, err)
+
 	cfg := config.DefaultMock()
 	cfg.Name = "alb-1"
 	cfg.Ns = "ns-1"
 	cfg.SetDomain("alauda.io")
 	cfg.Controller.Flags.EnableAlb = true
 	config.UseMock(cfg)
-	err := env.ApplyFakes(res)
+	err = env.ApplyFakes(res)
 	assert.NoError(t, err)
-	drv, err := driver.GetAndInitKubernetesDriverFromCfg(ctx, env.GetCfg())
+	_, err = kt.Kubectl("get frontends -A")
+	assert.NoError(t, err)
+	drv, err := driver.NewDriver(driver.NewDrvOpt(ctx, env.GetCfg(), cfg))
 	assert.NoError(t, err)
 
-	ctl := NewNginxController(drv, ctx, cfg, log.L(), nil)
+	ctl := NewNginxController(drv, ctx, cfg, l, nil)
 	nginxConfig, nginxPolicy, err := ctl.GenerateNginxConfigAndPolicy()
 	assert.NoError(t, err)
-	env.ClearFakes(res)
 	// marshal and unmarshal to make sure we generate a valid policy json file
 	policy := NgxPolicy{}
 	nginxPolicyJson, err := json.MarshalIndent(nginxPolicy, " ", " ")
@@ -173,15 +185,12 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			}
 		}
-		env := test_utils.NewFakeEnv()
-		env.AssertStart()
 		for _, c := range casesRun {
 			t.Logf("run test %s", c.Name)
-			albPolicy, ngxCfg, err := GenPolicyAndConfig(t, env, c.Res())
+			albPolicy, ngxCfg, err := GenPolicyAndConfig(t, c.Res())
 			assert.NoError(t, err, c.Name)
 			c.Assert(*albPolicy, ngxCfg)
 		}
-		env.Stop()
 	}
 	defaultAlb := []albv2.ALB2{
 		{
@@ -546,7 +555,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			},
 			Assert: func(albPolicy NgxPolicy, ngxCfg string) {
-				listen, err := test_utils.PickStreamServerListen(ngxCfg)
+				listen, err := ptu.PickStreamServerListen(ngxCfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:8000", "[::]:8000"})
 				policies := albPolicy.Stream.Tcp[8000]
@@ -662,7 +671,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			},
 			Assert: func(albPolicy NgxPolicy, ngxCfg string) {
-				listen, err := test_utils.PickStreamServerListen(ngxCfg)
+				listen, err := ptu.PickStreamServerListen(ngxCfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:8000 udp", "[::]:8000 udp"})
 
@@ -811,10 +820,10 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 				}
 			},
 			Assert: func(p NgxPolicy, cfg string) {
-				listen, err := test_utils.PickHttpServerListen(cfg)
+				listen, err := ptu.PickHttpServerListen(cfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:1936 ssl", "[::]:1936 ssl", "0.0.0.0:80 backlog=100 default_server", "[::]:80 backlog=100 default_server"})
-				listen, err = test_utils.PickStreamServerListen(cfg)
+				listen, err = ptu.PickStreamServerListen(cfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:53", "[::]:53", "0.0.0.0:53 udp", "[::]:53 udp"})
 			},

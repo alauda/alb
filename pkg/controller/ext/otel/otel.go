@@ -12,9 +12,9 @@ import (
 	ct "alauda.io/alb2/controller/types"
 	av1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/pkg/controller/ext/otel/types"
+	ngt "alauda.io/alb2/pkg/controller/ngxconf/types"
 	. "alauda.io/alb2/pkg/utils"
 	"alauda.io/alb2/utils"
-	u "alauda.io/alb2/utils"
 	jp "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/xorcare/pointer"
@@ -26,18 +26,20 @@ const (
 	OpenTelemetryTrustIncomingSpan = "nginx.ingress.kubernetes.io/opentelemetry-trust-incoming-spans"
 )
 
-type Otel struct {
-	Log logr.Logger
+type OtelCtl struct {
+	Log    logr.Logger
+	domain string
 }
 
-func NewOtel(log logr.Logger) *Otel {
-	return &Otel{Log: log}
+func NewOtel(log logr.Logger, domain string) *OtelCtl {
+	return &OtelCtl{Log: log, domain: domain}
 }
 
 // TODO ingress default rule and ft default backend not support otel..
 
 // 根据ingress 生成rule
-func (o *Otel) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule, domain string) {
+func (o *OtelCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule) {
+	domain := o.domain
 	if ingress == nil || rule == nil || ingress.Annotations == nil {
 		return
 	}
@@ -74,8 +76,7 @@ func (o *Otel) UpdateRuleViaIngress(ingress *nv1.Ingress, ruleIndex int, pathInd
 	}
 }
 
-// rule cr 转成 policy
-func (o *Otel) FromRuleCr(rule *m.Rule, r *ct.Rule) {
+func (o *OtelCtl) ToInternalRule(rule *m.Rule, r *ct.InternalRule) {
 	alb_otel, ft_otel, rule_otel := access_otel(rule)
 	if !alb_otel.Need() && !rule_otel.Need() && !ft_otel.Need() {
 		return
@@ -90,13 +91,26 @@ func (o *Otel) FromRuleCr(rule *m.Rule, r *ct.Rule) {
 		r.Config.Otel = nil
 		return
 	}
+	r.Config.Otel = &cf.OtelConf
+}
+
+func (w *OtelCtl) ToPolicy(r *ct.InternalRule, p *ct.Policy, refs ct.RefMap) {
 	if r.Config.Otel == nil {
-		r.Config.Otel = &OtelInPolicy{}
+		return
 	}
-	hash := Hash(u.PrettyJson(cf))
-	// IMPR 这样的一个问题是 从policy上我们不是很容易看出这个hash属于谁
-	r.Config.Otel.Hash = hash
-	r.Config.Otel.Otel = &cf.OtelConf
+	p.Config.Otel = r.Config.Otel
+}
+
+func (o *OtelCtl) ResolveDnsIfNeed(cf *OtelConf) (*OtelConf, error) {
+	if cf.Exporter == nil || cf.Exporter.Collector == nil {
+		return nil, fmt.Errorf("invalid otel config, exporter is nil")
+	}
+	addr, err := ResolveDnsIfNeed(cf.Exporter.Collector.Address)
+	if err != nil {
+		return nil, err
+	}
+	cf.Exporter.Collector.Address = addr
+	return cf, nil
 }
 
 var DEFAULT_OTEL = OtelCrConf{
@@ -156,64 +170,6 @@ func access_otel(r *m.Rule) (alb_otel *OtelCrConf, ft_otel *OtelCrConf, rule_ote
 	return alb_otel, ft_otel, r.GetOtel()
 }
 
-// 有所有policy的情况下重新整理
-func (o *Otel) ResolvePolicy(alb *ct.LoadBalancer, policy *ct.NgxPolicy) error {
-	// 遍历所有的rule 如果配置相同 提取成同一个 config 并设置好对应ref
-
-	type ResolvedOtel struct {
-		otel OtelConf
-		err  error
-	}
-	common_otel := map[string]ResolvedOtel{}
-
-	resolve := func(hash string, otel *OtelConf) error {
-		if c, has := common_otel[hash]; has {
-			return c.err
-		}
-		addr, err := ResolveDnsIfNeed(otel.Exporter.Collector.Address)
-		if err != nil {
-			common_otel[hash] = ResolvedOtel{err: err}
-			return err
-		}
-		otel.Exporter.Collector.Address = addr
-		common_otel[hash] = ResolvedOtel{
-			otel: *otel,
-		}
-		return nil
-	}
-	for _, ps := range policy.Http.Tcp {
-		for _, p := range ps {
-			otel := p.GetOtel()
-			if otel == nil {
-				continue
-			}
-			// set otel in matched policy to nil, we should get it via ref
-			p.Config.Otel.Otel = nil
-			if !otel.HasCollector() {
-				continue
-			}
-			hash := p.Config.Otel.Hash
-			if resolve(hash, otel) != nil {
-				continue
-			}
-			p.Config.Otel.OtelRef = pointer.String(hash)
-		}
-	}
-
-	for hash, otel := range common_otel {
-		if otel.err != nil {
-			continue
-		}
-		policy.CommonConfig[hash] = ct.CommonPolicyConfigVal{
-			Type: "otel",
-			Otel: &OtelInCommon{
-				Otel: otel.otel,
-			},
-		}
-	}
-	return nil
-}
-
 func ResolveDnsIfNeedWithNet(rawurl string, lookup func(string) ([]string, error)) (string, error) {
 	url, err := url.Parse(rawurl)
 	if err != nil {
@@ -263,4 +219,23 @@ func getIngressOpt(in *nv1.Ingress) (enable, trustincoming *bool) {
 		trustincoming = pointer.Bool(ToBoolOr(trustAnnot, true))
 	}
 	return enable, trustincoming
+}
+
+func (c *OtelCtl) CollectRefs(ir *ct.InternalRule, refs ct.RefMap) {
+}
+
+func (c *OtelCtl) UpdateNgxTmpl(_ *ngt.NginxTemplateConfig, _ *ct.LoadBalancer, _ *config.Config) {
+}
+
+func (c *OtelCtl) UpdatePolicyAfterUniq(ext *ct.PolicyExt) {
+	if ext.Otel == nil {
+		return
+	}
+	otel, err := c.ResolveDnsIfNeed(ext.Otel)
+	if err != nil {
+		c.Log.Error(err, "resolve otel dns fail", "policy", ext.Otel)
+		ext.Otel = nil
+		return
+	}
+	ext.Otel = otel
 }

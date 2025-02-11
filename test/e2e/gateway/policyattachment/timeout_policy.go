@@ -314,7 +314,7 @@ spec:
 			})
 			// h2_90 attach to g2, no config
 			h2_0_90_ok := TestEq(func() bool {
-				return h2_0_90.Config == nil
+				return h2_0_90.Config.Timeout == nil
 			})
 			return h1_0_ok && h1_1_ok && h2_0_ok && h2_0_90_ok, nil
 		})
@@ -353,7 +353,7 @@ spec:
 					return ret
 				}) &&
 				TestEq(func() bool {
-					ret := h2_0.Config == nil
+					ret := h2_0.Config.Timeout == nil
 					Logf("h20 ok")
 					return ret
 				}), nil

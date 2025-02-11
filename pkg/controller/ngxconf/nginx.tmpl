@@ -44,12 +44,20 @@ env HOSTNAME;
 {{ if .Flags.ShowHttpWrapper  }}
 http {
 {{ end }}
+
+    {{ if $.Resolver -}}
+       resolver {{$.Resolver}};
+    {{ if $.ResolverTimeout -}}
+        resolver_timeout {{$.ResolverTimeout}};
+    {{ end }}
+    {{ end }}
      
     {{ if $.Flags.ShowMimeTypes  }}
     include    {{$.RestyBase}}/nginx/conf/mime.types;
     {{ end }}
 
     include    {{$.TweakBase}}/http.conf;
+
 
     {{$.HttpExtra}}
 
@@ -93,6 +101,12 @@ http {
             }
         }
 
+        location /healthz {
+            content_by_lua_block {
+                ngx.say("ok")
+            }
+        }
+
         location /clear {
             content_by_lua_block {
                 require("metrics").clear()
@@ -122,7 +136,7 @@ http {
             set $location_mode sub;
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
 
             {{ if $cfg.EnablePrometheus -}}
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
@@ -136,7 +150,7 @@ http {
 
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
 
             {{ if $cfg.EnablePrometheus -}}
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
@@ -172,7 +186,6 @@ http {
         ssl_dhparam {{$.ShareBase}}/dhparam.pem;
         ssl_certificate_by_lua_file {{$.NginxBase}}/lua/phase/ssl_cert_phase.lua;
 
-
         {{ range $_, $loc := $ft.CustomLocation -}}
         location @{{ $loc.Name }} {
             internal;
@@ -181,7 +194,7 @@ http {
             set $location_mode sub;
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
 
             {{ if $cfg.EnablePrometheus -}}
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
@@ -196,7 +209,7 @@ http {
 
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
-            header_filter_by_lua_file {{$.NginxBase}}/lua/l7_header_filter.lua;
+            header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
 
             {{ if $cfg.EnablePrometheus -}}
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
