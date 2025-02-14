@@ -23,7 +23,7 @@ spec:
     chartVersions:
     - name: acp/chart-alauda-alb2
       releaseName: alauda-alb2
-      version: v3.19.0-beta.13.g7995b13b
+      version: v3.19.0-beta.15.g5e289fee
   mainChart: acp/chart-alauda-alb2
   upgradeRiskLevel: High
   upgradeRiskDescription: "升级期间可能会短暂影响用户已部署的应用的访问."
