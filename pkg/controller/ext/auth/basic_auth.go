@@ -23,7 +23,8 @@ func (f BasicAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *Au
 		SecretType: "",
 		AuthType:   "",
 	}
-	err := ReAssignAuthIngressBasicToBasicAuthInCr(&auth_ingress.AuthIngressBasic, auth_cr.Basic, nil)
+
+	err := ReAssignAuthIngressBasicToBasicAuthInCr(&auth_ingress.AuthIngressBasic, basic, nil)
 	if err != nil {
 		f.l.Error(err, "failed to assign auth ingress basic to basic auth in cr")
 		return

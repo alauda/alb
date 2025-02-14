@@ -1,9 +1,9 @@
 #!/bin/bash
 
 function alb-lint-all() (
+  set -e -o pipefail
   cd $CUR_ALB_BASE
   echo "alb-lint-all"
-  set -e
   alb-lint-cspell
   echo "lint cspell ok"
   alb-lint-bash
@@ -101,7 +101,7 @@ function alb-lint-lua() (
   alb-lint-lua-emmy
 )
 
-function alb-lint-lua-luacheck() (
+function alb-lint-lua-luacheck() {
   while read -r f; do
     luacheck $f
     if [[ $? -ne 0 ]]; then
@@ -110,25 +110,25 @@ function alb-lint-lua-luacheck() (
       return
     fi
   done < <(alb-lua-list-all-app-file)
-)
+}
 
-function alb-lint-lua-emmy-all() (
+function alb-lint-lua-emmy-all() {
   CodeFormat check -w . -c ./.editorconfig -ig "vendor/*;" 2>&1 | grep Check
-)
+}
 
-function alb-lint-lua-emmy() (
+function alb-lint-lua-emmy() {
   while read -r f; do
     if head -n 1 "$f" | grep 'format:on' | grep 'style:emmy'; then
       alb-lint-lua-emmy-format-check $f
     fi
   done < <(alb-lua-list-all-file)
-)
+}
 
-function alb-lint-lua-emmy-format-check() (
+function alb-lint-lua-emmy-format-check() {
   local f=$1
   CodeFormat check -f $f -c ./.editorconfig
   return
-)
+}
 
 function alb-lint-lua-emmy-format-install-arch() (
   yay -S code-format-bin

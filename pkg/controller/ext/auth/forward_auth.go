@@ -27,7 +27,7 @@ func (f ForwardAuthCtl) AuthIngressToAuthCr(auth_ingress *AuthIngress, auth_cr *
 		AlwaysSetCookie:     false,
 		SigninRedirectParam: "",
 	}
-	err := ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, auth_cr.Forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
+	err := ReAssignAuthIngressForwardToForwardAuthInCr(&auth_ingress.AuthIngressForward, forward, &ReAssignAuthIngressForwardToForwardAuthInCrOpt{
 		Resolve_response_headers: func(ls string) ([]string, error) {
 			ls = strings.TrimSpace(ls)
 			if ls == "" {

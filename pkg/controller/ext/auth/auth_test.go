@@ -189,7 +189,7 @@ var _ = Describe("auth", func() {
 					assert.Equal(t, mr.Spec.Config.Auth.Forward.UpstreamHeaders, []string{})
 					assert.Equal(t, mr.Spec.Config.Auth.Forward.Signin, "https://$host/oauth2/start?rd=$escaped_request_uri")
 					l.Info("default value", "json", u.PrettyJson(mr.Spec.Config.Auth))
-					GinkgoAssertJsonEq(mr.Spec.Config.Auth.Basic, `
+					GinkgoAssertJsonEq(mr.Spec.Config.Auth.Forward, `
                     {
      					"url": "https://$host/oauth2/auth",
         				"method": "GET",

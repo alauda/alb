@@ -822,7 +822,7 @@ func TestGenerateAlbPolicyAndConfig(t *testing.T) {
 			Assert: func(p NgxPolicy, cfg string) {
 				listen, err := ptu.PickHttpServerListen(cfg)
 				assert.NoError(t, err)
-				assert.Equal(t, listen, []string{"0.0.0.0:1936 ssl", "[::]:1936 ssl", "0.0.0.0:80 backlog=100 default_server", "[::]:80 backlog=100 default_server"})
+				assert.Equal(t, listen, []string{"0.0.0.0:1936", "ssl", "[::]:1936", "ssl", "0.0.0.0:80", "backlog=100", "default_server", "[::]:80", "backlog=100", "default_server"})
 				listen, err = ptu.PickStreamServerListen(cfg)
 				assert.NoError(t, err)
 				assert.Equal(t, listen, []string{"0.0.0.0:53", "[::]:53", "0.0.0.0:53 udp", "[::]:53 udp"})

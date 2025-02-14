@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2120,SC2155,SC2181
+set -e -o pipefail
 
 function alb-debug-e2e-test() {
   # not yet
@@ -11,6 +12,7 @@ function alb-build-e2e-test() {
 }
 
 function alb-go-test-all-with-coverage() {
+  set -e
   echo "lift: start test"
   env
   #   alb-run-checklist-test
@@ -50,13 +52,14 @@ function alb-go-coverage-gen() (
 )
 
 function alb-run-checklist-test() (
+  set -e -o pipefail
   echo "life: checklist start"
   ginkgo -v ./test/checklist
   echo "life: checklist end"
 )
 
 function alb-run-all-e2e-test() (
-  set -e
+  set -e -o pipefail
   local concurrent=${1:-3}
   local filter=${2:-""}
   echo concurrent $concurrent filter $filter
@@ -84,7 +87,7 @@ function alb-go-build-unit-test() {
 }
 
 function alb-go-unit-test() (
-  set -e
+  set -e -o pipefail
   local concurrent=${1:-3}
   local filter=${2:-""}
   local s=$(date)
