@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
+
+	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	. "alauda.io/alb2/pkg/utils/test_utils"
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
@@ -17,7 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TimeoutEq(timeout gatewayPolicy.TimeoutPolicyConfig, connect *uint, read *uint, send *uint) bool {
+func TimeoutEq(timeout timeout_t.TimeoutCr, connect *uint, read *uint, send *uint) bool {
 	timeoutNew := gatewayPolicy.TimeoutPolicyConfig{
 		ProxyConnectTimeoutMs: connect,
 		ProxySendTimeoutMs:    send,

@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
+	"alauda.io/alb2/pkg/apis/alauda/shared"
+	keepalive_t "alauda.io/alb2/pkg/controller/ext/keepalive/types"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	redirect_t "alauda.io/alb2/pkg/controller/ext/redirect/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -227,10 +229,11 @@ type RuleSpec struct {
 	CORSAllowOrigin string `json:"corsAllowOrigin"`
 	// backendProtocol defines protocol used by backend servers, it could be https/http/grpc
 	BackendProtocol string `json:"backendProtocol"`
-	RedirectURL     string `json:"redirectURL"`
+	// Deprecated: use config.redirect.redirect_url
+	RedirectURL string `json:"redirectURL"`
 	// vhost allows user to override the request Host
 	VHost string `json:"vhost"`
-	// redirectCode could be 301(Permanent Redirect)/302(Temporal Redirect), default 0
+	// Deprecated: use config.redirect.redirect_code. could be 301(Permanent Redirect)/302(Temporal Redirect), default 0
 	RedirectCode int `json:"redirectCode"`
 	// +optional
 	// source is where the frontend or rule came from. It's type can be "bind" for those created for service annotations. And carries information about ingress when rule is generalized by ingress
@@ -238,15 +241,14 @@ type RuleSpec struct {
 }
 
 type FTConfig struct {
-	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
-	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"`
-	Auth         *auth_t.AuthCr    `json:"auth,omitempty"`
+	shared.SharedCr `json:",inline"`
+	Redirect        *redirect_t.RedirectCr   `json:"redirect,omitempty"`
+	KeepAlive       *keepalive_t.KeepAliveCr `json:"keepalive,omitempty"`
 }
 
 type RuleConfigInCr struct {
-	Otel         *otelt.OtelCrConf `json:"otel,omitempty"`
-	ModeSecurity *waft.WafCrConf   `json:"modsecurity,omitempty"` // waf 是个泛指，内部目前是指ModeSecurity，但是在cr上，还是用具体的ModeSecurity这个名字
-	Auth         *auth_t.AuthCr    `json:"auth,omitempty"`
+	shared.SharedCr `json:",inline"`
+	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
 }
 
 func (r *Rule) GetWaf() *waft.WafCrConf {

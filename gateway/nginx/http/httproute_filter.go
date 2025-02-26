@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"alauda.io/alb2/controller/types"
-	"github.com/xorcare/pointer"
+	redirect_t "alauda.io/alb2/pkg/controller/ext/redirect/types"
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -81,37 +81,37 @@ func (h *HttpProtocolTranslate) applyHeaderModifyFilter(rule *types.InternalRule
 
 func (h *HttpProtocolTranslate) applyRedirectFilter(ctx HttpCtx, r *types.InternalRule, redirect gv1.HTTPRequestRedirectFilter) error {
 	if r.Config.Redirect == nil {
-		r.Config.Redirect = &types.RedirectConf{}
+		r.Config.Redirect = &redirect_t.RedirectCr{}
 	}
 	rule := r.Config.Redirect
 	if redirect.StatusCode != nil {
-		rule.RedirectCode = *redirect.StatusCode
+		rule.Code = redirect.StatusCode
 	}
 	if redirect.Scheme != nil && *redirect.Scheme != "" {
-		rule.RedirectScheme = redirect.Scheme
+		rule.Scheme = *redirect.Scheme
 	}
 	if redirect.Hostname != nil && *redirect.Hostname != "" {
 		host := string(*redirect.Hostname)
-		rule.RedirectHost = &host
+		rule.Host = host
 	}
 	if redirect.Path != nil && redirect.Path.ReplaceFullPath != nil && strings.TrimSpace(*redirect.Path.ReplaceFullPath) != "" {
 		fullPath := *redirect.Path.ReplaceFullPath
-		rule.RedirectURL = fullPath
+		rule.URL = fullPath
 	}
 
 	if redirect.Path != nil && redirect.Path.ReplacePrefixMatch != nil && strings.TrimSpace(*redirect.Path.ReplacePrefixMatch) != "" {
 		prefixPath := *redirect.Path.ReplacePrefixMatch
-		rule.RedirectReplacePrefix = pointer.String(prefixPath)
+		rule.ReplacePrefix = prefixPath
 		match := ctx.GetMatcher()
 		path := match.Path
 		if path != nil && path.Type != nil && *path.Type == gv1.PathMatchPathPrefix {
-			rule.RedirectPrefixMatch = match.Path.Value
+			rule.PrefixMatch = *path.Value
 		}
 	}
 
 	if redirect.Port != nil && *redirect.Port > 0 {
 		port := int(*redirect.Port)
-		rule.RedirectPort = &port
+		rule.Port = &port
 	}
 	return nil
 }

@@ -151,7 +151,7 @@ var _ = ginkgo.Describe("Ingress", func() {
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
 			rp, _, _ := p.FindHttpPolicy(ruleName)
 			fmt.Printf("policy %#v", rp)
-			return rp != nil && rp.RedirectCode == 302, nil
+			return rp != nil && *rp.Config.Redirect.Code == 302, nil
 		})
 	})
 

@@ -162,7 +162,7 @@ func (nc *NginxController) GetLBConfig() (*LoadBalancer, error) {
 			log.Error(err, "get lb from gateway fail", "alb", name)
 			return nil, err
 		}
-		log.Info("lb config from gateway ", "lbconfig", lbFromGateway)
+		log.Info("lb config from gateway")
 	}
 
 	if lbFromAlb == nil && lbFromGateway == nil {

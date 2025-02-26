@@ -21,6 +21,26 @@ type Frontend struct {
 	LB    *AlaudaLoadBalancer
 }
 
+func (f *Frontend) GetFtConfig() *alb2v1.FTConfig {
+	if f == nil {
+		return nil
+	}
+	if f.Spec.Config == nil {
+		return nil
+	}
+	return f.Spec.Config
+}
+
+func (f *Frontend) GetAlbConfig() *albv2.ExternalAlbConfig {
+	if f.LB == nil {
+		return nil
+	}
+	if f.LB.Alb == nil {
+		return nil
+	}
+	return f.LB.Alb.Spec.Config
+}
+
 type Rule struct {
 	*alb2v1.Rule
 	FT *Frontend
@@ -34,6 +54,13 @@ func (r *Rule) GetFtConfig() *alb2v1.FTConfig {
 		return nil
 	}
 	return r.FT.Spec.Config
+}
+
+func (r *Rule) GetConfig() *alb2v1.RuleConfigInCr {
+	if r.Spec.Config != nil {
+		return r.Spec.Config
+	}
+	return nil
 }
 
 func (r *Rule) GetAlbConfig() *albv2.ExternalAlbConfig {

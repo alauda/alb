@@ -77,8 +77,14 @@ func (c *AlbCli) RuleToInternalRule(mr *modules.Rule, ir *InternalRule) {
 		up.BackendGroup = &BackendGroup{}
 		ir.RuleUpstream = up
 	}
-	ext := RuleExt{}
+	ext := RuleExt{
+		Source: make(ConfigSource),
+	}
 	ir.Config = ext
+	// 为了方便，我们给rule-config一个默认值
+	if mr.Spec.Config == nil {
+		mr.Spec.Config = &albv1.RuleConfigInCr{}
+	}
 	// rule-ext
 	c.cus.ToInternalRule(mr, ir)
 }
@@ -103,6 +109,9 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 	c.log.Info("ft len", "alb", name, "ft", len(mAlb.Frontends))
 	// mft frontend struct from modules package.
 	for _, mft := range mAlb.Frontends {
+		if mft.Spec.Config == nil {
+			mft.Spec.Config = &albv1.FTConfig{}
+		}
 		ft := &Frontend{
 			FtName:          mft.Name,
 			AlbName:         mAlb.Alb.Name,
@@ -126,7 +135,6 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 		c.log.Info("rule", "ft", ft.FtName, "rule", len(mft.Rules))
 		// translate rule cr to our rule struct
 		for _, marl := range mft.Rules {
-			// arl := marl.Spec
 			rule := &InternalRule{}
 			c.RuleToInternalRule(marl, rule)
 			ft.Rules = append(ft.Rules, rule)
@@ -134,6 +142,7 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 
 		if mft.Spec.ServiceGroup != nil {
 			ft.Services = []*BackendService{}
+			// @ft_default_policy
 			ft.BackendGroup = &BackendGroup{
 				Name:                     ft.String(),
 				SessionAffinityAttribute: mft.Spec.ServiceGroup.SessionAffinityAttribute,
@@ -148,6 +157,12 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 					Weight:      svc.Weight,
 				})
 			}
+		}
+		// l4
+		if ft.IsStreamMode() {
+			c.cus.InitL4Ft(mft, ft)
+		} else {
+			c.cus.InitL7Ft(mft, ft)
 		}
 		cAlb.Frontends = append(cAlb.Frontends, ft)
 	}

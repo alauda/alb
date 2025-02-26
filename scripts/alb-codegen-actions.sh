@@ -66,25 +66,37 @@ function alb-crd-gen-deepcopy() (
   local gobin="${GOBIN:-$(go env GOPATH)/bin}"
 
   local ext_pkgs=$(go list $CUR_ALB_BASE/... | grep "alb2/pkg/controller/ext" | grep types | sort | uniq | awk 'ORS=","')
-  local pkgs="alauda.io/alb2/pkg/apis/alauda/v1,alauda.io/alb2/pkg/apis/alauda/v2beta1,$ext_pkgs"
+  local pkgs="alauda.io/alb2/pkg/apis/alauda/v1,alauda.io/alb2/pkg/apis/alauda/v2beta1,alauda.io/alb2/pkg/apis/alauda/shared,$ext_pkgs"
   "${gobin}/deepcopy-gen" $pkgs --input-dirs $pkgs -O zz_generated.deepcopy --go-header-file ./scripts/boilerplate.go.txt --output-base "$alb/code_gen"
 )
 
 function alb-gen-depgraph() (
   # it will take about 2 minutes
+  # go install github.com/loov/goda@latest
   goda graph "alauda.io/alb2/... - alauda.io/alb2/utils/... - alauda.io/alb2/pkg/utils/... - alauda.io/alb2/pkg/apis/... - alauda.io/alb2/pkg/client/...  - alauda.io/alb2/migrate/...  - alauda.io/alb2/test/..." >./alb.dep
   cat ./alb.dep | dot -Tsvg -o graph.svg
+)
+
+function alb-go-import-cycle-show() (
+  # go install github.com/elza2/go-cyclic@latest
+  go-cyclic run --dir .
 )
 
 function alb-gen-mapping() (
   while read -r file; do
     echo "rm $file"
     rm "$file"
-  done < <(find ./ -name "codegen_mapping_*" -type f)
+  done < <(find ./ -name "codegen_mapping*" -type f)
   go run ./cmd/utils/map_gen/main.go
   while read -r file; do
     echo "fmt $file"
     go fmt "$file"
     gofumpt -w "$file"
-  done < <(find ./ -name "codegen_mapping_*" -type f)
+  done < <(find ./ -name "codegen_mapping*" -type f)
 )
+
+function alb-codegen-all() {
+  alb-crd-gen
+  alb-gen-mapping
+  alb-nginx-build-tylua && alb-nginx-tylua
+}

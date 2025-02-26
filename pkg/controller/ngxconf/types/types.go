@@ -24,6 +24,9 @@ type NginxTemplateConfig struct {
 }
 
 type FtConfig struct {
+	Listen          string             `yaml:"listen"`
+	Location        string             `yaml:"location"`
+	Upstream        string             `yaml:"upstream"`
 	Port            int                `yaml:"port"`
 	Protocol        albv1.FtProtocol   `yaml:"protocol"`
 	EnableHTTP2     bool               `yaml:"enableHTTP2"`

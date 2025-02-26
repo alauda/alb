@@ -8,7 +8,7 @@ use File::Temp;
 
 use Exporter qw(import);
  
-our @EXPORT_OK = qw( gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lua_test);
+our @EXPORT_OK = qw( gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lua_test use_lua_test);
 
 
 my $ALB_BASE = $ENV{'TEST_BASE'};
@@ -22,12 +22,52 @@ sub tgl_log(@msgs) {
 
 tgl_log("lua cov $LUACOV");
 
-sub gen_lua_test($block) {
+
+sub gen_lua_test_stream($block) {
+    my $lua_test_full="";
+    if (defined  $block->lua_test_eval) {
+        my $server_port = 1999;
+		my $lua_test_eval=$block->lua_test_eval;
+        $lua_test_full = <<__END;
+server {
+    listen 1999;
+    content_by_lua_block {
+        ngx.log(ngx.ERR,tostring(data))
+		local test = function()
+			$lua_test_eval
+		end
+		local ok,ret = pcall(test)
+        if not ok then
+            ngx.log(ngx.ERR," sth wrong "..tostring(ret).."  "..tostring(ok))
+			ngx.print("fail")
+            ngx.exit(ngx.ERROR)
+        end
+		ngx.print("HTTP/1.1 200 OK\\r\\n\\r\\nok")
+	}
+}
+__END
+	} 
+    return $lua_test_full;
+}
+
+sub use_lua_test($block) {
+    if (defined  $block->lua_test_file) {
+        return "ok"
+    }
+    if (defined  $block->lua_test) {
+        return "ok"
+    }
+    if (defined  $block->lua_test_eval) {
+        return "ok"
+    }
+    return ""
+}
+
+sub gen_lua_test_http($block) {
     my $lua_test_mode = "false";
     my $lua_test_full = '';
     my $server_port = 1999;
     if (defined  $block->lua_test_file) {
-        $server_port = 1999;
         $lua_test_mode = "true";
 		my $lua_test_file=$block->lua_test_file;
         $lua_test_full = <<__END;
@@ -90,6 +130,14 @@ server {
 __END
 	} 
     return $lua_test_full;
+}
+
+sub gen_lua_test($block,$mode) {
+    if ($mode eq "http") {
+        return gen_lua_test_http($block);
+    }else {
+        return gen_lua_test_stream($block);
+    }
 }
 
 sub write_file($policy,$p) {
@@ -263,22 +311,31 @@ sub gen_ngx_tmpl_via_block($block) {
     my $init_full = gen_custom_init($block);
     my $mock_backend = gen_mock_backend($block->mock_backend // "");
     my $http_config = $block->http_config // "";
-    my $lua_test_full = gen_lua_test($block);
     my $default_lua_path = "/usr/local/lib/lua/?.lua;$ALB_BASE/nginx/lua/?.lua;$ALB_BASE/nginx/lua/vendor/?.lua;";
     my $lua_path= "$default_lua_path;$ALB_BASE/t/?.lua;$ALB_BASE/?.lua;$ALB_BASE/t/lib/?.lua;;";
 
-    my $default_ngx_cfg = gen_ngx_tmpl_conf($init_full,$stream_config,$lua_path,$mock_backend,$http_config,$lua_test_full);
+    my $http_lua_test_full="";
+    my $stream_lua_test_full="";
+    if (defined $block->lua_test_stream_mode) {
+        $stream_lua_test_full=gen_lua_test($block,"stream");
+    } else {
+        $http_lua_test_full=gen_lua_test($block,"http");
+    }
+
+
+    my $default_ngx_cfg = gen_ngx_tmpl_conf($init_full,$stream_config,$lua_path,$mock_backend,$http_config,$http_lua_test_full,$stream_lua_test_full);
     $default_ngx_cfg = gen_https_port_config($block->alb_https_port // "",$default_ngx_cfg);
     $default_ngx_cfg = patch_custom_location($block,$default_ngx_cfg);
     return $default_ngx_cfg;
 }
 
-sub gen_ngx_tmpl_conf($init_full,$stream_config,$lua_path,$mock_backend,$http_config,$lua_test_full) {
+sub gen_ngx_tmpl_conf($init_full,$stream_config,$lua_path,$mock_backend,$http_config,$http_lua_test_full,$stream_lua_test_full) {
     # Add 4 spaces prefix to mock_backend
     $mock_backend =~ s/^/    /gm;
     $stream_config =~ s/^/    /gm;
     $init_full =~ s/^/    /gm;
-    $lua_test_full =~ s/^/    /gm;
+    $http_lua_test_full =~ s/^/    /gm;
+    $stream_lua_test_full =~ s/^/    /gm;
     $http_config =~ s/^/    /gm;
     my $default_ngx_cfg = <<__END;
 tweakBase: "$ALB_BASE/tweak"
@@ -300,12 +357,13 @@ streamExtra: |
     lua_package_path "$lua_path";
     $init_full
     $stream_config
+    $stream_lua_test_full
 httpExtra: |
     lua_package_path "$lua_path";
     $init_full
     $mock_backend
     $http_config
-    $lua_test_full
+    $http_lua_test_full
 frontends: 
    udp_82:
      port: 82
@@ -338,7 +396,6 @@ frontends:
      protocol: http
      ipV4BindAddress: [0.0.0.0]
 __END
-
     return $default_ngx_cfg;
 }
 

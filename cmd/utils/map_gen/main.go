@@ -9,51 +9,128 @@ import (
 	"text/template"
 
 	. "alauda.io/alb2/pkg/controller/ext/auth/types"
+	. "alauda.io/alb2/pkg/controller/ext/redirect/types"
+	. "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	"github.com/kr/pretty"
 )
 
-func main() {
-	type MapCfg struct {
-		base    string
-		mapping []struct {
-			from reflect.Type
-			to   reflect.Type
-		}
+type MapCfg struct {
+	base       string
+	pkg        string
+	cr_mapping []struct {
+		from reflect.Type
+		to   reflect.Type
 	}
-	cfg := MapCfg{
-		base: "./pkg/controller/ext/auth/types/",
-		mapping: []struct {
-			from reflect.Type
-			to   reflect.Type
-		}{
-			{
-				from: reflect.TypeOf((*AuthIngressForward)(nil)).Elem(),
-				to:   reflect.TypeOf((*ForwardAuthInCr)(nil)).Elem(),
-			},
-			{
-				from: reflect.TypeOf((*ForwardAuthInCr)(nil)).Elem(),
-				to:   reflect.TypeOf((*ForwardAuthPolicy)(nil)).Elem(),
-			},
-			{
-				from: reflect.TypeOf((*AuthIngressBasic)(nil)).Elem(),
-				to:   reflect.TypeOf((*BasicAuthInCr)(nil)).Elem(),
-			},
-			{
-				from: reflect.TypeOf((*BasicAuthInCr)(nil)).Elem(),
-				to:   reflect.TypeOf((*BasicAuthPolicy)(nil)).Elem(),
-			},
-		},
+	annotations_mapping []struct {
+		to reflect.Type
 	}
-	for _, m := range cfg.mapping {
+}
+
+func (t *MapCfg) gen_file() string {
+	out := "package " + t.pkg + `
+import (
+	"fmt"
+	"strings"
+)
+func init() {
+	// make go happy
+	_ = strings.Clone
+	_ = fmt.Sprintf
+}
+		`
+	for _, m := range t.cr_mapping {
 		lt := m.from
 		rt := m.to
-		base := cfg.base
-		f := fmt.Sprintf(base+"codegen_mapping_%s_%s.go", strings.ToLower(lt.Name()), strings.ToLower(rt.Name()))
-		out, err := trans(lt, rt)
+		cr_map_out, err := trans(lt, rt)
+		if err != nil {
+			err := fmt.Errorf("cr mapping from %s to %s failed: %v", lt.Name(), rt.Name(), err)
+			panic(err)
+		}
+		out += cr_map_out
+	}
+	for _, m := range t.annotations_mapping {
+		rt := m.to
+		annotations_out, err := annotations_trans(rt)
 		if err != nil {
 			panic(err)
 		}
-		err = os.WriteFile(f, []byte(out), 0o644)
+		out += annotations_out
+	}
+	return out
+}
+
+func main() {
+	cfg_list := []MapCfg{
+		{
+			base: "./pkg/controller/ext/auth/types/",
+			pkg:  "types",
+			cr_mapping: []struct {
+				from reflect.Type
+				to   reflect.Type
+			}{
+				{
+					from: reflect.TypeOf((*AuthIngressForward)(nil)).Elem(),
+					to:   reflect.TypeOf((*ForwardAuthInCr)(nil)).Elem(),
+				},
+				{
+					from: reflect.TypeOf((*ForwardAuthInCr)(nil)).Elem(),
+					to:   reflect.TypeOf((*ForwardAuthPolicy)(nil)).Elem(),
+				},
+				{
+					from: reflect.TypeOf((*AuthIngressBasic)(nil)).Elem(),
+					to:   reflect.TypeOf((*BasicAuthInCr)(nil)).Elem(),
+				},
+				{
+					from: reflect.TypeOf((*BasicAuthInCr)(nil)).Elem(),
+					to:   reflect.TypeOf((*BasicAuthPolicy)(nil)).Elem(),
+				},
+			},
+		},
+		{
+			base: "./pkg/controller/ext/timeout/types/",
+			pkg:  "types",
+			cr_mapping: []struct {
+				from reflect.Type
+				to   reflect.Type
+			}{
+				{
+					from: reflect.TypeOf((*TimeoutIngress)(nil)).Elem(),
+					to:   reflect.TypeOf((*TimeoutCr)(nil)).Elem(),
+				},
+			},
+			annotations_mapping: []struct {
+				to reflect.Type
+			}{
+				{
+					to: reflect.TypeOf((*TimeoutIngress)(nil)).Elem(),
+				},
+			},
+		},
+		{
+			base: "./pkg/controller/ext/redirect/types/",
+			pkg:  "types",
+			cr_mapping: []struct {
+				from reflect.Type
+				to   reflect.Type
+			}{
+				{
+					from: reflect.TypeOf((*RedirectIngress)(nil)).Elem(),
+					to:   reflect.TypeOf((*RedirectCr)(nil)).Elem(),
+				},
+			},
+			annotations_mapping: []struct {
+				to reflect.Type
+			}{
+				{
+					to: reflect.TypeOf((*RedirectIngress)(nil)).Elem(),
+				},
+			},
+		},
+	}
+	for _, cfg := range cfg_list {
+		f := cfg.base + "codegen_mapping.go"
+		out := cfg.gen_file()
+		err := os.WriteFile(f, []byte(out), 0o644)
 		if err != nil {
 			panic(err)
 		}
@@ -92,19 +169,69 @@ func field_type(v reflect.Type) string {
 	return "other"
 }
 
-func trans(lt reflect.Type, rt reflect.Type) (string, error) {
+func annotations_trans(rt reflect.Type) (string, error) {
 	TEMPLATE := `
-package {{.pkg}}
-
-import (
-	"strings"
-)
-
-func init() {
-	// make go happy
-	_ = strings.Clone("")
+var {{.type}}AnnotationList = []string{
+	{{range $key, $val := .access_map}}
+	"{{$key}}",
+	{{end}}
 }
 
+func Resolver{{.type}}FromAnnotation(ing *{{.type}}, annotation map[string]string, prefix[]string) (bool, error) {
+    find:=false
+	for _, annotation_key := range {{.type}}AnnotationList {
+		for _, prefix := range prefix {
+			annotation_full_key := fmt.Sprintf("%s/%s", prefix, annotation_key)
+			if val, ok := annotation[annotation_full_key]; ok {
+				find = true
+				switch annotation_key { 
+				{{range $key, $val := .access_map}}
+				case "{{$key}}":
+					ing.{{$val}} = val
+				{{end}}
+				}
+				break
+			}
+		}
+	}
+	return find, nil
+}
+
+`
+	pkg_path := strings.Split(rt.PkgPath(), "/")
+	pkg := pkg_path[len(pkg_path)-1]
+	// 准备模板数据
+	annotations := make(map[string]string)
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		annotations[f.Tag.Get("annotation")] = f.Name
+	}
+	access_map := make(map[string]string)
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		access_map[f.Tag.Get("annotation")] = f.Name
+	}
+	data := map[string]interface{}{
+		"type":        rt.Name(),
+		"pkg":         pkg,
+		"annotations": annotations,
+		"access_map":  access_map,
+	}
+	pretty.Print(data)
+	tmpl, err := template.New("annotations").Parse(TEMPLATE)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func trans(lt reflect.Type, rt reflect.Type) (string, error) {
+	TEMPLATE := `
 type ReAssign{{.from}}To{{.to}}Opt struct {
     {{ range $trans_name, $trans_cfg := .trans_map }}
     {{$trans_name}} func({{$trans_cfg.trans_from_type}}) ({{$trans_cfg.trans_to_type}}, error)

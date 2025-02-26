@@ -106,7 +106,7 @@ func (c *Controller) doUpdate(ing *networkingv1.Ingress, alb *m.AlaudaLoadBalanc
 	}
 
 	needupdateHttps := httpsfa.needDo()
-	log.Info("need update https ft?", "need", needupdateHttps, "https", httpsfa)
+	log.Info("need update https ft?", "need", needupdateHttps, "https", utils.PrettyJson(httpsfa))
 	if needupdateHttps {
 		if err := c.doUpdateFt(httpsfa); err != nil {
 			return false, err
@@ -172,7 +172,7 @@ func (c *Controller) genSyncFtAction(oft *alb2v1.Frontend, eft *alb2v1.Frontend,
 		return nil, nil
 	}
 	// we only update ft when source group change to exist
-	// user may update those ingress created ft
+	// user may update those ingress created ft(to add timeout/waf/auth etc config). and we allow it.
 	if oft != nil && eft != nil {
 		log.Info("ft both exist", "oft-v", oft.ResourceVersion, "oft-src", oft.Spec.Source, "oft-svc", oft.Spec.ServiceGroup, "eft-src", eft.Spec.Source, "eft-svc", eft.Spec.ServiceGroup)
 		// oft it get from k8s, eft is crate via our. we should update the exist ft.
@@ -526,24 +526,9 @@ func (c *Controller) GenerateRule(
 		}
 	}
 
-	// rule-ext redirect
-	var (
-		redirectURL  string
-		redirectCode int
-	)
-	if annotations[ALBPermanentRedirectAnnotation] != "" && annotations[ALBTemporalRedirectAnnotation] != "" {
-		c.log.Error(nil, fmt.Sprintf("cannot use PermanentRedirect and TemporalRedirect at same time, ingress %s", ingInfo))
-		return nil, nil
+	if ingress.Annotations == nil {
+		ingress.Annotations = map[string]string{}
 	}
-	if annotations[ALBPermanentRedirectAnnotation] != "" {
-		redirectURL = annotations[ALBPermanentRedirectAnnotation]
-		redirectCode = 301
-	}
-	if annotations[ALBTemporalRedirectAnnotation] != "" {
-		redirectURL = annotations[ALBTemporalRedirectAnnotation]
-		redirectCode = 302
-	}
-
 	ruleAnnotation := map[string]string{}
 
 	certs := make(map[string]string)
@@ -587,7 +572,7 @@ func (c *Controller) GenerateRule(
 		URL:              url,
 		DSL:              dslx.ToSearchableString(),
 		DSLX:             dslx,
-		Priority:         priority, // TODO ability to set priority in ingress.
+		Priority:         priority,
 		RewriteBase:      url,
 		RewriteTarget:    rewriteTarget,
 		BackendProtocol:  backendProtocol,
@@ -595,8 +580,6 @@ func (c *Controller) GenerateRule(
 		EnableCORS:       enableCORS,
 		CORSAllowHeaders: corsAllowHeaders,
 		CORSAllowOrigin:  corsAllowOrigin,
-		RedirectURL:      redirectURL,
-		RedirectCode:     redirectCode,
 		VHost:            vhost,
 		Description:      ingInfo,
 		Config:           &alb2v1.RuleConfigInCr{},
@@ -646,7 +629,11 @@ func (c *Controller) GenerateRule(
 	ruleRes.Labels[cfg.GetLabelSourceName()] = CutSize(ingress.Name, 63)
 	ruleRes.Labels[cfg.GetLabelSourceNs()] = CutSize(ingress.Namespace, 63)
 	ruleRes.Labels[cfg.GetLabelSourceIndex()] = fmt.Sprintf("%d-%d", ruleIndex, pathIndex)
-	c.cus.IngressAnnotationToRule(ingress, ruleIndex, pathIndex, ruleRes)
+	// 在一些特殊情况下，ingress.Annotations 可能为nil
+	if ingress.Annotations == nil {
+		ingress.Annotations = map[string]string{}
+	}
+	c.cus.IngressWithFtAnnotationToRule(ft, ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
 }
 

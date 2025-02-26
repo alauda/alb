@@ -1,6 +1,5 @@
 -- format:on style:emmy
 -- THIS MODULE EVALED IN BOTH HTTP AND STREAM CTX
-local common = require "utils.common"
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
 local chash = require "balancer.alb_chash"
@@ -8,7 +7,7 @@ local sticky = require "balancer.sticky_balanced"
 local ngx = ngx
 local ngx_log = ngx.log
 local string_format = string.format
-local ms2sec = common.ms2sec
+local pm = require "plugins.core.plugin_manager"
 local subsys = require "utils.subsystem"
 local common = require "utils.common"
 local shm = require "config.shmap"
@@ -122,7 +121,6 @@ end
 function _M.balance()
     local balancer = get_balancer()
     local alb_ctx = actx.get_alb_ctx()
-    local policy = alb_ctx.matched_policy
     if not balancer then
         local msg = "no balancer found for " .. ngx.ctx.upstream
         ngx_log(ngx.ERR, msg)
@@ -149,23 +147,7 @@ function _M.balance()
     -- TODO: dynamic keepalive connections pooling
     -- https://github.com/openresty/lua-nginx-module/pull/1600
     -- ngx.log(ngx.NOTICE, "send timeout "..common.json_encode(policy))
-
-    if common.has_key(policy, { "config", "timeout" }) then
-        local timeout = policy.config.timeout
-        ---@cast timeout -nil
-        local proxy_connect_timeout_secs = ms2sec(timeout.proxy_connect_timeout_ms)
-        local proxy_send_timeout_secs = ms2sec(timeout.proxy_send_timeout_ms)
-        local proxy_read_timeout_secs = ms2sec(timeout.proxy_read_timeout_ms)
-        -- ngx.log(ngx.NOTICE,
-        -- string.format("set timeout rule %s pconnect %s psend %s pread %s\n", policy.rule,
-        --     tostring(proxy_connect_timeout_secs), tostring(proxy_send_timeout_secs), tostring(proxy_read_timeout_secs)))
-        local _, err = ngx_balancer.set_timeouts(proxy_connect_timeout_secs, proxy_send_timeout_secs,
-            proxy_read_timeout_secs)
-        if err ~= nil then
-            ngx.log(ngx.ERR, err)
-            e.exit(e.InvalidBalancer, "set timeout fail")
-        end
-    end
+    pm.balancer_hook(alb_ctx)
 
     -- set balancer is the last step of send a request
     if subsys.is_http_subsystem() and alb_ctx.var["http_cpaas_trace"] == "true" then

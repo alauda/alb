@@ -119,10 +119,10 @@ http {
     {{ if eq $ft.Protocol "http" }}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server {{$ft.Listen}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server;
+        listen    {{$address}}:{{$ft.Port}} backlog={{$cfg.Backlog}} default_server {{$ft.Listen}};
         {{- end }}
         server_name _;
 
@@ -147,7 +147,7 @@ http {
         location / {
             set $location_mode root;
             set $backend_protocol http;
-
+            {{ $ft.Location }}
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
@@ -165,10 +165,10 @@ http {
     {{ if eq $ft.Protocol "https" }}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl  backlog={{$cfg.Backlog}};
+        listen    {{$address}}:{{$ft.Port}} ssl  backlog={{$cfg.Backlog}} {{$ft.Listen}};
         {{- end }}
         {{ range $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl backlog={{$cfg.Backlog}};
+        listen    {{$address}}:{{$ft.Port}} ssl backlog={{$cfg.Backlog}} {{$ft.Listen}};
         {{- end }}
 
         {{ if and $cfg.EnableHTTP2 $ft.EnableHTTP2 }}
@@ -207,6 +207,7 @@ http {
             set $location_mode root;
             set $backend_protocol http;
 
+            {{ $ft.Location }}
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             proxy_pass $backend_protocol://http_backend;
             header_filter_by_lua_file {{$.NginxBase}}/lua/phase/l7_header_filter_phase.lua;
@@ -223,10 +224,10 @@ http {
     {{ if (and (eq $ft.Protocol "grpc") (eq $ft.CertificateName "")) }}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}};
+        listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}};
+        listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
         {{- end }}
         http2 on;
 
@@ -236,6 +237,7 @@ http {
             set $location_mode root;
             set $backend_protocol grpc;
 
+            {{ $ft.Location }}
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
@@ -252,10 +254,10 @@ http {
     {{ if (and (eq $ft.Protocol "grpc") (ne $ft.CertificateName "")) }}
     server {
         {{ range $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl;
+        listen    {{$address}}:{{$ft.Port}} ssl {{$ft.Listen}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} ssl;
+        listen    {{$address}}:{{$ft.Port}} ssl {{$ft.Listen}};
         {{- end }}
         http2 on;
 
@@ -273,6 +275,7 @@ http {
             set $location_mode root;
             set $backend_protocol grpc;
 
+            {{ $ft.Location }}
             rewrite_by_lua_file {{$.NginxBase}}/lua/phase/l7_rewrite_phase.lua;
             grpc_pass  $backend_protocol://http_backend;
             # could add http_header_filter/http_body_filter
@@ -312,10 +315,10 @@ stream {
     server {
         include   {{$.TweakBase}}/stream-tcp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}};
+        listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}};
+        listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
         {{- end }}
 
         preread_by_lua_file {{$.NginxBase}}/lua/l4_preread.lua;
@@ -329,10 +332,10 @@ stream {
     server {
         include   {{$.TweakBase}}/stream-udp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} udp;
+        listen    {{$address}}:{{$ft.Port}} udp {{$ft.Listen}};
         {{- end }}
         {{ range  $address := $ft.IpV6BindAddress -}}
-        listen    {{$address}}:{{$ft.Port}} udp;
+        listen    {{$address}}:{{$ft.Port}} udp {{$ft.Listen}};
         {{- end }}
 
         preread_by_lua_file {{$.NginxBase}}/lua/l4_preread.lua;

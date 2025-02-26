@@ -9,17 +9,19 @@ type ResolveAnnotationOpt struct {
 	Prefix []string // 我们支持多个前缀，这样用户可以用我们自己的前缀来覆盖掉nginx的前缀，这样能保证他们的兼容性
 }
 
-func ResolverStructFromAnnotation(t interface{}, annotation map[string]string, opt ResolveAnnotationOpt) error {
+func ResolverStructFromAnnotation(t interface{}, annotation map[string]string, opt ResolveAnnotationOpt) (bool, error) {
 	t_type := reflect.TypeOf(t).Elem()
 	t_val := reflect.ValueOf(t).Elem()
+	has_annotation := false
 	for i := 0; i < t_type.NumField(); i++ {
 		t_field := t_type.Field(i)
 		v_field := t_val.Field(i)
 		if v_field.Kind() == reflect.Struct && t_field.Anonymous {
-			err := ResolverStructFromAnnotation(v_field.Addr().Interface(), annotation, opt)
+			has, err := ResolverStructFromAnnotation(v_field.Addr().Interface(), annotation, opt)
 			if err != nil {
-				return err
+				return false, err
 			}
+			has_annotation = has_annotation || has
 		}
 
 		tag := t_field.Tag.Get("annotation")
@@ -37,6 +39,7 @@ func ResolverStructFromAnnotation(t interface{}, annotation map[string]string, o
 			if value, ok := annotation[full_key]; ok {
 				v_field.SetString(value)
 				resolved = true
+				has_annotation = true
 				break
 			}
 		}
@@ -44,5 +47,5 @@ func ResolverStructFromAnnotation(t interface{}, annotation map[string]string, o
 			v_field.SetString(default_val)
 		}
 	}
-	return nil
+	return has_annotation, nil
 }

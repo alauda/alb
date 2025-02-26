@@ -24,7 +24,6 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -307,7 +306,7 @@ func checkingress(ctx Ctx) error {
 		return nil
 	}
 	checkingress := func(albkey client.ObjectKey, ingkey client.ObjectKey) error {
-		alb, err := drv.LoadALB(types.NamespacedName{Namespace: albkey.Namespace, Name: albkey.Name})
+		alb, err := drv.LoadALB(albkey)
 		if err != nil {
 			return err
 		}

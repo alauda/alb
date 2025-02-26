@@ -225,6 +225,8 @@ spec:
                       type: integer
                     ingressHTTPSPort:
                       type: integer
+                    ingressSSLRedirect:
+                      type: boolean
                     interval:
                       type: integer
                     loadbalancerName:
@@ -395,6 +397,15 @@ spec:
                       type: integer
                     syncPolicyInterval:
                       type: integer
+                    timeout:
+                      properties:
+                        proxy_connect_timeout_ms:
+                          type: integer
+                        proxy_read_timeout_ms:
+                          type: integer
+                        proxy_send_timeout_ms:
+                          type: integer
+                      type: object
                     vip:
                       properties:
                         allocateLoadBalancerNodePorts:
@@ -646,6 +657,8 @@ spec:
                       type: integer
                     ingressHTTPSPort:
                       type: integer
+                    ingressSSLRedirect:
+                      type: boolean
                     interval:
                       type: integer
                     loadbalancerName:
@@ -816,6 +829,15 @@ spec:
                       type: integer
                     syncPolicyInterval:
                       type: integer
+                    timeout:
+                      properties:
+                        proxy_connect_timeout_ms:
+                          type: integer
+                        proxy_read_timeout_ms:
+                          type: integer
+                        proxy_send_timeout_ms:
+                          type: integer
+                      type: object
                     vip:
                       properties:
                         allocateLoadBalancerNodePorts:

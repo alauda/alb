@@ -204,7 +204,7 @@ function _M.test_error_reason()
     -- timeout
     do
         local p = default_policy()
-        p["http"]["tcp"]["80"] = { { rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "test-upstream-1", config = { timeout = { proxy_read_timeout_ms = "3000" } } } }
+        p["http"]["tcp"]["80"] = { { plugins = { "timeout" }, rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "test-upstream-1", config = { timeout = { proxy_read_timeout_ms = 3000 } } } }
         melf.set_policy_lua(p)
         local res, err = httpc:request_uri("http://127.0.0.1:80/t1/sleep?sleep=1", {})
         u.logs(res, err)

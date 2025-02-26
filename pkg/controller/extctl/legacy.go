@@ -29,11 +29,6 @@ func (o LegacyExtCtl) ToInternalRule(mr *m.Rule, ir *ct.InternalRule) {
 	ru.RewriteTarget = mrs.RewriteTarget
 	ir.Config.Rewrite = &ru
 
-	rd := ct.RedirectConf{}
-	rd.RedirectURL = mrs.RedirectURL
-	rd.RedirectCode = mrs.RedirectCode
-	ir.Config.Redirect = &rd
-
 	cors := ct.Cors{}
 	cors.EnableCORS = mrs.EnableCORS
 	cors.CORSAllowHeaders = mrs.CORSAllowHeaders
@@ -53,10 +48,6 @@ func (o LegacyExtCtl) ToPolicy(ir *ct.InternalRule, p *ct.Policy, refs ct.RefMap
 	rule_ext := ir.Config
 	if rule_ext.Rewrite != nil {
 		p.RewriteConf = *rule_ext.Rewrite
-	}
-	// redirect
-	if rule_ext.Redirect != nil {
-		p.RedirectConf = *rule_ext.Redirect
 	}
 	// cors
 	if rule_ext.Cors != nil {

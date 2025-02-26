@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	u "alauda.io/alb2/utils"
 	"github.com/kr/pretty"
@@ -94,45 +93,6 @@ var _ = Describe("auth", func() {
 			l.Info("check", "real", vs, "exp", tc.expected)
 			assert.Equal(t, tc.expected, vs)
 		}
-	})
-
-	It("simple reflect perf", func() {
-		annotation := map[string]string{
-			"xxx/url": "abc",
-			"xxx/xx":  "xyz",
-		}
-		type A struct {
-			F1 string `annotation:"url"`
-			F2 string `annotation:"xx"`
-		}
-		simple := func(a *A, annotation map[string]string) {
-			if v, ok := annotation["xxx/url"]; ok {
-				a.F1 = v
-			}
-			if v, ok := annotation["xxx/xx"]; ok {
-				a.F2 = v
-			}
-		}
-		a := A{}
-		show_delay := func(f func()) time.Duration {
-			start := time.Now()
-			f()
-			end := time.Now()
-			return end.Sub(start)
-		}
-		fmt.Println(show_delay(func() {
-			for i := 0; i < 100000; i++ {
-				simple(&a, annotation)
-			}
-		}))
-		fmt.Println(show_delay(func() {
-			for i := 0; i < 100000; i++ {
-				ResolverStructFromAnnotation(&a, annotation, ResolveAnnotationOpt{
-					Prefix: []string{"xxx"},
-				})
-			}
-		}))
-		// 10w 1ms vs 100ms
 	})
 
 	It("resolve from annotation should ok", func() {

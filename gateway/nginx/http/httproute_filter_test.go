@@ -97,10 +97,10 @@ func TestHttpFilterRedirect(t *testing.T) {
 		})
 		t.Logf("%+v", rule)
 		rd := rule.Config.Redirect
-		assert.Equal(t, *rd.RedirectScheme, "https")
-		assert.Equal(t, *rd.RedirectHost, "a.com")
-		assert.Equal(t, *rd.RedirectPort, 90)
-		assert.Equal(t, rd.RedirectCode, 302)
+		assert.Equal(t, rd.Scheme, "https")
+		assert.Equal(t, rd.Host, "a.com")
+		assert.Equal(t, *rd.Port, 90)
+		assert.Equal(t, *rd.Code, 302)
 	}
 	{
 		rule := albType.InternalRule{}
@@ -120,11 +120,11 @@ func TestHttpFilterRedirect(t *testing.T) {
 		})
 		t.Logf("%+v", rule)
 		rd := rule.Config.Redirect
-		assert.Equal(t, *rd.RedirectScheme, "https")
-		assert.Equal(t, *rd.RedirectHost, "a.com")
-		assert.Equal(t, rd.RedirectURL, "/abc")
-		assert.Equal(t, *rd.RedirectPort, 90)
-		assert.Equal(t, rd.RedirectCode, 302)
+		assert.Equal(t, rd.Scheme, "https")
+		assert.Equal(t, rd.Host, "a.com")
+		assert.Equal(t, rd.URL, "/abc")
+		assert.Equal(t, *rd.Port, 90)
+		assert.Equal(t, *rd.Code, 302)
 	}
 	{
 		ctx := MockCtx()
@@ -158,12 +158,12 @@ func TestHttpFilterRedirect(t *testing.T) {
 		})
 		t.Logf("%+v", rule)
 		rd := rule.Config.Redirect
-		assert.Equal(t, *rd.RedirectScheme, "https")
-		assert.Equal(t, *rd.RedirectHost, "a.com")
-		assert.Equal(t, *rd.RedirectPrefixMatch, "/abc")
-		assert.Equal(t, *rd.RedirectReplacePrefix, "/xxx")
-		assert.Equal(t, *rd.RedirectPort, 90)
-		assert.Equal(t, rd.RedirectCode, 302)
+		assert.Equal(t, rd.Scheme, "https")
+		assert.Equal(t, rd.Host, "a.com")
+		assert.Equal(t, rd.PrefixMatch, "/abc")
+		assert.Equal(t, rd.ReplacePrefix, "/xxx")
+		assert.Equal(t, *rd.Port, 90)
+		assert.Equal(t, *rd.Code, 302)
 	}
 }
 

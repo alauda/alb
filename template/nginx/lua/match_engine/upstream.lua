@@ -30,7 +30,7 @@ end
 --- @param protocol  string tcp|udp
 --- @param port  number
 --- @return string|nil upstream
---- @return table|nil matched_policy
+--- @return Policy|nil matched_policy
 --- @return string|nil err_msg
 function _M.get_upstream(subsystem, protocol, port)
     -- make sure rule_cahche are updated

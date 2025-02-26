@@ -13,6 +13,7 @@ import (
 
 	"alauda.io/alb2/config"
 	"alauda.io/alb2/driver"
+	"alauda.io/alb2/pkg/apis/alauda/shared"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	at "alauda.io/alb2/pkg/controller/ext/auth/types"
 	pm "alauda.io/alb2/pkg/utils/metrics"
@@ -152,9 +153,11 @@ func gen_rule(alb string, ft string, count int, kc *K8sClient) error {
 					},
 				},
 				Config: &albv1.RuleConfigInCr{
-					Auth: &at.AuthCr{
-						Forward: &at.ForwardAuthInCr{
-							Url: "http://a.com",
+					SharedCr: shared.SharedCr{
+						Auth: &at.AuthCr{
+							Forward: &at.ForwardAuthInCr{
+								Url: "http://a.com",
+							},
 						},
 					},
 				},

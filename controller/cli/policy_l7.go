@@ -26,9 +26,12 @@ func (p *PolicyCli) InternalRuleToL7Policy(rule *InternalRule, refs RefMap) (*Po
 	policy.InternalDSLLen = utils.InternalDSLLen(internalDSL)
 	policy.Priority = rule.Priority
 	policy.ComplexPriority = rule.DSLX.Priority()
-
-	policy.Upstream = rule.RuleUpstream.BackendGroup.Name // IMPORTANT
-	policy.BackendProtocol = rule.RuleUpstream.BackendProtocol
+	if rule.BackendGroup != nil {
+		policy.Upstream = rule.BackendGroup.Name // IMPORTANT
+	} else {
+		policy.Upstream = rule.RuleID
+	}
+	policy.BackendProtocol = rule.BackendProtocol
 	policy.Config.Refs = map[PolicyExtKind]string{}
 	policy.Rule = rule.RuleID
 	initPolicySource(&policy, rule)
@@ -40,9 +43,6 @@ func (p *PolicyCli) InternalRuleToL7Policy(rule *InternalRule, refs RefMap) (*Po
 func (c *PolicyCli) initLegacyCfg(p *Policy, ir *InternalRule) {
 	if ir.Config.Rewrite != nil {
 		p.RewriteConf = *ir.Config.Rewrite
-	}
-	if ir.Config.Redirect != nil {
-		p.RedirectConf = *ir.Config.Redirect
 	}
 	if ir.Config.Cors != nil {
 		p.Cors = *ir.Config.Cors
@@ -67,20 +67,32 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy, refs RefM
 			p.log.Error(err, "to policy fail, skip this rule", "rule", rule.RuleID)
 			continue
 		}
+		policy.Config.Refs = rule.Config.Source // source init in RuleToInternalRule
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], policy)
 	}
 
+	extension_need, name := p.cus.NeedL7DefaultPolicy(ft)
+	ft_default_router := ft.BackendGroup != nil && ft.BackendGroup.Backends != nil
+
 	// set default rule if ft have default backend.
-	if ft.BackendGroup != nil && ft.BackendGroup.Backends != nil {
+	if extension_need || ft_default_router {
 		defaultPolicy := Policy{}
+		defaultPolicy.Config.Refs = map[PolicyExtKind]string{}
 		defaultPolicy.Rule = ft.FtName
-		defaultPolicy.ComplexPriority = -1 // default rule should have the minimum priority
-		defaultPolicy.Priority = 999       // minimum number means higher priority
+		// 我们先处理有默认路由的情况,这样extension就可以对其进行感知
+		if ft_default_router {
+			defaultPolicy.MakeItMatchLast()
+			defaultPolicy.SourceType = m.TypeFtDefaultRouter
+			defaultPolicy.BackendProtocol = ft.BackendProtocol
+			defaultPolicy.Upstream = ft.BackendGroup.Name // 因为在pick backend的时候，我们会对检查ft的backend group 所以这里可以使用
+		} else if extension_need {
+			defaultPolicy.SourceType = m.TypeExtension
+			defaultPolicy.SourceName = name // 为了在policy中提示我们这个默认policy是那个extension生成的.
+		}
 		defaultPolicy.Subsystem = SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
-		defaultPolicy.BackendProtocol = ft.BackendProtocol
-		defaultPolicy.Upstream = ft.BackendGroup.Name
-
+		// 让extension进行自己的配置
+		p.cus.InitL7DefaultPolicy(ft, &defaultPolicy)
 		ngxPolicy.Http.Tcp[ft.Port] = append(ngxPolicy.Http.Tcp[ft.Port], &defaultPolicy)
 	}
 	sort.Sort(ngxPolicy.Http.Tcp[ft.Port]) // IMPORTANT sort to make sure priority work.

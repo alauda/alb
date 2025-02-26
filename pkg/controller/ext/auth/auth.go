@@ -38,9 +38,11 @@ func NewAuthCtl(l logr.Logger, domain string) *AuthCtl {
 
 func (a *AuthCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, pathIndex int, rule *av1.Rule) {
 	auth_ingress := AuthIngress{}
-	err := ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("index.%d-%d.alb.ingress.%s", ruleIndex, pathIndex, a.domain), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
+	has, err := ResolverStructFromAnnotation(&auth_ingress, ingress.Annotations, ResolveAnnotationOpt{Prefix: []string{fmt.Sprintf("index.%d-%d.alb.ingress.%s", ruleIndex, pathIndex, a.domain), fmt.Sprintf("alb.ingress.%s", a.domain), "nginx.ingress.kubernetes.io"}})
 	if err != nil {
-		a.L.Error(err, "failed to resolve auth ingress", "ing", ingress.Name, "ing-ns", ingress.Namespace)
+		a.L.Error(err, "failed to resolve auth ingress annotation", "ingress", ingress.Name)
+	}
+	if !has {
 		return
 	}
 	if auth_ingress.Enable == "false" {
@@ -68,17 +70,20 @@ func (a *AuthCtl) IngressAnnotationToRule(ingress *nv1.Ingress, ruleIndex int, p
 func (c *AuthCtl) ToInternalRule(mr *m.Rule, ir *ct.InternalRule) {
 	if mr.Spec.Config.Auth != nil {
 		ir.Config.Auth = mr.Spec.Config.Auth
+		ir.Config.Source[ct.Auth] = mr.Name
 		return
 	}
 	ft := mr.GetFtConfig()
 	if ft != nil && ft.Auth != nil {
 		ir.Config.Auth = ft.Auth
+		ir.Config.Source[ct.Auth] = mr.FT.Name
 		return
 	}
 
 	lb := mr.GetAlbConfig()
 	if lb != nil && lb.Auth != nil {
 		ir.Config.Auth = lb.Auth
+		ir.Config.Source[ct.Auth] = mr.FT.LB.Alb.Name
 		return
 	}
 }

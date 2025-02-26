@@ -189,6 +189,32 @@ spec:
                     required:
                     - enable
                     type: object
+                  redirect:
+                    properties:
+                      code:
+                        type: integer
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                      prefix_match:
+                        type: string
+                      replace_prefix:
+                        type: string
+                      scheme:
+                        type: string
+                      url:
+                        type: string
+                    type: object
+                  timeout:
+                    properties:
+                      proxy_connect_timeout_ms:
+                        type: integer
+                      proxy_read_timeout_ms:
+                        type: integer
+                      proxy_send_timeout_ms:
+                        type: integer
+                    type: object
                 type: object
               corsAllowHeaders:
                 description: corsAllowHeaders defines the headers allowed by cors
@@ -231,10 +257,11 @@ spec:
                   less value prioritize
                 type: integer
               redirectCode:
-                description: redirectCode could be 301(Permanent Redirect)/302(Temporal
-                  Redirect), default 0
+                description: 'Deprecated: use config.redirect.redirect_code. could
+                  be 301(Permanent Redirect)/302(Temporal Redirect), default 0'
                 type: integer
               redirectURL:
+                description: 'Deprecated: use config.redirect.redirect_url'
                 type: string
               rewrite_base:
                 type: string

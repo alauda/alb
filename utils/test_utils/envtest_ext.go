@@ -3,6 +3,7 @@ package test_utils
 import (
 	"os"
 	"path"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
@@ -21,7 +22,9 @@ type EnvtestExt struct {
 }
 
 func NewEnvtestExt(base string, l logr.Logger) *EnvtestExt {
-	return &EnvtestExt{env: &envtest.Environment{}, log: l, Base: base, initForAlb: true}
+	return &EnvtestExt{env: &envtest.Environment{
+		ControlPlaneStopTimeout: 1 * time.Second,
+	}, log: l, Base: base, initForAlb: true}
 }
 
 func (e *EnvtestExt) WithName(name string) *EnvtestExt {
@@ -60,6 +63,7 @@ func (e *EnvtestExt) Start() (*rest.Config, error) {
 	e.cfg = cfg
 
 	if e.initForAlb {
+		e.log.Info("init alb cr")
 		InitAlbCr(e.Base, cfg)
 	}
 	InitCrds(e.Base, e.cfg, e.crds)
@@ -82,9 +86,7 @@ func (e *EnvtestExt) AssertStart() *rest.Config {
 }
 
 func (e *EnvtestExt) Stop() error {
-	err := e.env.Stop()
-	if err != nil {
-		return err
-	}
+	// when we stop. we never use this env again. and do not care it anyway.
+	e.env.Stop()
 	return nil
 }

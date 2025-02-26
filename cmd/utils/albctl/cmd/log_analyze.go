@@ -296,8 +296,8 @@ func EntryFromLog(rec *gonx.Entry) LogEntry {
 }
 
 func stat(ls []LogEntry, t func(l LogEntry) float64) string {
-	min := t(ls[0])
-	max := t(ls[0])
+	min_v := t(ls[0])
+	max_v := t(ls[0])
 	all := 0.0
 	ts := []time.Duration{}
 	err_count := 0
@@ -325,11 +325,11 @@ func stat(ls []LogEntry, t func(l LogEntry) float64) string {
 			http_err_count++
 		}
 		te := t(e)
-		if te < min {
-			min = te
+		if te < min_v {
+			min_v = te
 		}
-		if te > max {
-			max = te
+		if te > max_v {
+			max_v = te
 		}
 		all += te
 		td := time.Duration(int64(te * float64(time.Second)))
@@ -351,7 +351,7 @@ func stat(ls []LogEntry, t func(l LogEntry) float64) string {
 	p90 := ts[p(len(ts), 0.90)]
 	p99 := ts[p(len(ts), 0.99)]
 	p999 := ts[p(len(ts), 0.999)]
-	return fmt.Sprintf("err %v err_kind %v left %v parse_unknow %v retry %v http_fail %v min %0.3fms max %0.3fms avg %0.3fms p50 %dms p75 %dms p90 %dms p99 %dms p999 %dms", err_count, err_kind_map, left_err, unknow_count, retry_count, http_err_count, min*1000, max*1000, avg*1000, p50.Milliseconds(), p75.Milliseconds(), p90.Milliseconds(), p99.Milliseconds(), p999.Milliseconds())
+	return fmt.Sprintf("err %v err_kind %v left %v parse_unknow %v retry %v http_fail %v min %0.3fms max %0.3fms avg %0.3fms p50 %dms p75 %dms p90 %dms p99 %dms p999 %dms", err_count, err_kind_map, left_err, unknow_count, retry_count, http_err_count, min_v*1000, max_v*1000, avg*1000, p50.Milliseconds(), p75.Milliseconds(), p90.Milliseconds(), p99.Milliseconds(), p999.Milliseconds())
 }
 
 func (a Analyze) show(ls []LogEntry) string {

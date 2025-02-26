@@ -8,12 +8,14 @@ const (
 	ProtoHTTPS = alb2v1.FtProtocolHTTPS
 )
 
+// source type
 const (
-	TypeBind      = "bind"
-	TypeIngress   = "ingress"
-	TypeHttpRoute = "httpRoute"
-	TypeTCPRoute  = "tcpRoute"
-	TypeUDPRoute  = "udpRoute"
+	TypeIngress         = "ingress"
+	TypeFtDefaultRouter = "ft_default_router"
+	TypeExtension       = "extension"
+	TypeHttpRoute       = "httpRoute"
+	TypeTCPRoute        = "tcpRoute"
+	TypeUDPRoute        = "udpRoute"
 )
 
 const (

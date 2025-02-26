@@ -12,9 +12,11 @@ local _m = { plugins = {} } -- self_plugins need to access via : syntax
 function _m.init()
     local otel = require("plugins.otel.otel")
     local auth = require("plugins.auth.auth")
+    local timeout = require("plugins.timeout")
     _m.plugins = {
         ["auth"] = auth,
         ["otel"] = otel,
+        ["timeout"] = timeout,
     }
 end
 
@@ -43,6 +45,10 @@ end
 ---@param ctx AlbCtx
 function _m.log_hook(ctx)
     _m._call_hook(ctx, "log_hook")
+end
+
+function _m.balancer_hook(ctx)
+    _m._call_hook(ctx, "balancer_hook")
 end
 
 _m.init()

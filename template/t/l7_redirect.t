@@ -12,46 +12,69 @@ our $policy = <<'_EOC_';
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t1"]],
-		  "redirect_url": "/t1-1",
-		  "redirect_code": 302,
+          "config": {
+            "redirect": {
+              "code": 302,
+              "url": "/t1-1"
+            }
+          },
           "upstream": "test-upstream-1"
         },
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t2"]],
-		  "redirect_url": "/t2-1",
-		  "redirect_code": 301,
+          "config": {
+            "redirect": {
+              "code": 301,
+              "url": "/t2-1"
+            }
+          },
           "upstream": "test-upstream-1"
         },
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t3"]],
-		  "redirect_url": "/t3-1",
-		  "redirect_scheme": "https",
-		  "redirect_host": "a.com",
-		  "redirect_port": 9090,
-		  "redirect_code": 308,
+          "config": {
+            "redirect": {
+              "code": 308,
+              "url": "/t3-1",
+              "scheme": "https",
+              "host": "a.com",
+              "port": 9090
+            }
+          },
           "upstream": "test-upstream-1"
         },
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t4"]],
-		  "redirect_url": "/t4-1",
-		  "redirect_host": "a.com",
+          "config": {
+            "redirect": {
+              "url": "/t4-1",
+              "host": "a.com"
+            }
+          },
           "upstream": "test-upstream-1"
         },
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t5"]],
-		  "redirect_scheme": "https",
+          "config": {
+            "redirect": {
+              "scheme": "https"
+            }
+          },
           "upstream": "test-upstream-1"
         },
         {
           "rule": "",
           "internal_dsl": [["STARTS_WITH", "URL", "/t6"]],
-		  "redirect_prefix_match": "/t6/",
-		  "redirect_replace_prefix": "",
-		  "redirect_scheme": "https",
+          "config": {
+            "redirect": {
+              "prefix_match": "/t6/",
+              "scheme": "https"
+            }
+          },
           "upstream": "test-upstream-1"
         }
 		] }
@@ -91,6 +114,7 @@ run_tests();
 __DATA__
 
 === TEST 1: basic redirect should ok
+--- ONLY
 --- policy eval: $::policy
 --- http_config eval: $::http_config
 --- lua_test

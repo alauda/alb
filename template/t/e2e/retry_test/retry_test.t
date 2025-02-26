@@ -2,6 +2,7 @@ use strict;
 use warnings;
 use t::Alauda;
 use Test::Nginx::Socket 'no_plan';
+our $tt = t::Alauda::get_test_name(__FILE__);
 
 log_level('warn');
 no_shuffle();
@@ -19,7 +20,13 @@ __DATA__
     "tcp": {
       "81": [
         {
-          "upstream": "test-upstream-1"
+          "upstream": "test-upstream-1",
+          "plugins":["timeout"],
+          "config": {
+            "timeout": {
+            "proxy_connect_timeout_ms":1000
+            }
+          }
         }
       ]
     }
@@ -64,4 +71,4 @@ __DATA__
     }
   ]
 }
---- lua_test_eval: require('e2e.retry.retry').test()
+--- lua_test_eval eval: "require('$::tt').test()"

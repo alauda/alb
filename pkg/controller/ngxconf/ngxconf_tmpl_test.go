@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	. "alauda.io/alb2/pkg/controller/ngxconf/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -165,4 +166,39 @@ nameserver fd00:10:98::a
 `)
 	assert.NoError(t, err)
 	assert.Equal(t, dns, "[fd00:10:98::a]")
+}
+
+func TestFtSpecialConfig(t *testing.T) {
+	tmpl_cfg := NginxTemplateConfig{
+		Name:      "test",
+		TweakBase: "",
+		NginxBase: "/alb/nginx",
+		RestyBase: "/usr/local/openresty",
+		ShareBase: "/etc/alb2/nginx",
+		Frontends: map[string]FtConfig{
+			"xx": {
+				IpV4BindAddress: []string{"127.0.0.1"},
+				Listen:          "so_keepalive=on",
+				Location: `
+				xxxx;
+				xxx;
+				`,
+				Port:     1000,
+				Protocol: v1.FtProtocolTCP,
+			},
+		},
+		Resolver:  "127.0.0.1",
+		TweakHash: "",
+		Phase:     "running",
+		Metrics: MetricsConfig{
+			Port:            1111,
+			IpV4BindAddress: []string{},
+			IpV6BindAddress: []string{},
+		},
+		NginxParam: NginxParam{EnableIPV6: true},
+		Flags:      DefaulNgxTmplFlags(),
+	}
+	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)
+	assert.NoError(t, err)
+	fmt.Println(ngx_cfg)
 }

@@ -45,7 +45,7 @@ func (p Policies) Less(i, j int) bool {
 func (p Policies) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func (rl InternalRule) AllowNoAddr() bool {
-	return rl.Config.Redirect != nil && rl.Config.Redirect.RedirectURL != ""
+	return rl.Config.Redirect != nil
 }
 
 func (rl InternalRule) GetRawPriority() int {

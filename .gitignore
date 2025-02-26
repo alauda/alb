@@ -66,3 +66,4 @@ luacov.report.out.index
 luacov.summary
 .kube
 .fg
+.review/

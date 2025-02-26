@@ -234,15 +234,5 @@ function _M.dump(o)
     end
 end
 
----
---- milliseconds to seconds,if ms is nil return nil
---- @param ms number|nil
----@return number|nil
-function _M.ms2sec(ms)
-    if ms == nil or ms == json.null then
-        return nil
-    end
-    return ms / 1000
-end
 
 return _M

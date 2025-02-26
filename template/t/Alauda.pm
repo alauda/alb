@@ -4,7 +4,7 @@ package t::Alauda;
 use strict;
 use warnings;
 use File::Basename;
-use t::AlaudaLib qw(gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lua_test);
+use t::AlaudaLib qw(gen_main_config gen_ngx_tmpl_via_block gen_http_only gen_lua_test use_lua_test);
 use Test::Nginx::Util;
 
 my $ALB_BASE = $ENV{'TEST_BASE'};
@@ -54,7 +54,7 @@ Test::Nginx::Util::add_block_preprocessor(sub {
 __END
     write_file($block->policy // $default_policy,"$ALB_BASE/policy.new");
 
-    if (gen_lua_test($block) ne "") {
+    if (use_lua_test($block) ne "") {
         tg_log("use lua test port");
         server_port_for_client(1999);
     }
@@ -76,14 +76,13 @@ sub write_file($content,$file) {
 }
 
 sub get_test_name($file) {
-    warn "#wg test_name $file \n";
     # xx/alb2/template/t/e2e/auth_test/auth_test.t  ==> e2e.auth_test.auth_test
     # 这样可以被直接require
     my $dirname = dirname($file);
     $file =~ m{^.*?/t/(.*)$};  # 匹配/t/后面的部分，捕获到$1中
     my $suffix = $1;  # 获取捕获的后缀部分
     $suffix =~ s{/}{.}g;  # 将后缀部分中的/替换为.
-    $suffix =~ s{\.t}{}g;  # 将后缀部分中的.t去掉
+    $suffix =~ s{\.t$}{}g;  # 将后缀部分中的.t去掉
     return $suffix;
 }
 

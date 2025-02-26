@@ -218,7 +218,7 @@ func (c *Controller) setUpEventHandler() error {
 			if err != nil {
 				c.log.Error(err, "update ingress status fail")
 			}
-			err = c.syncAll()
+			err = c.SyncAll()
 			if err != nil {
 				c.log.Error(err, "reprocess all ingress when alb changed failed")
 			}
@@ -283,13 +283,13 @@ func (c *Controller) Run(threadiness int, ctx context.Context) error {
 	c.log.Info("Starting workers")
 
 	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
+		go wait.Until(c.RunWorker, time.Second, stopCh)
 	}
 
 	c.log.Info("Started workers")
 
 	// init sync
-	err = c.syncAll()
+	err = c.SyncAll()
 	if err != nil {
 		c.log.Error(err, "init sync fail")
 	}
@@ -313,7 +313,7 @@ func (c *Controller) syncNs(ns string) error {
 }
 
 // sync in startup
-func (c *Controller) syncAll() error {
+func (c *Controller) SyncAll() error {
 	ings, err := c.kd.ListAllIngress()
 	if err != nil {
 		return err
@@ -330,10 +330,20 @@ func (c *Controller) enqueue(key client.ObjectKey) {
 	c.workqueue.AddRateLimited(key)
 }
 
-// runWorker is a long-running function that will continually call the
+func (c *Controller) DrainAndStop() error {
+	c.log.Info("DrainAndStop", "workqueue", c.workqueue.Len())
+	c.workqueue.ShutDownWithDrain()
+	return nil
+}
+
+func (c *Controller) GetWorkqueueLen() int {
+	return c.workqueue.Len()
+}
+
+// RunWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
-func (c *Controller) runWorker() {
+func (c *Controller) RunWorker() {
 	for c.processNextWorkItem() {
 	}
 }

@@ -3,6 +3,7 @@ package v1alpha1
 // +kubebuilder:validation:Optional
 
 import (
+	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,14 +60,7 @@ type PolicyTargetReference struct {
 	SectionName *string `json:"sectionName"`
 }
 
-type TimeoutPolicyConfig struct {
-	// +optional
-	ProxyConnectTimeoutMs *uint `json:"proxy_connect_timeout_ms,omitempty"`
-	// +optional
-	ProxySendTimeoutMs *uint `json:"proxy_send_timeout_ms,omitempty"`
-	// +optional
-	ProxyReadTimeoutMs *uint `json:"proxy_read_timeout_ms,omitempty"`
-}
+type TimeoutPolicyConfig timeout_t.TimeoutCr
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

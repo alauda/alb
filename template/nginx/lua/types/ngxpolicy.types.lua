@@ -34,17 +34,19 @@
 --- @field type string
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
---- @field timeout TimeoutPolicyConfig?
+--- @field timeout TimeoutCr?
 
 
 --- @class PolicyExt
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
---- @field timeout TimeoutPolicyConfig?
+--- @field timeout TimeoutCr?
 
 
 --- @class Backend
@@ -71,13 +73,6 @@
 --- @field cors_allow_headers string
 --- @field cors_allow_origin string
 --- @field enable_cors boolean
---- @field redirect_code number
---- @field redirect_host string?
---- @field redirect_port number?
---- @field redirect_prefix_match string?
---- @field redirect_replace_prefix string?
---- @field redirect_scheme string?
---- @field redirect_url string
 --- @field rewrite_base string
 --- @field rewrite_prefix_match string?
 --- @field rewrite_replace_prefix string?
@@ -95,13 +90,6 @@
 --- @field cors_allow_headers string
 --- @field cors_allow_origin string
 --- @field enable_cors boolean
---- @field redirect_code number
---- @field redirect_host string?
---- @field redirect_port number?
---- @field redirect_prefix_match string?
---- @field redirect_replace_prefix string?
---- @field redirect_scheme string?
---- @field redirect_url string
 --- @field rewrite_base string
 --- @field rewrite_prefix_match string?
 --- @field rewrite_replace_prefix string?
@@ -121,9 +109,20 @@
 --- @field refs table<string, string>
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
---- @field timeout TimeoutPolicyConfig?
+--- @field timeout TimeoutCr?
+
+
+--- @class RedirectCr
+--- @field code number?
+--- @field host string
+--- @field port number?
+--- @field prefix_match string
+--- @field replace_prefix string
+--- @field scheme string
+--- @field url string
 
 
 --- @class RewriteRequestConfig
@@ -146,7 +145,7 @@
 --- @field source_type string
 
 
---- @class TimeoutPolicyConfig
+--- @class TimeoutCr
 --- @field proxy_connect_timeout_ms number?
 --- @field proxy_read_timeout_ms number?
 --- @field proxy_send_timeout_ms number?
@@ -156,16 +155,6 @@
 --- @field cors_allow_headers string
 --- @field cors_allow_origin string
 --- @field enable_cors boolean
-
-
---- @class RedirectConf
---- @field redirect_code number
---- @field redirect_host string?
---- @field redirect_port number?
---- @field redirect_prefix_match string?
---- @field redirect_replace_prefix string?
---- @field redirect_scheme string?
---- @field redirect_url string
 
 
 --- @class RewriteConf

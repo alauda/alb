@@ -7,11 +7,11 @@ import (
 	"alauda.io/alb2/driver"
 	. "alauda.io/alb2/gateway/nginx/policyattachment/types"
 	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
+	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
+	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"alauda.io/alb2/utils/log"
 )
 
 type TimeoutPolicyConfig gatewayPolicy.TimeoutPolicyConfig
@@ -112,7 +112,7 @@ func (t *TimeoutPolicy) OnRule(ft *Frontend, rule *InternalRule, ref Ref) error 
 		return err
 	}
 	log.V(5).Info("timeout cfg ", "cfg", timeout)
-	timeoutCfg := gatewayPolicy.TimeoutPolicyConfig(timeout)
+	timeoutCfg := timeout_t.TimeoutCr(timeout)
 	rule.Config.Timeout = &timeoutCfg
 	return nil
 }

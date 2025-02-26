@@ -26,11 +26,6 @@ const (
 	ALBBackendProtocolAnnotation  = "nginx.ingress.kubernetes.io/backend-protocol"
 	FMT_ALBRulePriorityAnnotation = "alb.%s/ingress-rule-priority-%d-%d"
 
-	// ALBTemporalRedirectAnnotation allows you to return a temporal redirect (Return Code 302) instead of sending data to the upstream.
-	ALBTemporalRedirectAnnotation = "nginx.ingress.kubernetes.io/temporal-redirect"
-	// ALBPermanentRedirectAnnotation allows to return a permanent redirect instead of sending data to the upstream.
-	ALBPermanentRedirectAnnotation = "nginx.ingress.kubernetes.io/permanent-redirect"
-
 	// ALBVHostAnnotation allows user to override the request Host
 	ALBVHostAnnotation = "nginx.ingress.kubernetes.io/upstream-vhost"
 )

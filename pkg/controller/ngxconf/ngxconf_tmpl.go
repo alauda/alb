@@ -241,7 +241,7 @@ type InterfaceInfo struct {
 
 type NetWorkInfo = map[string]InterfaceInfo
 
-// TODO  GetCurrentNetwork maybe slow (80ms),但是标准库中获取interface本质上也是先获取所有的nic
+// TODO GetCurrentNetwork maybe slow (80ms),但是标准库中获取interface本质上也是先获取所有的nic
 func GetCurrentNetwork() (NetWorkInfo, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {

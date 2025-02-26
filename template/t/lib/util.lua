@@ -23,6 +23,9 @@ function _M.curl(url, cfg)
     local httpc = require("resty.http").new()
     if cfg == nil then
         local res, err = httpc:request_uri(url, { method = "GET" })
+        if err ~= nil then
+            return res, err
+        end
         if res.headers then
             setmetatable(res.headers, nil)
         end
@@ -32,6 +35,9 @@ function _M.curl(url, cfg)
         cfg.method = "GET"
     end
     local res, err = httpc:request_uri(url, cfg)
+    if err ~= nil then
+        return res, err
+    end
     if res.headers then
         setmetatable(res.headers, nil)
     end
@@ -47,7 +53,7 @@ function _M.log(msg, opt)
     if opt ~= nil then
         caller = tostring(opt.caller)
     end
-    ngx.log(ngx.NOTICE, "\n---alb_debug " .. caller .. "---\n " .. tostring(msg) .. "\n---alb_debug_end---\n")
+    ngx.log(ngx.WARN, "\n---alb_debug " .. caller .. "---\n " .. tostring(msg) .. "\n---alb_debug_end---\n")
 end
 
 ---comment

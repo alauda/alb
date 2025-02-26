@@ -1,15 +1,16 @@
 package types
 
 import (
-	gatewayPolicy "alauda.io/alb2/pkg/apis/alauda/gateway/v1alpha1"
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
+	keepalive_t "alauda.io/alb2/pkg/controller/ext/keepalive/types"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	redirect_t "alauda.io/alb2/pkg/controller/ext/redirect/types"
+	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -28,12 +29,20 @@ type LoadBalancer struct {
 	Refs      RefMap
 }
 
+// 代表的是ft单独作为一个路由规则时的配置。比如l4的配置。l7 redirect或者默认转发的配置
+type FtConf struct {
+	Timeout   *timeout_t.TimeoutCr     `json:"timeout,omitempty"`
+	Redirect  *redirect_t.RedirectCr   `json:"redirect,omitempty"`
+	KeepAlive *keepalive_t.KeepAliveCr `json:"keepalive,omitempty"`
+}
+
 type Frontend struct {
 	Labels          map[string]string `json:"-"`
 	FtName          string            `json:"-"`        // ft name
 	AlbName         string            `json:"alb_name"` // alb name
 	Port            v1.PortNumber     `json:"port"`
 	Protocol        v1.FtProtocol     `json:"protocol"` // ft 支持的协议 http/https/tcp/udp/grpc tcp 和 udp 代表 stream mode
+	Config          FtConf            `json:"config"`
 	Rules           RuleList          `json:"rules"`
 	Services        []*BackendService `json:"services"`         // ft 默认后端路由组
 	BackendProtocol string            `json:"backend_protocol"` // ft 默认后端路由组对应的协议
@@ -119,7 +128,7 @@ type Source struct {
 
 type Policy struct {
 	// match
-	InternalDSL []interface{} `json:"internal_dsl"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
+	InternalDSL []interface{} `json:"internal_dsl,omitempty"` // dsl determine whether a request match this rule, same as rule.spec.dlsx
 
 	PolicySortBean `json:"-"`
 
@@ -136,13 +145,23 @@ type Policy struct {
 
 	ToLocation *string `json:"to_location,omitempty"`
 
-	Plugins []string `json:"plugins"` // a list of lua module which enabled for this rule
+	Plugins []string `json:"plugins,omitempty"` // a list of lua module which enabled for this rule
 }
 
 type PolicySortBean struct {
 	Priority        int `json:"-"` // priority set by user, used to sort policy which is rule's priority
 	ComplexPriority int
 	InternalDSLLen  int
+}
+
+func (p *PolicySortBean) MakeItMatchFirst() {
+	p.Priority = -1
+	p.ComplexPriority = 999999999
+}
+
+func (p *PolicySortBean) MakeItMatchLast() {
+	p.ComplexPriority = -1 // default rule should have the minimum priority
+	p.Priority = 999       // minimum number means higher priority
 }
 
 // rule cr/gateway cr => internal-rule => policy
@@ -190,17 +209,6 @@ type RewriteConf struct {
 	RewriteReplacePrefix *string `json:"rewrite_replace_prefix,omitempty"` // gatewayapi-httproute
 }
 
-type RedirectConf struct {
-	RedirectURL  string `json:"redirect_url"`  // alb-rule
-	RedirectCode int    `json:"redirect_code"` // alb-rule
-
-	RedirectScheme        *string `json:"redirect_scheme,omitempty"`         // gatewayapi-httproute
-	RedirectHost          *string `json:"redirect_host,omitempty"`           // gatewayapi-httproute
-	RedirectPort          *int    `json:"redirect_port,omitempty"`           // gatewayapi-httproute
-	RedirectPrefixMatch   *string `json:"redirect_prefix_match,omitempty"`   // gatewayapi-httproute
-	RedirectReplacePrefix *string `json:"redirect_replace_prefix,omitempty"` // gatewayapi-httproute
-}
-
 type Cors struct { // ext cors
 	EnableCORS       bool   `json:"enable_cors"`
 	CORSAllowHeaders string `json:"cors_allow_headers"`
@@ -209,18 +217,22 @@ type Cors struct { // ext cors
 
 type RuleExt struct { // 不同的扩展的配置
 	Rewrite         *RewriteConf
-	Redirect        *RedirectConf
 	Cors            *Cors
 	Vhost           *Vhost
-	Timeout         *gatewayPolicy.TimeoutPolicyConfig `json:"timeout,omitempty"`
-	RewriteResponse *RewriteResponseConfig             `json:"rewrite_response,omitempty"`
-	RewriteRequest  *RewriteRequestConfig              `json:"rewrite_request,omitempty"`
-	Otel            *otelt.OtelConf                    `json:"otel,omitempty"`
+	Timeout         *timeout_t.TimeoutCr   `json:"timeout,omitempty"`
+	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
+	RewriteRequest  *RewriteRequestConfig  `json:"rewrite_request,omitempty"`
+	Otel            *otelt.OtelConf        `json:"otel,omitempty"`
+	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
 	Waf             *waft.WafInternal
 	Auth            *auth_t.AuthCr
+	Source          ConfigSource
 }
 
-type PolicyExtKind string
+type (
+	ConfigSource  map[PolicyExtKind]string
+	PolicyExtKind string
+)
 
 // keep this as same as policy_ext json annotation
 const (
@@ -229,22 +241,25 @@ const (
 	RewriteRequest  PolicyExtKind = "rewrite_request"
 	RewriteResponse PolicyExtKind = "rewrite_response"
 	Timeout         PolicyExtKind = "timeout"
+	Redirect        PolicyExtKind = "redirect"
 	Otel            PolicyExtKind = "otel"
 	Waf             PolicyExtKind = "waf"
 	Auth            PolicyExtKind = "auth"
 )
 
 type PolicyExt struct {
-	RewriteResponse *RewriteResponseConfig             `json:"rewrite_response,omitempty"`
-	RewriteRequest  *RewriteRequestConfig              `json:"rewrite_request,omitempty"`
-	Timeout         *gatewayPolicy.TimeoutPolicyConfig `json:"timeout,omitempty"`
-	Otel            *otelt.OtelConf                    `json:"otel,omitempty"`
-	Auth            *auth_t.AuthPolicy                 `json:"auth,omitempty"`
+	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
+	RewriteRequest  *RewriteRequestConfig  `json:"rewrite_request,omitempty"`
+	Timeout         *timeout_t.TimeoutCr   `json:"timeout,omitempty"`
+	Otel            *otelt.OtelConf        `json:"otel,omitempty"`
+	Auth            *auth_t.AuthPolicy     `json:"auth,omitempty"`
+	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
+	Source          string                 `json:"-"`
 }
 
 type PolicyExtCfg struct {
 	PolicyExt
-	Refs map[PolicyExtKind]string `json:"refs"`
+	Refs map[PolicyExtKind]string `json:"refs,omitempty"`
 }
 
 // TODO use code-gen
@@ -264,26 +279,32 @@ func (p *PolicyExt) Clean(key PolicyExtKind) {
 	if key == Auth {
 		p.Auth = nil
 	}
+	if key == Redirect {
+		p.Redirect = nil
+	}
 }
 
 // 将其转换为map方便后续去重
 // TODO use code-gen
-func (p PolicyExt) ToMaps() PolicyExtMap {
+func (p PolicyExtCfg) ToMaps() PolicyExtMap {
 	m := PolicyExtMap{}
 	if p.RewriteResponse != nil {
-		m[RewriteResponse] = &PolicyExt{RewriteResponse: p.RewriteResponse}
+		m[RewriteResponse] = &PolicyExt{RewriteResponse: p.RewriteResponse, Source: p.Refs[RewriteResponse]}
 	}
 	if p.RewriteRequest != nil {
-		m[RewriteRequest] = &PolicyExt{RewriteRequest: p.RewriteRequest}
+		m[RewriteRequest] = &PolicyExt{RewriteRequest: p.RewriteRequest, Source: p.Refs[RewriteRequest]}
 	}
 	if p.Timeout != nil {
-		m[Timeout] = &PolicyExt{Timeout: p.Timeout}
+		m[Timeout] = &PolicyExt{Timeout: p.Timeout, Source: p.Refs[Timeout]}
 	}
 	if p.Otel != nil {
-		m[Otel] = &PolicyExt{Otel: p.Otel}
+		m[Otel] = &PolicyExt{Otel: p.Otel, Source: p.Refs[Otel]}
 	}
 	if p.Auth != nil {
-		m[Auth] = &PolicyExt{Auth: p.Auth}
+		m[Auth] = &PolicyExt{Auth: p.Auth, Source: p.Refs[Auth]}
+	}
+	if p.Redirect != nil {
+		m[Redirect] = &PolicyExt{Redirect: p.Redirect, Source: p.Refs[Redirect]}
 	}
 	return m
 }
@@ -292,7 +313,6 @@ type PolicyExtMap = map[PolicyExtKind]*PolicyExt
 
 type LegacyExtInPolicy struct {
 	RewriteConf
-	RedirectConf
 	Cors
 	Vhost
 }

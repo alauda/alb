@@ -93,6 +93,36 @@ spec:
                             type: string
                         type: object
                     type: object
+                  keepalive:
+                    properties:
+                      http:
+                        description: downstream l7 keepalive
+                        properties:
+                          header_timeout:
+                            description: keepalive_header_timeout. default not set
+                            type: string
+                          requests:
+                            description: keepalive_requests. default is 1000
+                            type: integer
+                          timeout:
+                            description: keepalive_timeout. default is 75s
+                            type: string
+                        type: object
+                      tcp:
+                        description: TCPKeepAlive defines TCP keepalive parameters
+                          (so_keepalive)
+                        properties:
+                          count:
+                            description: the TCP_KEEPCNT socket option
+                            type: integer
+                          idle:
+                            description: the TCP_KEEPIDLE socket option
+                            type: string
+                          interval:
+                            description: the TCP_KEEPINTVL socket option
+                            type: string
+                        type: object
+                    type: object
                   modsecurity:
                     properties:
                       cmRef:
@@ -171,6 +201,32 @@ spec:
                         type: object
                     required:
                     - enable
+                    type: object
+                  redirect:
+                    properties:
+                      code:
+                        type: integer
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                      prefix_match:
+                        type: string
+                      replace_prefix:
+                        type: string
+                      scheme:
+                        type: string
+                      url:
+                        type: string
+                    type: object
+                  timeout:
+                    properties:
+                      proxy_connect_timeout_ms:
+                        type: integer
+                      proxy_read_timeout_ms:
+                        type: integer
+                      proxy_send_timeout_ms:
+                        type: integer
                     type: object
                 type: object
               port:

@@ -3,6 +3,9 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "keepalivetypes",
+        "KEEPIDLE",
+        "timeouttypes",
         "nolint",
         "HOSTIP",
         "htpasswd",

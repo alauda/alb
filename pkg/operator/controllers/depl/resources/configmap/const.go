@@ -1,10 +1,10 @@
 package configmap
 
 const HTTP = `
-	log_format  http  '[$time_local] $remote_addr "$host" "$request" '
+    log_format  http  '[$time_local] $remote_addr "$host" "$request" '
                       '$status $upstream_status $upstream_addr '
                       '"$http_user_agent" "$http_x_forwarded_for" '
-                      '$request_time $upstream_response_time $upstream_bytes_received';
+                      '$request_time $upstream_response_time $upstream_bytes_received' $server_port;
     access_log  /dev/stdout  http buffer=16k flush=1s;
     error_log   stderr       info;
     rewrite_log on;
@@ -118,7 +118,7 @@ const STREAM_COMMON = `
     lua_code_cache on;
     lua_package_path '/usr/local/lib/lua/?.lua;/alb/nginx/lua/?.lua;/alb/nginx/lua/vendor/?.lua;;';
     lua_package_cpath '/usr/local/lib/lua/?.so;;';
-    
+
     # Lua shared dict
     lua_shared_dict stream_policy   10m;
     lua_shared_dict stream_backend_cache 5m;

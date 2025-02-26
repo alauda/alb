@@ -66,10 +66,13 @@ type Sampler struct {
 	Options *SamplerOptions `json:"options"`
 }
 
+// k8s does not like float, so use string
+// do not omitempty, it should not be overwrite
+
 // +k8s:deepcopy-gen=true
 type SamplerOptions struct {
 	// +optional
-	ParentName *string `json:"parent_name"` // name of parent if parent_base sampler -- do not omitempty, it should not be overwrite
+	ParentName *string `json:"parent_name"` // name of parent if parent_base sampler
 	// +optional
-	Fraction *string `json:"fraction"` // k8s does not like float, so use string -- do not omitempty, it should not be overwrite
+	Fraction *string `json:"fraction"`
 }

@@ -956,15 +956,16 @@ spec:
 		f.WaitNgxPolicy(func(p NgxPolicy) (bool, error) {
 			name := "8234-" + ns + "-g1-http-" + ns + "-h1-0-0"
 			policy, _, _ := p.FindHttpPolicy(name)
-			Logf("policy is %+v", policy.Config.RewriteResponse)
-			Logf("policy is %v", *policy.RedirectScheme)
-			Logf("policy is %v", *policy.RedirectHost)
-			Logf("policy is %v", *policy.RedirectPort)
-			Logf("policy is %v", policy.RedirectCode)
-			ret := *policy.RedirectScheme == "https" &&
-				*policy.RedirectHost == "xx.com" &&
-				*policy.RedirectPort == 9090 &&
-				policy.RedirectCode == 301 &&
+			Logf("policy is %+v", policy.Config.Redirect)
+			redirect := policy.Config.Redirect
+			Logf("policy is %v", redirect.Scheme)
+			Logf("policy is %v", redirect.Host)
+			Logf("policy is %v", redirect.Port)
+			Logf("policy is %v", redirect.Code)
+			ret := redirect.Scheme == "https" &&
+				redirect.Host == "xx.com" &&
+				*redirect.Port == 9090 &&
+				*redirect.Code == 301 &&
 				true
 
 			return ret, nil

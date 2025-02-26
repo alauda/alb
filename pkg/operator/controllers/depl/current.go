@@ -34,16 +34,15 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	gc := &gv1b1t.GatewayClass{}
 	lease := &coov1.Lease{}
 	var err error
-	key := crcli.ObjectKey{Namespace: req.Namespace, Name: req.Name}
 
 	// atleast we must have a alb
-	err = cli.Get(ctx, key, alb)
+	err = cli.Get(ctx, req, alb)
 	if err != nil {
 		return nil, perr.WithMessage(err, "get alb fail when load albdepl")
 	}
 	l.Info("get current alb deploy", "alb", ShowMeta(alb), "raw", PrettyCr(alb))
 
-	err = cli.Get(ctx, key, depl)
+	err = cli.Get(ctx, req, depl)
 	if errors.IsNotFound(err) {
 		depl = nil
 	}
@@ -52,7 +51,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	}
 
 	// TODO use label deployment的名字可能是不固定的
-	err = cli.Get(ctx, key, commoncfg)
+	err = cli.Get(ctx, req, commoncfg)
 	if errors.IsNotFound(err) {
 		commoncfg = nil
 	}
@@ -68,7 +67,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		return nil, err
 	}
 
-	err = cli.Get(ctx, key, ic)
+	err = cli.Get(ctx, req, ic)
 	if errors.IsNotFound(err) {
 		ic = nil
 	}
@@ -76,7 +75,7 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		return nil, err
 	}
 
-	err = cli.Get(ctx, key, gc)
+	err = cli.Get(ctx, req, gc)
 	if errors.IsNotFound(err) {
 		gc = nil
 	}
@@ -85,21 +84,21 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	}
 
 	fc := feature.NewFeatureCtl(ctx, cli, l)
-	fcur, err := fc.Load(key)
+	fcur, err := fc.Load(req)
 	if err != nil {
 		return nil, err
 	}
 
 	svctl := service.NewSvcCtl(ctx, cli, l, operatorCf)
-	svc, err := svctl.Load(key)
+	svc, err := svctl.Load(req)
 	if err != nil {
 		return nil, err
 	}
-	rbac, err := rbac.Load(ctx, cli, l, key)
+	rbac, err := rbac.Load(ctx, cli, l, req)
 	if err != nil {
 		return nil, err
 	}
-	err = cli.Get(ctx, key, lease)
+	err = cli.Get(ctx, req, lease)
 	if errors.IsNotFound(err) {
 		lease = nil
 	}

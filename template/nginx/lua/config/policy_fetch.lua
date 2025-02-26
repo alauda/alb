@@ -35,7 +35,7 @@ local function init_http_rule_dsl(rule)
     set_default_value(rule, "redirect_url", "")
     set_default_value(rule, "vhost", "")
     -- we already have internal_dsl
-    if rule["internal_dsl"] ~= common.null then
+    if rule["internal_dsl"] ~= common.null and rule["internal_dsl"] ~= nil then
         if #rule["internal_dsl"] == 1 then
             rule["dsl"] = rule["internal_dsl"][1]
         else
@@ -111,6 +111,8 @@ local function update_http_cache(policy, old_policy)
     local old_config = common.access_or(old_policy, { "config" }, {})
     -- ngx.log(ngx.ERR, string.format("newconfig %s", common.json_encode(new_config, true)))
     -- ngx.log(ngx.ERR, string.format("oldconfig %s", common.json_encode(old_config, true)))
+    -- ngx.log(ngx.ERR, string.format("new policy %s", common.json_encode(http_policy, true)))
+    -- ngx.log(ngx.ERR, string.format("old policy %s", common.json_encode(old_http_policy, true)))
 
     -- NOTICE: The value argument inserted can be Lua booleans, numbers, strings, or nil.
     -- since that we have to insert a json string....

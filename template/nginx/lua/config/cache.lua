@@ -50,6 +50,7 @@ function _M.init_l4()
         return
     end
     cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", { lru_size = 2000, ttl = 30, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("config_cache", subsystem .. "_alb_cache", { lru_size = 500, ttl = 60, neg_ttl = 5, ipc = ipc })
 end
 
 function _M.init_l7()
@@ -89,7 +90,7 @@ function _M.remove_config(key)
 end
 
 local function get_config_from_shdict(key)
-    ngx.log(ngx.INFO, "cache: refresh cache from ngx.share[http_policy][" .. tostring(key) .. "]")
+    ngx.log(ngx.INFO, "cache: refresh cache from ngx.share[" .. tostring(key) .. "]")
     local raw = shm.get_config(key)
     if raw == nil then
         return nil, string.format("no %s", key)
@@ -142,6 +143,9 @@ function _M.get_config_from_policy(policy, kind)
     end
     if config[kind] ~= nil then
         return config[kind]
+    end
+    if type(config.refs) ~= "table" then
+        return nil
     end
     local key = config.refs[kind]
     if key == nil then

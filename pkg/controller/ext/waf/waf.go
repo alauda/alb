@@ -92,6 +92,7 @@ func (w *WafCtl) ToInternalRule(rule *m.Rule, r *ct.InternalRule) {
 		Snippet: snip,
 		Key:     key,
 	}
+	r.Config.Source[ct.Waf] = key
 }
 
 func (w *WafCtl) ToPolicy(rule *ct.InternalRule, r *ct.Policy, refs ct.RefMap) {

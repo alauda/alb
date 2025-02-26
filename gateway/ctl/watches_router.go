@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"alauda.io/alb2/utils"
-	"k8s.io/apimachinery/pkg/types"
 	ctrlBuilder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -61,7 +60,7 @@ func (g *GatewayReconciler) watchRoutes(b *ctrlBuilder.Builder) *ctrlBuilder.Bui
 		reqs := []reconcile.Request{}
 		for _, key := range keys {
 			reqs = append(reqs, reconcile.Request{
-				NamespacedName: types.NamespacedName{Namespace: key.Namespace, Name: key.Name},
+				NamespacedName: client.ObjectKey{Namespace: key.Namespace, Name: key.Name},
 			})
 		}
 		return reqs

@@ -34,11 +34,21 @@ end
 
 function _M.test()
     -- LuaFormatter off
+    ---@type NgxPolicy
     local policy = {
         http = {
             tcp = {
                 ["80"] = {
-                    { rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "u1", config = { timeout = { proxy_read_timeout_ms = "300" } } } }
+                    {
+                        plugins = { "timeout" },
+                        rule = "1",
+                        internal_dsl = { { "STARTS_WITH", "URL", "/t1" } },
+                        upstream = "u1",
+                        config = {
+                            timeout = { proxy_read_timeout_ms = 300 }
+                        }
+                    }
+                }
             }
         },
         backend_group = {
@@ -64,7 +74,7 @@ function _M.test()
     do
         u.logs "error from alb timeout"
         local res, err = u.curl("http://127.0.0.1/t1/sleep?sleep=5")
-        u.logs(res, err)
+        u.logs(res, err, "xxxxx")
         h.assert_eq(res.status, 504)
         h.assert_eq(res.body, "X-Error: 504\n")
     end

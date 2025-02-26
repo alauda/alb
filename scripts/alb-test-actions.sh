@@ -1,6 +1,5 @@
 #!/bin/bash
 # shellcheck disable=SC2120,SC2155,SC2181
-set -e -o pipefail
 
 function alb-debug-e2e-test() {
   # not yet
@@ -13,7 +12,7 @@ function alb-build-e2e-test() {
 
 function alb-go-test-all-with-coverage() {
   set -e
-  echo "lift: start test"
+  echo "life: start test"
   env
   #   alb-run-checklist-test
   rm ./coverage.txt || true

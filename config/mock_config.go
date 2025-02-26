@@ -8,6 +8,13 @@ import (
 
 // type MockConfig ALBRunConfig
 
+func Mock(name, ns string) *Config {
+	mock := DefaultMock()
+	mock.ALBRunConfig.Name = name
+	mock.ALBRunConfig.Ns = ns
+	return mock
+}
+
 func DefaultMock() *Config {
 	return &Config{
 		ALBRunConfig: ALBRunConfig{
