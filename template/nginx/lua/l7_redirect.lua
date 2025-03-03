@@ -16,7 +16,7 @@ function _M.redirect(policy)
 
     -- fast path
     if redirect_scheme == nil and redirect_host == nil and redirect_port == nil then
-        if redirect_url ~= "" then
+        if not s_ext.is_nill(redirect_url) then
             ngx_redirect(redirect_url, redirect_code)
             return -- unreachable!{}
         end
@@ -25,7 +25,7 @@ function _M.redirect(policy)
     local scheme = s_ext.nil_or(redirect_scheme, ngx.ctx.alb_ctx.var.scheme)
     local host = s_ext.nil_or(redirect_host, ngx.ctx.alb_ctx.var.host)
     local url = s_ext.nil_or(redirect_url, ngx.ctx.alb_ctx.var.uri)
-    if prefix_match ~= nil and prefix_match ~= "" then
+    if not s_ext.is_nill(prefix_match) then
         replace_prefix = s_ext.nil_or(replace_prefix, "")
         url = replace.replace(url, prefix_match, replace_prefix)
     end
