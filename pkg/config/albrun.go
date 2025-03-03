@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -220,7 +221,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 	return envs
 }
 
-func (a *ALBRunConfig) GetNginxContainerEnvs(ver string) []coreV1.EnvVar {
+func (a *ALBRunConfig) GetNginxContainerEnvs(ver string, annotations map[string]string) []coreV1.EnvVar {
 	var envs []coreV1.EnvVar
 	envs = append(envs,
 		coreV1.EnvVar{Name: OLD_CONFIG_PATH, Value: OLD_CONFIG_PATH_VAL},
@@ -236,7 +237,25 @@ func (a *ALBRunConfig) GetNginxContainerEnvs(ver string) []coreV1.EnvVar {
 		coreV1.EnvVar{Name: ALB_NS, Value: a.Ns},
 		coreV1.EnvVar{Name: ALB_VER, Value: ver},
 	)
+	envs = append(envs, a.initInjectNgxEnv(annotations)...)
 	return envs
+}
+
+func (a *ALBRunConfig) initInjectNgxEnv(annotations map[string]string) []coreV1.EnvVar {
+	ret := []coreV1.EnvVar{}
+	nginx_env := annotations["alb.cpaas.io/nginx-env"]
+	if nginx_env == "" {
+		return ret
+	}
+	envs := map[string]string{}
+	err := json.Unmarshal([]byte(nginx_env), &envs)
+	if err != nil {
+		return ret
+	}
+	for k, v := range envs {
+		ret = append(ret, coreV1.EnvVar{Name: k, Value: v})
+	}
+	return ret
 }
 
 func AlbRunCfgFromEnv(env map[string]string) (ALBRunConfig, error) {

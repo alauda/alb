@@ -83,6 +83,8 @@ func GetLBConfig(ctx context.Context, drv *driver.KubernetesDriver, cfg *config.
 		return ret, nil
 	}
 	ret.Frontends = fts
+	ret.Labels = map[string]string{}
+	ret.Annotations = map[string]string{}
 	ret.Refs = ctltype.RefMap{
 		ConfigMap: map[client.ObjectKey]*corev1.ConfigMap{},
 		Secret:    map[client.ObjectKey]*corev1.Secret{},

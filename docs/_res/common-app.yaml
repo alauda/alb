@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echo-resty-config
+data:
+  nginx-config: |
+    worker_processes  1;
+    daemon off;
+    pid nginx.pid;
+    env POD_NAME;
+
+    events {
+        worker_connections  1024;
+    }
+
+    http {
+        access_log  /dev/stdout  ;
+        error_log   /dev/stdout  info;
+        server {
+            listen 80;
+            location / {
+              content_by_lua_block {
+                      local h, err = ngx.req.get_headers()
+                      if err ~=nil then
+                          ngx.say("err: "..tostring(err))
+                      end
+                      for k, v in pairs(h) do
+                          ngx.say("header "..tostring(k).." : "..tostring(v))
+                      end
+                      ngx.say("url "..ngx.var.request_uri)
+                      ngx.say("pod "..os.getenv("POD_NAME").." http client-ip "..ngx.var.remote_addr.." client-port "..ngx.var.remote_port.." server-ip "..ngx.var.server_addr.." server-port "..ngx.var.server_port)
+              }
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-resty
+  labels:
+    k8s-app: echo-resty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: echo-resty
+  template:
+    metadata:
+      labels:
+        k8s-app: echo-resty
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: echo-resty
+          image: registry.alauda.cn:60080/acp/alb-nginx:v3.12.2 # 使用>3.12的alb-nginx的镜像即可
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "250m"
+            limits:
+              memory: "500Mi"
+              cpu: "1"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx
+          command:
+            - sh
+            - -c
+            - "mkdir -p /alb/app && cd /alb/app && nginx -p $PWD -c /etc/nginx/nginx.conf -e /dev/stdout"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: echo-resty-config
+            items:
+              - key: nginx-config
+                path: nginx.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-resty
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+  selector:
+    k8s-app: echo-resty
+  sessionAffinity: None
+  type: ClusterIP

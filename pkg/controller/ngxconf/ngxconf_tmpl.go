@@ -97,6 +97,7 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 		TweakHash: hash,
 		Resolver:  resolver,
 		Phase:     phase,
+		RootExtra: "",
 		Metrics: MetricsConfig{
 			Port:            nginxParam.MetricsPort,
 			IpV4BindAddress: ipv4,
@@ -105,11 +106,29 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 		NginxParam: nginxParam,
 		Flags:      DefaulNgxTmplFlags(),
 	}
+	c.initInjectNgxEnv(alb.Annotations, tmpl_cfg)
 	err = c.cus.UpdateNgxTmpl(tmpl_cfg, alb, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return tmpl_cfg, nil
+}
+
+func (c NgxCli) initInjectNgxEnv(annotation map[string]string, cfg *NginxTemplateConfig) {
+	// lua中读取env需要提前用env directive声明
+	nginx_env := annotation["alb.cpaas.io/nginx-env"]
+	if nginx_env == "" {
+		return
+	}
+	envs := map[string]string{}
+	err := json.Unmarshal([]byte(nginx_env), &envs)
+	if err != nil {
+		c.log.Error(err, "inject env fail")
+		return
+	}
+	for k := range envs {
+		cfg.RootExtra += "env " + k + ";\n"
+	}
 }
 
 func getDnsResolver() (string, error) {

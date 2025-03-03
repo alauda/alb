@@ -100,10 +100,11 @@ func (c *AlbCli) GetLBConfig(ns string, name string) (*LoadBalancer, error) {
 	pm.Write("load-m-alb", float64(time.Since(s).Milliseconds()))
 
 	cAlb := &LoadBalancer{
-		Name:      mAlb.Alb.Name,
-		Address:   mAlb.Alb.Spec.Address,
-		Frontends: []*Frontend{},
-		Labels:    mAlb.Alb.Labels,
+		Name:        mAlb.Alb.Name,
+		Annotations: mAlb.Alb.Annotations,
+		Address:     mAlb.Alb.Spec.Address,
+		Frontends:   []*Frontend{},
+		Labels:      mAlb.Alb.Labels,
 	}
 
 	c.log.Info("ft len", "alb", name, "ft", len(mAlb.Frontends))

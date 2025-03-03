@@ -308,7 +308,7 @@ func TestGetNginxContainerEnvs(t *testing.T) {
 			},
 		},
 	}
-	actual := cfg.GetNginxContainerEnvs("1.1")
+	actual := cfg.GetNginxContainerEnvs("1.1", map[string]string{})
 	sort.Slice(expect, func(i, j int) bool {
 		return expect[i].Name < expect[j].Name
 	})

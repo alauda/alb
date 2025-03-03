@@ -281,7 +281,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				},
 				AllowPrivilegeEscalation: pointer.To(true),
 			},
-			Env: conf.GetNginxContainerEnvs(d.env.Version),
+			Env: conf.GetNginxContainerEnvs(d.env.Version, d.alb.Annotations),
 			ReadyProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{

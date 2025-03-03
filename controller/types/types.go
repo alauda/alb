@@ -20,13 +20,14 @@ type RefMap struct {
 }
 
 type LoadBalancer struct {
-	Labels    map[string]string
-	Name      string
-	Address   string
-	Type      string
-	Version   int
-	Frontends []*Frontend
-	Refs      RefMap
+	Labels      map[string]string
+	Annotations map[string]string
+	Name        string
+	Address     string
+	Type        string
+	Version     int
+	Frontends   []*Frontend
+	Refs        RefMap
 }
 
 // 代表的是ft单独作为一个路由规则时的配置。比如l4的配置。l7 redirect或者默认转发的配置

@@ -9,7 +9,10 @@ local conf = require "config.conf"
 local s_ext = require "utils.string_ext"
 local cache = require "config.cache"
 
-local M = {}
+local M = {
+    -- default be false. keep it compatible with alb <3.16
+    FallbackDefaultPortCert = os.getenv("FallbackDefaultPortCert") == "true"
+}
 
 function M.select_cert()
     local ok, err = ssl.clear_certs()
@@ -118,8 +121,10 @@ function M.try_get_domain_cert_from_l2_cache(domain_raw, port_raw)
     if find then
         return cert_wildcard_host_in_port
     end
-
-    return M.get_cert(port_str)
+    if M.FallbackDefaultPortCert then
+        return M.get_cert(port_str)
+    end
+    return nil
 end
 
 function M.get_cert(key)

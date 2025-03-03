@@ -7,8 +7,6 @@ local h = require("test-helper");
 local ct = require("cert_tool")
 
 function _M.test()
-
-    -- LuaFormatter off
     local cert_map = {
         ["a.com"] = "full-host",
         ["b.com/443"] = "full-host-withport-443",
@@ -16,8 +14,8 @@ function _M.test()
         ["10443"] = "10443-default",
         ["*.e.com"] = "wildcard-host",
         ["*.f.com/443"] = "wildcard-host-443"
-        }
-    ct.get_cert = function(domain)
+    }
+    ct.get_cert = function (domain)
         local cert = cert_map[domain]
         if cert ~= nil then
             return cert, true
@@ -25,23 +23,22 @@ function _M.test()
         return nil, false
     end
     local cases = {
-        {"a.com", "443", "full-host"},
-        {"a.com", nil, "full-host"},
-        {nil,"10443", "10443-default"},
-        {nil,nil, nil},
-        {"a.com", "8443", "full-host"},
-        {"b.com", "443", "full-host-withport-443"},
-        {"b.com", "8443", "full-host-withport-8443"},
-        {"b.com", "9443", nil},
-        {"b.com", "10443", "10443-default"},
-        {"c.com", "443", nil},
-        {"a.e.com", "443", "wildcard-host"},
-        {"c.e.com", "443", "wildcard-host"},
-        {"c.e.com", "8443", "wildcard-host"},
-        {"a.f.com", "8443", nil},
-        {"a.f.com", "443", "wildcard-host-443"},
+        { "a.com",   "443",   "full-host" },
+        { "a.com",   nil,     "full-host" },
+        { nil,       "10443", "10443-default" },
+        { nil,       nil,     nil },
+        { "a.com",   "8443",  "full-host" },
+        { "b.com",   "443",   "full-host-withport-443" },
+        { "b.com",   "8443",  "full-host-withport-8443" },
+        { "b.com",   "9443",  nil },
+        { "b.com",   "10443", nil },
+        { "c.com",   "443",   nil },
+        { "a.e.com", "443",   "wildcard-host" },
+        { "c.e.com", "443",   "wildcard-host" },
+        { "c.e.com", "8443",  "wildcard-host" },
+        { "a.f.com", "8443",  nil },
+        { "a.f.com", "443",   "wildcard-host-443" },
     }
-    -- LuaFormatter on
     for k, c in pairs(cases) do
         h.P(F "case {k}")
         local domain = c[1]
@@ -53,5 +50,13 @@ function _M.test()
             h.fail()
         end
     end
+
+    ct.FallbackDefaultPortCert = true
+    -- use default port cert only if sni is nil
+    local result = ct.try_get_domain_cert_from_l2_cache("b.com", "10443")
+    if result ~= "10443-default" then
+        h.fail()
+    end
 end
+
 return _M
