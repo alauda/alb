@@ -139,7 +139,7 @@ type Policy struct {
 	// meta
 	Rule      string `json:"rule"` // rule_refs the name of rule, corresponding with k8s rule cr
 	Subsystem string `json:"subsystem"`
-	Source
+	Source    Source `json:"source"`
 
 	LegacyExtInPolicy              // some legacy extension should migrate to the config field
 	Config            PolicyExtCfg `json:"config"` // config or reference

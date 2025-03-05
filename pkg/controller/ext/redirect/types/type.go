@@ -36,3 +36,7 @@ func (t *RedirectCr) OnlySslRedirect(port int) bool {
 	same_port := t.Port == nil || *t.Port == port
 	return t.URL == "" && t.Scheme == "https" && same_port && t.Host == "" && t.PrefixMatch == "" && t.ReplacePrefix == ""
 }
+
+func (t *RedirectCr) Empty() bool {
+	return t.URL == "" && t.Scheme == "" && t.Host == "" && t.Port == nil && t.PrefixMatch == "" && t.ReplacePrefix == ""
+}

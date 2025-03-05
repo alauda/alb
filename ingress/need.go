@@ -6,6 +6,7 @@ import (
 
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/controller/modules"
+	ing_util "alauda.io/alb2/ingress/util"
 	"github.com/fatih/set"
 	networkingv1 "k8s.io/api/networking/v1"
 )
@@ -19,7 +20,7 @@ func getIngressFtTypes(ing *networkingv1.Ingress, c *config.Config) Need {
 	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", c.GetDomain())
 	defaultSSLStrategy := c.GetDefaultSSLStrategy()
 	ingSSLStrategy := ing.Annotations[ALBSSLStrategyAnnotation]
-	sslMap := parseSSLAnnotation(ing.Annotations[ALBSSLAnnotation])
+	sslMap := ing_util.ParseSSLAnnotation(ing.Annotations[ALBSSLAnnotation])
 	certs := make(map[string]string)
 	for host, cert := range sslMap {
 		if certs[strings.ToLower(host)] == "" {

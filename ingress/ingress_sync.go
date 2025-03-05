@@ -12,17 +12,17 @@ import (
 
 	"alauda.io/alb2/config"
 	m "alauda.io/alb2/controller/modules"
+	ing_util "alauda.io/alb2/ingress/util"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	alb2v2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	"alauda.io/alb2/utils"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
 )
 
 // this is the reconcile
@@ -544,7 +544,7 @@ func (c *Controller) GenerateRule(
 			certs[strings.ToLower(host)] = fmt.Sprintf("%s_%s", ingress.GetNamespace(), tls.SecretName)
 		}
 	}
-	sslMap := parseSSLAnnotation(annotations[ALBSSLAnnotation])
+	sslMap := ing_util.ParseSSLAnnotation(annotations[ALBSSLAnnotation])
 	for host, cert := range sslMap {
 		// should not override spec.tls
 		if certs[strings.ToLower(host)] == "" {

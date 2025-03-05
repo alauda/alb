@@ -180,6 +180,45 @@ spec:
 		GinkgoAssertJsonEq(policy.Http.Tcp[8000][0].Config.Redirect, `{"scheme":"https"}`, "")
 	})
 
+	It("ingress ssl-redirect without cert", func() {
+		kt.AssertKubectlApply(`
+apiVersion: crd.alauda.io/v2
+kind: ALB2
+metadata:
+    name: alb-t
+spec:
+    type: "nginx"
+    config:
+        projects: ["ALL_ALL"]
+        defaultSSLStrategy: "Both"
+        defaultSSLCert: default/demo-secret
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: common-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+    - host: demo.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo
+                port:
+                  number: 80
+`)
+		policy, err := ing_ph.SyncIngressAndGetPolicyFromK8s(env.GetRestCfg(), "default", "alb-t", l)
+		GinkgoNoErr(err)
+		policy.CertificateMap = nil
+		l.Info("policy", "policy", lu.PrettyJson(policy))
+		GinkgoAssertTrue(policy.Http.Tcp[80][0].Config.Redirect == nil, "")
+	})
+
 	It("ingress redirect annotation", func() {
 		kt.VerboseKubectl("get frontends.crd.alauda.io -A --ignore-not-found")
 		te := f.TlsExt{
@@ -220,6 +259,8 @@ spec:
   tls:
   - hosts:
       - demo.com
+      - demo2.com
+      - demo3.com # 特意不给demo4.com配置证书 只有这样才会生成http规则
     secretName: demo-secret
   rules:
     - host: demo.com
@@ -294,7 +335,7 @@ spec:
 		// ingress 上配置ssl-redirect=true，http的规则上有redirect配置，https的没有
 		GinkgoAssertTrue(len(policy.Http.Tcp[80]) == 5, "")
 		GinkgoAssertJsonEq(policy.Http.Tcp[80][0].Config.Redirect, `{"port":22343,"host":"demo.demo.com","code":308,"scheme":"https"}`, "")
-		GinkgoAssertJsonEq(policy.Http.Tcp[80][1].Config.Redirect, `{"code":308,"scheme":"https","url":"https://demo-1.demo.com"}`, "")
+		GinkgoAssertJsonEq(policy.Http.Tcp[80][1].Config.Redirect, `{"code":301,"scheme":"https","url":"https://demo-1.demo.com"}`, "")
 		GinkgoAssertJsonEq(policy.Http.Tcp[443][0].Config.Redirect, `{"host":"demo.demo.com","code":308,"scheme":"https","port":22343}`, "")
 
 		// rule上配置的redirect相关测配置会在policy中 在旧的配置中设置的code和url会覆盖新的配置。如果旧的配置没有，新的配置有，会用新的配置

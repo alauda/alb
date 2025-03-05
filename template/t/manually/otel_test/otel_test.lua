@@ -37,7 +37,7 @@ local function policy_with_otel(otel_ref, custom)
             tcp = {
                 ["80"] = {
                     { rule = "test",     ingress = { name = "", path_index = 1, rule_index = 1 },  internal_dsl = { { "STARTS_WITH", "URL", "/test" } }, upstream = "test",                config = otel_config("2") },
-                    { rule = "frontend", internal_dsl = { { "STARTS_WITH", "URL", "/dispatch" } }, upstream = "frontend",                                config = otel_config("frontend"), source_type = "ingress",  source_name = "ing-x", source_ns = "ing-x", ingress_rule_index = "1:1" },
+                    { rule = "frontend", internal_dsl = { { "STARTS_WITH", "URL", "/dispatch" } }, upstream = "frontend",                                config = otel_config("frontend"), source = { source_type = "ingress", source_name = "ing-x", source_ns = "ing-x" }, ingress_rule_index = "1:1" },
                     { rule = "customer", internal_dsl = { { "STARTS_WITH", "URL", "/customer" } }, upstream = "customer",                                config = otel_config("customer") },
                     { rule = "router",   internal_dsl = { { "STARTS_WITH", "URL", "/route" } },    upstream = "router",                                  config = otel_config("router") }
                 }

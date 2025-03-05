@@ -8,6 +8,7 @@ import (
 	"github.com/xorcare/pointer"
 
 	m "alauda.io/alb2/controller/modules"
+	"alauda.io/alb2/ingress/util"
 
 	ct "alauda.io/alb2/controller/types"
 
@@ -91,7 +92,10 @@ func (t *RedirectCtl) IngressWithFtAnnotationToRule(ft *albv1.Frontend, ing *nv1
 		return
 	}
 
-	redirectCR := t.buildRedirectCR(redirect)
+	redirectCR := t.buildRedirectCR(redirect, ing, rindex)
+	if redirectCR == nil {
+		return
+	}
 	// Skip SSL redirect for HTTPS frontend
 	t.log.V(3).Info("redirectCR", "redirectCR", lu.PrettyJson(redirectCR), "onlySslRedirect", redirectCR.OnlySslRedirect(int(ft.Spec.Port)), "port", ft.Spec.Port, "protocol", ft.Spec.Protocol)
 	if ft.Spec.Protocol == "https" && redirectCR.OnlySslRedirect(int(ft.Spec.Port)) {
@@ -111,7 +115,7 @@ func (t *RedirectCtl) parseIngressRedirect(ing *nv1.Ingress, rindex int, pindex 
 	return &redirect, nil
 }
 
-func (t *RedirectCtl) buildRedirectCR(redirect *RedirectIngress) *RedirectCr {
+func (t *RedirectCtl) buildRedirectCR(redirect *RedirectIngress, ingress *nv1.Ingress, rindex int) *RedirectCr {
 	cr := &RedirectCr{}
 
 	err := ReAssignRedirectIngressToRedirectCr(redirect, cr, &ReAssignRedirectIngressToRedirectCrOpt{
@@ -130,7 +134,7 @@ func (t *RedirectCtl) buildRedirectCR(redirect *RedirectIngress) *RedirectCr {
 	// Handle permanent redirect
 	if redirect.PermanentRedirect != "" {
 		cr.URL = redirect.PermanentRedirect
-		cr.Code = stringToIntOr(redirect.PermanentRedirectCode, 308)
+		cr.Code = stringToIntOr(redirect.PermanentRedirectCode, 301)
 	}
 
 	// Handle temporal redirect
@@ -140,14 +144,69 @@ func (t *RedirectCtl) buildRedirectCR(redirect *RedirectIngress) *RedirectCr {
 	}
 
 	// Handle SSL redirect
-	if redirect.SSLRedirect == "true" || redirect.ForceSSLRedirect == "true" {
+	if redirect.ForceSSLRedirect == "true" {
 		cr.Scheme = "https"
 		if cr.Code == nil {
 			cr.Code = pointer.Int(308)
 		}
 	}
-
+	// https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#server-side-https-enforcement-through-redirect
+	if redirect.SSLRedirect == "true" && t.hasTls(ingress, rindex) {
+		cr.Scheme = "https"
+		if cr.Code == nil {
+			cr.Code = pointer.Int(308)
+		}
+	}
+	// redirect即使ingress上有某些annotation,但是不一定代表我们一定要做redirect.
+	// 比如ingress上配置了ssl-redirect=true,但是没有配置证书,那么实际上不应该做redirect.
+	if cr.Empty() {
+		return nil
+	}
 	return cr
+}
+
+func (t *RedirectCtl) hasTls(ingress *nv1.Ingress, rindex int) bool {
+	if ingress.Spec.Rules == nil || len(ingress.Spec.Rules) <= rindex {
+		return false
+	}
+	host := ingress.Spec.Rules[rindex].Host
+	if host == "" {
+		return false
+	}
+	return t.hasTlsFromSpec(ingress, host) || t.hasTlsFromAnnotation(ingress, host)
+}
+
+func (t *RedirectCtl) hasTlsFromSpec(ingress *nv1.Ingress, host string) bool {
+	if ingress.Spec.TLS == nil {
+		return false
+	}
+	for _, tls := range ingress.Spec.TLS {
+		for _, h := range tls.Hosts {
+			if h == host {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (t *RedirectCtl) hasTlsFromAnnotation(ingress *nv1.Ingress, host string) bool {
+	if ingress.Annotations == nil {
+		return false
+	}
+	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", t.domain)
+	ssl := ingress.Annotations[ALBSSLAnnotation]
+	if ssl == "" {
+		return false
+	}
+	sslMap := util.ParseSSLAnnotation(ssl)
+	if sslMap == nil {
+		return false
+	}
+	if _, ok := sslMap[host]; ok {
+		return true
+	}
+	return false
 }
 
 func (t *RedirectCtl) ToInternalRule(rule *m.Rule, ir *ct.InternalRule) {

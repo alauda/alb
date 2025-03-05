@@ -20,6 +20,7 @@ func (p *PolicyCli) InternalRuleToL7Policy(rule *InternalRule, refs RefMap) (*Po
 	}
 
 	policy := Policy{}
+	policy.Source = Source{}
 	policy.InternalDSL = internalDSL
 
 	// sort-bean
@@ -77,17 +78,25 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy, refs RefM
 	// set default rule if ft have default backend.
 	if extension_need || ft_default_router {
 		defaultPolicy := Policy{}
+		defaultPolicy.Source = Source{}
 		defaultPolicy.Config.Refs = map[PolicyExtKind]string{}
 		defaultPolicy.Rule = ft.FtName
 		// 我们先处理有默认路由的情况,这样extension就可以对其进行感知
 		if ft_default_router {
 			defaultPolicy.MakeItMatchLast()
-			defaultPolicy.SourceType = m.TypeFtDefaultRouter
+			defaultPolicy.Source = Source{
+				SourceType: m.TypeFtDefaultRouter,
+				SourceName: ft.FtName,
+				SourceNs:   "",
+			}
 			defaultPolicy.BackendProtocol = ft.BackendProtocol
 			defaultPolicy.Upstream = ft.BackendGroup.Name // 因为在pick backend的时候，我们会对检查ft的backend group 所以这里可以使用
 		} else if extension_need {
-			defaultPolicy.SourceType = m.TypeExtension
-			defaultPolicy.SourceName = name // 为了在policy中提示我们这个默认policy是那个extension生成的.
+			defaultPolicy.Source = Source{
+				SourceType: m.TypeExtension,
+				SourceName: ft.FtName + "-" + name, // 为了在policy中提示我们这个默认policy是那个extension生成的.
+				SourceNs:   "",
+			}
 		}
 		defaultPolicy.Subsystem = SubsystemHTTP
 		defaultPolicy.InternalDSL = []interface{}{[]string{"STARTS_WITH", "URL", "/"}} // [[START_WITH URL /]]
@@ -99,10 +108,12 @@ func (p *PolicyCli) initHttpModeFt(ft *Frontend, ngxPolicy *NgxPolicy, refs RefM
 }
 
 func initPolicySource(p *Policy, rule *InternalRule) {
-	if rule.Source == nil || rule.Source.Type != m.TypeIngress {
+	if rule.Source == nil {
 		return
 	}
-	p.SourceType = m.TypeIngress
-	p.SourceName = rule.Source.Name
-	p.SourceNs = rule.Source.Namespace
+	p.Source = Source{
+		SourceType: rule.Source.Type,
+		SourceName: rule.Source.Name,
+		SourceNs:   rule.Source.Namespace,
+	}
 }

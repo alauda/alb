@@ -154,10 +154,11 @@ end
 ---@param ctx AlbCtx
 ---@param attrs table
 function _M.inject_rule_source_attribute(ctx, attrs)
+    local source = ctx.matched_policy.source or {}
     attribute_set_string(attrs, "alb.rule.rule_name", ctx.matched_policy.rule)
-    attribute_set_string(attrs, "alb.rule.source_type", ctx.matched_policy.source_type)
-    attribute_set_string(attrs, "alb.rule.source_name", ctx.matched_policy.source_name)
-    attribute_set_string(attrs, "alb.rule.source_ns", ctx.matched_policy.source_ns)
+    attribute_set_string(attrs, "alb.rule.source_type", source.source_type)
+    attribute_set_string(attrs, "alb.rule.source_name", source.source_name)
+    attribute_set_string(attrs, "alb.rule.source_ns", source.source_ns)
 end
 
 ---@param flags Flags

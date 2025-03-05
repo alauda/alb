@@ -8,6 +8,7 @@ import (
 func (p *PolicyCli) initStreamModeFt(ft *Frontend, ngxPolicy *NgxPolicy) {
 	// create a default rule for stream mode ft.
 	policy := Policy{}
+	policy.Source = Source{}
 	policy.Subsystem = SubsystemStream
 	// @ft_default_policy
 	upstream, rule := getName(ft)
