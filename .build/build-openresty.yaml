@@ -18,6 +18,22 @@ spec:
         common resources
       name: source
   tasks:
+    - name: version
+      timeout: 5m
+      retries: 1
+      workspaces:
+        - name: source
+          workspace: source
+      taskRef:
+        kind: ClusterTask
+        name: alauda-generate-version
+      params:
+        - name: repo-type
+          value: gitlab
+        - name: repo-url
+          value: $(params.git-url)
+        - name: repo-ref
+          value: $(params.git-revision)
     - name: build-alb-nginx
       timeout: 100m
       retries: 3
@@ -31,7 +47,7 @@ spec:
         - name: container-image
           value: build-harbor.alauda.cn/3rdparty/alb-nginx
         - name: container-image-tag
-          value: "v1.25.3"
+          value: "v1.25.3.$(tasks.version.results.timestamp)"
         - name: dockerfile
           value: ./template/Dockerfile.openresty
         - name: platform
@@ -40,3 +56,7 @@ spec:
             - linux/arm64
         - name: verbose
           value: "true"
+        - name: labels
+          value:
+          - commit=$(build.git.lastCommit.id)
+          - branch=$(build.git.branch.name)

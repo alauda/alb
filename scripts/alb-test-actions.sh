@@ -177,15 +177,13 @@ function alb-install-golang-test-dependency() {
   rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
   rm -rf ./golangci-lint-1.59.1-illumos-amd64
 
-  apk update && apk add curl git build-base jq yq iproute2 openssl tree nodejs npm util-linux-misc
+  apk update && apk add shfmt ginkgo curl git build-base jq yq iproute2 openssl tree nodejs npm util-linux-misc
   alb-envtest-install
   git config --global --add safe.directory $PWD
   go version
   go env -w GO111MODULE=on
   go env -w GOPROXY=https://goproxy.io,direct
   cd /tmp
-  go install -v mvdan.cc/sh/v3/cmd/shfmt@latest
-  go install -v github.com/onsi/ginkgo/v2/ginkgo@latest
   echo "install cspell"
   npm install -g cspell@latest
   cd -
