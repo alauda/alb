@@ -118,7 +118,7 @@ spec:
         - name: labels
           value:
           - commit=$(build.git.lastCommit.id)
-          - branch=$(build.git.branch.name)
+          - branch=$(build.git.revision.raw)
     - name: nginx-build
       timeout: 30m
       retries: 3
@@ -146,7 +146,7 @@ spec:
         - name: labels
           value:
           - commit=$(build.git.lastCommit.id)
-          - branch=$(build.git.branch.name)
+          - branch=$(build.git.revision.raw)
     - name: nginx-test
       timeout: 30m
       retries: 3
@@ -247,7 +247,7 @@ spec:
             - chart-version=$(build.git.version.short)
         - name: annotations
           value:
-            - branch=$(build.git.branch.name)
+            - branch=$(build.git.revision.raw)
             - commit=$(build.git.lastCommit.id)
         - name: values
           value:
@@ -262,7 +262,7 @@ spec:
         - alb-test
       params:
       - name: branch
-        value: $(build.git.branch.name)
+        value: $(build.git.revision.raw)
       workspaces:
         - name: source
           workspace: source
