@@ -4,9 +4,6 @@ metadata:
   name: "alb-operator-ctl"
   namespace: {{ .Values.global.namespace }}
   annotations:
-    {{- if .Values.defaultAlb }}
-    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "{{.Values.loadbalancerName}}"}]'
-    {{- end }}
     deploy-mode: "deployment"
 spec:
   strategy:
