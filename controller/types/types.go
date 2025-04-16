@@ -8,11 +8,11 @@ import (
 	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
 	keepalive_t "alauda.io/alb2/pkg/controller/ext/keepalive/types"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	proxy_header_t "alauda.io/alb2/pkg/controller/ext/proxy_header/types"
 	redirect_t "alauda.io/alb2/pkg/controller/ext/redirect/types"
 	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	corev1 "k8s.io/api/core/v1"
-	proxy_header_t "alauda.io/alb2/pkg/controller/ext/proxy_header/types"
 )
 
 type RefMap struct {
@@ -252,14 +252,14 @@ const (
 )
 
 type PolicyExt struct {
-	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
-	RewriteRequest  *RewriteRequestConfig  `json:"rewrite_request,omitempty"`
-	Timeout         *timeout_t.TimeoutCr   `json:"timeout,omitempty"`
-	Otel            *otelt.OtelConf        `json:"otel,omitempty"`
-	Auth            *auth_t.AuthPolicy     `json:"auth,omitempty"`
-	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
+	RewriteResponse *RewriteResponseConfig      `json:"rewrite_response,omitempty"`
+	RewriteRequest  *RewriteRequestConfig       `json:"rewrite_request,omitempty"`
+	Timeout         *timeout_t.TimeoutCr        `json:"timeout,omitempty"`
+	Otel            *otelt.OtelConf             `json:"otel,omitempty"`
+	Auth            *auth_t.AuthPolicy          `json:"auth,omitempty"`
+	Redirect        *redirect_t.RedirectCr      `json:"redirect,omitempty"`
 	ProxyHeader     *proxy_header_t.ProxyHeader `json:"proxy_header,omitempty"`
-	Source          string                 `json:"-"`
+	Source          string                      `json:"-"`
 }
 
 type PolicyExtCfg struct {

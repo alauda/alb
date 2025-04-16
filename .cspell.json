@@ -3,6 +3,8 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "omitempty",
+        "proxyheadertypes",
         "keepalivetypes",
         "KEEPIDLE",
         "timeouttypes",

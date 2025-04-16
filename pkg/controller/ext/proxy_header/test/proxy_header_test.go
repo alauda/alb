@@ -109,7 +109,7 @@ spec:
 			Expect(err).NotTo(HaveOccurred())
 			l.Info("policy", "policy", u.PrettyJson(policy))
 			l.Info("get rule", "rule", kt.AssertKubectl("get rule -A -o yaml"))
-			rules, err := ing_utils.WaitIngressRule(l, kc, ns, "demo1", 1)
+			rules, err := ing_utils.WaitIngressRule(l, kc, ns, "demo1", "cpaas-system", 1)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(rules)).To(Equal(1))
 			rule := rules[0]

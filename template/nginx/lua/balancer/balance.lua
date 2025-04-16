@@ -2,7 +2,7 @@
 -- THIS MODULE EVALED IN BOTH HTTP AND STREAM CTX
 local ngx_balancer = require "ngx.balancer"
 local round_robin = require "balancer.round_robin"
-local chash = require "balancer.alb_chash"
+local sip_hash = require "balancer.sip_hash"
 local sticky = require "balancer.sticky_balanced"
 local ngx = ngx
 local ngx_log = ngx.log
@@ -18,13 +18,13 @@ local _M = {}
 local balancers = {}
 
 local DEFAULT_LB_ALG = "round_robin"
-local IMPLEMENTATIONS = { round_robin = round_robin, chash = chash, sticky = sticky }
+local IMPLEMENTATIONS = { round_robin = round_robin, sip_hash = sip_hash, sticky = sticky }
 
 local function get_implementation(backend)
     local name = DEFAULT_LB_ALG
     if backend["session_affinity_policy"] ~= "" then
         if backend["session_affinity_policy"] == "sip-hash" then
-            name = "chash"
+            name = "sip_hash"
         elseif backend["session_affinity_policy"] == "cookie" then
             name = "sticky"
         elseif backend["session_affinity_policy"] == "header" then

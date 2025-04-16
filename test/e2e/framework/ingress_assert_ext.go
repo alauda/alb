@@ -2,7 +2,6 @@ package framework
 
 import (
 	"context"
-	"fmt"
 
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	"alauda.io/alb2/pkg/utils/test_utils/ing_utils"
@@ -14,7 +13,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // deprecated, use KubectlApply and InitSvcWithOpt.
@@ -182,13 +180,17 @@ func (i *IngressExt) CreateIngress(ns, name string, path string, svc string, por
 }
 
 func (f *IngressExt) GetIngressRule(ingresName, ingressNs string) []alb2v1.Rule {
-	rules, err := ing_utils.GetIngressRule(f.kc, ingressNs, ingresName)
+	rules, err := ing_utils.GetIngressRule(f.kc, ingressNs, ingresName, "cpaas-system")
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 	return rules
 }
 
-func (f *IngressExt) WaitIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
-	rules, err := ing_utils.WaitIngressRule(f.log, f.kc, ingressNs, ingresName, size)
+func (f *IngressExt) WaitIngressRuleWithNs(ingresName, ingressNs, ruleNs string, size int) []alb2v1.Rule {
+	rules, err := ing_utils.WaitIngressRule(f.log, f.kc, ingressNs, ingresName, ruleNs, size)
 	assert.Nil(ginkgo.GinkgoT(), err, "wait rule fail")
 	return rules
+}
+
+func (f *IngressExt) WaitIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
+	return f.WaitIngressRuleWithNs(ingresName, ingressNs, "cpaas-system", size)
 }
