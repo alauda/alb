@@ -78,18 +78,6 @@ const HTTPSERVER = `
     proxy_set_header Upgrade           $http_upgrade;
     proxy_set_header Connection        $connection_upgrade;
 
-    proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    # fix http://jira.alauda.cn/browse/DEVOPS-5309
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host  $http_host;
-    proxy_set_header X-Forwarded-Port  $server_port;
-
-    proxy_set_header X-Original-URI $request_uri;
-    proxy_set_header X-Scheme $scheme;
-    proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
-    proxy_set_header X-Original-Method $request_method;
-
     proxy_redirect   off;
     proxy_http_version 1.1;
 

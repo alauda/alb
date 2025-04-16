@@ -110,7 +110,7 @@ end
 
 function _M.fail(msg)
     ngx.log(ngx.ERR, tostring(msg))
-    ngx.log(ngx.ERR, u.get_caller_info(3, 5))
+    ngx.log(ngx.ERR, u.get_caller_info(2, 5))
     ngx.exit(ngx.ERR)
 end
 

@@ -12,6 +12,7 @@ import (
 // ingress/alb/ft/rule 系列的插件。
 // TODO 应该能被用在gateway-api 上.
 type ExtensionInterface struct {
+	Name                          func() ct.PolicyExtKind
 	IngressAnnotationToRule       func(ing *nv1.Ingress, rindex int, pindex int, rule *albv1.Rule)
 	IngressWithFtAnnotationToRule func(ft *albv1.Frontend, ing *nv1.Ingress, rindex int, pindex int, rule *albv1.Rule)
 	ToInternalRule                func(rule *m.Rule, r *ct.InternalRule)
@@ -25,4 +26,5 @@ type ExtensionInterface struct {
 	InitL4Ft                      func(mft *m.Frontend, cft *ct.Frontend)
 	InitL4DefaultPolicy           func(cft *ct.Frontend, policy *ct.Policy)
 	ShouldMergeConfig             func() bool
+	IsBuiltIn                     func() bool
 }

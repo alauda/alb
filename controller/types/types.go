@@ -12,6 +12,7 @@ import (
 	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
 	corev1 "k8s.io/api/core/v1"
+	proxy_header_t "alauda.io/alb2/pkg/controller/ext/proxy_header/types"
 )
 
 type RefMap struct {
@@ -227,6 +228,7 @@ type RuleExt struct { // 不同的扩展的配置
 	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
 	Waf             *waft.WafInternal
 	Auth            *auth_t.AuthCr
+	ProxyHeader     *proxy_header_t.ProxyHeader `json:"proxy_header,omitempty"`
 	Source          ConfigSource
 }
 
@@ -246,6 +248,7 @@ const (
 	Otel            PolicyExtKind = "otel"
 	Waf             PolicyExtKind = "waf"
 	Auth            PolicyExtKind = "auth"
+	ProxyHeader     PolicyExtKind = "proxy_header"
 )
 
 type PolicyExt struct {
@@ -255,6 +258,7 @@ type PolicyExt struct {
 	Otel            *otelt.OtelConf        `json:"otel,omitempty"`
 	Auth            *auth_t.AuthPolicy     `json:"auth,omitempty"`
 	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
+	ProxyHeader     *proxy_header_t.ProxyHeader `json:"proxy_header,omitempty"`
 	Source          string                 `json:"-"`
 }
 
@@ -283,6 +287,9 @@ func (p *PolicyExt) Clean(key PolicyExtKind) {
 	if key == Redirect {
 		p.Redirect = nil
 	}
+	if key == ProxyHeader {
+		p.ProxyHeader = nil
+	}
 }
 
 // 将其转换为map方便后续去重
@@ -306,6 +313,9 @@ func (p PolicyExtCfg) ToMaps() PolicyExtMap {
 	}
 	if p.Redirect != nil {
 		m[Redirect] = &PolicyExt{Redirect: p.Redirect, Source: p.Refs[Redirect]}
+	}
+	if p.ProxyHeader != nil {
+		m[ProxyHeader] = &PolicyExt{ProxyHeader: p.ProxyHeader, Source: p.Refs[ProxyHeader]}
 	}
 	return m
 }

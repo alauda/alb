@@ -16,6 +16,7 @@ import (
 	"alauda.io/alb2/pkg/controller/ext/redirect"
 	"alauda.io/alb2/pkg/controller/ext/timeout"
 	"alauda.io/alb2/pkg/controller/ext/waf"
+	proxy_header "alauda.io/alb2/pkg/controller/ext/proxy_header"
 	. "alauda.io/alb2/pkg/controller/extctl/types"
 	ngt "alauda.io/alb2/pkg/controller/ngxconf/types"
 	pu "alauda.io/alb2/pkg/utils"
@@ -32,6 +33,7 @@ type ExtCtl struct {
 	extensions           []Extension
 	extensions_interface []ExtensionInterface // go 的interface必须实现所有method,用函数指针来模拟。
 	skip_merge           map[ct.PolicyExtKind]bool
+	built_in_extensions  map[ct.PolicyExtKind]bool
 }
 
 type ExtCtlCfgOpt struct {
@@ -64,11 +66,18 @@ func NewExtensionCtl(opt ExtCtlCfgOpt) ExtCtl {
 			redirect.NewRedirectCtl(opt.Log, opt.Domain),
 			timeout.NewTimeoutCtl(opt.Log, opt.Domain),
 			keepalive.NewKeepAliveCtl(opt.Log, opt.Domain),
+			proxy_header.NewProxyHeaderCtl(opt.Log, opt.Domain),
 		},
+		built_in_extensions: map[ct.PolicyExtKind]bool{},
 	}
 	// TODO 当有更多的插件需要配置时，暴露到interface上
 	e.skip_merge = map[ct.PolicyExtKind]bool{
 		ct.Redirect: true,
+	}
+	for _, ext := range e.extensions_interface {
+		if ext.IsBuiltIn != nil && ext.IsBuiltIn() && ext.Name != nil {
+			e.built_in_extensions[ext.Name()] = true
+		}
 	}
 	return e
 }
@@ -119,7 +128,9 @@ func (ctl ExtCtl) init_http_share(share ct.SharedExtPolicyConfig, p *ct.Policy) 
 			continue
 		}
 		k_str := string(k)
-		used_plugin_map[k_str] = true
+		if !ctl.built_in_extensions[k] {
+			used_plugin_map[k_str] = true
+		}
 		if ctl.skip_merge[k] {
 			continue
 		}

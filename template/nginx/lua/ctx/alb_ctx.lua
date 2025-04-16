@@ -30,6 +30,13 @@ function _M.get_last_upstream_status(ctx)
     return tonumber(str_sub(ctx.var["upstream_status"] or "", -3))
 end
 
+---@param ctx AlbCtx
+---@param ngx_var string
+---@return any?
+function _M.get_ngx_var(ctx, ngx_var)
+    return ctx.var[ngx_var]
+end
+
 ---@return AlbCtx
 function _M.new()
     return {

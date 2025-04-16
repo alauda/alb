@@ -16,6 +16,7 @@ local replace = require "replace_prefix_match"
 local e = require "error"
 local pm = require("plugins.core.plugin_manager")
 local cors = require "cors"
+local proxy_header_ctl = require "phase.l7_rewrite.proxy_header"
 
 local function set_cors(matched_policy)
     local enable_cors = matched_policy["enable_cors"]
@@ -118,6 +119,7 @@ local function do_l7_rewrite()
     set_backend_protocol(matched_policy)
     set_vhost(matched_policy)
     set_rewrite_url(matched_policy)
+    proxy_header_ctl.set_proxy_header(ngx.ctx.alb_ctx)
     rewrite_header.rewrite_request_header()
     pm.after_rule_match_hook(ngx.ctx.alb_ctx)
 end

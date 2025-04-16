@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
+	"alauda.io/alb2/pkg/utils/test_utils/ing_utils"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
@@ -180,28 +181,14 @@ func (i *IngressExt) CreateIngress(ns, name string, path string, svc string, por
 	assert.Nil(ginkgo.GinkgoT(), err, "")
 }
 
-func (f *IngressExt) GetIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
-	selType := fmt.Sprintf("alb2.%s/source-type=ingress", f.domain)
-	sel := selType
-	rules, err := f.kc.GetAlbClient().CrdV1().Rules(f.ns).List(f.ctx, metav1.ListOptions{LabelSelector: sel})
-	if err != nil {
-		f.log.Info(fmt.Sprintf("get rule for ingress %s/%s sel -%s- fail %s", ingressNs, ingresName, sel, err))
-	}
-	return rules.Items
+func (f *IngressExt) GetIngressRule(ingresName, ingressNs string) []alb2v1.Rule {
+	rules, err := ing_utils.GetIngressRule(f.kc, ingressNs, ingresName)
+	assert.Nil(ginkgo.GinkgoT(), err, "")
+	return rules
 }
 
 func (f *IngressExt) WaitIngressRule(ingresName, ingressNs string, size int) []alb2v1.Rule {
-	rulesChan := make(chan []alb2v1.Rule, 1)
-	err := wait.Poll(Poll, DefaultTimeout, func() (bool, error) {
-		rules := f.GetIngressRule(ingresName, ingressNs, size)
-		f.log.Info("get rule", "len", len(rules), "expect", size)
-		if len(rules) == size {
-			rulesChan <- rules
-			return true, nil
-		}
-		return false, nil
-	})
+	rules, err := ing_utils.WaitIngressRule(f.log, f.kc, ingressNs, ingresName, size)
 	assert.Nil(ginkgo.GinkgoT(), err, "wait rule fail")
-	rules := <-rulesChan
 	return rules
 }

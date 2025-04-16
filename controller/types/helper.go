@@ -21,6 +21,17 @@ func (p *NgxPolicy) GetBackendGroup(name string) *BackendGroup {
 	return nil
 }
 
+func (p *NgxPolicy) GetHttpPolicy(name string) *Policy {
+	for _, ps := range p.Http.Tcp {
+		for _, p := range ps {
+			if p.Rule == name {
+				return p
+			}
+		}
+	}
+	return nil
+}
+
 func (p *HttpPolicy) GetPoliciesByPort(port int) Policies {
 	return p.Tcp[albv1.PortNumber(port)]
 }

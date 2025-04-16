@@ -86,6 +86,9 @@ http {
 
         include  {{$.TweakBase}}/http_server.conf;
 
+        set $first_forward_or_remote_addr "$remote_addr";
+        set $first_forward "";
+
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
         set $placeholder_key "";
@@ -127,6 +130,9 @@ http {
         server_name _;
 
         include    {{$.TweakBase}}/http_server.conf;
+
+        set $first_forward_or_remote_addr "$remote_addr";
+        set $first_forward "";
 
         {{ range $_, $loc := $ft.CustomLocation -}}
         location @{{ $loc.Name }} {
@@ -177,6 +183,9 @@ http {
         server_name _;
 
         include    {{$.TweakBase}}/http_server.conf;
+
+        set $first_forward_or_remote_addr "$remote_addr";
+        set $first_forward "";
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
