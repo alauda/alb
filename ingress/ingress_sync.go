@@ -632,6 +632,17 @@ func (c *Controller) GenerateRule(
 	if ingress.Annotations == nil {
 		ingress.Annotations = map[string]string{}
 	}
+
+	sessionAffinityPolicy := annotations[cfg.GetLabelSessionAffinityPolicy()]
+	sessionAffinityAttribute := annotations[cfg.GetLabelSessionAffinityAttribute()]
+
+	if sessionAffinityPolicy != "" {
+		ruleRes.Spec.ServiceGroup.SessionAffinityPolicy = sessionAffinityPolicy
+	}
+	if sessionAffinityAttribute != "" {
+		ruleRes.Spec.ServiceGroup.SessionAffinityAttribute = sessionAffinityAttribute
+	}
+
 	c.cus.IngressWithFtAnnotationToRule(ft, ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
 }

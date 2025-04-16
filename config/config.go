@@ -269,6 +269,18 @@ func (n Names) GetLabelSourceNs() string {
 	return fmt.Sprintf(FMT_SOURCE_NS, n.domain)
 }
 
+func (n Names) GetLabelSessionAffinityPolicy() string {
+	return fmt.Sprintf("alb.ingress.%s/session-affinity-policy", n.domain)
+}
+
+func (n Names) GetLabelSessionAffinityAttribute() string {
+	return fmt.Sprintf("alb.ingress.%s/session-affinity-attribute", n.domain)
+}
+
+func (n Names) GetLabelNs() string {
+	return fmt.Sprintf(FMT_SOURCE_NS, n.domain)
+}
+
 func (n Names) GetLabelProject() string {
 	return fmt.Sprintf(FMT_PROJECT, n.domain)
 }
