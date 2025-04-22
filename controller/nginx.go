@@ -215,7 +215,7 @@ func MergeLBConfig(alb *LoadBalancer, gateway *LoadBalancer) (*LoadBalancer, err
 func (nc *NginxController) WriteConfig(nginxTemplateConfig NginxTemplateConfig, ngxPolicies NgxPolicy) error {
 	s := time.Now()
 	defer func() {
-		pm.Write("update-file", float64(time.Since(s).Milliseconds()))
+		pm.Write("write-config-all", float64(time.Since(s).Milliseconds()))
 	}()
 	ngxconf, err := RenderNgxFromFile(nginxTemplateConfig, nc.TemplatePath)
 	if err != nil {
@@ -299,6 +299,14 @@ func (nc *NginxController) reload(nginxPid string) error {
 		klog.Errorf("reload nginx failed: %s %v", output, err)
 	}
 	return err
+}
+
+func (nc *NginxController) WriteAlbLoopTime(albLoopTime time.Duration) error {
+	path := os.Getenv("ALB_LOOP_TIME_PATH")
+	if path == "" {
+		path = "/etc/alb2/nginx/alb_loop_time"
+	}
+	return os.WriteFile(path, []byte(fmt.Sprintf("%d", albLoopTime.Milliseconds())), 0o644)
 }
 
 func GetProcessId() (string, error) {

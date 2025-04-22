@@ -14,7 +14,7 @@ import (
 )
 
 func TestGetCurrentNetwork(t *testing.T) {
-	_, err := GetCurrentNetwork()
+	_, err := GetCurrentNetwork([]string{"eth0"})
 	assert.NoError(t, err)
 }
 

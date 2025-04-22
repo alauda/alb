@@ -53,6 +53,7 @@ ENV NGINX_TEMPLATE_PATH /alb/ctl/template/nginx/nginx.tmpl
 ENV NEW_CONFIG_PATH /etc/alb2/nginx/nginx.conf.new
 ENV OLD_CONFIG_PATH /etc/alb2/nginx/nginx.conf
 ENV NEW_POLICY_PATH /etc/alb2/nginx/policy.new
+ENV ALB_LOOP_TIME_PATH /etc/alb2/nginx/alb_loop_time
 
 # shutdown nginx gracefully
 STOPSIGNAL SIGQUIT

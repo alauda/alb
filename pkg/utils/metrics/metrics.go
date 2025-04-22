@@ -24,6 +24,9 @@ func init() {
 // TODO 用 otel span..
 
 func Write(key string, value float64) {
+	if value <= 10 {
+		return
+	}
 	_globalMu.Lock()
 	defer _globalMu.Unlock()
 	_globalM.data[key] = value
@@ -33,4 +36,10 @@ func Read() map[string]float64 {
 	_globalMu.RLock()
 	defer _globalMu.RUnlock()
 	return _globalM.data
+}
+
+func Reset() {
+	_globalMu.Lock()
+	defer _globalMu.Unlock()
+	_globalM.data = map[string]float64{}
 }

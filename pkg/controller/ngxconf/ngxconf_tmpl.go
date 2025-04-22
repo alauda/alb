@@ -201,7 +201,7 @@ func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, 
 		}
 		return ipv4, ipv6, nil
 	}
-	networkInfo, err := GetCurrentNetwork()
+	networkInfo, err := GetCurrentNetwork(bindNICConfig.Nic)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -260,15 +260,25 @@ type InterfaceInfo struct {
 
 type NetWorkInfo = map[string]InterfaceInfo
 
-// TODO GetCurrentNetwork maybe slow (80ms),但是标准库中获取interface本质上也是先获取所有的nic
-func GetCurrentNetwork() (NetWorkInfo, error) {
+// TODO GetCurrentNetwork maybe very slow (80ms),
+func GetCurrentNetwork(nic_list []string) (NetWorkInfo, error) {
+	network := make(NetWorkInfo)
+	if len(nic_list) == 0 {
+		return network, nil
+	}
+	nicMap := map[string]bool{}
+	for _, nic := range nic_list {
+		nicMap[nic] = true
+	}
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
-	network := make(NetWorkInfo)
 	for _, inter := range ifaces {
 		name := inter.Name
+		if !nicMap[name] {
+			continue
+		}
 		var ipv4Address []string
 		var ipv6Address []string
 		addrs, err := inter.Addrs()

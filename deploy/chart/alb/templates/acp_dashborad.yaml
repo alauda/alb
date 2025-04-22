@@ -62,124 +62,114 @@ spec:
           tagsField: ""
           textField: ""
           type: dashboard
-    description: "alb-exporter"
+    description: alb-exporter
     editable: false
     fiscalYearStartMonth: 0
     graphTooltip: 0
-    id: null
     links: []
     liveNow: false
     panels:
-      - datasource:
-          type: prometheus
-          uid: ${DS_PROMETHEUS}
-        description: 当前 ALB 上的活跃连接数
-        fieldConfig:
+      - fieldConfig:
           defaults:
-            color:
-              mode: thresholds
             custom:
-              spanNulls: false
+              align: left
+              drawStyle: line
+              thresholdsStyle:
+                mode: off
             mappings: []
             thresholds:
               mode: absolute
               steps:
-                - color: "#E02F44"
-                  value: 80
-                - color: "#56A64B"
-                  value: null
+                - color: "#007AF5"
+            unit: decbytes
           overrides: []
         gridPos:
           h: 8
+          id: f132fc4c-0b12-423c-b148-5341f03155d5
           w: 6
           x: 0
-          "y": 0
-        id: 10
+          y: 0
+        id: f132fc4c-0b12-423c-b148-5341f03155d5
+        links: []
         options:
-          colorMode: value
-          graphMode: area
-          justifyMode: auto
+          displayLabels: []
           legend:
-            calcs: []
-          orientation: horizontal
+            calcs:
+              - latest
+            placement: bottom
+            placementRightTop: ""
+            showLegend: true
+          orientation: auto
+          pieType: pie
           reduceOptions:
             calcs:
               - latest
-            fields: ""
-            values: false
-          textMode: auto
-          tooltip: {}
-        pluginVersion: 9.5.21
+          setting:
+            unit: decbytes
+            unitType: up_data
+          tooltip:
+            mode: multi
+            sort: desc
         targets:
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            exemplar: false
-            expr: sum(nginx_http_connections{vmcluster="$vmcluster",
-              namespace=~"$namespace", pod=~"$name-.*", state="active"})
-            format: time_series
+          - expr: shared_dict_free{vmcluster="$vmcluster",namespace=~"$namespace",
+              pod=~"$name-.*"}
             instant: false
-            legendFormat: ""
+            legendFormat: '{{ printf "{{.name}}-{{.pod}}" }}'
             range: true
-            refId: A
-        title: Active Connections
-        type: stat
+            refId: shared-dict-free
+        title: shared-dict-free
+        type: timeseries
         transformations: []
-      - datasource:
-          type: prometheus
-          uid: ${DS_PROMETHEUS}
-        description: 当前 ALB 上最近 5 分钟的每秒请求量
-        fieldConfig:
+      - fieldConfig:
           defaults:
-            color:
-              mode: thresholds
             custom:
-              spanNulls: false
+              align: left
+              drawStyle: line
+              thresholdsStyle:
+                mode: off
             mappings: []
             thresholds:
               mode: absolute
               steps:
-                - color: "#E02F44"
-                  value: 80
-                - color: "#56A64B"
-                  value: null
-            unit: reqps
+                - color: "#007AF5"
+            unit: ms
           overrides: []
         gridPos:
           h: 8
+          id: fc3fc26a-5944-47d6-a085-6bfe18126cdd
           w: 6
           x: 6
-          "y": 0
-        id: 12
+          y: 0
+        id: fc3fc26a-5944-47d6-a085-6bfe18126cdd
+        links: []
         options:
-          colorMode: value
-          graphMode: area
-          justifyMode: auto
+          displayLabels: []
           legend:
-            calcs: []
-          orientation: horizontal
+            calcs:
+              - latest
+            placement: bottom
+            placementRightTop: ""
+            showLegend: true
+          orientation: auto
+          pieType: pie
           reduceOptions:
             calcs:
               - latest
-            fields: ""
-            values: false
-          textMode: auto
-          tooltip: {}
-        pluginVersion: 9.5.21
+          setting:
+            unit: ms
+            unitType: time
+          tooltip:
+            mode: multi
+            sort: desc
         targets:
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            exemplar: false
-            expr: sum(rate(nginx_http_status{vmcluster="$vmcluster",
-              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
-            legendFormat: ""
+          - expr: alb_loop_time{vmcluster="$vmcluster",namespace=~"$namespace",
+              pod=~"$name-.*"}
+            instant: false
+            legendFormat: '{{ printf "{{.pod}}" }}'
             range: true
-            refId: A
-        title: Requests Per Second
-        type: stat
+            refId: alb-loop-time
+        title: alb-loop-time
+        type: timeseries
         transformations: []
       - datasource:
           type: prometheus
@@ -198,14 +188,14 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: percentunit
           overrides: []
         gridPos:
           h: 8
+          id: 14
           w: 6
           x: 12
-          "y": 0
+          y: 0
         id: 14
         options:
           colorMode: value
@@ -243,10 +233,221 @@ spec:
         description: 当前 ALB 上最近 5 分钟请求的平均延迟
         fieldConfig:
           defaults:
-            color:
-              mode: thresholds
             custom:
+              align: left
+              drawStyle: line
               spanNulls: false
+              thresholdsStyle:
+                mode: line
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: "80"
+                - color: "#56A64B"
+            unit: s
+          overrides: []
+        gridPos:
+          h: 8
+          id: 16
+          w: 6
+          x: 18
+          y: 0
+        id: 16
+        links: []
+        options:
+          colorMode: value
+          displayLabels: []
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+            placementRightTop: ""
+            showLegend: true
+          orientation: horizontal
+          pieType: pie
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          setting:
+            unit: s
+            unitType: time
+          textMode: auto
+          tooltip:
+            mode: multi
+            sort: desc
+        pluginVersion: 9.5.21
+        targets:
+          - expr: sum(increase(nginx_http_request_duration_seconds_sum{vmcluster="$vmcluster",
+              namespace=~"$namespace",
+              pod=~"$name-.*"}[5m]))/sum(increase(nginx_http_request_duration_seconds_count{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
+            instant: false
+            range: true
+            refId: A
+        title: Latency
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上的活跃连接数
+        fieldConfig:
+          defaults:
+            custom:
+              align: left
+              drawStyle: line
+              spanNulls: false
+              thresholdsStyle:
+                mode: line
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: "80"
+                - color: "#56A64B"
+            unit: ""
+          overrides: []
+        gridPos:
+          h: 8
+          id: 10
+          w: 6
+          x: 0
+          y: 8
+        id: 10
+        links: []
+        options:
+          colorMode: value
+          displayLabels: []
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+            placementRightTop: ""
+            showLegend: true
+          orientation: horizontal
+          pieType: pie
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          setting:
+            unit: ""
+            unitType: customize
+          textMode: auto
+          tooltip:
+            mode: multi
+            sort: desc
+        pluginVersion: 9.5.21
+        targets:
+          - expr: sum(nginx_http_connections{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*", state="active"})
+            instant: false
+            range: true
+            refId: A
+        title: Active Connections
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 上最近 5 分钟的每秒请求量
+        fieldConfig:
+          defaults:
+            custom:
+              align: left
+              drawStyle: line
+              spanNulls: false
+              thresholdsStyle:
+                mode: line
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: "80"
+                - color: "#56A64B"
+            unit: reqps
+          overrides: []
+        gridPos:
+          h: 8
+          id: 12
+          w: 6
+          x: 6
+          y: 8
+        id: 12
+        links: []
+        options:
+          colorMode: value
+          displayLabels: []
+          graphMode: area
+          justifyMode: auto
+          legend:
+            calcs: []
+            placementRightTop: ""
+            showLegend: true
+          orientation: horizontal
+          pieType: pie
+          reduceOptions:
+            calcs:
+              - latest
+            fields: ""
+            values: false
+          setting:
+            unit: reqps
+            unitType: customize
+          textMode: auto
+          tooltip:
+            mode: multi
+            sort: desc
+        pluginVersion: 9.5.21
+        targets:
+          - expr: sum(rate(nginx_http_status{vmcluster="$vmcluster",
+              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
+            instant: false
+            range: true
+            refId: A
+        title: Requests Per Second
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的网络 IO 吞吐
+        fieldConfig:
+          defaults:
+            color:
+              mode: palette-classic
+            custom:
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              fillOpacity: 0
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
             mappings: []
             thresholds:
               mode: absolute
@@ -254,44 +455,133 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
-            unit: s
+            unit: binBps
           overrides: []
         gridPos:
           h: 8
+          id: 6
           w: 6
-          x: 18
-          "y": 0
-        id: 16
+          x: 12
+          y: 8
+        id: 6
         options:
-          colorMode: value
-          graphMode: area
-          justifyMode: auto
           legend:
             calcs: []
-          orientation: horizontal
-          reduceOptions:
-            calcs:
-              - latest
-            fields: ""
-            values: false
-          textMode: auto
-          tooltip: {}
-        pluginVersion: 9.5.21
+            displayMode: list
+            placement: bottom
+            showLegend: true
+          reduceOptions: {}
+          tooltip:
+            mode: single
+            sort: desc
         targets:
           - datasource:
               type: prometheus
               uid: ${DS_PROMETHEUS}
             editorMode: code
-            expr: sum(increase(nginx_http_request_duration_seconds_sum{vmcluster="$vmcluster",
-              namespace=~"$namespace",
-              pod=~"$name-.*"}[5m]))/sum(increase(nginx_http_request_duration_seconds_count{vmcluster="$vmcluster",
-              namespace=~"$namespace", pod=~"$name-.*"}[5m]))
-            legendFormat: ""
+            exemplar: false
+            expr: sum by(pod_name)
+              (container_network_receive_bytes_total_irate5m{pod_name=~"$name-.*",
+              namespace=~"$namespace", vmcluster="$vmcluster"})
+            legendFormat: '{{ printf "{{.pod_name}}/receive" }}'
             range: true
             refId: A
-        title: Latency
-        type: stat
+          - datasource:
+              type: prometheus
+              uid: ${DS_PROMETHEUS}
+            editorMode: code
+            expr: sum by(pod_name)
+              (container_network_transmit_bytes_total_irate5m{pod_name=~"$name-.*",
+              namespace=~"$namespace", vmcluster="$vmcluster"})
+            hide: false
+            interval: ""
+            legendFormat: '{{ printf "{{.pod_name}}/transmit" }}'
+            range: true
+            refId: B
+        title: Network Receive/Transmit
+        type: timeseries
+        transformations: []
+      - datasource:
+          type: prometheus
+          uid: ${DS_PROMETHEUS}
+        description: 当前 ALB 的磁盘 IO 吞吐
+        fieldConfig:
+          defaults:
+            custom:
+              align: left
+              axisCenteredZero: false
+              axisColorMode: text
+              axisLabel: ""
+              axisPlacement: auto
+              barAlignment: 0
+              drawStyle: line
+              gradientMode: none
+              hideFrom:
+                legend: false
+                tooltip: false
+                viz: false
+              lineInterpolation: linear
+              lineWidth: 1
+              pointSize: 5
+              scaleDistribution:
+                type: linear
+              showPoints: auto
+              spanNulls: false
+              stacking:
+                group: A
+                mode: none
+              thresholdsStyle:
+                mode: off
+            mappings: []
+            thresholds:
+              mode: absolute
+              steps:
+                - color: "#E02F44"
+                  value: "80"
+                - color: "#56A64B"
+            unit: binBps
+          overrides: []
+        gridPos:
+          h: 8
+          id: 8
+          w: 6
+          x: 18
+          y: 8
+        id: 8
+        links: []
+        options:
+          displayLabels: []
+          legend:
+            calcs: []
+            displayMode: list
+            placement: bottom
+            placementRightTop: ""
+            showLegend: true
+          orientation: auto
+          pieType: pie
+          reduceOptions:
+            calcs:
+              - latest
+          setting:
+            unit: binBps
+            unitType: customize
+          tooltip:
+            mode: multi
+            sort: desc
+        targets:
+          - expr: sum by(pod)
+              (rate(container_fs_writes_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
+            instant: false
+            legendFormat: '{{ printf "{{.pod}}/write" }}'
+            range: true
+            refId: A
+          - expr: sum by(pod)
+              (rate(container_fs_reads_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
+            legendFormat: '{{ printf "{{.pod}}/reads" }}'
+            range: true
+            refId: B
+        title: Disk Read/Write Rate
+        type: timeseries
         transformations: []
       - datasource:
           type: prometheus
@@ -333,14 +623,14 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: core
           overrides: []
         gridPos:
           h: 8
+          id: 2
           w: 6
           x: 0
-          "y": 8
+          y: 16
         id: 2
         options:
           legend:
@@ -358,7 +648,8 @@ spec:
               uid: ${DS_PROMETHEUS}
             editorMode: builder
             expr: sum by(pod_name)
-              (container_cpu_usage_seconds_total_irate5m{pod_name=~"$name-.*", namespace=~"$namespace", vmcluster="$vmcluster"})
+              (container_cpu_usage_seconds_total_irate5m{pod_name=~"$name-.*",
+              namespace=~"$namespace", vmcluster="$vmcluster"})
             legendFormat: ""
             range: true
             refId: A
@@ -406,14 +697,14 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: bytes
           overrides: []
         gridPos:
           h: 8
+          id: 4
           w: 6
           x: 6
-          "y": 8
+          y: 16
         id: 4
         options:
           legend:
@@ -430,179 +721,13 @@ spec:
               type: prometheus
               uid: ${DS_PROMETHEUS}
             editorMode: code
-            expr: sum by(pod_name) (container_memory_working_set_bytes{pod_name=~"$name-.*",namespace=~"$namespace", vmcluster="$vmcluster"})
+            expr: sum by(pod_name)
+              (container_memory_working_set_bytes{pod_name=~"$name-.*",namespace=~"$namespace",
+              vmcluster="$vmcluster"})
             legendFormat: ""
             range: true
             refId: A
         title: Memory Usage
-        type: timeseries
-        transformations: []
-      - datasource:
-          type: prometheus
-          uid: ${DS_PROMETHEUS}
-        description: 当前 ALB 的网络 IO 吞吐
-        fieldConfig:
-          defaults:
-            color:
-              mode: palette-classic
-            custom:
-              axisCenteredZero: false
-              axisColorMode: text
-              axisLabel: ""
-              axisPlacement: auto
-              barAlignment: 0
-              drawStyle: line
-              fillOpacity: 0
-              gradientMode: none
-              hideFrom:
-                legend: false
-                tooltip: false
-                viz: false
-              lineInterpolation: linear
-              lineWidth: 1
-              pointSize: 5
-              scaleDistribution:
-                type: linear
-              showPoints: auto
-              spanNulls: false
-              stacking:
-                group: A
-                mode: none
-              thresholdsStyle:
-                mode: off
-            mappings: []
-            thresholds:
-              mode: absolute
-              steps:
-                - color: "#E02F44"
-                  value: 80
-                - color: "#56A64B"
-                  value: null
-            unit: binBps
-          overrides: []
-        gridPos:
-          h: 8
-          w: 6
-          x: 12
-          "y": 8
-        id: 6
-        options:
-          legend:
-            calcs: []
-            displayMode: list
-            placement: bottom
-            showLegend: true
-          reduceOptions: {}
-          tooltip:
-            mode: single
-            sort: desc
-        targets:
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            exemplar: false
-            expr: sum by(pod_name)
-              (container_network_receive_bytes_total_irate5m{pod_name=~"$name-.*",
-              namespace=~"$namespace", vmcluster="$vmcluster"})
-            legendFormat: '{{ printf "{{.pod_name}}/receive" }}'
-            range: true
-            refId: A
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            expr: sum by(pod_name)
-              (container_network_transmit_bytes_total_irate5m{pod_name=~"$name-.*",
-              namespace=~"$namespace", vmcluster="$vmcluster"})
-            hide: false
-            interval: ""
-            legendFormat: '{{printf "{{.pod_name}}/transmit" }}'
-            range: true
-            refId: B
-        title: Network Receive/Transmit
-        type: timeseries
-        transformations: []
-      - datasource:
-          type: prometheus
-          uid: ${DS_PROMETHEUS}
-        description: 当前 ALB 的磁盘 IO 吞吐
-        fieldConfig:
-          defaults:
-            color:
-              mode: palette-classic
-            custom:
-              axisCenteredZero: false
-              axisColorMode: text
-              axisLabel: ""
-              axisPlacement: auto
-              barAlignment: 0
-              drawStyle: line
-              fillOpacity: 0
-              gradientMode: none
-              hideFrom:
-                legend: false
-                tooltip: false
-                viz: false
-              lineInterpolation: linear
-              lineWidth: 1
-              pointSize: 5
-              scaleDistribution:
-                type: linear
-              showPoints: auto
-              spanNulls: false
-              stacking:
-                group: A
-                mode: none
-              thresholdsStyle:
-                mode: off
-            mappings: []
-            thresholds:
-              mode: absolute
-              steps:
-                - color: "#E02F44"
-                  value: 80
-                - color: "#56A64B"
-                  value: null
-            unit: binBps
-          overrides: []
-        gridPos:
-          h: 8
-          w: 6
-          x: 18
-          "y": 8
-        id: 8
-        options:
-          legend:
-            calcs: []
-            displayMode: list
-            placement: bottom
-            showLegend: true
-          reduceOptions: {}
-          tooltip:
-            mode: single
-            sort: desc
-        targets:
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            expr: sum by(pod)
-              (rate(container_fs_writes_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
-            legendFormat: '{{printf "{{.pod}}/write" }}'
-            range: true
-            refId: A
-          - datasource:
-              type: prometheus
-              uid: ${DS_PROMETHEUS}
-            editorMode: code
-            expr: sum by(pod)
-              (rate(container_fs_reads_bytes_total{vmcluster="$vmcluster",namespace=~"$namespace",pod=~"$name-.*",container!=""}[5m]))
-            hide: false
-            legendFormat: '{{ printf "{{.pod}}/reads" }}'
-            range: true
-            refId: B
-        title: Disk Read/Write Rate
         type: timeseries
         transformations: []
       - datasource:
@@ -627,7 +752,6 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: s
           overrides:
             - matcher:
@@ -658,9 +782,10 @@ spec:
                   value: bytes
         gridPos:
           h: 13
+          id: 18
           w: 24
           x: 0
-          "y": 16
+          y: 24
         id: 18
         options:
           cellHeight: sm
@@ -693,7 +818,7 @@ spec:
               source_type="ingress"}[5m]))
             format: table
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: QPS
           - datasource:
@@ -709,7 +834,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P50
           - datasource:
@@ -725,7 +850,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P90
           - datasource:
@@ -741,7 +866,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P99
           - datasource:
@@ -758,7 +883,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Error Rate
           - datasource:
@@ -774,7 +899,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: UpstreamP50
           - datasource:
@@ -790,7 +915,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Upstream P90
           - datasource:
@@ -806,7 +931,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Upstream P99
           - datasource:
@@ -820,7 +945,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Request BPS
           - datasource:
@@ -834,7 +959,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Response BPS
         title: Ingress Status
@@ -895,7 +1020,6 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: s
           overrides:
             - matcher:
@@ -926,9 +1050,10 @@ spec:
                   value: bytes
         gridPos:
           h: 13
+          id: 19
           w: 24
           x: 0
-          "y": 29
+          y: 37
         id: 19
         options:
           footer:
@@ -960,7 +1085,7 @@ spec:
               source_type="httpRoute"}[5m]))
             format: table
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: QPS
           - datasource:
@@ -976,7 +1101,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P50
           - datasource:
@@ -992,7 +1117,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P90
           - datasource:
@@ -1008,7 +1133,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: P99
           - datasource:
@@ -1025,7 +1150,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Error Rate
           - datasource:
@@ -1041,7 +1166,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: UpstreamP50
           - datasource:
@@ -1057,7 +1182,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Upstream P90
           - datasource:
@@ -1073,7 +1198,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Upstream P99
           - datasource:
@@ -1087,7 +1212,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Request BPS
           - datasource:
@@ -1101,7 +1226,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.source_namespace}}/{{.source_name}}'
+            legendFormat: /
             range: false
             refId: Response BPS
         title: HTTPRoute Status
@@ -1162,7 +1287,6 @@ spec:
                 - color: "#E02F44"
                   value: 80
                 - color: "#56A64B"
-                  value: null
             unit: s
           overrides:
             - matcher:
@@ -1193,9 +1317,10 @@ spec:
                   value: bytes
         gridPos:
           h: 13
+          id: 20
           w: 24
           x: 0
-          "y": 42
+          y: 50
         id: 20
         options:
           footer:
@@ -1226,7 +1351,7 @@ spec:
               rule!=""}[5m]))
             format: table
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: QPS
           - datasource:
@@ -1241,7 +1366,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: P50
           - datasource:
@@ -1256,7 +1381,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: P90
           - datasource:
@@ -1271,7 +1396,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: P99
           - datasource:
@@ -1288,7 +1413,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: Error Rate
           - datasource:
@@ -1303,7 +1428,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: UpstreamP50
           - datasource:
@@ -1318,7 +1443,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: Upstream P90
           - datasource:
@@ -1333,7 +1458,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: Upstream P99
           - datasource:
@@ -1347,7 +1472,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: Request BPS
           - datasource:
@@ -1361,7 +1486,7 @@ spec:
             format: table
             hide: false
             instant: true
-            legendFormat: '{{.namespace}}/{{.rule}}'
+            legendFormat: /
             range: false
             refId: Response BPS
         title: Rule Status
@@ -1408,71 +1533,50 @@ spec:
     tags: []
     templating:
       list:
-        - allFormat: ""
-          allValue: ""
+        - allValue: ""
           current: {}
-          datasource:
-            type: prometheus
-            uid: ${DS_PROMETHEUS}
           definition: label_values(nginx_http_connections, namespace)
           hide: 0
           includeAll: true
           label: ""
           multi: false
-          multiFormat: ""
           name: namespace
           options: []
           query:
             query: label_values(nginx_http_connections, namespace)
             refId: StandardVariableQuery
-          refresh: 1
           regex: ""
-          skipUrlSync: false
           sort: 0
           type: query
-        - allFormat: ""
-          allValue: ""
+        - allValue: ""
           current: {}
-          datasource:
-            type: prometheus
-            uid: ${DS_PROMETHEUS}
           definition: label_values(nginx_http_connections{namespace=~"$namespace"},
             service)
           hide: 0
           includeAll: true
           label: ""
           multi: false
-          multiFormat: ""
           name: name
           options: []
           query:
             query: label_values(nginx_http_connections{namespace=~"$namespace"}, service)
             refId: StandardVariableQuery
-          refresh: 1
           regex: ""
-          skipUrlSync: false
           sort: 0
           type: query
-        - allFormat: ""
-          allValue: ""
+        - allValue: ""
           current: {}
-          datasource:
-            type: prometheus
-            uid: ${DS_PROMETHEUS}
           definition: label_values(up, vmcluster)
           hide: 2
           includeAll: false
           label: Cluster
           multi: false
-          multiFormat: ""
           name: vmcluster
           options: []
           query:
             query: label_values(up, vmcluster)
             refId: StandardVariableQuery
-          refresh: 1
           regex: ""
-          skipUrlSync: false
           sort: 0
           type: query
     time:
@@ -1481,6 +1585,7 @@ spec:
     timepicker: {}
     timezone: ""
     title: ALB Status
+    titleZh: ALB Status
     uid: nyPL62bSk
     version: 2
     weekStart: ""

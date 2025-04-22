@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"time"
 
 	. "alauda.io/alb2/controller/types"
@@ -32,17 +33,22 @@ func NewPolicyCli(drv *driver.KubernetesDriver, log logr.Logger, opt PolicyCliOp
 
 // fetch cert and backend info that lb config need, constructs a "dynamic config" used by openresty.
 func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
-	s := time.Now()
+	all := time.Now()
 	defer func() {
-		pm.Write("gen-policy", float64(time.Since(s).Milliseconds()))
+		pm.Write("gen-policy-all", float64(time.Since(all).Milliseconds()))
 	}()
 
-	s_other := time.Now()
+	s := time.Now()
 	certificateMap := getCertMap(alb, p.drv)
+	pm.Write("gen-policy/cert", float64(time.Since(s).Milliseconds()))
 
+	s = time.Now()
 	p.setMetricsPortCert(certificateMap)
+	pm.Write("gen-policy/set-metrics-port-cert", float64(time.Since(s).Milliseconds()))
+
+	s = time.Now()
 	backendGroup := pickAllBackendGroup(alb)
-	pm.Write("gen-policy/pick", float64(time.Since(s_other).Milliseconds()))
+	pm.Write("gen-policy/pick-backend-group", float64(time.Since(s).Milliseconds()))
 
 	ngxPolicy := NgxPolicy{
 		CertificateMap: certificateMap,
@@ -52,19 +58,26 @@ func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 		BackendGroup:   backendGroup,
 	}
 
-	sf := time.Now()
+	s = time.Now()
 	for _, ft := range alb.Frontends {
 		if ft.Conflict {
 			continue
 		}
+		sf := time.Now()
 		if ft.IsStreamMode() {
 			p.initStreamModeFt(ft, &ngxPolicy)
 		} else {
 			p.initHttpModeFt(ft, &ngxPolicy, alb.Refs)
 		}
+		key := fmt.Sprintf("gen-policy/init-ft-%d-%s", ft.Port, ft.Protocol)
+		pm.Write(key, float64(time.Since(sf).Milliseconds()))
 	}
 
-	pm.Write("gen-policy/init-ft", float64(time.Since(sf).Milliseconds()))
+	pm.Write("gen-policy/init-ft", float64(time.Since(s).Milliseconds()))
+
+	s = time.Now()
 	p.cus.ResolvePolicies(alb, &ngxPolicy)
+	pm.Write("gen-policy/resolve-policies", float64(time.Since(s).Milliseconds()))
+
 	return ngxPolicy
 }
