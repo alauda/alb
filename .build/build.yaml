@@ -262,7 +262,7 @@ spec:
         - alb-test
       params:
       - name: branch
-        value: $(build.git.revision.raw)
+        value: $(build.git.branch.name)
       workspaces:
         - name: source
           workspace: source
