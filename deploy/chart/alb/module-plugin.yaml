@@ -3,7 +3,7 @@ kind: ModulePlugin
 metadata:
   annotations:
     cpaas.io/module-name: "alb"
-    cpaas.io/display-name: '{"en": "ACP Ingress Gateway", "zh": "ACP Ingress Gateway"}'
+    cpaas.io/display-name: '{"en": "Alauda Container Platform Ingress Gateway", "zh": "Alauda Container Platform Ingress Gateway"}'
     cpaas.io/built-in-plugin: "true"
   labels:
     cpaas.io/module-type: plugin
