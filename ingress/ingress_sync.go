@@ -534,8 +534,7 @@ func (c *Controller) GenerateRule(
 	certs := make(map[string]string)
 
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
-		c.log.Error(nil, fmt.Sprintf("Unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo))
-		return nil, nil
+		return nil, fmt.Errorf("unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo)
 	}
 
 	for _, tls := range ingress.Spec.TLS {
