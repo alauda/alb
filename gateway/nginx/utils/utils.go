@@ -31,18 +31,23 @@ func ToOP(matchType *string) (string, error) {
 	}
 }
 
-func BackendRefsToService(refs []gatewayType.BackendRef) ([]*BackendService, error) {
+func BackendRefsToService(refs []gatewayType.BackendRef, default_ns string) ([]*BackendService, error) {
 	svcs := []*BackendService{}
 	for _, ref := range refs {
 		kind := ref.Kind
 		if kind != nil && *kind != "Service" {
 			return nil, fmt.Errorf("gateway: backend ref kind is not service but %v", kind)
 		}
-		if ref.Namespace == nil || ref.Port == nil || ref.Weight == nil {
+		ns := default_ns
+		if ref.Namespace != nil {
+			ns = string(*ref.Namespace)
+		}
+
+		if ref.Port == nil || ref.Weight == nil {
 			return nil, fmt.Errorf("invalid ref %v", ref)
 		}
 		svcs = append(svcs, &BackendService{
-			ServiceNs:   string(*ref.Namespace),
+			ServiceNs:   ns,
 			ServiceName: string(ref.Name),
 			ServicePort: int(*ref.Port),
 			Weight:      int(*ref.Weight),
