@@ -56,26 +56,32 @@ type CommonRoute interface {
 	GetObject() client.Object
 }
 
-func IsRefsToGateway(refs []gv1.ParentReference, gateway client.ObjectKey) bool {
+func IsRefsToGateway(refs []gv1.ParentReference, default_ns string, gateway client.ObjectKey) bool {
 	for _, ref := range refs {
-		if IsRefToGateway(ref, gateway) {
+		if IsRefToGateway(ref, default_ns, gateway) {
 			return true
 		}
 	}
 	return false
 }
 
-func IsRefToGateway(ref gv1.ParentReference, gateway client.ObjectKey) bool {
-	return ref.Namespace != nil &&
-		string(ref.Name) == gateway.Name &&
-		string(*ref.Namespace) == gateway.Namespace
+func IsRefToGateway(ref gv1.ParentReference, default_ref_ns string, gateway client.ObjectKey) bool {
+	ns := default_ref_ns
+	if ref.Namespace != nil {
+		ns = string(*ref.Namespace)
+	}
+	return string(ref.Name) == gateway.Name &&
+		ns == gateway.Namespace
 }
 
-func IsRefToListener(ref gv1.ParentReference, gateway client.ObjectKey, name string) bool {
-	return ref.Namespace != nil &&
-		ref.SectionName != nil &&
+func IsRefToListener(ref gv1.ParentReference, default_ref_ns string, gateway client.ObjectKey, name string) bool {
+	ns := default_ref_ns
+	if ref.Namespace != nil {
+		ns = string(*ref.Namespace)
+	}
+	return ref.SectionName != nil &&
 		string(ref.Name) == gateway.Name &&
-		string(*ref.Namespace) == gateway.Namespace &&
+		ns == gateway.Namespace &&
 		string(*ref.SectionName) == name
 }
 

@@ -1,4 +1,4 @@
-ARG GO_BUILD_BASE=docker-mirrors.alauda.cn/library/golang:1.23.7-alpine
+ARG GO_BUILD_BASE=docker-mirrors.alauda.cn/library/golang:1.23.8-alpine
 ARG OPENRESTY_BASE=build-harbor.alauda.cn/3rdparty/alb-nginx:v1.25.3.20250318070206
 
 FROM ${GO_BUILD_BASE} AS go_builder

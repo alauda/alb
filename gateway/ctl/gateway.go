@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	. "alauda.io/alb2/gateway/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -188,7 +189,7 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 	for _, r := range routes {
 		refs := r.route.GetSpec().ParentRefs
 		for _, ref := range refs {
-			if IsRefToGateway(ref, gateway) && ref.SectionName == nil {
+			if IsRefToGateway(ref, r.route.GetObject().GetNamespace(), gateway) && ref.SectionName == nil {
 				r.invalidSectionName(ref, "sectionName could not be nil")
 			}
 		}
@@ -203,10 +204,10 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 
 	for _, r := range routes {
 		for _, ref := range r.route.GetSpec().ParentRefs {
-			if !IsRefToGateway(ref, gateway) {
+			if !IsRefToGateway(ref, r.route.GetObject().GetNamespace(), gateway) {
 				continue
 			}
-			key := fmt.Sprintf("%s/%s/%s", *ref.Namespace, ref.Name, *ref.SectionName)
+			key := RefToKey(ref, r.route.GetObject().GetNamespace())
 			ls, ok := lsMap[key]
 			if !ok {
 				log.V(5).Info("could not find this route ref", "key", key)
@@ -232,7 +233,7 @@ func (g *GatewayReconciler) filteRoutes(gateway client.ObjectKey, routes []*Rout
 				continue
 			}
 			ref := s.ref
-			key := fmt.Sprintf("%s/%s/%s", *ref.Namespace, ref.Name, *ref.SectionName)
+			key := RefToKey(ref, r.route.GetObject().GetNamespace())
 			ls, ok := lsMap[key]
 			if !ok {
 				log.Error(fmt.Errorf("impossible, could not find listener"), "ref", ref)

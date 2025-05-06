@@ -2,7 +2,6 @@ package ctl
 
 import (
 	"context"
-	"fmt"
 
 	"alauda.io/alb2/config"
 	. "alauda.io/alb2/gateway"
@@ -81,7 +80,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	udpCommonRoutes := []*Route{}
 
 	for _, route := range httpRouteList.Items {
-		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
+		ref := IsRefsToGateway(route.Spec.ParentRefs, route.GetNamespace(), gateway)
 		log.V(4).Info("http route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := HTTPRoute(route)
@@ -91,7 +90,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	log.Info("list http route", "total-len", len(httpRouteList.Items), "len", len(httpCommonRoutes))
 
 	for _, route := range tlsRouteList.Items {
-		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
+		ref := IsRefsToGateway(route.Spec.ParentRefs, route.GetNamespace(), gateway)
 		log.V(4).Info("tls route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := TLSRoute(route)
@@ -101,7 +100,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	log.Info("list tls route", "total-len", len(tlsRouteList.Items), "len", len(tlsCommonRoutes))
 
 	for _, route := range tcpRouteList.Items {
-		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
+		ref := IsRefsToGateway(route.Spec.ParentRefs, route.GetNamespace(), gateway)
 		log.V(4).Info("tcp route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := TCPRoute(route)
@@ -111,7 +110,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	log.Info("list tcp route", "total-len", len(tcpRouteList.Items), "len", len(tcpCommonRoutes))
 
 	for _, route := range udpRouteList.Items {
-		ref := IsRefsToGateway(route.Spec.ParentRefs, gateway)
+		ref := IsRefsToGateway(route.Spec.ParentRefs, route.GetNamespace(), gateway)
 		log.V(4).Info("udp route ref to gateway?", "result", ref, "route", client.ObjectKeyFromObject(&route))
 		if ref {
 			r := UDPRoute(route)
@@ -130,9 +129,7 @@ func ListRoutesByGateway(ctx context.Context, c client.Client, gateway client.Ob
 	return routes, nil
 }
 
-func findGatewayByRouteObject(ctx context.Context, c client.Client, object client.Object, sel config.GatewaySelector) (bool, []client.ObjectKey, error) {
-	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithName("findgatewaybyroute").WithValues("route", client.ObjectKeyFromObject(object))
-	// TODO a better way
+func getParentRefs(object client.Object) []gv1.ParentReference {
 	var refs []gv1.ParentReference
 	switch object := object.(type) {
 	case *gv1.HTTPRoute:
@@ -144,19 +141,25 @@ func findGatewayByRouteObject(ctx context.Context, c client.Client, object clien
 	case *gv1a2t.UDPRoute:
 		refs = object.Spec.ParentRefs
 	default:
-		return false, nil, fmt.Errorf("invalid route type %v", client.ObjectKeyFromObject(object))
+		return refs
 	}
+	return refs
+}
+
+func findGatewayByRouteObject(ctx context.Context, c client.Client, object client.Object, sel config.GatewaySelector) (bool, []client.ObjectKey, error) {
+	log := L().WithName(ALB_GATEWAY_CONTROLLER).WithName("findgatewaybyroute").WithValues("route", client.ObjectKeyFromObject(object))
 	keys := map[string]client.ObjectKey{}
+	refs := getParentRefs(object)
 	for _, ref := range refs {
 		log.V(2).Info("check refs", "ref", RefsToString(ref))
 		if ref.Kind != nil && *ref.Kind != GatewayKind {
 			continue
 		}
-		if ref.Namespace == nil {
-			log.Info("invalid ref namespace ignore", "ref", RefsToString(ref), "ignore", "true")
-			continue
+		ns := object.GetNamespace()
+		if ref.Namespace != nil {
+			ns = string(*ref.Namespace)
 		}
-		key := client.ObjectKey{Namespace: string(*ref.Namespace), Name: string(ref.Name)}
+		key := client.ObjectKey{Namespace: ns, Name: string(ref.Name)}
 		if sel.GatewayName != nil {
 			if key == *sel.GatewayName {
 				keys[key.String()] = key
