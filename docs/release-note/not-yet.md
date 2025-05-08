@@ -5,5 +5,6 @@
 - add annotation `alb2.ingress.cpaas.io/use-forwarded-headers` to disable X-Forwarded-For header
 - add annotation `alb2.ingress.cpaas.io/session-affinity-policy` and `alb2.ingress.cpaas.io/session-affinity-attribute` to set session affinity policy and attribute
 ## bug
-
+- fix: enable ipv6 only when ipv6 is supported
+- fix: allow optional ns in gateway api router parent-refs and backend-refs
 ## other
