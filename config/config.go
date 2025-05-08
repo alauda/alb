@@ -395,7 +395,32 @@ func (c *Config) GetNginxCfg() NginxCfg {
 		EnableHttp2:       c.Controller.Flags.EnableHTTP2,
 		EnableGzip:        c.Controller.Flags.EnableGzip,
 		BackLog:           c.Controller.BackLog,
-		EnableIpv6:        c.Controller.Flags.EnableIPV6,
+		EnableIpv6:        c.Controller.Flags.EnableIPV6 && ipv6Supported, // we defaulted to enable ipv6, but it may not be supported on the node
 		TweakDir:          c.ExtraConfig.TweakDir,
 	}
+}
+
+var (
+	ipv6SyncOnce  sync.Once
+	ipv6Supported bool
+)
+
+func init() {
+	ipv6SyncOnce.Do(func() {
+		ipv6Supported = checkIPV6Supported()
+	})
+}
+
+func checkIPV6Supported() bool {
+	if _, err := os.Stat("/proc/net/if_inet6"); err != nil {
+		return false
+	}
+	content, err := os.ReadFile("/proc/net/if_inet6")
+	if err != nil {
+		return false
+	}
+	if len(content) == 0 {
+		return false
+	}
+	return true
 }

@@ -50,7 +50,6 @@ type MetricsConfig struct {
 
 type NginxParam struct {
 	EnablePrometheus bool   `yaml:"enablePrometheus"`
-	EnableIPV6       bool   `yaml:"enableIPV6"`
 	EnableHTTP2      bool   `yaml:"enableHTTP2"`
 	CPUNum           string `yaml:"cpuNum"`
 	MetricsPort      int    `yaml:"metricsPort"`

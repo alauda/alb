@@ -145,7 +145,7 @@ func TestNginxConf(t *testing.T) {
 			IpV4BindAddress: []string{},
 			IpV6BindAddress: []string{},
 		},
-		NginxParam: NginxParam{EnableIPV6: true},
+		NginxParam: NginxParam{},
 		Flags:      DefaulNgxTmplFlags(),
 	}
 	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)
@@ -195,7 +195,7 @@ func TestFtSpecialConfig(t *testing.T) {
 			IpV4BindAddress: []string{},
 			IpV6BindAddress: []string{},
 		},
-		NginxParam: NginxParam{EnableIPV6: true},
+		NginxParam: NginxParam{},
 		Flags:      DefaulNgxTmplFlags(),
 	}
 	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)
