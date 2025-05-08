@@ -1,8 +1,8 @@
 name: alauda-alb2
-version: v4.0.3-beta.9.g485b0e33
+version: v4.0.3-beta.10.gfe20cfaf
 description: alauda loadbalancer version 2
 apiVersion: v2
 annotations:
   release: alpha
   branch: refs/heads/master
-  commit: 485b0e33e660381cfcb146abb94904945ee4fb39
+  commit: fe20cfafe8c8af764b5a8437e62d466c2c6f4839
