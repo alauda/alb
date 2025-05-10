@@ -58,11 +58,11 @@ valuesTemplates:
     loadbalancerName: << $loadbalancerName >>
     projects:
       - << $projects >>
-    <<- if (and (ne .ProvisionType "Registered") (or (eq .ClusterType "Baremetal") (eq .ClusterType "OCP") (eq .ClusterType "Imported") ) ) >>
+    <<- if (and (ne .ProvisionType "Registered") (or (eq .ClusterType "DCS") (eq .ClusterType "Baremetal") (eq .ClusterType "OCP") (eq .ClusterType "Imported") ) ) >>
     nodeSelector:
       << $nodeSelector >>
     <<- end >>
-    <<- if (or (eq .ProvisionType "Registered") (and (ne .ClusterType "Baremetal") (ne .ClusterType "OCP") (ne .ClusterType "Imported"))) >>
+    <<- if (or (eq .ProvisionType "Registered") (and (ne .ClusterType "DCS") (ne .ClusterType "Baremetal") (ne .ClusterType "OCP") (ne .ClusterType "Imported"))) >>
     vip:
       allocateLoadBalancerNodePorts: true
       enableLbSvc: << ne .ProvisionType "Registered" >>
