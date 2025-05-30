@@ -3,6 +3,8 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "ccache",
+        "karlseguin",
         "keepalivetypes",
         "KEEPIDLE",
         "timeouttypes",

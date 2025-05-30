@@ -49,3 +49,8 @@ func ParseStringToObjectKey(key string) (client.ObjectKey, error) {
 		Name:      parts[1],
 	}, nil
 }
+
+func KeyExists[K comparable, V any](m map[K]V, key K) bool {
+	_, ok := m[key]
+	return ok
+}
