@@ -30,15 +30,16 @@ var analyzerCmd = &cobra.Command{
 }
 
 type AnalyzeFlags struct {
-	AccessLogPath       string
-	TimeFilter          string
-	reqDelayFilter      int
-	ShowLog             bool
-	ShowErrorOnly       bool
-	ShowHttpFailOnly    bool
-	ShowUpstreamLatency bool
-	timeSteps           int
-	UseStdin            bool
+	AccessLogPath                string
+	TimeFilter                   string
+	reqDelayFilter               int
+	ShowLog                      bool
+	ShowErrorOnly                bool
+	ShowHttpFailOnly             bool
+	ShowUpstreamLatency          bool
+	ShowUpstreamLatencyOverSteps bool
+	timeSteps                    int
+	UseStdin                     bool
 }
 
 var ANALYZE_FLAG = AnalyzeFlags{}
@@ -55,6 +56,7 @@ func init() {
 	flags.IntVar(&ANALYZE_FLAG.timeSteps, "range-by-time", 30, "range by each x seconds")
 	flags.IntVar(&ANALYZE_FLAG.reqDelayFilter, "req-delay", 0, "filter all request time >= x ms, 0 to disable filter")
 	flags.BoolVar(&ANALYZE_FLAG.ShowUpstreamLatency, "show-upstream-latency", false, "show request-time response-time group by upstream")
+	flags.BoolVar(&ANALYZE_FLAG.ShowUpstreamLatencyOverSteps, "show-upstream-latency-over-steps", false, "show request-time response-time group by upstream over steps")
 }
 
 type LogEntry struct {
@@ -122,16 +124,28 @@ func (a Analyze) run() error {
 	for _, r := range gs {
 		fmt.Println(a.show(r))
 	}
+	if a.flag.ShowUpstreamLatencyOverSteps {
+		fmt.Println(a.upstream_latency_over_steps(gs))
+	}
 	fmt.Printf("%+v\n", a.flag)
 	return nil
+}
+
+func (a Analyze) upstream_in_steps(gs [][]LogEntry) any {
+	msg := ""
+	for _, r := range gs {
+		stats := stat(r, func(l LogEntry) float64 { return l.RequestTime })
+		msg += fmt.Sprintf("%v\n", stats)
+	}
+	return msg
 }
 
 func gap_detect(ls []LogEntry) string {
 	pre := ls[0].TimeLocal
 	msg := ""
 	for _, e := range ls {
-		if e.TimeLocal.Sub(pre) > time.Second*5 {
-			msg += fmt.Sprintf("gap %v-%v %v", pre, e.TimeLocal, e.TimeLocal.Sub(pre))
+		if e.TimeLocal.Sub(pre) > time.Second*2 {
+			msg += fmt.Sprintf("gap %v-%v %vms\n", pre, e.TimeLocal, e.TimeLocal.Sub(pre).Milliseconds())
 		}
 		pre = e.TimeLocal
 	}
@@ -160,7 +174,7 @@ func parseTimeFilterFlag(s string) (time.Time, time.Time, error) {
 }
 
 func (a Analyze) read_logs() ([]LogEntry, error) {
-	access_log_fmt := "[$time_local] $remote_addr \"$host\" \"$request\" $status $upstream_status $upstream_addr \"$http_user_agent\" \"$http_x_forwarded_for\" $request_time $upstream_response_time"
+	access_log_fmt := "[$time_local] $remote_addr  \"$host\" \"$request\" $status $upstream_status $upstream_addr \"$http_user_agent\" \"$http_x_forwarded_for\" $request_time $upstream_response_time $upstream_bytes_received $server_port"
 	var logEntries []LogEntry
 	var scanner *bufio.Scanner
 	if !a.flag.UseStdin {
@@ -295,7 +309,50 @@ func EntryFromLog(rec *gonx.Entry) LogEntry {
 	return entry
 }
 
-func stat(ls []LogEntry, t func(l LogEntry) float64) string {
+type UpstreamStat struct {
+	From         time.Time
+	To           time.Time
+	ErrCount     int
+	ErrKindMap   map[string]int
+	LeftErr      int
+	UnknowCount  int
+	RetryCount   int
+	HttpErrCount int
+	MinV         float64
+	MaxV         float64
+	Avg          float64
+	P50          int64
+	P75          int64
+	P90          int64
+	P99          int64
+	P999         int64
+}
+
+func (s UpstreamStat) to_string() string {
+	ret := fmt.Sprintf("from %v to %v ", s.From.Format("20060102/15:04:05"), s.To.Format("20060102/15:04:05"))
+	if s.ErrCount != 0 {
+		ret += fmt.Sprintf("err %-5v left %-5v parse_unknow %-5v retry %-5v http_fail %-5v ", s.ErrCount, s.LeftErr, s.UnknowCount, s.RetryCount, s.HttpErrCount)
+	}
+	if len(s.ErrKindMap) != 0 {
+		ret += fmt.Sprintf("err_kind %-5v ", s.ErrKindMap) + "\n"
+	}
+	if s.LeftErr != 0 {
+		ret += fmt.Sprintf("left %-5v ", s.LeftErr)
+	}
+	if s.UnknowCount != 0 {
+		ret += fmt.Sprintf("parse_unknow %-5v ", s.UnknowCount)
+	}
+	if s.RetryCount != 0 {
+		ret += fmt.Sprintf("retry %-5v ", s.RetryCount)
+	}
+	if s.HttpErrCount != 0 {
+		ret += fmt.Sprintf("http_fail %-5v ", s.HttpErrCount)
+	}
+	ret += fmt.Sprintf("min %7.3fms max %8.3fms avg %7.3fms p50 %7dms p75 %7dms p90 %7dms p99 %7dms p999 %7dms", s.MinV*1000, s.MaxV*1000, s.Avg*1000, s.P50, s.P75, s.P90, s.P99, s.P999)
+	return ret
+}
+
+func stat(ls []LogEntry, t func(l LogEntry) float64) UpstreamStat {
 	min_v := t(ls[0])
 	max_v := t(ls[0])
 	all := 0.0
@@ -351,22 +408,41 @@ func stat(ls []LogEntry, t func(l LogEntry) float64) string {
 	p90 := ts[p(len(ts), 0.90)]
 	p99 := ts[p(len(ts), 0.99)]
 	p999 := ts[p(len(ts), 0.999)]
-	return fmt.Sprintf("err %v err_kind %v left %v parse_unknow %v retry %v http_fail %v min %0.3fms max %0.3fms avg %0.3fms p50 %dms p75 %dms p90 %dms p99 %dms p999 %dms", err_count, err_kind_map, left_err, unknow_count, retry_count, http_err_count, min_v*1000, max_v*1000, avg*1000, p50.Milliseconds(), p75.Milliseconds(), p90.Milliseconds(), p99.Milliseconds(), p999.Milliseconds())
+
+	stats := UpstreamStat{
+		From:         ls[0].TimeLocal,
+		To:           ls[len(ls)-1].TimeLocal,
+		ErrCount:     err_count,
+		ErrKindMap:   err_kind_map,
+		LeftErr:      left_err,
+		UnknowCount:  unknow_count,
+		RetryCount:   retry_count,
+		HttpErrCount: http_err_count,
+		MinV:         min_v,
+		MaxV:         max_v,
+		Avg:          avg,
+		P50:          p50.Milliseconds(),
+		P75:          p75.Milliseconds(),
+		P90:          p90.Milliseconds(),
+		P99:          p99.Milliseconds(),
+		P999:         p999.Milliseconds(),
+	}
+
+	return stats
 }
 
 func (a Analyze) show(ls []LogEntry) string {
 	msg := ""
 	from := ls[0].TimeLocal
 	to := ls[len(ls)-1].TimeLocal
-	from_s := fmt.Sprintf("%02d:%02d:%02d", from.Hour(), from.Minute(), from.Second())
-	to_s := fmt.Sprintf("%02d:%02d:%02d", to.Hour(), to.Minute(), to.Second())
+	from_s := fmt.Sprintf("%v", from)
+	to_s := fmt.Sprintf("%v", to)
 	dur_s := to.Sub(from).Seconds() + 1
-	msg += fmt.Sprintf("time from %v to %v dur %vs\n", from_s, to_s, dur_s)
-	msg += fmt.Sprintf("count all %v qps %v\n", len(ls), float64(len(ls))/dur_s)
-	msg += fmt.Sprintf("stats %v \n", stat(ls, func(l LogEntry) float64 { return l.RequestTime }))
-	msg += fmt.Sprintf("upstream %v \n", upstream_count(ls))
+	msg += fmt.Sprintf("time from %v to %v dur %vs count all %v qps %v \n", from_s, to_s, dur_s, len(ls), float64(len(ls))/dur_s)
+	msg += fmt.Sprintf("stats %v \n", stat(ls, func(l LogEntry) float64 { return l.RequestTime }).to_string())
+	msg += fmt.Sprintf("upstream\n %v \n", upstream_count(ls))
 	if a.flag.ShowUpstreamLatency {
-		msg += fmt.Sprintf("upstream-request-latency %v \n", upstream_latency(ls))
+		msg += fmt.Sprintf("upstream-request-latency \n%v \n", upstream_latency(ls))
 	}
 	gap := gap_detect(ls)
 	if gap != "" {
@@ -384,8 +460,30 @@ func upstream_latency(ls []LogEntry) string {
 		if len(r) == 0 {
 			continue
 		}
-		msg += fmt.Sprintf("%s req %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.RequestTime }))
-		msg += fmt.Sprintf("%s res %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.UpstreamResponseTime[0] }))
+		msg += fmt.Sprintf("%-20s req %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.RequestTime }).to_string())
+		msg += fmt.Sprintf("%-20s res %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.UpstreamResponseTime[0] }).to_string())
+	}
+	return msg
+}
+
+func (a Analyze) upstream_latency_over_steps(all [][]LogEntry) string {
+	msg := fmt.Sprintf("steps %v\n", len(all))
+	upstream_stat_map := map[string][]UpstreamStat{}
+	for _, log_in_step := range all {
+		log_in_step_each_upstream := lo.PartitionBy(log_in_step, func(e LogEntry) string {
+			return strings.Join(e.UpstreamAddr, ",")
+		})
+		for _, upstream_log_in_step := range log_in_step_each_upstream {
+			upstream_stat := stat(upstream_log_in_step, func(l LogEntry) float64 { return l.RequestTime })
+			addr := upstream_log_in_step[0].UpstreamAddr[0]
+			upstream_stat_map[addr] = append(upstream_stat_map[addr], upstream_stat)
+		}
+	}
+	for k, v := range upstream_stat_map {
+		msg += fmt.Sprintf("%v\n", k)
+		for _, v := range v {
+			msg += fmt.Sprintf("  %s\n", v.to_string())
+		}
 	}
 	return msg
 }
@@ -397,7 +495,11 @@ func upstream_count(ls []LogEntry) string {
 		}
 		return m
 	}, map[string]int{})
-	return fmt.Sprintf("%v", m)
+	s := ""
+	for k, v := range m {
+		s += fmt.Sprintf("%v %v\n", k, v)
+	}
+	return s
 }
 
 func parseTime(s string) time.Time {
@@ -483,6 +585,9 @@ func ParseItHarder(line string) LogEntry {
 	ts := token(line)
 	cur := 0
 	take := func() string {
+		if cur >= len(ts) {
+			panic(line)
+		}
 		ret := ts[cur]
 		cur++
 		return ret

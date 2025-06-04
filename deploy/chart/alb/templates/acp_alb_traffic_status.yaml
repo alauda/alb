@@ -560,6 +560,6 @@ spec:
     time:
       from: now-30m
       to: now
-    title: alb-traffic-dashboard
-    titleZh: alb-traffic-dashboard
+    title: ALB Traffic Status
+    titleZh: ALB Traffic Status
 {{- end -}}

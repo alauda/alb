@@ -117,7 +117,7 @@ spec:
             legendFormat: '{{ printf "{{.name}}-{{.pod}}" }}'
             range: true
             refId: shared-dict-free
-        title: shared-dict-free
+        title: Shared Dict Free
         type: timeseries
         transformations: []
       - fieldConfig:
@@ -168,7 +168,7 @@ spec:
             legendFormat: '{{ printf "{{.pod}}" }}'
             range: true
             refId: alb-loop-time
-        title: alb-loop-time
+        title: Alb Loop Time
         type: timeseries
         transformations: []
       - datasource:

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"testing"
 
 	"alauda.io/alb2/config"
@@ -22,6 +23,18 @@ import (
 
 	"k8s.io/klog/v2"
 )
+
+func TestPoliciesSort(t *testing.T) {
+
+	policies := []*Policy{
+		{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "b"},
+		{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "a"},
+	}
+	sort.Sort(Policies(policies))
+	for _, p := range policies {
+		t.Logf("%v", p)
+	}
+}
 
 func TestPolicies_Less(t *testing.T) {
 	type args struct {
