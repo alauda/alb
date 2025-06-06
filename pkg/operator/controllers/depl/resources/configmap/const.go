@@ -1,7 +1,7 @@
 package configmap
 
 const HTTP = `
-    log_format  http  '[$time_local] $remote_addr "$host" "$request" '
+    log_format  http  '[$time_local] $remote_addr $rule_id "$host" "$request" '
                       '$status $upstream_status $upstream_addr '
                       '"$http_user_agent" "$http_x_forwarded_for" '
                       '$request_time $upstream_response_time $upstream_bytes_received' $server_port;

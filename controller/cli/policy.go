@@ -42,7 +42,6 @@ func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 	}()
 
 	s_other := time.Now()
-
 	// set metrics port cert
 	extra_secret_map := make(map[string]client.ObjectKey)
 	metrics_port_str := fmt.Sprintf("%d", p.opt.MetricsPort)
@@ -57,7 +56,6 @@ func (p *PolicyCli) GenerateAlbPolicy(alb *LoadBalancer) NgxPolicy {
 		certificateMap[metrics_port_str] = genMetricsCert()
 	}
 
-	s = time.Now()
 	backendGroup := pickAllBackendGroup(alb)
 	pm.Write("gen-policy/pick", float64(time.Since(s_other).Milliseconds()))
 

@@ -143,6 +143,11 @@ function _M.balance()
         ngx.log(ngx.ERR, string.format("error while setting current upstream peer %s: %s", peer, err))
         e.exit(e.InvalidBalancer, "set peer fail")
     end
+    -- set peer svc variable
+    local ns, name = actx.get_peer_svc_ns_name()
+    ngx.var.svc_name = name
+    ngx.var.svc_ns = ns
+
 
     -- TODO: dynamic keepalive connections pooling
     -- https://github.com/openresty/lua-nginx-module/pull/1600

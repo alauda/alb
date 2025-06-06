@@ -106,6 +106,7 @@ local function do_l7_rewrite()
     ngx.ctx.matched_policy = matched_policy
     ngx.ctx.upstream = t_upstream
     ngx.ctx.alb_ctx.matched_policy = matched_policy
+    ngx.var.rule_id = actx.gen_rule_id()
 
     -- redirect可以直接阻断后端的配置。比较特殊
     -- 所以需要先执行redirect，在处理其他的plugin

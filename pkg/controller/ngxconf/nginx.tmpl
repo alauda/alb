@@ -88,6 +88,9 @@ http {
 
         set $first_forward_or_remote_addr "$remote_addr";
         set $first_forward "";
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -133,6 +136,9 @@ http {
 
         set $first_forward_or_remote_addr "$remote_addr";
         set $first_forward "";
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
 
         {{ range $_, $loc := $ft.CustomLocation -}}
         location @{{ $loc.Name }} {
@@ -186,6 +192,9 @@ http {
 
         set $first_forward_or_remote_addr "$remote_addr";
         set $first_forward "";
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -242,6 +251,10 @@ http {
 
         include    {{$.TweakBase}}/grpc_server.conf;
 
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
+
         location / {
             set $location_mode root;
             set $backend_protocol grpc;
@@ -271,6 +284,10 @@ http {
         http2 on;
 
         include    {{$.TweakBase}}/grpc_server.conf;
+
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -322,6 +339,10 @@ stream {
     {{ range $_, $ft := .Frontends }}
     {{ if eq $ft.Protocol "tcp" }}
     server {
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
+
         include   {{$.TweakBase}}/stream-tcp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
         listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
@@ -339,6 +360,10 @@ stream {
     {{ range $port, $ft := .Frontends -}}
     {{ if eq $ft.Protocol "udp" -}}
     server {
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
+
         include   {{$.TweakBase}}/stream-udp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
         listen    {{$address}}:{{$ft.Port}} udp {{$ft.Listen}};

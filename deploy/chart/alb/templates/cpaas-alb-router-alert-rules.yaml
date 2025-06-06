@@ -1,0 +1,62 @@
+{{- if (.Capabilities.APIVersions.Has "ait.alauda.io/v1") }}
+{{- $alert_base_domain := "" -}}
+{{- $base_domain := "" -}}
+{{- if .Values.global.labelBaseDomain -}}
+{{- $alert_base_domain = printf ".%s" .Values.global.labelBaseDomain -}}
+{{- $base_domain = printf "%s/" .Values.global.labelBaseDomain -}}
+{{- end -}}
+apiVersion: ait.alauda.io/v1
+kind: AlertRule
+metadata:
+  annotations:
+    {{$base_domain}}description: '{"zh":"负载均衡器路由规则告警策略","en":"Alert Rules related to alb ingress/rule/router"}'
+    {{$base_domain}}display-name: '{"zh":"负载均衡器路由规则告警策略","en":"Alert Rules related to alb ingress/rule/router"}'
+    alert{{$alert_base_domain}}/notifications: '[{"namespace":"{{ .Values.global.namespace }}", "name":"cpaas-admin-notification"}]'
+    alert{{$alert_base_domain}}/alert.legend: '{"custom-9t9pd-3ee3801b0cfd37bb125f3e4e78cfb7ac": "{{ printf "{{.source_type}}/{{.source_namespace}}/{{.source_name}}/{{.service}}" }}" }'
+  labels:
+    alert{{$alert_base_domain}}/cluster: '{{ .Values.global.cluster.name }}'
+    alert{{$alert_base_domain}}/kind: Cluster
+    alert{{$alert_base_domain}}/name: '{{ .Values.global.cluster.name }}'
+    alert{{$alert_base_domain}}/namespace: '{{ .Values.global.namespace }}'
+    alert{{$alert_base_domain}}/owner: System
+    alert{{$alert_base_domain}}/project: ""
+    alert{{$alert_base_domain}}/built-in: 'true'
+    {{$base_domain}}source: Platform
+    prometheus: 'kube-prometheus'
+  name: cpaas-alb-router-rules
+  namespace: '{{ .Values.global.namespace }}'
+spec:
+  groups:
+  - name: general
+    rules:
+    - alert: custom-9t9pd-3ee3801b0cfd37bb125f3e4e78cfb7ac
+      annotations:
+        alert_current_value: '{{ `{{$value}}` }}'
+        alert_notifications: '[]'
+        display_name: error-rate
+      expr: (sum by (source_namespace, source_name, source_type, service) (rate(nginx_http_status{__VM__,status=~"[4-5].*"}[5m])))
+        / (sum by (source_namespace, source_name, source_type, service) (rate(nginx_http_status{__VM__,}[5m]))
+        >0)>0.03
+      for: 30s
+      labels:
+        alert_cluster: '{{ .Values.global.cluster.name }}'
+        alert_for: 30s
+        alert_indicator: custom
+        alert_indicator_aggregate_range: "0"
+        alert_indicator_blackbox_name: ""
+        alert_indicator_comparison: '>'
+        alert_indicator_query: ""
+        alert_indicator_threshold: "0.03"
+        alert_indicator_unit: '%'
+        alert_involved_object_kind: Cluster
+        alert_involved_object_name: '{{ .Values.global.cluster.name }}'
+        alert_involved_object_namespace: ""
+        alert_involved_object_options: Single
+        alert_name: custom-9t9pd
+        alert_namespace: '{{ .Values.global.namespace }}'
+        alert_project: ""
+        alert_resource: cpaas-alb-router-rules
+        alert_source: Platform
+        display_name: error-rate
+        severity: Medium
+{{- end -}}

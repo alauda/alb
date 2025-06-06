@@ -8,9 +8,8 @@ function alb-ai-review() {
   if [ -z "$commit" ]; then
     commit=$(git log --pretty=format:"%H %s" origin/master..HEAD | fzf | awk '{print $1}')
   fi
-  local msg=$(git show -s --format=%s $commit | sed 's/\n/_/g' | sed 's/\s/_/g' | sed 's|/|_|g')
-  echo "review $commit $msg"
-  local full_msg=$(git show -s --format=%B $commit)
+  local msg=$(git show -s --format="%H %s" origin/master..$commit)
+  echo "review $msg"
   local prompt=$(
     cat <<EOF
 you are code reviewer helper assistant.
@@ -19,16 +18,16 @@ if there are any problems, please point them out.
 use chinese language to answer.
 
 ## commit message
-$full_msg
+full_msg
 
 ## diff
 EOF
   )
+  rm -rf ./.review
   mkdir -p ./.review
-  (rm -f ./.review/$commit-* || true) >/dev/null 2>&1
-  local p="./.review/$commit-$msg.review.prompt"
+  local p="./.review/master-to-$commit.review.prompt"
   echo "$prompt" >$p
-  git show $commit >>$p
+  git log -p origin/master..$commit >>$p
   echo "$p $(ls -alh $p)"
   return
 }

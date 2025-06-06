@@ -1,4 +1,5 @@
 -- format:on
+
 local _M = {}
 local h = require "test-helper"
 local u = require "util"
@@ -11,12 +12,16 @@ end
 function _M.test()
     -- LuaFormatter off
     ph.set_policy_lua({
-        http = {tcp = {["80"] = {
-            {rule = "1", internal_dsl = {{"STARTS_WITH", "URL", "/t1"}}, upstream = "test-upstream-1"}}}
+        http = {
+            tcp = {
+                ["80"] = {
+                    { rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "test-upstream-1", source = { source_type = "ingress", source_namespace = "xxxx", source_name = "test" } } }
+            }
         },
         backend_group = {
-            {name = "test-upstream-1", mode = "http", backends = {{address = "127.0.0.1", port = 1880, weight = 100}}}
-        } }
+            { name = "test-upstream-1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100, svc = "test", ns = "xxxx" } } }
+        }
+    }
     )
     -- LuaFormatter on
     local res = h.assert_curl("http://127.0.0.1:80/t1")

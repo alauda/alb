@@ -21,7 +21,7 @@ function _M.test()
         http = {
             tcp = { ["80"] = { { rule = "r1", internal_dsl = { { "STARTS_WITH", "URL", "/t1" } }, upstream = "test-upstream-1" } } }
         },
-        backend_group = { { name = "test-upstream-1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100 } } } }
+        backend_group = { { name = "test-upstream-1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100,svc="test-svc",ns="test-ns" } } } }
     })
 
     local res = h.assert_curl("http://127.0.0.1:80/t1", { ssl_verify = false })
