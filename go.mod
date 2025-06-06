@@ -13,6 +13,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/josephburnett/jd v1.8.1
+	github.com/karlseguin/ccache/v3 v3.0.6
 	github.com/kr/pretty v0.3.1
 	github.com/lithammer/dedent v1.1.0
 	github.com/markkurossi/tabulate v0.0.0-20230223130100-d4965869b123

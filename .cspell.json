@@ -3,6 +3,8 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "karlseguin",
+        "ccache",
         "omitempty",
         "proxyheadertypes",
         "keepalivetypes",

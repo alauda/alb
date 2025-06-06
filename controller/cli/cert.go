@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	. "alauda.io/alb2/controller/types"
@@ -17,13 +16,14 @@ import (
 	albv1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	pm "alauda.io/alb2/pkg/utils/metrics"
 	"github.com/go-logr/logr"
+	"github.com/karlseguin/ccache/v3"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	certutil "k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certificate {
+func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver, extra_secret_map map[string]client.ObjectKey) map[string]Certificate {
 	s := time.Now()
 	defer func() {
 		pm.Write("gen-cert", float64(time.Since(s).Milliseconds()))
@@ -59,6 +59,13 @@ func getCertMap(alb *LoadBalancer, d *driver.KubernetesDriver) map[string]Certif
 			secretMap[port] = secret
 		}
 	}
+
+	for key, val := range extra_secret_map {
+		if _, ok := secretMap[key]; !ok {
+			secretMap[key] = val
+		}
+	}
+
 	for domain, secret := range certFromRule {
 		if _, ok := secretMap[domain]; !ok {
 			secretMap[domain] = secret
@@ -210,26 +217,22 @@ func formatCertsMap(domainCertRaw map[string]map[string][]client.ObjectKey) map[
 	return ret
 }
 
-func (p *PolicyCli) setMetricsPortCert(cert map[string]Certificate) {
-	port := p.opt.MetricsPort
-	cert[fmt.Sprintf("%d", port)] = genMetricsCert()
-}
+var cache = ccache.New(ccache.Configure[Certificate]().MaxSize(100).ItemsToPrune(100))
 
-var (
-	metricsCert Certificate
-	once        sync.Once
-)
-
-func init() {
-	once.Do(func() {
-		cert, key, _ := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{}) //nolint:errcheck
-		metricsCert = Certificate{
+func genMetricsCert() Certificate {
+	item, err := cache.Fetch("metrics-port-cert", time.Hour*24*300, func() (Certificate, error) {
+		cert, key, err := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{}, []string{}) //nolint:errcheck
+		if err != nil {
+			return Certificate{}, err
+		}
+		metricsCert := Certificate{
 			Cert: string(cert),
 			Key:  string(key),
 		}
+		return metricsCert, err
 	})
-}
-
-func genMetricsCert() Certificate {
-	return metricsCert
+	if err != nil {
+		panic(err)
+	}
+	return item.Value()
 }
