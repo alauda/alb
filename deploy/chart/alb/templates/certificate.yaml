@@ -1,0 +1,32 @@
+{{ if .Capabilities.APIVersions.Has "cert-manager.io/v1" -}}
+{{- if .Values.defaultAlb }}
+{{- $ipv4Reg := "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$" }}
+{{- $ipv6Reg := "^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$" }}
+{{- $isIP := (or (regexMatch $ipv4Reg .Values.address) (regexMatch $ipv6Reg .Values.address)) }}
+{{- $isDomain := (regexMatch "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$" .Values.address) }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "{{ .Values.loadbalancerName }}"
+  namespace: "{{ .Values.global.namespace }}"
+spec:
+  dnsNames:
+  - "{{ .Values.loadbalancerName }}"
+  - "{{ .Values.loadbalancerName }}.{{ .Values.global.namespace }}.svc"
+  - "{{ .Values.loadbalancerName }}.{{ .Values.global.namespace }}.svc.cluster.local"
+  {{- if (and $isDomain (not $isIP)) }}
+  - "{{ .Values.address }}"
+  {{- end }}
+  ipAddresses:
+  - 127.0.0.1
+  {{- if $isIP }}
+  - "{{ .Values.address }}"
+  {{- end }}
+  duration: 87600h0m0s
+  issuerRef:
+    kind: Issuer
+    name: cpaas-ca
+  secretName: "{{ .Values.global.namespace }}"
+{{- end }}
+{{- end }}

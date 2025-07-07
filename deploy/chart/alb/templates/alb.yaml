@@ -9,12 +9,12 @@
 apiVersion: crd.alauda.io/v2beta1
 kind: ALB2
 metadata:
-  name: {{ .Values.loadbalancerName }} 
+  name: {{ .Values.loadbalancerName }}
   namespace: {{ $global.namespace }}
   labels:
     alb.{{ $global.labelBaseDomain}}/managed-by: alb-operator
-    alb.{{ $global.labelBaseDomain}}/migrate-from: sentry 
-    alb.{{ $global.labelBaseDomain}}/deploy-by: sentry 
+    alb.{{ $global.labelBaseDomain}}/migrate-from: sentry
+    alb.{{ $global.labelBaseDomain}}/deploy-by: sentry
     alb.{{ $global.labelBaseDomain}}/default-alb: "true"
     {{- range $fullProjects }}
     {{ if . }}
@@ -24,12 +24,12 @@ metadata:
   annotations:
     {{ $global.labelBaseDomain }}/display-name: {{ .Values.displayName |quote }}
     helm.sh/waitResources: "[{\"apiVersion\": \"apps/v1\", \"kind\": \"Deployment\", \"namespace\": \"{{ .Release.Namespace }}\", \"name\": \"{{ .Values.loadbalancerName }}\"}]"
-    alb.{{ $global.labelBaseDomain }}/migrate-backup: | 
+    alb.{{ $global.labelBaseDomain }}/migrate-backup: |
         {{ $cfg | toJson }}
     update-mode: put
 spec:
   address: {{ .Values.address | quote }}
-  type: "nginx" 
-  config: 
+  type: "nginx"
+  config:
 {{ $cfg | toYaml | indent 4 }}
 {{- end }}
