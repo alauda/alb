@@ -92,11 +92,44 @@ function test-nginx-local() {
   if [ -n "$1" ]; then
     t="$1"
   fi
-  test-nginx-in-ci $PWD/template/t/$t.t
+  alb-nginx-test $PWD/template/t/$t.t
 }
 
 function test-nginx-in-ci() (
-  alb-nginx-test $1
+  alb-nginx-test
+  alb-nginx-busted
+)
+
+function alb-nginx-busted() (
+  local openresty=$1
+  if [[ -n "$OPENRESTY_BUILD_TRARGRT_DIR" ]]; then
+    openresty=$OPENRESTY_BUILD_TRARGRT_DIR
+  fi
+
+  if [[ -z "$openresty" && -d "/usr/local/openresty" ]]; then
+    openresty="/usr/local/openresty"
+    echo "use default $openresty "
+  fi
+
+  if [[ -z "$openresty" && -d "/opt/openresty" ]]; then
+    openresty="/opt/openresty"
+    echo "use default $openresty "
+  fi
+
+  if [ -z "$openresty" ]; then
+    echo "Usage: $0 /path/to/openresty"
+    exit 1
+  fi
+
+  echo "------------ $openresty"
+
+  export LUA_PATH="$openresty/lualib/?.lua;$ALB/template/nginx/lua/?.lua;$ALB/template/nginx/lua/vendor/?.lua;;$ALB/template/t/?.lua;$ALB/template/?.lua;$ALB/template/t/lib/?.lua;;"
+  $openresty/bin/resty --errlog-level info \
+    --shdict 'balancer_ewma 10m' \
+    --shdict 'balancer_ewma_last_touched_at 10m' \
+    --shdict 'balancer_ewma_locks 1m' \
+    ./template/t/busted/runner.lua \
+    ./template/t/busted
 )
 
 function alb-nginx-unit-test() (

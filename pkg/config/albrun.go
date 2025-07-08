@@ -160,7 +160,7 @@ const (
 )
 
 // TODO we should use alb cr instead of env..
-func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
+func (a *ALBRunConfig) GetALBContainerEnvs(annotations map[string]string) []coreV1.EnvVar {
 	var envs []coreV1.EnvVar
 
 	envs = append(envs,
@@ -218,6 +218,7 @@ func (a *ALBRunConfig) GetALBContainerEnvs() []coreV1.EnvVar {
 			)
 		}
 	}
+	envs = append(envs, a.initInjectEnv("alb.cpaas.io/alb-env", annotations)...)
 	return envs
 }
 
@@ -237,13 +238,13 @@ func (a *ALBRunConfig) GetNginxContainerEnvs(ver string, annotations map[string]
 		coreV1.EnvVar{Name: ALB_NS, Value: a.Ns},
 		coreV1.EnvVar{Name: ALB_VER, Value: ver},
 	)
-	envs = append(envs, a.initInjectNgxEnv(annotations)...)
+	envs = append(envs, a.initInjectEnv("alb.cpaas.io/nginx-env", annotations)...)
 	return envs
 }
 
-func (a *ALBRunConfig) initInjectNgxEnv(annotations map[string]string) []coreV1.EnvVar {
+func (a *ALBRunConfig) initInjectEnv(key string, annotations map[string]string) []coreV1.EnvVar {
 	ret := []coreV1.EnvVar{}
-	nginx_env := annotations["alb.cpaas.io/nginx-env"]
+	nginx_env := annotations[key]
 	if nginx_env == "" {
 		return ret
 	}

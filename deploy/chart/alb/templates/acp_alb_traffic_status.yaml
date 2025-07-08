@@ -9,7 +9,7 @@ metadata:
     cpaas.io/dashboard.tag.applications: "true"
     cpaas.io/dashboard.tag.overview: "true"
     cpaas.io/published: "true"
-  name: alb-user-status
+  name: user-alb-status
   namespace: cpaas-system
 spec:
   body:
@@ -57,9 +57,9 @@ spec:
           sort: desc
       targets:
       - expr: (sum by (source_namespace, source_name, source_type, service)(increase(nginx_http_request_duration_seconds_sum{
-          svc_ns=~"$namespace", pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[5m]))/sum
+          svc_ns=~"$namespace", pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m]))/sum
           by (source_namespace, source_name, source_type, service)(increase(nginx_http_request_duration_seconds_count{svc_ns=~"$namespace",
-          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[5m])))>0
+          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m])))>0
         instant: false
         legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}"}}'
         range: true
@@ -110,7 +110,7 @@ spec:
           sort: desc
       targets:
       - expr: (sum by(source_namespace, source_name,source_type,service)(rate(nginx_http_status{svc_ns=~"$namespace",
-          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[5m])))>
+          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m])))>
           1
         instant: false
         legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}"}}'
@@ -156,8 +156,8 @@ spec:
         legend:
           calcs:
           - latest
-          cpaasPlacementRightTop: ""
           placement: right
+          placementRightTop: ""
           showLegend: true
         orientation: vertical
         pieType: donut
@@ -171,14 +171,175 @@ spec:
           mode: multi
           sort: desc
       targets:
-      - expr: (sum by (source_namespace, source_name, source_type, service) (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",status=~"[4-5].*",svc_ns="$namespace"}[5m]   )
-          ))/(sum by (source_namespace, source_name, source_type, service) (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace"}[5m]   )
+      - expr: (sum by (source_namespace, source_name, source_type, service) (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",status=~"[4-5].*",svc_ns="$namespace"}[2m]   )
+          ))/(sum by (source_namespace, source_name, source_type, service) (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace"}[2m]   )
           ))>0
         instant: false
         legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}"}}'
         range: true
         refId: error rate
-      title: Error Rate
+      title: Error
+      transformations: []
+      type: timeseries
+    - fieldConfig:
+        defaults:
+          custom:
+            align: left
+            drawStyle: line
+            thresholdsStyle:
+              mode: "off"
+          mappings: []
+          thresholds:
+            mode: absolute
+            steps:
+            - color: '#007AF5'
+          unit: s
+        overrides: []
+      gridPos:
+        h: 7
+        id: acbfb072-6461-48f3-8245-4e1738582576
+        w: 8
+        x: 0
+        "y": 7
+      id: acbfb072-6461-48f3-8245-4e1738582576
+      links: []
+      options:
+        displayLabels: []
+        legend:
+          calcs:
+          - latest
+          cpaasPlacementRightTop: ""
+          placement: bottom
+          showLegend: true
+        orientation: auto
+        pieType: pie
+        reduceOptions:
+          calcs:
+          - latest
+        setting:
+          unit: s
+          unitType: time
+        tooltip:
+          mode: multi
+          sort: desc
+      targets:
+      - expr: (sum by (source_namespace, source_name, source_type, service,upstream_ip)(increase(nginx_http_upstream_request_duration_seconds_sum{
+          svc_ns=~"$namespace", pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m]))/sum
+          by (source_namespace, source_name, source_type, service,upstream_ip)(increase(nginx_http_upstream_request_duration_seconds_count{svc_ns=~"$namespace",
+          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m])))>0
+        instant: false
+        legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}/{{.upstream_ip}}"}}'
+        range: true
+        refId: App Delay
+      title: App Delay
+      transformations: []
+      type: timeseries
+    - fieldConfig:
+        defaults:
+          custom:
+            align: left
+            drawStyle: line
+            thresholdsStyle:
+              mode: "off"
+          mappings: []
+          thresholds:
+            mode: absolute
+            steps:
+            - color: '#007AF5'
+          unit: ""
+        overrides: []
+      gridPos:
+        h: 7
+        id: b2dec4fc-08a7-453c-9e87-a07e5a4f3002
+        w: 8
+        x: 8
+        "y": 7
+      id: b2dec4fc-08a7-453c-9e87-a07e5a4f3002
+      links: []
+      options:
+        displayLabels: []
+        legend:
+          calcs:
+          - latest
+          placement: bottom
+          placementRightTop: ""
+          showLegend: true
+        orientation: auto
+        pieType: pie
+        reduceOptions:
+          calcs:
+          - latest
+        setting:
+          unit: ""
+          unitType: customize
+        tooltip:
+          mode: multi
+          sort: desc
+      targets:
+      - expr: (sum by(source_namespace, source_name,source_type,service,upstream_ip)(rate(nginx_http_upstream_requests_status{svc_ns=~"$namespace",
+          pod=~"$alb-.*",source_type=~"$source_type",source_name=~"$source_name"}[2m])))>
+          1
+        instant: false
+        legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}/{{.upstream_ip}}"}}'
+        range: true
+        refId: App QPS
+      title: App QPS
+      transformations: []
+      type: timeseries
+    - fieldConfig:
+        defaults:
+          custom:
+            align: left
+            drawStyle: line
+            thresholdsStyle:
+              mode: line
+          mappings: []
+          thresholds:
+            mode: absolute
+            steps:
+            - color: '#c34a6c'
+              value: "0.1"
+            - color: '#007AF5'
+          unit: percentunit
+        overrides: []
+      gridPos:
+        h: 7
+        id: 500b78d4-7af9-4fea-bc40-8db82dc4832b
+        w: 8
+        x: 16
+        "y": 7
+      id: 500b78d4-7af9-4fea-bc40-8db82dc4832b
+      links: []
+      options:
+        displayLabels: []
+        legend:
+          calcs:
+          - latest
+          cpaasPlacementRightTop: ""
+          placement: right
+          showLegend: true
+        orientation: auto
+        pieType: pie
+        reduceOptions:
+          calcs:
+          - latest
+        setting:
+          unit: percentunit
+          unitType: other
+        tooltip:
+          mode: multi
+          sort: desc
+      targets:
+      - expr: (sum by (source_namespace, source_name, source_type, service,upstream_ip)
+          (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",status=~"[4-5].*",svc_ns="$namespace"}[2m]   )
+          ))/(sum by (source_namespace, source_name, source_type, service,upstream_ip)
+          (   rate(     nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace"}[2m]   )
+          ))>0
+        instant: false
+        legendFormat: '{{printf "{{.service}}/{{.source_type}}/{{.source_name}}/{{.upstream_ip}}"}}'
+        range: true
+        refId: App Error
+      title: App Error
       transformations: []
       type: timeseries
     - fieldConfig:
@@ -200,7 +361,7 @@ spec:
         id: 1d6b07d6-0cf4-4149-b333-08e509ff1270
         w: 8
         x: 0
-        "y": 7
+        "y": 14
       id: 1d6b07d6-0cf4-4149-b333-08e509ff1270
       links: []
       options:
@@ -250,7 +411,7 @@ spec:
         id: 7b70566a-2cf0-44f4-b0e9-89dee37b175b
         w: 8
         x: 8
-        "y": 7
+        "y": 14
       id: 7b70566a-2cf0-44f4-b0e9-89dee37b175b
       links: []
       options:
@@ -300,7 +461,7 @@ spec:
         id: 9bd75c7a-a6e9-4f56-a23a-607b34a4d16c
         w: 8
         x: 16
-        "y": 7
+        "y": 14
       id: 9bd75c7a-a6e9-4f56-a23a-607b34a4d16c
       links: []
       options:
@@ -411,7 +572,7 @@ spec:
         id: 2079dc88-def6-4f72-bb95-fd7169200f63
         w: 24
         x: 0
-        "y": 14
+        "y": 21
       id: 2079dc88-def6-4f72-bb95-fd7169200f63
       links: []
       options:
@@ -428,60 +589,60 @@ spec:
           unitType: customize
       targets:
       - expr: sum by(source_type,source_name) (rate(nginx_http_status{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[2m]))
         instant: true
         legendFormat: '{{printf "{{.source_type}}/{{.source_name}}"}}'
         range: false
         refId: qps
-      - expr: (sum by (source_type,source_name)(rate(nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace",status=~"[4-5].*"}[5m])
-          ))/ (sum by (source_type,source_name)(rate(nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace"                  }[5m])
+      - expr: (sum by (source_type,source_name)(rate(nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace",status=~"[4-5].*"}[2m])
+          ))/ (sum by (source_type,source_name)(rate(nginx_http_status{pod=~"$alb-.*",source_name=~"$source_name",source_type=~"$source_type",svc_ns="$namespace"                  }[2m])
           ))
         instant: true
         range: false
         refId: Error Rate
       - expr: histogram_quantile(0.50, sum(rate(nginx_http_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: p50
       - expr: histogram_quantile(0.50, sum(rate(nginx_http_upstream_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: UpstreamP50
       - expr: histogram_quantile(0.90, sum(rate(nginx_http_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: p90
       - expr: histogram_quantile(0.90, sum(rate(nginx_http_upstream_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: UpstreamP90
       - expr: histogram_quantile(0.99, sum(rate(nginx_http_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_namespace="$namespace",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: p99
       - expr: histogram_quantile(0.99, sum(rate(nginx_http_upstream_request_duration_seconds_bucket{svc_ns="$namespace",
-          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[5m]))
+          pod=~"$alb-.*", source_type=~"$source_type",source_name=~"$source_name"}[2m]))
           by (le, source_type,source_name))
         instant: true
         range: false
         refId: UpstreamP99
       - expr: sum(rate(nginx_http_request_size_bytes{ svc_ns="$namespace", pod=~"$alb-.*",
-          source_type=~"$source_type",source_name=~"$source_name"}[5m])) by (source_type,source_name)
+          source_type=~"$source_type",source_name=~"$source_name"}[2m])) by (source_type,source_name)
         instant: true
         range: false
         refId: Request BPS
       - expr: sum(rate(nginx_http_response_size_bytes{ svc_ns="$namespace", pod=~"$alb-.*",
-          source_type=~"$source_type",source_name=~"$source_name"}[5m])) by (source_type,source_name)
+          source_type=~"$source_type",source_name=~"$source_name"}[2m])) by (source_type,source_name)
         instant: true
         range: false
         refId: Response BPS
@@ -504,6 +665,7 @@ spec:
             'Value #p99': p99
             'Value #qps': qps
       type: table
+    tags: []
     templating:
       list:
       - allValue: ""
@@ -534,10 +696,11 @@ spec:
         sort: 1
         type: query
       - allValue: ""
-        definition: label_values(nginx_http_status{svc_ns="$namespace",service=~"$alb"}, source_type)
+        definition: label_values(nginx_http_status{svc_ns="$namespace",service=~"$alb"},
+          source_type)
         hide: 0
         includeAll: true
-        label: "type"
+        label: type
         multi: true
         name: source_type
         options: []
@@ -546,10 +709,11 @@ spec:
         sort: 1
         type: query
       - allValue: ""
-        definition: label_values(nginx_http_status{svc_ns="$namespace",service=~"$alb",source_type=~"$source_type"}, source_name)
+        definition: label_values(nginx_http_status{svc_ns="$namespace",service=~"$alb",source_type=~"$source_type"},
+          source_name)
         hide: 0
         includeAll: true
-        label: "name"
+        label: name
         multi: true
         name: source_name
         options: []
@@ -560,6 +724,6 @@ spec:
     time:
       from: now-30m
       to: now
-    title: ALB Traffic Status
-    titleZh: ALB Traffic Status
+    title: Traffic ALB Status
+    titleZh: Traffic ALB Status
 {{- end -}}

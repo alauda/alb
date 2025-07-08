@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +12,9 @@ import (
 	. "alauda.io/alb2/controller/types"
 	"alauda.io/alb2/driver"
 	pm "alauda.io/alb2/pkg/utils/metrics"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/karlseguin/ccache/v3"
+	"github.com/samber/lo"
 	"github.com/thoas/go-funk"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
@@ -23,6 +27,10 @@ func (p *PolicyCli) FillUpBackends(cAlb *LoadBalancer) error {
 	}()
 
 	services := p.loadServices(cAlb)
+	if os.Getenv("DISABLE_EP_NOTIFY") != "true" {
+		p.notifyEndpointChange(services)
+	}
+
 	backendMap := make(map[string][]*driver.Backend)
 	log := p.log
 	for key, svc := range services {
@@ -198,4 +206,30 @@ func pickAllBackendGroup(alb *LoadBalancer) BackendGroups {
 	}
 	sort.Sort(backendGroup)
 	return backendGroup
+}
+
+var ENDPOINT_PARK = ccache.New(ccache.Configure[[]string]().MaxSize(1000).ItemsToPrune(100))
+
+func (p *PolicyCli) notifyEndpointChange(services map[string]*driver.Service) {
+	s := time.Now()
+	defer func() {
+		pm.Write("notify-endpoint-change", float64(time.Since(s).Milliseconds()))
+	}()
+	for svc_name, svc := range services {
+		if svc == nil {
+			continue
+		}
+		new_ep := mapset.NewSet(lo.Map(svc.Backends, func(be *driver.Backend, _ int) string {
+			return be.String()
+		})...)
+		old_ep := mapset.NewSet[string]()
+		if cached_eps := ENDPOINT_PARK.Get(svc_name); cached_eps != nil {
+			old_ep = mapset.NewSet(cached_eps.Value()...)
+		}
+		ENDPOINT_PARK.Set(svc_name, new_ep.ToSlice(), 30*time.Second)
+		if old_ep.Equal(new_ep) {
+			continue
+		}
+		p.log.Info("[svc-ep-change]", "svc", svc_name, "eps-add", new_ep.Difference(old_ep).ToSlice(), "eps-del", old_ep.Difference(new_ep).ToSlice())
+	}
 }

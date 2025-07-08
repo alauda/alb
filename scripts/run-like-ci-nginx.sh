@@ -2,12 +2,12 @@
 # test current nginx
 # we should build a nginx image first then use this image to test.
 tag=$(yq '.global.images.nginx.tag' ./deploy/chart/alb/values.yaml)
-image=build-harbor.alauda.cn/acp/alb2:$tag
+image=registry.alauda.cn:60080/acp/alb2:$tag
 if [ -n "$1" ] && [ "$1" != "cur" ]; then
   image="$1"
 fi
 # image=alb-nginx:test
-
+echo "image $image"
 platform=${MATRIX_PLATFORM:-linux/amd64}
 echo "platform $platform"
 if [ "$2" == "shell" ]; then

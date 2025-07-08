@@ -3,6 +3,13 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "newindex",
+        "Nagarajan",
+        "exptime",
+        "ewma",
+        "logstream",
+        "bcicen",
+        "jstream",
         "karlseguin",
         "ccache",
         "omitempty",

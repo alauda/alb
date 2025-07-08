@@ -30,12 +30,15 @@ if [ -z "$openresty" ]; then
   exit 1
 fi
 
+echo "------------ $openresty"
+
 function alb-ng-install-test-deps() (
   luarocks --lua-version 5.1 --tree $openresty/luajit install luacov
   luarocks --lua-version 5.1 --tree $openresty/luajit install cluacov
   luarocks --lua-version 5.1 install luacov
   luarocks --lua-version 5.1 install luacov-console
   luarocks --lua-version 5.1 install luacov-html
+  luarocks --lua-version 5.1 --tree $openresty/luajit install busted
 )
 
 function alb-ng-install-deps() (
@@ -272,6 +275,31 @@ function install-lua-protobuf() (
   luarocks --lua-version 5.1 --tree $openresty/luajit make --deps-mode none ./rockspecs/lua-protobuf-scm-1.rockspec
   cd ../../
   rm -rf ./lua-protobuf
+  return
+)
+
+function install-lua-busted() (
+  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/busted-2.2.0.zip"
+  local online="https://github.com/lunarmodules/busted/archive/refs/tags/v2.2.0.zip"
+  local name="busted"
+  local verison="2.2.0"
+  #   local spec_name="busted-scm-1.rockspec"
+  local url=$(_alb_lua_switch $online $offline)
+  local url=$online
+  #   if [[ "$1" == "online" ]]; then
+  #     url=$online
+  #   fi
+  rm -rf ./$name || true
+  mkdir -p ./$name
+  cd ./$name
+  wget $url -O $name-$verison.zip
+  unzip $name-$verison.zip
+  cd ./$name-$verison
+  ls
+  luarocks --lua-version 5.1 --tree $openresty/luajit make ./busted-scm-1.rockspec
+  cd ../../
+  rm -rf ./$name
+  return
   return
 )
 

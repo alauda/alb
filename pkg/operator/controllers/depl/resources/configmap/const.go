@@ -5,7 +5,30 @@ const HTTP = `
                       '$status $upstream_status $upstream_addr '
                       '"$http_user_agent" "$http_x_forwarded_for" '
                       '$request_time $upstream_response_time $upstream_bytes_received' $server_port;
-    access_log  /dev/stdout  http buffer=16k flush=1s;
+
+    log_format  http_json escape=json
+        '{'
+              '"time": "$time_iso8601",'
+              '"msec": "$msec",'
+              '"client_addr": "$remote_addr",'
+              '"client_port": "$remote_port",'
+              '"server_addr": "$server_addr",'
+              '"server_port": "$server_port",'
+              '"pid": "$pid",'
+              '"rule_id": "$rule_id",'
+              '"host": "$host",'
+              '"request": "$request",'
+              '"status": "$status",'
+              '"upstream_status": "$upstream_status",'
+              '"upstream_addr": "$upstream_addr",'
+              '"user_agent": "$http_user_agent",'
+              '"x-forward-for": "$http_x_forwarded_for",'
+              '"request_time": "$request_time",'
+              '"upstream_response_time": "$upstream_response_time",'
+              '"upstream_bytes_received": "$upstream_bytes_received"'
+        '}';
+
+    access_log  /dev/stdout  http_json buffer=16k flush=1s;
     error_log   stderr       info;
     rewrite_log on;
 
@@ -28,6 +51,10 @@ const HTTP = `
     lua_shared_dict http_raw     5m;
     lua_shared_dict prometheus_metrics 20m;
     lua_shared_dict http_ipc_shared_dict 1m;
+    lua_shared_dict balancer_ewma 10m;
+    lua_shared_dict balancer_ewma_last_touched_at 10m;
+    lua_shared_dict balancer_ewma_locks 1m;
+
 
     proxy_connect_timeout      5s;
     proxy_send_timeout         120s;

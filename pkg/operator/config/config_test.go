@@ -236,7 +236,7 @@ func TestGetALBContainerEnvs(t *testing.T) {
 		},
 	}
 	t.Log(PrettyJson(cfg))
-	actual := cfg.GetALBContainerEnvs()
+	actual := cfg.GetALBContainerEnvs(map[string]string{})
 	sort.Slice(actual, func(i, j int) bool {
 		return actual[i].Name < actual[j].Name
 	})
@@ -419,7 +419,7 @@ spec:
 		assert.NoError(t, err)
 		c.assert(*cfg)
 		env := map[string]string{}
-		for _, e := range cfg.GetALBContainerEnvs() {
+		for _, e := range cfg.GetALBContainerEnvs(map[string]string{}) {
 			env[e.Name] = e.Value
 		}
 		ncfg, err := AlbRunCfgFromEnv(env)

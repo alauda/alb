@@ -5,7 +5,7 @@ local subsys = require "utils.subsystem"
 local string_format = string.format
 local ngx = ngx
 
-local balancer = require "balancer.balance"
+local balancer = require("balancer.balance")
 local metrics = require("metrics")
 local ngx_log = ngx.log
 local ngx_timer = ngx.timer

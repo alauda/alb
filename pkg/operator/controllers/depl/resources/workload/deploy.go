@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -95,8 +96,8 @@ func NewTemplate(alb *a2t.ALB2, cur *appv1.Deployment, albcf *config.ALB2Config,
 }
 
 type VolumeCfg struct {
-	Volumes map[string]corev1.Volume
-	Mounts  map[string]map[string]string
+	Volumes map[string]corev1.Volume     `json:"volumes"`
+	Mounts  map[string]map[string]string `json:"mounts"`
 }
 
 func findContainer(name string, depl *appv1.Deployment) *corev1.Container {
@@ -216,7 +217,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 	}
 	readonly := conf.Flags.ReadOnlyFs
 
-	return DeployCfg{
+	depl := DeployCfg{
 		Spec: DeploySpec{
 			Name:         d.name,
 			Ns:           d.ns,
@@ -259,7 +260,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				},
 				AllowPrivilegeEscalation: pointer.To(true),
 			},
-			Env:      conf.GetALBContainerEnvs(),
+			Env:      conf.GetALBContainerEnvs(d.alb.Annotations),
 			Resource: toResource(conf.Deploy.ALbResource),
 		},
 		Nginx: DeployContainerCfg{
@@ -331,6 +332,48 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 		},
 	}
+
+	if d.alb.Annotations["volume-overwrite"] != "" {
+		err := patchVolumes(&depl.Vol, d.alb.Annotations["volume-overwrite"])
+		if err != nil {
+			d.log.Error(err, "patch volumes failed")
+		}
+	}
+	return depl
+}
+
+func patchVolumes(vol *VolumeCfg, overwrite string) error {
+	// parse json to volume cfg
+	// volume-overwrite: |
+	//   {
+	//     "volumes":{
+	//         "nginx-log":{"name":"nginx-log","hostPath":{"path":"/var/log/alb/","type":"DirectoryOrCreate"}}
+	//     },
+	//     "mounts":{
+	//         "nginx":{
+	//             "nginx-log":"/var/log/alb/"
+	//          }
+	//     }
+	//   }
+
+	var volCfg VolumeCfg
+	err := json.Unmarshal([]byte(overwrite), &volCfg)
+	if err != nil {
+		return err
+	}
+	// merge with vol
+	for k, v := range volCfg.Volumes {
+		vol.Volumes[k] = v
+	}
+	for container, mounts := range volCfg.Mounts {
+		for volName, path := range mounts {
+			if _, ok := vol.Mounts[container]; !ok {
+				vol.Mounts[container] = map[string]string{}
+			}
+			vol.Mounts[container][volName] = path
+		}
+	}
+	return nil
 }
 
 func toResource(res corev1.ResourceRequirements) a2t.ExternalResource {

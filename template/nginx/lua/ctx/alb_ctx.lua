@@ -12,7 +12,7 @@ local var_proxy = require "ctx.var_proxy"
 ---@field ns string?
 
 ---@class PeerConf
----@field peer string
+---@field peer NodeKey
 ---@field conf BackendConf   the policy.backend_groups[upstream].backends[current_backend_index]
 
 

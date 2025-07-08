@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echo-resty-ewma-config
+data:
+  nginx-config: |
+    daemon off;
+    pid nginx.pid;
+    env POD_NAME;
+    env PERF_CASE;
+    worker_processes  1;
+    worker_cpu_affinity  auto;
+    worker_rlimit_nofile 100000;
+    worker_shutdown_timeout 240s;
+    error_log  stderr   notice;
+
+    events {
+        multi_accept        on;
+        worker_connections  51200;
+    }
+
+    http {
+        log_format json_combined escape=json
+        '{'
+              '"delay": "$delay",'
+              '"error_rate": "$error_rate",'
+              '"response": "$response",'
+              '"pid": "$pid",'
+              '"time": "$time_iso8601",'
+              '"client_ip": "$remote_addr",'
+              '"client_port": "$remote_port",'
+              '"server_ip": "$server_addr",'
+              '"server_port": "$server_port",'
+              '"request_method": "$request_method",'
+              '"request_uri": "$request_uri",'
+              '"status": "$status",'
+              '"upstream_status": "$upstream_status",'
+              '"upstream_addr": "$upstream_addr",'
+              '"request_time": "$request_time",'
+              '"upstream_response_time": "$upstream_response_time",'
+              '"upstream_connect_time": "$upstream_connect_time",'
+              '"upstream_header_time": "$upstream_header_time",'
+              '"upstream_response_length": "$upstream_response_length",'
+              '"upstream_bytes_sent": "$upstream_bytes_sent",'
+              '"agent": "$http_user_agent",'
+              '"x-forward-for": "$http_x_forwarded_for"'
+        '}';
+        access_log  /dev/stdout  json_combined;
+        error_log   /dev/stdout  ;
+
+        init_worker_by_lua_block {
+            local json = require "cjson"
+            local perf_case_str = os.getenv("PERF_CASE")
+            local perf_case = json.decode(perf_case_str)
+            ngx.shared.perf_case = perf_case
+            ngx.shared.perf_case_str = perf_case_str
+            local pod_name = os.getenv("POD_NAME")
+            local pod_index = string.match(pod_name, "%d+")
+            ngx.shared.pod_index = pod_index
+            ngx.shared.start_time = ngx.now()
+            ngx.log(ngx.NOTICE, "perf_case_str: " .. ngx.shared.perf_case_str)
+            ngx.log(ngx.NOTICE, "pod_index: " .. ngx.shared.pod_index)
+            ngx.log(ngx.NOTICE, "start_time: " .. ngx.shared.start_time)
+        }
+
+        server {
+            set $delay "";
+            set $error_rate "";
+            set $response "";
+
+            listen @PORT;
+            listen [::]:@PORT;
+
+            location /reset {
+              content_by_lua_block {
+                ngx.shared.start_time = ngx.now()
+                ngx.log(ngx.NOTICE, "reset start_time: " .. ngx.shared.start_time)
+                ngx.say("ok " .. tostring(ngx.shared.start_time))
+                return
+              }
+            }
+            location / {
+              content_by_lua_block {
+                      -- ngx.log(ngx.NOTICE, "content perf_case_str: " .. ngx.shared.perf_case_str)
+                      --ngx.log(ngx.NOTICE, "content pod_index: " .. ngx.shared.pod_index)
+                      --ngx.log(ngx.NOTICE, "content type perf_case: " .. type(ngx.shared.perf_case))
+                      local perf_case = ngx.shared.perf_case
+                      local current_time = ngx.now()
+                      local start_time = ngx.shared.start_time
+                      ngx.log(ngx.NOTICE, "content current_time: " .. tostring(current_time))
+                      local delay = 0
+                      local error_rate = 0
+                      local response = "ok"  -- Default response size
+                      -- Determine delay and error rate based on time intervals
+                      local cfg = perf_case[ngx.shared.pod_index]
+                      if cfg ~= nil then
+                        for _, interval in ipairs(cfg) do
+                            if current_time - start_time <= interval.to then
+                                delay = interval.latency
+                                error_rate = interval.error_rate
+                                response = interval.response
+                                break
+                            end
+                        end
+                      end
+                      ngx.var.delay = delay
+                      ngx.var.error_rate = error_rate
+                      ngx.var.response = response
+                      -- Apply delay
+                      if delay > 0 then
+                          ngx.sleep(delay / 1000)  -- Convert milliseconds to seconds
+                      end
+
+                      -- Apply error rate
+                      if math.random() < error_rate then
+                          ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+                          ngx.say("Simulated error rate")
+                          return
+                      end
+                      if response == "ok" then
+                        ngx.say("ok")
+                        return
+                      end
+                      ngx.exec("/files/" .. response)
+              }
+            }
+            location /files {
+                alias /alb/app/data/;
+                internal;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: echo-resty-ewma
+  labels:
+    k8s-app: echo-resty-ewma
+spec:
+  serviceName: "echo-resty-ewma"
+  replicas: 4
+  selector:
+    matchLabels:
+      k8s-app: echo-resty-ewma
+  template:
+    metadata:
+      labels:
+        k8s-app: echo-resty-ewma
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: echo-resty
+          image: registry.alauda.cn:60080/acp/alb-nginx:v3.12.2
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: PERF_CASE
+              value: |
+                {
+                  "0": [
+                    { "to": 60, "latency": 100, "error_rate": 0, "response": "ok" },
+                    { "to": 120, "latency": 50, "error_rate": 0, "response": "ok" },
+                    { "to": 180, "latency": 0, "error_rate": 0, "response": "ok" }
+                  ],
+                  "1": [
+                    { "to": 60,  "latency": 0, "error_rate": 0, "response": "ok" },
+                    { "to": 120, "latency": 50, "error_rate": 0, "response": "ok" },
+                    { "to": 180, "latency": 100, "error_rate": 0, "response": "ok" }
+                  ],
+                  "2": [
+                    { "to": 60,  "latency": 0, "error_rate": 0, "response": "ok" },
+                    { "to": 120, "latency": 0, "error_rate": 0, "response": "ok" },
+                    { "to": 180, "latency": 0, "error_rate": 0, "response": "ok" }
+                  ]
+                }
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "250m"
+            limits:
+              memory: "500Mi"
+              cpu: "1"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nginx
+          command:
+            - sh
+            - -c
+            - |
+              # Calculate the port number based on the pod's ordinal index
+              POD_ORDINAL=$(echo $POD_NAME | awk -F'-' '{print $NF}')
+              PORT=$((8000 + POD_ORDINAL))
+              mkdir -p /alb/app
+              cd /alb/app
+              cp /etc/nginx/nginx.conf /alb/app/nginx.conf
+              sed -i "s/@PORT/80/g" /alb/app/nginx.conf
+              cat /alb/app/nginx.conf |grep listen
+              mkdir -p /alb/app/data
+
+              head -c 750 /dev/urandom | base64  > /alb/app/data/1k
+              head -c 7500 /dev/urandom | base64  > /alb/app/data/10k
+              head -c 75000 /dev/urandom | base64  > /alb/app/data/100k
+              nginx -p $PWD -c /alb/app/nginx.conf -e /dev/stdout
+      volumes:
+        - name: config-volume
+          configMap:
+            name: echo-resty-ewma-config
+            items:
+              - key: nginx-config
+                path: nginx.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-resty-ewma
+  labels:
+    k8s-app: echo-resty-ewma
+spec:
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+    - name: http
+      port: 80
+  selector:
+    k8s-app: echo-resty-ewma

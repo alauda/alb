@@ -8,6 +8,7 @@ ENV GOPROXY=https://goproxy.cn,https://build-nexus.alauda.cn/repository/golang,d
 COPY ./ /alb/
 WORKDIR /alb
 ENV GOFLAGS=-buildvcs=false
+RUN go version
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && apk update && apk add git gcc musl-dev
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/alb alauda.io/alb2/cmd/alb
 RUN go build -buildmode=pie -ldflags '-w -s -linkmode=external -extldflags=-Wl,-z,relro,-z,now' -v -o /out/migrate/init-port-info alauda.io/alb2/migrate/init-port-info

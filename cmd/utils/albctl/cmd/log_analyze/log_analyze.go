@@ -1,4 +1,4 @@
-package cmd
+package log_analyze
 
 import (
 	"bufio"
@@ -6,15 +6,12 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"alauda.io/alb2/utils/log"
 	"github.com/go-logr/logr"
-	strftime "github.com/ncruces/go-strftime"
 	"github.com/samber/lo"
-	"github.com/satyrius/gonx"
 	"github.com/spf13/cobra"
 )
 
@@ -34,17 +31,23 @@ type AnalyzeFlags struct {
 	TimeFilter                   string
 	reqDelayFilter               int
 	ShowLog                      bool
+	ShowAll                      bool
 	ShowErrorOnly                bool
 	ShowHttpFailOnly             bool
 	ShowUpstreamLatency          bool
 	ShowUpstreamLatencyOverSteps bool
 	timeSteps                    int
 	UseStdin                     bool
+	AlbVersion                   string
+	AlbLatencyThreshold          float64
 }
 
-var ANALYZE_FLAG = AnalyzeFlags{}
+var (
+	ANALYZE_FLAG  = AnalyzeFlags{}
+	DEBUG_LOG_FMT = `[$time_local] $remote_addr $rule_id "$host" "$request" $status $upstream_status $upstream_addr "$http_user_agent" "$http_x_forwarded_for" $request_time $upstream_response_time $upstream_bytes_received $server_port`
+)
 
-func init() {
+func LogAnalyzeInit(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(analyzerCmd)
 	flags := analyzerCmd.PersistentFlags()
 	flags.StringVar(&ANALYZE_FLAG.AccessLogPath, "access_log_path", "", "Path to the access log file")
@@ -57,6 +60,9 @@ func init() {
 	flags.IntVar(&ANALYZE_FLAG.reqDelayFilter, "req-delay", 0, "filter all request time >= x ms, 0 to disable filter")
 	flags.BoolVar(&ANALYZE_FLAG.ShowUpstreamLatency, "show-upstream-latency", false, "show request-time response-time group by upstream")
 	flags.BoolVar(&ANALYZE_FLAG.ShowUpstreamLatencyOverSteps, "show-upstream-latency-over-steps", false, "show request-time response-time group by upstream over steps")
+	flags.StringVar(&ANALYZE_FLAG.AlbVersion, "alb-version", "4.1", "3.12->(,4.1) 4.1->[4.1,)")
+	flags.BoolVar(&ANALYZE_FLAG.ShowAll, "show-all", false, "show all in first")
+	flags.Float64Var(&ANALYZE_FLAG.AlbLatencyThreshold, "alb-latency-threshold", 0.1, "alb latency threshold, in seconds")
 }
 
 type LogEntry struct {
@@ -75,6 +81,21 @@ type LogEntry struct {
 	HttpXForwardedFor    string
 	RequestTime          float64
 	UpstreamResponseTime []float64
+	AlbTime              float64
+	UpstreamTimeTotal    float64
+}
+
+func (l LogEntry) String() string {
+	return fmt.Sprintf("raw %s alb-time %v upstream_time_total %v", l.raw, l.AlbTime, l.UpstreamTimeTotal)
+}
+
+func (l *LogEntry) Update() {
+	upstream_time_total := 0.0
+	for _, t := range l.UpstreamResponseTime {
+		upstream_time_total += t
+	}
+	l.UpstreamTimeTotal = upstream_time_total
+	l.AlbTime = l.RequestTime - l.UpstreamTimeTotal
 }
 
 type Analyze struct {
@@ -84,6 +105,9 @@ type Analyze struct {
 
 func (a Analyze) run() error {
 	logEntries, err := a.read_logs()
+	sort.Slice(logEntries, func(i, j int) bool {
+		return logEntries[i].TimeLocal.Before(logEntries[j].TimeLocal)
+	})
 	if err != nil {
 		return err
 	}
@@ -120,8 +144,16 @@ func (a Analyze) run() error {
 		key := int(e.TimeLocal.Sub(from).Seconds()) / a.flag.timeSteps
 		return key
 	})
-	fmt.Println(a.show(logEntries))
+	if a.flag.ShowAll {
+		fmt.Println("all")
+		fmt.Println(a.show(logEntries))
+	}
 	for _, r := range gs {
+		if len(r) == 0 {
+			continue
+		}
+		key := int(r[0].TimeLocal.Sub(from).Seconds()) / a.flag.timeSteps
+		fmt.Println("step", key)
 		fmt.Println(a.show(r))
 	}
 	if a.flag.ShowUpstreamLatencyOverSteps {
@@ -173,8 +205,11 @@ func parseTimeFilterFlag(s string) (time.Time, time.Time, error) {
 	return startTime, endTime, nil
 }
 
+type LogLineParser struct {
+	version string
+}
+
 func (a Analyze) read_logs() ([]LogEntry, error) {
-	access_log_fmt := "[$time_local] $remote_addr  \"$host\" \"$request\" $status $upstream_status $upstream_addr \"$http_user_agent\" \"$http_x_forwarded_for\" $request_time $upstream_response_time $upstream_bytes_received $server_port"
 	var logEntries []LogEntry
 	var scanner *bufio.Scanner
 	if !a.flag.UseStdin {
@@ -182,12 +217,15 @@ func (a Analyze) read_logs() ([]LogEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer file.Close()
+		defer func() {
+			if err := file.Close(); err != nil {
+				panic(err)
+			}
+		}()
 		scanner = bufio.NewScanner(file)
 	} else {
 		scanner = bufio.NewScanner(os.Stdin)
 	}
-	ngx_parse := gonx.NewParser(access_log_fmt)
 	var pre_time time.Time
 	ln := 0
 	for scanner.Scan() {
@@ -197,6 +235,9 @@ func (a Analyze) read_logs() ([]LogEntry, error) {
 			continue
 		}
 		if strings.Contains(line, "lua") && strings.Contains(line, "[info]") {
+			continue
+		}
+		if strings.Contains(line, "TCP") || strings.Contains(line, "connect to") {
 			continue
 		}
 		if strings.Contains(line, "error") {
@@ -214,15 +255,14 @@ func (a Analyze) read_logs() ([]LogEntry, error) {
 			pre_time = entry.TimeLocal
 			continue
 		}
-		raw_entry, err := ngx_parse.ParseString(line)
+
+		entry, err := parseLine(line, a.flag.AlbVersion)
 		if err != nil {
-			e := ParseItHarder(line)
-			e.ln = ln
-			logEntries = append(logEntries, e)
+			fmt.Println("unknow when parse error log fail", line, err)
 			continue
 		}
-		entry := EntryFromLog(raw_entry)
 		entry.ln = ln
+		entry.Update()
 		pre_time = entry.TimeLocal
 		logEntries = append(logEntries, entry)
 	}
@@ -230,6 +270,13 @@ func (a Analyze) read_logs() ([]LogEntry, error) {
 		return nil, fmt.Errorf("error reading file: %v", err)
 	}
 	return logEntries, nil
+}
+
+func parseLine(line string, version string) (LogEntry, error) {
+	if version == "3.12" {
+		return ParseItHarder(line)
+	}
+	return ParseAccessLog(line)
 }
 
 //nolint:errcheck
@@ -289,24 +336,6 @@ func EntryFromErrLog(line string) (LogEntry, error) {
 	}
 
 	return e, nil
-}
-
-func EntryFromLog(rec *gonx.Entry) LogEntry {
-	entry := LogEntry{
-		kind:                 "access",
-		TimeLocal:            parseTime(forceField(rec, "time_local")),
-		RemoteAddr:           forceField(rec, "remote_addr"),
-		Host:                 forceField(rec, "host"),
-		Request:              forceField(rec, "request"),
-		Status:               forceField(rec, "status"),
-		UpstreamStatus:       strings.Split(forceField(rec, "upstream_status"), ","),
-		UpstreamAddr:         strings.Split(forceField(rec, "upstream_addr"), ","),
-		HttpUserAgent:        forceField(rec, "http_user_agent"),
-		HttpXForwardedFor:    forceField(rec, "http_x_forwarded_for"),
-		RequestTime:          parseFloat(forceField(rec, "request_time")),
-		UpstreamResponseTime: parseFloats(forceField(rec, "upstream_response_time")),
-	}
-	return entry
 }
 
 type UpstreamStat struct {
@@ -448,7 +477,25 @@ func (a Analyze) show(ls []LogEntry) string {
 	if gap != "" {
 		msg += fmt.Sprintf("gap %v \n", gap)
 	}
+	msg += fmt.Sprintf("alb-latency %v \n", alb_latency(ls))
+	msg += fmt.Sprintf("alb-latency-threshold \n %v \n", alb_latency_threshold(ls, a.flag.AlbLatencyThreshold))
 	return msg
+}
+
+func alb_latency_threshold(ls []LogEntry, threshold float64) string {
+	msg := ""
+	for _, l := range ls {
+		if l.AlbTime > threshold {
+			msg += fmt.Sprintf("alb-time %v %v \n", l.AlbTime, l.String())
+		}
+	}
+	return msg
+}
+
+func alb_latency(ls []LogEntry) string {
+	return stat(ls, func(l LogEntry) float64 {
+		return l.AlbTime
+	}).to_string()
 }
 
 func upstream_latency(ls []LogEntry) string {
@@ -460,8 +507,9 @@ func upstream_latency(ls []LogEntry) string {
 		if len(r) == 0 {
 			continue
 		}
-		msg += fmt.Sprintf("%-20s req %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.RequestTime }).to_string())
-		msg += fmt.Sprintf("%-20s res %s\n", r[0].UpstreamAddr[0], stat(r, func(l LogEntry) float64 { return l.UpstreamResponseTime[0] }).to_string())
+		addr := strings.Join(r[0].UpstreamAddr, ",")
+		msg += fmt.Sprintf("%-20s req %s\n", addr, stat(r, func(l LogEntry) float64 { return l.RequestTime }).to_string())
+		msg += fmt.Sprintf("%-20s res %s\n", addr, stat(r, func(l LogEntry) float64 { return l.UpstreamResponseTime[0] }).to_string())
 	}
 	return msg
 }
@@ -475,7 +523,7 @@ func (a Analyze) upstream_latency_over_steps(all [][]LogEntry) string {
 		})
 		for _, upstream_log_in_step := range log_in_step_each_upstream {
 			upstream_stat := stat(upstream_log_in_step, func(l LogEntry) float64 { return l.RequestTime })
-			addr := upstream_log_in_step[0].UpstreamAddr[0]
+			addr := strings.Join(upstream_log_in_step[0].UpstreamAddr, ",")
 			upstream_stat_map[addr] = append(upstream_stat_map[addr], upstream_stat)
 		}
 	}
@@ -500,153 +548,4 @@ func upstream_count(ls []LogEntry) string {
 		s += fmt.Sprintf("%v %v\n", k, v)
 	}
 	return s
-}
-
-func parseTime(s string) time.Time {
-	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", s)
-	if err != nil {
-		return time.Now()
-	}
-	return t
-}
-
-func parseTimeLocal(s string) time.Time {
-	t, err := strftime.Parse("[%d/%b/%Y:%H:%M:%S %z]", s)
-	if err != nil {
-		return time.Now()
-	}
-	return t
-}
-
-func parseFloat(s string) float64 {
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0
-	}
-	return f
-}
-
-func parseFloats(s string) []float64 {
-	ret := []float64{}
-	for _, f := range strings.Split(s, ",") {
-		ret = append(ret, parseFloat(f))
-	}
-	return ret
-}
-
-func forceField(rec *gonx.Entry, name string) string {
-	ret, err := rec.Field(name)
-	if err != nil {
-		return err.Error()
-	}
-	return ret
-}
-
-func token(line string) []string {
-	stack := []string{}
-	op := map[string]string{"[": "]", "\"": "\""}
-	rop := map[string]string{"]": "[", "\"": "\""}
-	seg := []string{}
-	cur := ""
-	for i := 0; i < len(line); i++ {
-		c := string(line[i])
-		if c == " " && len(stack) == 0 {
-			seg = append(seg, cur)
-			cur = ""
-			continue
-		}
-		cur += c
-		if rop[c] != "" && len(stack) != 0 && stack[len(stack)-1] == rop[c] {
-			// fmt.Println("pop", c, rop[c])
-			stack = stack[0 : len(stack)-1]
-			seg = append(seg, cur)
-			cur = ""
-			continue
-		}
-		if op[c] != "" {
-			// fmt.Println("push", c, op[c])
-			stack = append(stack, c)
-			continue
-		}
-	}
-	seg = append(seg, cur)
-	ret := []string{}
-	for _, s := range seg {
-		if strings.TrimSpace(s) == "" {
-			continue
-		}
-		ret = append(ret, s)
-		// fmt.Print(s, " .. ")
-	}
-	return ret
-}
-
-func ParseItHarder(line string) LogEntry {
-	ts := token(line)
-	cur := 0
-	take := func() string {
-		if cur >= len(ts) {
-			panic(line)
-		}
-		ret := ts[cur]
-		cur++
-		return ret
-	}
-	time := take()
-	remote := take()
-	host := take()
-	req := take()
-	status := take()
-	up_status := func() string {
-		s := take()
-		for {
-			if strings.HasSuffix(s, ",") {
-				s += take()
-				continue
-			}
-			break
-		}
-		return s
-	}()
-	up_addr := func() string {
-		s := take()
-		for {
-			if strings.HasSuffix(s, ",") {
-				s += take()
-				continue
-			}
-			break
-		}
-		return s
-	}()
-	http_agent := take()
-	x_forward := take()
-	req_time := take()
-	up_res_time := func() string {
-		s := take()
-		for {
-			if strings.HasSuffix(s, ",") {
-				s += take()
-				continue
-			}
-			break
-		}
-		return s
-	}()
-	e := LogEntry{
-		kind:                 "access",
-		raw:                  line,
-		TimeLocal:            parseTimeLocal(time),
-		RemoteAddr:           remote,
-		Host:                 host,
-		Request:              req,
-		Status:               status,
-		UpstreamStatus:       strings.Split(up_status, ","),
-		UpstreamAddr:         strings.Split(up_addr, ","),
-		HttpUserAgent:        http_agent,
-		HttpXForwardedFor:    x_forward,
-		RequestTime:          parseFloat(req_time),
-		UpstreamResponseTime: parseFloats(up_res_time),
-	}
-	return e
 }

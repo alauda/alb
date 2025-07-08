@@ -26,6 +26,7 @@ source $CUR_ALB_BASE/scripts/alb-perf-actions.sh
 source $CUR_ALB_BASE/template/actions/alb-nginx.sh
 source $CUR_ALB_BASE/scripts/alb-github-actions.sh
 source $CUR_ALB_BASE/scripts/alb-ai-actions.sh
+source $CUR_ALB_BASE/scripts/alb-upgrade-actions.sh
 
 function alb-dev-install() (
   # yq => yq (https://github.com/mikefarah/yq/) version > 4
@@ -44,4 +45,8 @@ function alb-replace-alb() (
   alb-static-build
   local alb_pod=$(kubectl get po -n cpaas-system --no-headers | grep $1 | awk '{print $1}')
   kubectl cp $PWD/bin/alb cpaas-system/$alb_pod:/alb/ctl/alb -c alb2
+)
+
+function alb-debug-chart() (
+  helm template -s templates/acp_alb_traffic_status.yaml -f ./deploy/chart/alb/values.yaml ./deploy/chart/alb --api-versions ait.alauda.io/v1alpha2 --set-json 'global.cluster.type={}'
 )

@@ -13,7 +13,8 @@ function alb-lint-all() (
   alb-lint-lua
   echo "lua ok"
   # golangci-lint oom in ci
-  golangci-lint -v run -c ./.golangci.yml
+  # TODO enable after fix for 2.16
+  #   golangci-lint -v run -c ./.golangci.yml
 )
 
 function alb-lint-cspell() (

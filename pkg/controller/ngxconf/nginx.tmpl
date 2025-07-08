@@ -91,6 +91,8 @@ http {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -139,6 +141,8 @@ http {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         {{ range $_, $loc := $ft.CustomLocation -}}
         location @{{ $loc.Name }} {
@@ -195,6 +199,8 @@ http {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -254,6 +260,8 @@ http {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         location / {
             set $location_mode root;
@@ -288,6 +296,8 @@ http {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -342,6 +352,8 @@ stream {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         include   {{$.TweakBase}}/stream-tcp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
@@ -363,6 +375,8 @@ stream {
         set $svc_name "_";
         set $svc_ns "_";
         set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
 
         include   {{$.TweakBase}}/stream-udp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}

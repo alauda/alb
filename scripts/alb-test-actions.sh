@@ -119,7 +119,7 @@ function __at_resolve_url() {
 {
  "kubectl_x86_64_online": "https://dl.k8s.io/v1.24.1/kubernetes-client-linux-amd64.tar.gz",
  "helm_x86_64_online": "https://mirrors.huaweicloud.com/helm/v3.9.3/helm-v3.9.3-linux-amd64.tar.gz",
- "golangcli_x86_64_online": "https://github.com/golangci/golangci-lint/releases/download/v1.59.1/golangci-lint-1.59.1-illumos-amd64.tar.gz",
+ "golangcli_x86_64_online": "https://github.com/golangci/golangci-lint/releases/download/v2.1.6/golangci-lint-2.1.6-linux-amd64.tar.gz",
  "envtest_x86_64_online": "$envtest_url",
 
  "kubectl_arm_online": "https://get.helm.sh/helm-v3.7.0-linux-amd64.tar.gz",
@@ -129,7 +129,7 @@ function __at_resolve_url() {
  
  "kubectl_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/kubernetes-client-linux-amd64.tar.gz",
  "helm_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/helm-v3.9.3-linux-amd64.tar.gz",
- "golangcli_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/golangci-lint-1.59.1-illumos-amd64.tar.gz",
+ "golangcli_x86_64_offline": "http://prod-minio.alauda.cn/acp/ci/alb/build/golangci-lint-2.1.6-linux-amd64.tar.gz",
  "envtest_x86_64_offline": "http://prod-minio.alauda.cn:80/acp/envtest-bins.1.24.2.tar.gz"
 }
 EOF
@@ -172,10 +172,10 @@ function alb-install-golang-test-dependency() {
   # url -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
   local golangci_lint=$(__at_resolve_url golangcli)
   wget $golangci_lint
-  tar -zxvf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
-  chmod +x ./golangci-lint-1.59.1-illumos-amd64/golangci-lint && mv ./golangci-lint-1.59.1-illumos-amd64/golangci-lint /usr/local/bin/golangci-lint
-  rm -rf ./golangci-lint-1.59.1-illumos-amd64.tar.gz
-  rm -rf ./golangci-lint-1.59.1-illumos-amd64
+  tar -zxvf ./golangci-lint-2.1.6-linux-amd64.tar.gz
+  chmod +x ./golangci-lint-2.1.6-linux-amd64/golangci-lint && mv ./golangci-lint-2.1.6-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
+  rm -rf ./golangci-lint-2.1.6-linux-amd64.tar.gz
+  rm -rf ./golangci-lint-2.1.6-linux-amd64
 
   apk update && apk add shfmt ginkgo curl git build-base jq yq iproute2 openssl tree nodejs npm util-linux-misc
   alb-envtest-install

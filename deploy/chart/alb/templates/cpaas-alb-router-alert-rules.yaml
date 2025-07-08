@@ -34,7 +34,7 @@ spec:
         alert_current_value: '{{ `{{$value}}` }}'
         alert_notifications: '[]'
         display_name: error-rate
-      expr: (sum by (source_namespace, source_name, source_type, service) (rate(nginx_http_status{__VM__,status=~"[4-5].*"}[5m])))
+      expr: (sum by (source_namespace, source_name, source_type, service) (rate(nginx_http_status{__VM__,status=~"[5].*"}[5m])))
         / (sum by (source_namespace, source_name, source_type, service) (rate(nginx_http_status{__VM__,}[5m]))
         >0)>0.03
       for: 30s

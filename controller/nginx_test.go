@@ -25,7 +25,6 @@ import (
 )
 
 func TestPoliciesSort(t *testing.T) {
-
 	policies := []*Policy{
 		{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "b"},
 		{PolicySortBean: PolicySortBean{ComplexPriority: 100, Priority: 100}, Rule: "a"},

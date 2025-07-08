@@ -15,10 +15,14 @@ local e = require "error"
 local actx = require "ctx.alb_ctx"
 
 local _M = {}
-local balancers = {}
+local BALANCERS = {}
 
 local DEFAULT_LB_ALG = "round_robin"
 local IMPLEMENTATIONS = { round_robin = round_robin, sip_hash = sip_hash, sticky = sticky }
+--- stream mod does not support ewma
+if subsys.is_http_subsystem() then
+    IMPLEMENTATIONS.ewma = require "balancer.ewma.ewma"
+end
 
 local function get_implementation(backend)
     local name = DEFAULT_LB_ALG
@@ -29,6 +33,8 @@ local function get_implementation(backend)
             name = "sticky"
         elseif backend["session_affinity_policy"] == "header" then
             name = "sticky"
+        elseif backend["session_affinity_policy"] == "ewma" and subsys.is_http_subsystem() then
+            name = "ewma"
         end
     end
     local implementation = IMPLEMENTATIONS[name]
@@ -49,21 +55,22 @@ local function format_ipv6_endpoints(endpoints)
     end
     return formatted_endpoints
 end
+
 --- update the global balancers
 local function sync_backend(backend)
     if not backend.backends or #backend.backends == 0 then
-        balancers[backend.name] = nil
+        BALANCERS[backend.name] = nil
         return
     end
 
     backend.backends = format_ipv6_endpoints(backend.backends)
 
     local implementation = get_implementation(backend)
-    local balancer = balancers[backend.name]
+    local balancer = BALANCERS[backend.name]
     if not balancer then
         balancer = implementation:new(backend)
         balancer:sync(backend)
-        balancers[backend.name] = balancer
+        BALANCERS[backend.name] = balancer
         return
     end
 
@@ -77,7 +84,7 @@ local function sync_backend(backend)
 
         balancer = implementation:new(backend)
         balancer:sync(backend)
-        balancers[backend.name] = balancer
+        BALANCERS[backend.name] = balancer
         return
     end
     balancer:sync(backend)
@@ -86,7 +93,6 @@ end
 function _M.sync_backends()
     local backends_data = shm.get_backends()
     if not backends_data then
-        balancers = {}
         ngx_log(ngx.ERR, "no backends data")
         return
     end
@@ -102,16 +108,16 @@ function _M.sync_backends()
         balancers_to_keep[new_backend.name] = true
     end
 
-    for backend_name, _ in pairs(balancers) do
+    for backend_name, _ in pairs(BALANCERS) do
         if not balancers_to_keep[backend_name] then
-            balancers[backend_name] = nil
+            BALANCERS[backend_name] = nil
         end
     end
 end
 
 local function get_balancer()
     local backend_name = ngx.ctx.upstream
-    local balancer = balancers[backend_name]
+    local balancer = BALANCERS[backend_name]
     if not balancer then
         return
     end
@@ -163,6 +169,19 @@ function _M.balance()
         ngx.header["x-cpaas-trace"] = common.json_encode(alb_ctx.var.trace, false)
     end
     alb_ctx.send_count = alb_ctx.send_count + 1
+end
+
+function _M.log()
+    local balancer = get_balancer()
+    if not balancer then
+        return
+    end
+
+    if not balancer.after_balance then
+        return
+    end
+
+    balancer:after_balance()
 end
 
 return _M

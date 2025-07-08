@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"alauda.io/alb2/cmd/utils/albctl/cmd/log_analyze"
 	"github.com/spf13/cobra"
 )
 
@@ -44,4 +45,5 @@ func Execute() {
 }
 
 func init() {
+	log_analyze.LogAnalyzeInit(rootCmd)
 }
