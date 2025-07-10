@@ -30,18 +30,18 @@ local DEFAULT_PICK_SET_SIZE = tonumber(os.getenv("EWMA_PICK_SET_SIZE")) or 2
 local ENABLE_RETRY_RTT_THRESHOLD = os.getenv("EWMA_ENABLE_RETRY_RTT_THRESHOLD") or true
 -- response time maybe 0 when retry, avoid count it as a low score
 local DEFAULT_RETRY_RTT_THRESHOLD = tonumber(os.getenv("EWMA_RETRY_RTT_THRESHOLD")) or 0.3 -- 300ms it should be the average rtt
-local EWMA_DEBUG = os.getenv("EWMA_DEBUG") or false
 local LOCK_KEY = ":ewma_key"
 
 ngx.log(ngx.INFO,
     "ewma default decay time: " ..
     tostring(DEFAULT_DECAY_TIME) .. " default pick set size: " .. tostring(DEFAULT_PICK_SET_SIZE))
 
-local function ewma_log(msg)
-    if EWMA_DEBUG then
-        ngx.log(ngx.WARN, "[ewma-debug] ", tostring(msg))
-    end
-end
+-- local EWMA_DEBUG = os.getenv("EWMA_DEBUG") or false
+-- local function ewma_log(msg)
+--     if EWMA_DEBUG then
+--         ngx.log(ngx.WARN, "[ewma-debug] ", tostring(msg))
+--     end
+-- end
 
 local ewma_lock, ewma_lock_err = resty_lock:new("balancer_ewma_locks", { timeout = 0, exptime = 0.1 })
 if not ewma_lock then
@@ -147,16 +147,16 @@ local function get_or_update_ewma(upstream, rtt, update, decay_time)
     local last_touched_at = ngx.shared.balancer_ewma_last_touched_at:get(upstream) or 0
     local ewma_old = ewma
     ewma = decay_ewma(ewma_old, last_touched_at, rtt, now, decay_time)
-    ewma_log("get_or_update_ewma " ..
-        "update " ..
-        tostring(update) .. 
-        " "..
-        tostring(upstream) ..
-        " score " ..
-        tostring(ewma_old) ..
-        " > " ..
-        tostring(ewma) ..
-        " rtt " .. tostring(rtt) .. " now " .. tostring(now) .. " td " .. tostring(now - last_touched_at))
+    -- ewma_log("get_or_update_ewma " ..
+    --     "update " ..
+    --     tostring(update) ..
+    --     " "..
+    --     tostring(upstream) ..
+    --     " score " ..
+    --     tostring(ewma_old) ..
+    --     " > " ..
+    --     tostring(ewma) ..
+    --     " rtt " .. tostring(rtt) .. " now " .. tostring(now) .. " td " .. tostring(now - last_touched_at))
 
     if not update then
         return ewma, nil
@@ -203,12 +203,12 @@ local function pick_and_score(peers, k, config)
     shuffle_peers(peers, k)
     local lowest_score_index = 1
     local lowest_score = score(peers[lowest_score_index], config.decay_time)
-    ewma_log("pick_and_score ep index " .. tostring(lowest_score_index) .. " ep " ..
-        get_upstream_name(peers[lowest_score_index]) .. " score " .. tostring(lowest_score))
+    -- ewma_log("pick_and_score ep index " .. tostring(lowest_score_index) .. " ep " ..
+    --     get_upstream_name(peers[lowest_score_index]) .. " score " .. tostring(lowest_score))
     for i = 2, k do
         local new_score = score(peers[i], config.decay_time)
-        ewma_log("pick_and_score index " .. tostring(i) .. " ep " .. get_upstream_name(peers[i]) .. " score " ..
-            tostring(new_score))
+        -- ewma_log("pick_and_score index " .. tostring(i) .. " ep " .. get_upstream_name(peers[i]) .. " score " ..
+        --     tostring(new_score))
         if new_score < lowest_score then
             lowest_score_index, lowest_score = i, new_score
         end
@@ -261,7 +261,7 @@ function _M.balance(self)
         local last_tried_endpoint = ngx.ctx.balancer_ewma_tried_endpoint_last
         local last_tried_time = now - (ngx.ctx.balancer_ewma_tried_endpoint_time or now)
         if last_tried_endpoint and ENABLE_RETRY_RTT_THRESHOLD then
-            ewma_log("update ewma of retry ep "..last_tried_endpoint.." last_tried_time "..last_tried_time)
+            -- ewma_log("update ewma of retry ep "..last_tried_endpoint.." last_tried_time "..last_tried_time)
             local rtt = math.max(last_tried_time, self.config.retry_rtt_threshold)
             get_or_update_ewma(last_tried_endpoint, rtt, true, self.config.decay_time)
         end
@@ -287,11 +287,11 @@ function _M.balance(self)
             endpoint, ewma_score = filtered_peers[1], score(filtered_peers[1], self.config.decay_time)
         end
         local endpoint_name = get_upstream_name(endpoint)
-        ewma_log("balance picked " .. endpoint_name .. " score " .. tostring(ewma_score))
+        -- ewma_log("balance picked " .. endpoint_name .. " score " .. tostring(ewma_score))
         tried_endpoints[endpoint_name] = true
         ngx.ctx.balancer_ewma_tried_endpoint_last = endpoint_name
         ngx.ctx.balancer_ewma_tried_endpoint_time = ngx.now()
-        ewma_log("retry update tried_endpoints " .. endpoint_name .. " now " .. tostring(now))
+        -- ewma_log("retry update tried_endpoints " .. endpoint_name .. " now " .. tostring(now))
     end
 
     ngx.var.balancer_ewma_score = ewma_score
@@ -339,8 +339,8 @@ function _M.sync(self, backend)
     if slow_start_ewma ~= nil then
         local now = ngx.now()
         for _, endpoint_string in ipairs(normalized_endpoints_added) do
-            ewma_log("sync: added " .. endpoint_string .. " slow_start_ewma " .. tostring(slow_start_ewma) .. " now " ..
-                tostring(now))
+            -- ewma_log("sync: added " .. endpoint_string .. " slow_start_ewma " .. tostring(slow_start_ewma) .. " now " ..
+                -- tostring(now))
             store_stats(endpoint_string, slow_start_ewma, now)
         end
     end
