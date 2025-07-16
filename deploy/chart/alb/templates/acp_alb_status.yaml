@@ -191,11 +191,11 @@ spec:
             unit: percentunit
           overrides: []
         gridPos:
-          h: 8
-          id: 14
-          w: 6
-          x: 12
-         "y": 0
+          "h": 8
+          "id": 14
+          "w": 6
+          "x": 12
+          "y": 0
         id: 14
         options:
           colorMode: value
@@ -249,11 +249,11 @@ spec:
             unit: s
           overrides: []
         gridPos:
-          h: 8
-          id: 16
-          w: 6
-          x: 18
-         "y": 0
+          "h": 8
+          "id": 16
+          "w": 6
+          "x": 18
+          "y": 0
         id: 16
         links: []
         options:
@@ -313,10 +313,10 @@ spec:
             unit: ""
           overrides: []
         gridPos:
-          h: 8
-          id: 10
-          w: 6
-          x: 0
+         "h": 8
+         "id": 10
+         "w": 6
+         "x": 0
          "y": 8
         id: 10
         links: []
@@ -375,10 +375,10 @@ spec:
             unit: reqps
           overrides: []
         gridPos:
-          h: 8
-          id: 12
-          w: 6
-          x: 6
+         "h": 8
+         "id": 12
+         "w": 6
+         "x": 6
          "y": 8
         id: 12
         links: []
@@ -458,10 +458,10 @@ spec:
             unit: binBps
           overrides: []
         gridPos:
-          h: 8
-          id: 6
-          w: 6
-          x: 12
+          "h": 8
+          "id": 6
+          "w": 6
+          "x": 12
           "y": 8
         id: 6
         options:
@@ -542,10 +542,10 @@ spec:
             unit: binBps
           overrides: []
         gridPos:
-          h: 8
-          id: 8
-          w: 6
-          x: 18
+         "h": 8
+         "id": 8
+         "w": 6
+         "x": 18
          "y": 8
         id: 8
         links: []
@@ -626,10 +626,10 @@ spec:
             unit: core
           overrides: []
         gridPos:
-          h: 8
-          id: 2
-          w: 6
-          x: 0
+         "h": 8
+         "id": 2
+         "w": 6
+         "x": 0
          "y": 16
         id: 2
         options:
@@ -700,10 +700,10 @@ spec:
             unit: bytes
           overrides: []
         gridPos:
-          h: 8
-          id: 4
-          w: 6
-          x: 6
+         "h": 8
+         "id": 4
+         "w": 6
+         "x": 6
          "y": 16
         id: 4
         options:
@@ -781,10 +781,10 @@ spec:
                 - id: unit
                   value: bytes
         gridPos:
-          h: 13
-          id: 18
-          w: 24
-          x: 0
+         "h": 13
+         "id": 18
+         "w": 24
+         "x": 0
          "y": 24
         id: 18
         options:
@@ -1316,10 +1316,10 @@ spec:
                 - id: unit
                   value: bytes
         gridPos:
-          h: 13
-          id: 20
-          w: 24
-          x: 0
+         "h": 13
+         "id": 20
+         "w": 24
+         "x": 0
          "y": 50
         id: 20
         options:
