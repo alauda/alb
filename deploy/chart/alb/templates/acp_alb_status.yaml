@@ -88,7 +88,7 @@ spec:
           id: f132fc4c-0b12-423c-b148-5341f03155d5
           w: 6
           x: 0
-          y: 0
+          "y": 0
         id: f132fc4c-0b12-423c-b148-5341f03155d5
         links: []
         options:
@@ -139,7 +139,7 @@ spec:
           id: fc3fc26a-5944-47d6-a085-6bfe18126cdd
           w: 6
           x: 6
-          y: 0
+          "y": 0
         id: fc3fc26a-5944-47d6-a085-6bfe18126cdd
         links: []
         options:
@@ -195,7 +195,7 @@ spec:
           id: 14
           w: 6
           x: 12
-          y: 0
+         "y": 0
         id: 14
         options:
           colorMode: value
@@ -253,7 +253,7 @@ spec:
           id: 16
           w: 6
           x: 18
-          y: 0
+         "y": 0
         id: 16
         links: []
         options:
@@ -317,7 +317,7 @@ spec:
           id: 10
           w: 6
           x: 0
-          y: 8
+         "y": 8
         id: 10
         links: []
         options:
@@ -379,7 +379,7 @@ spec:
           id: 12
           w: 6
           x: 6
-          y: 8
+         "y": 8
         id: 12
         links: []
         options:
@@ -462,7 +462,7 @@ spec:
           id: 6
           w: 6
           x: 12
-          y: 8
+          "y": 8
         id: 6
         options:
           legend:
@@ -546,7 +546,7 @@ spec:
           id: 8
           w: 6
           x: 18
-          y: 8
+         "y": 8
         id: 8
         links: []
         options:
@@ -630,7 +630,7 @@ spec:
           id: 2
           w: 6
           x: 0
-          y: 16
+         "y": 16
         id: 2
         options:
           legend:
@@ -704,7 +704,7 @@ spec:
           id: 4
           w: 6
           x: 6
-          y: 16
+         "y": 16
         id: 4
         options:
           legend:
@@ -785,7 +785,7 @@ spec:
           id: 18
           w: 24
           x: 0
-          y: 24
+         "y": 24
         id: 18
         options:
           cellHeight: sm
@@ -1053,7 +1053,7 @@ spec:
           id: 19
           w: 24
           x: 0
-          y: 37
+          "y": 37
         id: 19
         options:
           footer:
@@ -1320,7 +1320,7 @@ spec:
           id: 20
           w: 24
           x: 0
-          y: 50
+         "y": 50
         id: 20
         options:
           footer:
