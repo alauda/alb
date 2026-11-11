@@ -105,6 +105,18 @@ func (c *NgxCli) GenerateNginxTemplateConfig(alb *types.LoadBalancer, phase stri
 		},
 		NginxParam: nginxParam,
 		Flags:      DefaulNgxTmplFlags(),
+		AllVar: `
+        set $svc_name "_";
+        set $svc_ns "_";
+        set $rule_id "_";
+        set $alb_time "_";
+        set $balancer_ewma_score -1;
+        set $ctx_ref "";
+        `,
+		HTTPVar: `
+        set $first_forward_or_remote_addr "$remote_addr";
+        set $first_forward "";
+		`,
 	}
 	c.initInjectNgxEnv(alb.Annotations, tmpl_cfg)
 	err = c.cus.UpdateNgxTmpl(tmpl_cfg, alb, cfg)
@@ -126,7 +138,13 @@ func (c NgxCli) initInjectNgxEnv(annotation map[string]string, cfg *NginxTemplat
 		c.log.Error(err, "inject env fail")
 		return
 	}
+	env_list := []string{}
 	for k := range envs {
+		env_list = append(env_list, k)
+	}
+	// make env_list sorted, so that the env order is stable,we will not reload nginx when env change
+	sort.Strings(env_list)
+	for _, k := range env_list {
 		cfg.RootExtra += "env " + k + ";\n"
 	}
 }
@@ -201,7 +219,7 @@ func GetBindIp(cfg *config.Config) (ipv4Address []string, ipv6Address []string, 
 		}
 		return ipv4, ipv6, nil
 	}
-	networkInfo, err := GetCurrentNetwork()
+	networkInfo, err := GetCurrentNetwork(bindNICConfig.Nic)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -260,15 +278,25 @@ type InterfaceInfo struct {
 
 type NetWorkInfo = map[string]InterfaceInfo
 
-// TODO GetCurrentNetwork maybe slow (80ms),但是标准库中获取interface本质上也是先获取所有的nic
-func GetCurrentNetwork() (NetWorkInfo, error) {
+// TODO GetCurrentNetwork maybe very slow (80ms),
+func GetCurrentNetwork(nic_list []string) (NetWorkInfo, error) {
+	network := make(NetWorkInfo)
+	if len(nic_list) == 0 {
+		return network, nil
+	}
+	nicMap := map[string]bool{}
+	for _, nic := range nic_list {
+		nicMap[nic] = true
+	}
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
-	network := make(NetWorkInfo)
 	for _, inter := range ifaces {
 		name := inter.Name
+		if !nicMap[name] {
+			continue
+		}
 		var ipv4Address []string
 		var ipv6Address []string
 		addrs, err := inter.Addrs()

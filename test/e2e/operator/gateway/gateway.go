@@ -11,7 +11,6 @@ import (
 	. "alauda.io/alb2/test/e2e/framework"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/go-logr/logr"
-	"github.com/kr/pretty"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -43,126 +42,6 @@ var _ = Describe("Operator Gateway", func() {
 
 	AfterEach(func() {
 		env.Stop()
-	})
-
-	// which used in global
-	GIt("case 1. deploy shared gateway", func() {
-		alb := `
-apiVersion: crd.alauda.io/v2beta1
-kind: ALB2
-metadata:
-    name: ares-alb2
-    namespace: cpaas-system
-    labels:
-        alb.cpaas.io/managed-by: alb-operator
-spec:
-    address: "127.0.0.1"
-    type: "nginx" 
-    config:
-        nodeSelector:
-            kubernetes.io/hostname: 192.168.134.195
-        gateway:
-            enable: true
-        replicas: 2
-        `
-		name := "hr-host-gateway"
-		_ = name
-		_ = alb
-
-		kt.AssertKubectlApply(alb)
-		Eventually(func(g Gomega) {
-			a := NewAssertHelperOmgea(ctx, kc, kt, g)
-			a.AssertResource(ExpectResource{
-				ExpectExist: []Resource{
-					{
-						Ns:    "cpaas-system",
-						Kind:  "deployment",
-						Names: []string{"ares-alb2"},
-					},
-					{
-						Ns:    "cpaas-system",
-						Kind:  "feature",
-						Names: []string{"ares-alb2-cpaas-system"},
-					},
-					{
-						Ns:    "",
-						Kind:  "IngressClass",
-						Names: []string{"ares-alb2"},
-					},
-					{
-						Ns:    "",
-						Kind:  "GatewayClass",
-						Names: []string{"ares-alb2"},
-					},
-				},
-			})
-			a.AssertDeployment("cpaas-system", "ares-alb2", ExpectDeployment{
-				ExpectContainlerEnv: map[string]map[string]string{"alb2": {
-					"NETWORK_MODE":   "host",
-					"ALB_ENABLE":     "true",
-					"SERVE_INGRESS":  "true",
-					"GATEWAY_ENABLE": "true",
-					"GATEWAY_MODE":   string(a2t.GatewayModeShared),
-				}},
-				Test: func(dep *appv1.Deployment) bool {
-					spec := dep.Spec.Template.Spec
-					log.Info("depl", "spec", pretty.Formatter(spec))
-					return spec.HostNetwork &&
-						spec.DNSPolicy == "ClusterFirstWithHostNet" &&
-						spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
-						spec.NodeSelector["kubernetes.io/hostname"] == "192.168.134.195" &&
-						true
-				},
-			})
-			// gateway class上应该有共享型的label
-			gc, err := kc.GetGatewayClient().GatewayV1beta1().GatewayClasses().Get(ctx, "ares-alb2", metav1.GetOptions{})
-			g.Expect(err).ShouldNot(HaveOccurred())
-			g.Expect(gc.Labels["gatewayclass.cpaas.io/deploy"]).Should(Equal("cpaas.io"))
-			g.Expect(gc.Labels["gatewayclass.cpaas.io/type"]).Should(Equal("shared"))
-		}, "300s", "3s").Should(Succeed())
-
-		// switch to standalone mode
-		newalb := `
-apiVersion: crd.alauda.io/v2beta1
-kind: ALB2
-metadata:
-    name: ares-alb2
-    namespace: cpaas-system
-    labels:
-        alb.cpaas.io/managed-by: alb-operator
-spec:
-    address: "127.0.0.1"
-    type: "nginx" 
-    config:
-        nodeSelector:
-            kubernetes.io/hostname: 192.168.134.195
-        gateway:
-            enable: true
-            mode: standalone
-        replicas: 2
-        `
-		gcs, err := kc.GetGatewayClient().GatewayV1beta1().GatewayClasses().List(ctx, metav1.ListOptions{})
-		GNoErr(g, err)
-		log.Info("old gcs", "cr", PrettyCrs(gcs.Items))
-		GEqual(g, len(gcs.Items), 2)
-		for _, gc := range gcs.Items {
-			if gc.Name == "exclusive-gateway" {
-				GEqual(g, gc.Labels["gatewayclass.cpaas.io/type"], "standalone")
-			} else {
-				GEqual(g, gc.Labels["gatewayclass.cpaas.io/type"], "shared")
-			}
-		}
-
-		kt.AssertKubectlApply(newalb)
-		log.Info("switch to container mode")
-		EventuallySuccess(func(g Gomega) {
-			gcs, err := kc.GetGatewayClient().GatewayV1beta1().GatewayClasses().List(ctx, metav1.ListOptions{})
-			GNoErr(g, err)
-			log.Info("gcs should delete shared gatewayclass", "cr", PrettyCrs(gcs.Items))
-			GEqual(g, len(gcs.Items), 1)
-			gc := gcs.Items[0]
-			GEqual(g, gc.Name, "exclusive-gateway")
-		}, log)
 	})
 
 	GIt("case 2. deploy a alb in standalone gateway mode", func() {

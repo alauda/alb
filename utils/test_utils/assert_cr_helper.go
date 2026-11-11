@@ -76,7 +76,7 @@ func (a *AssertHelper) AssertResource(expect ExpectResource) {
 		for _, name := range e.Names {
 			_, err := a.kt.Kubectl("get", e.Kind, "-n", e.Ns, name)
 			errmsg := fmt.Sprintf("%v", err)
-			a.assertContains(errmsg, "not found", fmt.Sprintf("%s %s should not exist", e.Kind, name))
+			a.assertContains(errmsg, "not found", "%s", fmt.Sprintf("%s %s should not exist", e.Kind, name))
 		}
 	}
 }

@@ -6,8 +6,11 @@ local e = require("error")
 
 local upstream = require "match_engine.upstream"
 local albctx = require "ctx.alb_ctx"
+local stash_ctx = require "ctx.stash_ctx"
 
 local subsystem = ngx.config.subsystem
+
+stash_ctx.stash_ref()
 ngx.ctx.alb_ctx = albctx.new()
 local port = tonumber(ngx_var.server_port)
 if port == nil then

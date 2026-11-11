@@ -534,8 +534,7 @@ func (c *Controller) GenerateRule(
 	certs := make(map[string]string)
 
 	if backendProtocol != "" && !ValidBackendProtocol[backendProtocol] {
-		c.log.Error(nil, fmt.Sprintf("Unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo))
-		return nil, nil
+		return nil, fmt.Errorf("unsupported backend protocol %s for ingress %s", backendProtocol, ingInfo)
 	}
 
 	for _, tls := range ingress.Spec.TLS {
@@ -633,6 +632,17 @@ func (c *Controller) GenerateRule(
 	if ingress.Annotations == nil {
 		ingress.Annotations = map[string]string{}
 	}
+
+	sessionAffinityPolicy := annotations[cfg.GetLabelSessionAffinityPolicy()]
+	sessionAffinityAttribute := annotations[cfg.GetLabelSessionAffinityAttribute()]
+
+	if sessionAffinityPolicy != "" {
+		ruleRes.Spec.ServiceGroup.SessionAffinityPolicy = sessionAffinityPolicy
+	}
+	if sessionAffinityAttribute != "" {
+		ruleRes.Spec.ServiceGroup.SessionAffinityAttribute = sessionAffinityAttribute
+	}
+
 	c.cus.IngressWithFtAnnotationToRule(ft, ingress, ruleIndex, pathIndex, ruleRes)
 	return ruleRes, nil
 }

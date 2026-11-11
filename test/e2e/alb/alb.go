@@ -84,11 +84,11 @@ spec:
 
 		e.WaitNginxConfigStr("listen.*80")
 		{
-			rules := e.WaitIngressRule("ing1", "g1", 2)
+			rules := e.WaitIngressRuleWithNs("ing1", "g1", "g1", 1)
 			l.Info("x", "rules", len(rules), "", PrettyCrs(rules))
 		}
 		{
-			rules := e.WaitIngressRule("ing2", "g2", 2)
+			rules := e.WaitIngressRuleWithNs("ing2", "g2", "g1", 1)
 			l.Info("x", "rules", len(rules), "", PrettyCrs(rules))
 		}
 	})

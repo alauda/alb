@@ -8,6 +8,7 @@ import (
 	auth_t "alauda.io/alb2/pkg/controller/ext/auth/types"
 	keepalive_t "alauda.io/alb2/pkg/controller/ext/keepalive/types"
 	otelt "alauda.io/alb2/pkg/controller/ext/otel/types"
+	proxy_header_t "alauda.io/alb2/pkg/controller/ext/proxy_header/types"
 	redirect_t "alauda.io/alb2/pkg/controller/ext/redirect/types"
 	timeout_t "alauda.io/alb2/pkg/controller/ext/timeout/types"
 	waft "alauda.io/alb2/pkg/controller/ext/waf/types"
@@ -227,6 +228,7 @@ type RuleExt struct { // 不同的扩展的配置
 	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
 	Waf             *waft.WafInternal
 	Auth            *auth_t.AuthCr
+	ProxyHeader     *proxy_header_t.ProxyHeader `json:"proxy_header,omitempty"`
 	Source          ConfigSource
 }
 
@@ -246,16 +248,18 @@ const (
 	Otel            PolicyExtKind = "otel"
 	Waf             PolicyExtKind = "waf"
 	Auth            PolicyExtKind = "auth"
+	ProxyHeader     PolicyExtKind = "proxy_header"
 )
 
 type PolicyExt struct {
-	RewriteResponse *RewriteResponseConfig `json:"rewrite_response,omitempty"`
-	RewriteRequest  *RewriteRequestConfig  `json:"rewrite_request,omitempty"`
-	Timeout         *timeout_t.TimeoutCr   `json:"timeout,omitempty"`
-	Otel            *otelt.OtelConf        `json:"otel,omitempty"`
-	Auth            *auth_t.AuthPolicy     `json:"auth,omitempty"`
-	Redirect        *redirect_t.RedirectCr `json:"redirect,omitempty"`
-	Source          string                 `json:"-"`
+	RewriteResponse *RewriteResponseConfig      `json:"rewrite_response,omitempty"`
+	RewriteRequest  *RewriteRequestConfig       `json:"rewrite_request,omitempty"`
+	Timeout         *timeout_t.TimeoutCr        `json:"timeout,omitempty"`
+	Otel            *otelt.OtelConf             `json:"otel,omitempty"`
+	Auth            *auth_t.AuthPolicy          `json:"auth,omitempty"`
+	Redirect        *redirect_t.RedirectCr      `json:"redirect,omitempty"`
+	ProxyHeader     *proxy_header_t.ProxyHeader `json:"proxy_header,omitempty"`
+	Source          string                      `json:"-"`
 }
 
 type PolicyExtCfg struct {
@@ -283,6 +287,9 @@ func (p *PolicyExt) Clean(key PolicyExtKind) {
 	if key == Redirect {
 		p.Redirect = nil
 	}
+	if key == ProxyHeader {
+		p.ProxyHeader = nil
+	}
 }
 
 // 将其转换为map方便后续去重
@@ -306,6 +313,9 @@ func (p PolicyExtCfg) ToMaps() PolicyExtMap {
 	}
 	if p.Redirect != nil {
 		m[Redirect] = &PolicyExt{Redirect: p.Redirect, Source: p.Refs[Redirect]}
+	}
+	if p.ProxyHeader != nil {
+		m[ProxyHeader] = &PolicyExt{ProxyHeader: p.ProxyHeader, Source: p.Refs[ProxyHeader]}
 	}
 	return m
 }

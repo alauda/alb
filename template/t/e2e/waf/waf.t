@@ -59,13 +59,6 @@ our $loc = <<"END_TXT";
          SecDebugLogLevel 9
          SecRuleRemoveById 10
            ';
-- name: modsecurity_rule
-  locationRaw: |
-       modsecurity on;
-       modsecurity_rules '
-        SecRuleEngine On
-       ';
-       modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;
 END_TXT
 log_level("info");
 workers(1);

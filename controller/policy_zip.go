@@ -5,8 +5,10 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"os"
+	"time"
 
 	. "alauda.io/alb2/controller/types"
+	pm "alauda.io/alb2/pkg/utils/metrics"
 
 	"k8s.io/klog/v2"
 )
@@ -23,11 +25,13 @@ func (nc *NginxController) UpdatePolicyFile(ngxPolicies NgxPolicy) error {
 
 func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path string, zip bool) error {
 	oldpath := path + ".old"
+	start := time.Now()
 	policyBytes, err := json.MarshalIndent(ngxPolicies, "", "\t")
 	if err != nil {
 		klog.Error()
 		return err
 	}
+	pm.Write("write-config/policy-marshal", float64(time.Since(start).Milliseconds()))
 	policyWriter, err := os.Create(oldpath)
 	if err != nil {
 		klog.Errorf("Failed to create new policy file %s", err.Error())
@@ -54,6 +58,7 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 		}
 		policyBytes = b.Bytes()
 	}
+	s := time.Now()
 	if _, err := policyWriter.Write(policyBytes); err != nil {
 		klog.Errorf("Write policy file failed %s", err.Error())
 		return err
@@ -62,5 +67,9 @@ func (nc *NginxController) updatePolicyFileRaw(ngxPolicies NgxPolicy, path strin
 	if err != nil {
 		return err
 	}
-	return os.Rename(oldpath, path)
+	if err := os.Rename(oldpath, path); err != nil {
+		return err
+	}
+	pm.Write("write-config/file-sync", float64(time.Since(s).Milliseconds()))
+	return nil
 }

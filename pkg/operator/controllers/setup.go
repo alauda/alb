@@ -13,11 +13,13 @@ func Setup(mgr ctrl.Manager, cfg config.OperatorCfg, log logr.Logger) error {
 	if err := (&depl.ALB2Reconciler{Client: mgr.GetClient(), OperatorCf: cfg, Log: log}).SetupWithManager(mgr); err != nil {
 		return err
 	}
-	if err := (g.NewGatewayReconciler(mgr.GetClient(), cfg, log)).SetupWithManager(mgr); err != nil {
-		return err
-	}
-	if err := (gc.NewGatewayClassReconciler(mgr.GetClient(), cfg, log)).SetupWithManager(mgr); err != nil {
-		return err
+	if cfg.Gateway {
+		if err := (g.NewGatewayReconciler(mgr.GetClient(), cfg, log)).SetupWithManager(mgr); err != nil {
+			return err
+		}
+		if err := (gc.NewGatewayClassReconciler(mgr.GetClient(), cfg, log)).SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 	return nil
 }

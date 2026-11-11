@@ -189,6 +189,13 @@ spec:
                     required:
                     - enable
                     type: object
+                  proxy_header:
+                    properties:
+                      use_forwarded_headers:
+                        type: boolean
+                    required:
+                    - use_forwarded_headers
+                    type: object
                   redirect:
                     properties:
                       code:

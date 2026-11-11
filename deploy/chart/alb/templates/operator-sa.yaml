@@ -7,3 +7,4 @@ imagePullSecrets:
 metadata:
   name: alb-operator
   namespace: {{.Values.global.namespace}}
+automountServiceAccountToken: false

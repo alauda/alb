@@ -3,7 +3,7 @@ kind: ModulePlugin
 metadata:
   annotations:
     cpaas.io/module-name: "alb"
-    cpaas.io/display-name: '{"en": "Alauda Container Platform (ACP) Ingress Gateway", "zh": "Alauda Container Platform (ACP) Ingress Gateway"}'
+    cpaas.io/display-name: '{"en": "Alauda Container Platform Ingress Gateway", "zh": "Alauda Container Platform Ingress Gateway"}'
     cpaas.io/built-in-plugin: "true"
   labels:
     cpaas.io/module-type: plugin
@@ -23,7 +23,7 @@ spec:
     chartVersions:
     - name: acp/chart-alauda-alb2
       releaseName: alauda-alb2
-      version: v3.19.0-beta.22.gad8523c5
+      version: v4.3.0-beta.23.g174b13df
   mainChart: acp/chart-alauda-alb2
   upgradeRiskLevel: High
   upgradeRiskDescription: "升级期间可能会短暂影响用户已部署的应用的访问."

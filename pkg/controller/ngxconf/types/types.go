@@ -21,6 +21,9 @@ type NginxTemplateConfig struct {
 	HttpExtra       string `yaml:"httpExtra"`
 	StreamExtra     string `yaml:"streamExtra"`
 	Flags           Flags  `yaml:"flags"` // render part of nginx.conf. used in AlaudaLib.pm
+	HTTPVar         string `yaml:"http_var"`
+	StreamVar       string `yaml:"stream_var"`
+	AllVar          string `yaml:"all_var"`
 }
 
 type FtConfig struct {
@@ -50,7 +53,6 @@ type MetricsConfig struct {
 
 type NginxParam struct {
 	EnablePrometheus bool   `yaml:"enablePrometheus"`
-	EnableIPV6       bool   `yaml:"enableIPV6"`
 	EnableHTTP2      bool   `yaml:"enableHTTP2"`
 	CPUNum           string `yaml:"cpuNum"`
 	MetricsPort      int    `yaml:"metricsPort"`

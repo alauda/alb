@@ -353,6 +353,8 @@ rootExtra: |
     env TEST_BASE;
     env ALB_LUA_UNIT_TEST_CASE;
     env ALB_LUA_TEST_CFG;
+    env EWMA_DEBUG;
+    worker_rlimit_nofile 10000000;
 streamExtra: |
     lua_package_path "$lua_path";
     $init_full
@@ -364,6 +366,16 @@ httpExtra: |
     $mock_backend
     $http_config
     $http_lua_test_full
+http_var: |
+    set \$first_forward_or_remote_addr "\$remote_addr";
+    set \$first_forward "";
+all_var: |
+    set \$svc_name "_";
+    set \$svc_ns "_";
+    set \$rule_id "_";
+    set \$alb_time "_";
+    set \$balancer_ewma_score -1;
+    set \$ctx_ref "";
 frontends: 
    udp_82:
      port: 82
@@ -394,6 +406,8 @@ frontends:
    http_80:
      port: 80     
      protocol: http
+     location: |
+        access_log  $ALB_BASE/servroot/logs/http_json.log  http_json buffer=16k flush=1s;
      ipV4BindAddress: [0.0.0.0]
 __END
     return $default_ngx_cfg;

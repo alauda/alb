@@ -217,14 +217,14 @@ func GenLocation(cms RefMap, r *ct.InternalRule) string {
 		cm = "modsecurity_rules '" + "\n" + cm + "\n" + "';"
 	}
 	coreruleset := ""
-	if waf.Raw.UseCoreRules {
-		coreruleset = "modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;"
-	}
+	// if waf.Raw.UseCoreRules {
+	// 	coreruleset = "modsecurity_rules_file /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf;"
+	// }
 	trans_id := ""
 	recommend := ""
-	if waf.Raw.UseRecommend {
-		recommend = "modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;"
-	}
+	// if waf.Raw.UseRecommend {
+	// 	recommend = "modsecurity_rules_file /etc/nginx/modsecurity/modsecurity.conf;"
+	// }
 	if waf.Raw.TransactionId != "" {
 		trans_id = fmt.Sprintf("modsecurity_transaction_id \"%s\";", waf.Raw.TransactionId)
 	}

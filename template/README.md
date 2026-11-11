@@ -1,8 +1,8 @@
 ## file structure
-Dockerfile: the docker file of nginx which alb used, image registry: build-harbor.alauda.cn/3rdparty/alb-nginx.  
-alb-test-runner.dockerfile: based on alb-nginx, env of test:nginx used in ci.  
-directory t: test files of alb/template/nginx/lua.  
-directory actions: scripts used in develop.  
+Dockerfile: the docker file of nginx which alb used, the base image is selected through the Dockerfile build arguments.
+alb-test-runner.dockerfile: based on alb-nginx, env of test:nginx used in ci.
+directory t: test files of alb/template/nginx/lua.
+directory actions: scripts used in develop.
 
 ## what template mean?
 it should be renamed as openresty or resty-app ..
@@ -26,24 +26,24 @@ it should be renamed as openresty or resty-app ..
 
 ### image changelog
 #### alb-nginx
-ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-nginx 
+ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-nginx
 
-alb-nginx:v3.6.0    
+alb-nginx:v3.6.0
 　　use openresty luajit
 
 alb-nginx:v3.6.1
 
-alb-nginx:20220118182511  
+alb-nginx:20220118182511
 　　use ops/alpine as base image, upgrade openssl version in openresty to 1.1.1l
 
-alb-nginx:20220317112016  
+alb-nginx:20220317112016
 　　upgrade base-image to 3.15
 
-alb-nginx:20220418150052  
+alb-nginx:20220418150052
 　　update base-image 3.15
 
 alb-nginx:20220424210109
-　　upgrade openresty to 1.19.9.1  
+　　upgrade openresty to 1.19.9.1
 　　upgrade openssl version in openresty to 1.1.1n
 
 alb-nginx:v3.9-57-gb40a7de
@@ -54,10 +54,10 @@ alb-nginx:v3.9-57-gb40a7de
 ### alb-nginx-test
 ci: https://build.alauda.cn/console-devops/workspace/acp/pipelines/all/alb-test-runner-image
 
-alb-nginx-test:20220117144539  
+alb-nginx-test:20220117144539
 　　add all needed to run test.
 
-alb-nginx-test:20220317113027  
+alb-nginx-test:20220317113027
 　　use alb-nginx:20220317112016.
 
 alb-nginx-test:20220407172357
@@ -83,19 +83,19 @@ l3 callback
 4. 当获取数据时，会因为配置被删除了，而去从l2上获取信息 或者调用callback？当调用完毕之后会将结果缓存在l1上
 
 当每次请求到达时 调用get_upstream 会
-1. cache.update 触发事件机制流程，如果其他worker有delete事件，这次update会导致自己的l1的cache中的过期的key被删掉 
+1. cache.update 触发事件机制流程，如果其他worker有delete事件，这次update会导致自己的l1的cache中的过期的key被删掉
 2. cache.get 获取对应端口的所有规则 并反序列化成lua的table 这是会更新l1
 3. 遍历规则并判断
 cache结构
-l2 http_policy 
+l2 http_policy
     port           each port
     all_policies   all policy
-l2 cert_cache 
+l2 cert_cache
     domain         each domain
     certificate_map all cert
 l2 http_backend_cache
     backend_group all backend
 master每隔1s
-1.fetch policy会更新l2的 rule_cache cert_cache 和 http_backend_cache 
+1.fetch policy会更新l2的 rule_cache cert_cache 和 http_backend_cache
 每个worker每隔1s
 从l2中获取http_backend_cache，同步到自己的balancers变量中

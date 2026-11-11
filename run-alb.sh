@@ -24,6 +24,8 @@ alb_init_sys() {
   ulimit -c 0
 }
 
+mkdir -p /etc/alb2/nginx/last_status/
+
 if [ -n "$TAIL_MODE" ]; then
   echo "tail mode wait forever"
   tail -f /dev/null
@@ -45,8 +47,10 @@ _term() {
 trap _term SIGTERM
 trap _term SIGQUIT
 
+ls -alh /alb/nginx/run/
+ls -alh /etc/alb2/nginx/
+
 umask 027
-mkdir -p /etc/alb2/nginx/last_status/
 /alb/ctl/alb &
 child=$!
 echo "child is $child"

@@ -1,0 +1,82 @@
+{{- if (.Capabilities.APIVersions.Has "ait.alauda.io/v1") }}
+{{- $alert_base_domain := "" -}}
+{{- $base_domain := "" -}}
+{{- if .Values.global.labelBaseDomain -}}
+{{- $alert_base_domain = printf ".%s" .Values.global.labelBaseDomain -}}
+{{- $base_domain = printf "%s/" .Values.global.labelBaseDomain -}}
+{{- end -}}
+apiVersion: ait.alauda.io/v1
+kind: AlertRule
+metadata:
+  annotations:
+    {{$base_domain}}description: '{"zh":"负载均衡器告警策略","en":"Alert Rules related to alb itself"}'
+    {{$base_domain}}display-name: '{"zh":"负载均衡器告警策略","en":"Alert Rules related to alb itself"}'
+    alert{{$alert_base_domain}}/notifications: '[{"namespace":"{{ .Values.global.namespace }}", "name":"cpaas-admin-notification"}]'
+    alert{{$alert_base_domain}}/alert.legend: '{"custom-q1ybx-fe8329b8e5e50adcc74107a462c9036c": "{{ printf "{{.service}}/{{.name}}" }}","custom-epkyj-f1026edfe98cd433f7f9307827fcc71f": "{{ printf "{{.service}}/{{.pod}}" }}" }'
+  labels:
+    alert{{$alert_base_domain}}/cluster: '{{ .Values.global.cluster.name }}'
+    alert{{$alert_base_domain}}/kind: Cluster
+    alert{{$alert_base_domain}}/name: '{{ .Values.global.cluster.name }}'
+    alert{{$alert_base_domain}}/namespace: '{{ .Values.global.namespace }}'
+    alert{{$alert_base_domain}}/owner: System
+    alert{{$alert_base_domain}}/project: ""
+    alert{{$alert_base_domain}}/built-in: 'true'
+    {{$base_domain}}source: Platform
+    prometheus: 'kube-prometheus'
+  name: cpaas-alb-rules
+  namespace: '{{ .Values.global.namespace }}'
+spec:
+  groups:
+  - name: general
+    rules:
+    - alert: custom-q1ybx-fe8329b8e5e50adcc74107a462c9036c
+      annotations:
+        alert_current_value: '{{ `{{$value}}` }}'
+        alert_notifications: '[]'
+        display_name: alb_lua_shared_dict_free
+      expr: (shared_dict_free{__VM__,}/shared_dict_capacity{__VM__,})<0.1
+      for: 30s
+      labels:
+        alert_cluster: '{{ .Values.global.cluster.name }}'
+        alert_for: 30s
+        alert_indicator: custom
+        alert_indicator_aggregate_range: "0"
+        alert_indicator_blackbox_name: ""
+        alert_indicator_comparison: <
+        alert_indicator_query: ""
+        alert_indicator_threshold: "0.1"
+        alert_indicator_unit: '%'
+        alert_involved_object_kind: Cluster
+        alert_involved_object_name: '{{ .Values.global.cluster.name }}'
+        alert_involved_object_namespace: ""
+        alert_involved_object_options: Single
+        alert_name: custom-q1ybx
+        alert_project: ""
+        display_name: alb_lua_shared_dict_free
+        severity: Medium
+    - alert: custom-epkyj-f1026edfe98cd433f7f9307827fcc71f
+      annotations:
+        alert_current_value: '{{ `{{$value}}` }}'
+        alert_notifications: '[]'
+        display_name: alb_loop_time
+      expr: alb_loop_time{__VM__,}>1000
+      for: 30s
+      labels:
+        alert_cluster: '{{ .Values.global.cluster.name }}'
+        alert_for: 30s
+        alert_indicator: custom
+        alert_indicator_aggregate_range: "0"
+        alert_indicator_blackbox_name: ""
+        alert_indicator_comparison: '>'
+        alert_indicator_query: ""
+        alert_indicator_threshold: "1000"
+        alert_indicator_unit: ms
+        alert_involved_object_kind: Cluster
+        alert_involved_object_name: '{{ .Values.global.cluster.name }}'
+        alert_involved_object_namespace: ""
+        alert_involved_object_options: Single
+        alert_name: custom-epkyj
+        alert_project: ""
+        display_name: alb_loop_time
+        severity: Medium
+{{- end }}

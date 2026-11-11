@@ -1,5 +1,4 @@
 local _m = {}
-local cache = require("config.cache")
 local json = require "cjson"
 local eh = require("error")
 local ngx_balancer = require "ngx.balancer"
@@ -19,7 +18,8 @@ end
 
 ---@param ctx AlbCtx
 function _m.balancer_hook(ctx)
-    local timeout_cfg, err = _m.get_config(ctx)
+    -- in balancer phase, we could not use cache to get config
+    local timeout_cfg, err = _m.get_config_from_policy(ctx)
     if err ~= nil or timeout_cfg == nil then
         return
     end
@@ -37,8 +37,16 @@ end
 ---@param ctx AlbCtx
 ---@return TimeoutCr?
 ---@return any? error
-function _m.get_config(ctx)
-    return cache.get_config_from_policy(ctx.matched_policy, "timeout")
+function _m.get_config_from_policy(ctx)
+    local policy = ctx.matched_policy
+    if policy == nil then
+        return nil, "no matched policy"
+    end
+    local config = policy.config
+    if config == nil then
+        return nil
+    end
+    return config["timeout"]
 end
 
 return _m

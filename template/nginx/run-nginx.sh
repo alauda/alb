@@ -5,6 +5,9 @@ if [ -n "$TAIL_MODE" ]; then
   tail -f /dev/null
 fi
 
+ls -alh /alb/nginx/run/
+ls -alh /etc/alb2/nginx/
+
 umask 027
 mkdir -p /alb/nginx/run
 openssl dhparam -dsaparam -out /etc/alb2/nginx/dhparam.pem 2048

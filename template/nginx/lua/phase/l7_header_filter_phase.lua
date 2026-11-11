@@ -11,7 +11,7 @@ local cors = require "cors"
 local rewrite_header = require "rewrite_header"
 
 cors.header_filter()
-rewrite_header.rewrite_response_header()
+rewrite_header.rewrite_response_header(matched_policy)
 if ngx.ctx.is_alb_err then
     return
 end

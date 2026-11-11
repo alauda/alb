@@ -39,6 +39,9 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles","clusterrolebindings"]
     verbs: ["get", "list", "watch","update", "patch","create","delete"]
+  - apiGroups: ["alauda.io"]
+    resources: ["alaudafeaturegates","clusteralaudafeaturegates"]
+    verbs: ["get", "list", "watch","update", "patch","create","delete"]
     # we need the permissions alb have, keep it as same as alb-clusterroles.json
   - apiGroups:
     - ''

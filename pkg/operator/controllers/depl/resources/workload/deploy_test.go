@@ -9,6 +9,8 @@ import (
 	"alauda.io/alb2/pkg/operator/config"
 	. "alauda.io/alb2/utils/test_utils"
 	"github.com/stretchr/testify/assert"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -69,4 +71,54 @@ func TestTemplate(t *testing.T) {
 	assert.Equal(t, "xx", dep.Spec.Template.Spec.Containers[0].Image)
 	assert.Equal(t, "alb.img", dep.Spec.Template.Spec.Containers[1].Image)
 	t.Logf("depl %v", PrettyCr(dep))
+}
+
+func TestVolume(t *testing.T) {
+	hostPathType := corev1.HostPathDirectoryOrCreate
+	vol := VolumeCfgFromDepl(&appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "c1",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									MountPath: "/tmp",
+									Name:      "test",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "test",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/tmp",
+									Type: &hostPathType,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	t.Logf("vol %v", PrettyCr(vol))
+	patch := `
+    {
+        "volumes":{
+            "nginx-log":{"name":"nginx-log","hostPath":{"path":"/var/log/alb/","type":"DirectoryOrCreate"}}
+        },
+        "mounts":{
+            "nginx":{
+                "nginx-log":"/var/log/alb/"
+         }
+        }
+    }
+`
+	err := patchVolumes(&vol, patch)
+	assert.NoError(t, err)
+	t.Logf("vol %v", PrettyCr(vol))
 }

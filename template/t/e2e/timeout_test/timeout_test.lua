@@ -54,20 +54,23 @@ local policy = {
     http = {
         tcp = {
             [80] = {
-                { plugins = { "timeout" }, rule = "1", internal_dsl = { { "STARTS_WITH", "URL", "/" } }, config = { refs = { timeout = "timeout-1" } }, upstream = "u1" },
+                { 
+                    plugins = { "timeout" },
+                    rule = "1",
+                    internal_dsl = { { "STARTS_WITH", "URL", "/" } },
+                    config = { 
+                        timeout = {
+                            proxy_connect_timeout_ms = 2500,
+                            proxy_send_timeout_ms = 2500,
+                            proxy_read_timeout_ms = 2500,
+                        },
+                    },
+                    upstream = "u1"
+                 }
             }
         }
     },
-    config = {
-        ["timeout-1"] = {
-            type = "timeout",
-            timeout = {
-                proxy_connect_timeout_ms = 2500,
-                proxy_send_timeout_ms = 2500,
-                proxy_read_timeout_ms = 2500,
-            }
-        },
-    },
+    config = {},
     backend_group = { { name = "u1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100 } }, } }
 }
 

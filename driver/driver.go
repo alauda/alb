@@ -50,7 +50,8 @@ type KubernetesDriver struct {
 type Opt struct {
 	Domain              string
 	Ns                  string // which alb cr exist
-	EnableCrossClusters bool   // TODO seems odd the add those flag here
+	EnableCrossClusters bool
+	IsGatewayEnabled    bool
 }
 
 type DrvOpt struct {
@@ -72,7 +73,7 @@ func NewDriver(opt DrvOpt) (*KubernetesDriver, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := initInformerAndLister(drv, opt.Ctx); err != nil {
+	if err := initInformerAndLister(drv, opt); err != nil {
 		return nil, err
 	}
 	drv.Opt = opt.Opt
@@ -111,6 +112,7 @@ func Cfg2opt(cfg *config.Config) Opt {
 		Domain:              cfg.GetDomain(),
 		Ns:                  cfg.GetNs(),
 		EnableCrossClusters: cfg.GetFlags().EnableCrossClusters,
+		IsGatewayEnabled:    cfg.Gateway.Enable,
 	}
 }
 
@@ -135,7 +137,10 @@ func GetAndInitKubernetesDriverFromCfg(ctx context.Context, cf *rest.Config) (*K
 
 func GetKubeCfgFromFile(f string) (*rest.Config, error) {
 	cf, err := clientcmd.BuildConfigFromFlags("", f)
-	return cf, err
+	if err != nil {
+		return nil, fmt.Errorf("invalid kubecfg %v %v", f, err)
+	}
+	return cf, nil
 }
 
 func GetKubeCfg(k8s config.K8sConfig) (*rest.Config, error) {

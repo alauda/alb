@@ -16,6 +16,7 @@ func AlbCrds() []string {
 	crds := []string{}
 	crds = append(crds, GetAlbBase()+"/deploy/chart/alb/crds")
 	crds = append(crds, GetAlbBase()+"/scripts/yaml/crds/extra/v1")
+	crds = append(crds, GetAlbBase()+"/scripts/yaml/crds/extra/gatewayapi")
 
 	return crds
 }

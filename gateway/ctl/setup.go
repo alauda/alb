@@ -23,10 +23,11 @@ var scheme = runtime.NewScheme()
 //nolint:errcheck
 func init() {
 	_ = k8sScheme.AddToScheme(scheme)
-	_ = gv1a2t.AddToScheme(scheme)
-	_ = gv1.AddToScheme(scheme)
 	_ = albType.AddToScheme(scheme)
 	_ = albv2Type.AddToScheme(scheme)
+
+	_ = gv1a2t.AddToScheme(scheme)
+	_ = gv1.AddToScheme(scheme)
 }
 
 func Run(ctx context.Context, cfg *config.Config) {

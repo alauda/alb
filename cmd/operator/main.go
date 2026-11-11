@@ -84,12 +84,29 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := ctrl.SetupSignalHandler()
-	if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
-		return controllers.StandAloneGatewayClassInit(ctx, operator, mgr.GetClient(), l)
-	})); err != nil {
-		l.Error(err, "add init runnable fail")
-		os.Exit(1)
+
+	if operator.Gateway {
+		if err := mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+			return controllers.StandAloneGatewayClassInit(ctx, operator, mgr.GetClient(), l)
+		})); err != nil {
+			l.Error(err, "add init runnable fail")
+			os.Exit(1)
+		}
+	} else {
+		controllers.StandAloneGatewayClassCleanup(ctx, mgr.GetConfig(), l)
 	}
+	go func() {
+		// 默认我们只设置功能开关,不会创建他.但是在新部署场景中,alb-operator可能早于功能开关创建.
+		// 所以这里轮询去设置功能开关为我们期望的状态
+		cfg := mgr.GetConfig()
+		l := l.WithName("alb-deactivate")
+		controllers.AlbDeactivate(ctx, cfg, l)
+		for {
+			time.Sleep(time.Minute * 10)
+			controllers.AlbDeactivate(ctx, cfg, l)
+		}
+	}()
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")

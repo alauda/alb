@@ -67,7 +67,7 @@ func (t *UdpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.F
 			t.log.Error(fmt.Errorf("we do not support multiple udp rules"), "port", port, "route", gateway.GetObjectKey(route))
 			continue
 		}
-		svcs, err := utils.BackendRefsToService(route.Spec.Rules[0].BackendRefs)
+		svcs, err := utils.BackendRefsToService(route.Spec.Rules[0].BackendRefs, route.GetNamespace())
 		if err != nil {
 			continue
 		}

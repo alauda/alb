@@ -14,10 +14,12 @@ local _M = {}
 --    }
 --    ]
 -- }
-
+---@param ep Backend
+---@return NodeKey
 function _M.node_key(ep)
     return ep.address .. ":" .. ep.port
 end
+
 function _M.get_nodes(backend)
     local nodes = {}
 

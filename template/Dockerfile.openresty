@@ -1,14 +1,11 @@
 # Dockerfile - alpine
 # copy from https://github.com/openresty/docker-openresty/blob/b11460903ac7e6111cf71a8014a048385caffd3b/alpine/Dockerfile
 
-ARG RESTY_IMAGE_BASE="build-harbor.alauda.cn/ops/alpine"
-ARG RESTY_IMAGE_TAG="3.21"
-
-FROM ${RESTY_IMAGE_BASE}:${RESTY_IMAGE_TAG}
+FROM alpine:3.21
 # those arg will be replace in alb-gh-build-nginx
-ARG RESTY_PCRE_BASE="http://prod-minio.alauda.cn/acp/pcre-8.45.tar.gz" 
-ARG MODSECURITY_BASE="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity-v3.0.13.tar.gz"
-ARG MODSECURITY_NGINX_BASE="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity-nginx.zip"
+ARG RESTY_PCRE_BASE="https://sourceforge.net/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download"
+ARG MODSECURITY_BASE="https://github.com/owasp-modsecurity/ModSecurity/archive/refs/tags/v3.0.13.tar.gz"
+ARG MODSECURITY_NGINX_BASE="https://github.com/owasp-modsecurity/ModSecurity-nginx/archive/refs/heads/master.zip"
 
 LABEL maintainer="congwu <congwu@alauda.io>"
 
@@ -107,7 +104,7 @@ RUN echo "build modsecurity" &&  cat /etc/resolv.conf &&  sed -i 's/dl-cdn.alpin
     && unzip ./modsecurity-nginx.zip \
     && rm -rf ./modsecurity-nginx.zip \
     && mv ./ModSecurity-nginx-master ./ModSecurity-nginx \
-    && apk del .build-deps 
+    && apk del .build-deps
 
 RUN echo "build" && apk add --no-cache --virtual .build-deps \
         build-base \
@@ -185,7 +182,7 @@ RUN echo "build" && apk add --no-cache --virtual .build-deps \
         openresty-${RESTY_VERSION}.tar.gz openresty-${RESTY_VERSION} \
     && apk del .build-deps \
     && rm -rf /tmp \
-    && mkdir -p /var/run/openresty 
+    && mkdir -p /var/run/openresty
 
 # Add additional binaries into PATH for convenience
 ENV PATH=$PATH:/usr/local/openresty/luajit/bin:/usr/local/openresty/nginx/sbin:/usr/local/openresty/bin

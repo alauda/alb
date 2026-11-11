@@ -353,6 +353,13 @@ spec:
                       items:
                         type: string
                       type: array
+                    proxy_header:
+                      properties:
+                        use_forwarded_headers:
+                          type: boolean
+                      required:
+                        - use_forwarded_headers
+                      type: object
                     readonlyFS:
                       type: boolean
                     reloadtimeout:
@@ -785,6 +792,13 @@ spec:
                       items:
                         type: string
                       type: array
+                    proxy_header:
+                      properties:
+                        use_forwarded_headers:
+                          type: boolean
+                      required:
+                        - use_forwarded_headers
+                      type: object
                     readonlyFS:
                       type: boolean
                     reloadtimeout:

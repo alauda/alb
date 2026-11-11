@@ -2,7 +2,7 @@
 
 local metrics = require("metrics")
 local pm = require("plugins.core.plugin_manager")
-
+local balancer = require("balancer.balance")
 -- request may jump to log phase directly (such like jumped via modsecurity)
 if not ngx.ctx.alb_ctx then
     return
@@ -11,3 +11,5 @@ metrics.log()
 if ngx.ctx.alb_ctx.matched_policy then
     pm.log_hook(ngx.ctx.alb_ctx)
 end
+
+balancer.log()

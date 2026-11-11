@@ -25,7 +25,7 @@ func (l GinkgoLogSink) Enabled(int) bool {
 }
 
 func (l GinkgoLogSink) log(msg string) {
-	fmt.Fprintf(ginkgo.GinkgoWriter, msg+"\n")
+	fmt.Fprintf(ginkgo.GinkgoWriter, "%s\n", msg)
 }
 
 func (l GinkgoLogSink) Info(level int, msg string, kv ...interface{}) {

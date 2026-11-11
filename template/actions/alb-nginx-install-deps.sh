@@ -30,12 +30,15 @@ if [ -z "$openresty" ]; then
   exit 1
 fi
 
+echo "------------ $openresty"
+
 function alb-ng-install-test-deps() (
   luarocks --lua-version 5.1 --tree $openresty/luajit install luacov
   luarocks --lua-version 5.1 --tree $openresty/luajit install cluacov
   luarocks --lua-version 5.1 install luacov
   luarocks --lua-version 5.1 install luacov-console
   luarocks --lua-version 5.1 install luacov-html
+  luarocks --lua-version 5.1 --tree $openresty/luajit install busted
 )
 
 function alb-ng-install-deps() (
@@ -50,7 +53,7 @@ function alb-ng-install-deps() (
   install-lua-protobuf
   install-opentelemetry-lua
   install-lua-resty-http
-  alb-ng-install-waf
+  # alb-ng-install-waf
   tree $openresty/lualib/resty
   tree /etc/nginx
 )
@@ -60,17 +63,14 @@ function alb-ng-install-waf() (
   # https://github.com/kubernetes/ingress-nginx/blob/c9743ae58599ad43236a7b28aea0f6bd8cd19c4a/images/nginx-1.25/rootfs/build.sh#L363
   mkdir -p /etc/nginx/modsecurity
   local recommended_conf_url_online="https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v3/master/modsecurity.conf-recommended"
-  local recommended_conf_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/modsecurity.conf-recommended"
   # f82971c3764647d751372fa423bd56fe  ./modsecurity.conf-recommended
-  local recommended_url=$(_alb_lua_switch "$recommended_conf_url_online" "$recommended_conf_url_offline")
+  local recommended_url="$recommended_conf_url_online"
 
   local coreruleset_url_online="https://codeload.github.com/coreruleset/coreruleset/zip/refs/tags/v$OWASP_MODSECURITY_CRS_VERSION"
-  local coreruleset_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/coreruleset-4.4.0.zip"
-  local coreruleset_url=$(_alb_lua_switch "$coreruleset_url_online" "$coreruleset_url_offline")
+  local coreruleset_url="$coreruleset_url_online"
 
   local unicode_mapping_url_online="https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v3/master/unicode.mapping"
-  local unicode_mapping_url_offline="http://prod-minio.alauda.cn/acp/ci/alb/build/unicode.mapping"
-  local unicode_mapping_url=$(_alb_lua_switch "$unicode_mapping_url_online" "$unicode_mapping_url_offline")
+  local unicode_mapping_url="$unicode_mapping_url_online"
 
   rm -rf /etc/nginx/modsecurity || true
   rm -rf /etc/nginx/owasp-modsecurity-crs || true
@@ -158,9 +158,8 @@ function install-lua-resty-http() (
   local ver="$LUA_RESTY_HTTP"
 
   local online="https://codeload.github.com/ledgetech/lua-resty-http/zip/refs/tags/v$ver"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-http-$ver.zip"
   local name="lua-resty-http"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -182,9 +181,8 @@ function install-opentelemetry-lua() (
   # 77f4488e669c80d53c3d9977f35017ed  ./opentelemetry-lua-0.2.6.zip
   local ver="$OPENTELEMETRY_LUA"
   local online="https://codeload.github.com/yangxikun/opentelemetry-lua/zip/refs/tags/v$ver"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/opentelemetry-lua-$ver.zip"
   local name="opentelemetry-lua"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -205,8 +203,7 @@ function install-opentelemetry-lua() (
 function install-lua-resty-mlcache() (
   # md5sum   ./lua-resty-mlcache-2.5.0.opm.tar ea5d142ffef2bea41ea408ef9aa94033
   local online="https://opm.openresty.org/api/pkg/fetch?account=thibaultcha&name=lua-resty-mlcache&op=eq&version=$LUA_RESTY_MLCACHE_VERSION"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   wget $url -O ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   tar -x -f ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm.tar
   cp -r ./lua-resty-mlcache-$LUA_RESTY_MLCACHE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
@@ -217,8 +214,7 @@ function install-lua-resty-cookie() (
   # https://github.com/xiangnanscu/lua-resty-cookie
   # md5sum ./lua-resty-cookie-0.01.opm.tar cfd011d1eb1712b47abd9cdffb7bc90b
   local online="https://opm.openresty.org/api/pkg/fetch?account=xiangnanscu&name=lua-resty-cookie&op=eq&version=$LUA_RESTY_COOKIE_VERSION"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   wget $url -O ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   tar -x -f ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm.tar
   cp -r ./lua-resty-cookie-$LUA_RESTY_COOKIE_VERSION.opm/lib/resty/* $openresty/site/lualib/resty
@@ -227,8 +223,7 @@ function install-lua-resty-cookie() (
 
 function install-lua-resty-balancer() (
   local online="https://github.com/openresty/lua-resty-balancer/archive/v${LUA_RESTY_BALANCER_VERSION}.tar.gz"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-resty-balancer-v${LUA_RESTY_BALANCER_VERSION}.tar.gz"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   local ver="${LUA_RESTY_BALANCER_VERSION}"
   wget "$url" -O lua-resty-balancer-v$ver.tar.gz
   tar xzf lua-resty-balancer-v$ver.tar.gz && rm -rf lua-resty-balancer-v$ver.tar.gz
@@ -242,8 +237,7 @@ function install-lua-resty-balancer() (
 
 function install-lua-var-nginx-module() (
   local online="https://github.com/api7/lua-var-nginx-module/archive/v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-var-nginx-module-v${LUA_VAR_NGINX_MODULE_VERSION}.tar.gz"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   local ver="${LUA_VAR_NGINX_MODULE_VERSION}"
   wget $url -O lua-var-nginx-module-v$ver.tar.gz
   tar xzf lua-var-nginx-module-v$ver.tar.gz
@@ -256,10 +250,9 @@ function install-lua-var-nginx-module() (
 )
 
 function install-lua-protobuf() (
-  local offline="http://prod-minio.alauda.cn/acp/ci/alb/build/lua-protobuf-$LUA_PROTOBUF.zip"
   local online="https://codeload.github.com/starwing/lua-protobuf/zip/refs/tags/$LUA_PROTOBUF"
   local name="lua-protobuf"
-  local url=$(_alb_lua_switch $online $offline)
+  local url="$online"
   if [[ "$1" == "online" ]]; then
     url=$online
   fi
@@ -272,6 +265,30 @@ function install-lua-protobuf() (
   luarocks --lua-version 5.1 --tree $openresty/luajit make --deps-mode none ./rockspecs/lua-protobuf-scm-1.rockspec
   cd ../../
   rm -rf ./lua-protobuf
+  return
+)
+
+function install-lua-busted() (
+  local online="https://github.com/lunarmodules/busted/archive/refs/tags/v2.2.0.zip"
+  local name="busted"
+  local verison="2.2.0"
+  #   local spec_name="busted-scm-1.rockspec"
+  local url="$online"
+  local url="$online"
+  #   if [[ "$1" == "online" ]]; then
+  #     url=$online
+  #   fi
+  rm -rf ./$name || true
+  mkdir -p ./$name
+  cd ./$name
+  wget $url -O $name-$verison.zip
+  unzip $name-$verison.zip
+  cd ./$name-$verison
+  ls
+  luarocks --lua-version 5.1 --tree $openresty/luajit make ./busted-scm-1.rockspec
+  cd ../../
+  rm -rf ./$name
+  return
   return
 )
 

@@ -128,6 +128,9 @@ http {
 
         include    {{$.TweakBase}}/http_server.conf;
 
+        {{$.AllVar}}
+        {{$.HTTPVar}}
+
         {{ range $_, $loc := $ft.CustomLocation -}}
         location @{{ $loc.Name }} {
             internal;
@@ -156,6 +159,12 @@ http {
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
             {{- end }}
         }
+
+        error_page 500 502 503 504 404 @custom_error;
+        location @custom_error {
+            internal;
+            content_by_lua_file {{$.NginxBase}}/lua/phase/error_page_phase.lua;
+        }
     }
     {{ end }}
     {{ end }}
@@ -177,6 +186,9 @@ http {
         server_name _;
 
         include    {{$.TweakBase}}/http_server.conf;
+
+        {{$.AllVar}}
+        {{$.HTTPVar}}
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -216,6 +228,12 @@ http {
             log_by_lua_file {{$.NginxBase}}/lua/phase/log_phase.lua;
             {{- end }}
         }
+
+        error_page 500 502 503 504 404 @custom_error;
+        location @custom_error {
+            internal;
+            content_by_lua_file {{$.NginxBase}}/lua/phase/error_page_phase.lua;
+        }
     }
     {{ end }}
     {{ end }}
@@ -232,6 +250,8 @@ http {
         http2 on;
 
         include    {{$.TweakBase}}/grpc_server.conf;
+
+        {{$.AllVar}}
 
         location / {
             set $location_mode root;
@@ -262,6 +282,8 @@ http {
         http2 on;
 
         include    {{$.TweakBase}}/grpc_server.conf;
+
+        {{$.AllVar}}
 
         set $placeholder_crt "";
         ssl_certificate $placeholder_crt;
@@ -313,6 +335,9 @@ stream {
     {{ range $_, $ft := .Frontends }}
     {{ if eq $ft.Protocol "tcp" }}
     server {
+        {{$.AllVar}}
+        {{$.StreamVar}}
+
         include   {{$.TweakBase}}/stream-tcp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
         listen    {{$address}}:{{$ft.Port}} {{$ft.Listen}};
@@ -330,6 +355,9 @@ stream {
     {{ range $port, $ft := .Frontends -}}
     {{ if eq $ft.Protocol "udp" -}}
     server {
+        {{$.AllVar}}
+        {{$.StreamVar}}
+
         include   {{$.TweakBase}}/stream-udp.conf;
         {{ range  $address := $ft.IpV4BindAddress -}}
         listen    {{$address}}:{{$ft.Port}} udp {{$ft.Listen}};

@@ -47,10 +47,13 @@ func NewAlbOperatorExt(ctx context.Context, base string, kubecfg *rest.Config, l
 	kubectl := NewKubectl(base, kubecfg, log)
 	cli, err := cliu.GetClient(ctx, kubecfg, cliu.InitScheme(runtime.NewScheme()))
 	GinkgoNoErr(err)
+
+	operatorCfg := &config.DEFAULT_OPERATOR_CFG
+	operatorCfg.Gateway = true
 	return &AlbOperatorExt{
 		ctx:          ctx,
 		base:         base,
-		operatorCfg:  &config.DEFAULT_OPERATOR_CFG,
+		operatorCfg:  operatorCfg,
 		adminKubeCfg: kubecfg,
 		kubectl:      kubectl,
 		adminClient:  cli,

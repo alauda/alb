@@ -40,7 +40,7 @@ var _ = Describe("common", func() {
 					IpV6BindAddress: []string{"[::1]", "[::2]"},
 				},
 			},
-			NginxParam: NginxParam{EnableIPV6: true},
+			NginxParam: NginxParam{},
 			Flags:      DefaulNgxTmplFlags(),
 		}
 		configStr, err := RenderNginxConfigEmbed(config)
@@ -66,7 +66,7 @@ var demo = NginxTemplateConfig{
 		},
 	},
 	Flags:      DefaulNgxTmplFlags(),
-	NginxParam: NginxParam{EnableIPV6: true},
+	NginxParam: NginxParam{},
 }
 
 var _ = DescribeTable("ngx config should work",

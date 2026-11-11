@@ -14,6 +14,7 @@ function _M.test()
     require("unit.replace_prefix_match_test").test()
     require("unit.cert_test").test()
     require("unit.cors_test").test()
+    require("unit.s_ext_test").test()
     require("unit.common_test").test()
     require("unit.plugins.auth.auth_unit_test").test()
 end

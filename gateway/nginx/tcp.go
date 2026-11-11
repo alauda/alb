@@ -69,9 +69,9 @@ func (t *TcpProtocolTranslate) TransLate(ls []*ngxtype.Listener, ftMap ngxtype.F
 			Protocol: albv1.FtProtocolTCP,
 		}
 		// TODO we do not support multiple tcp rules
-		svcs, err := utils.BackendRefsToService(tcpRoute.Spec.Rules[0].BackendRefs)
+		svcs, err := utils.BackendRefsToService(tcpRoute.Spec.Rules[0].BackendRefs, tcpRoute.GetNamespace())
 		if err != nil {
-			return nil
+			return err
 		}
 		name := fmt.Sprintf("%v-%v-%v", port, tcpRoute.Namespace, tcpRoute.Name)
 		backendGroup := &ctltype.BackendGroup{

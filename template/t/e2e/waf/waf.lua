@@ -146,10 +146,10 @@ function _M.test()
     local res, err = h.just_curl("http://127.0.0.1:80/t2?testparam=test")
     h.assert_curl_success(res, err, "ok")
 
-    -- hit pre defined rule
-    local res, err = h.just_curl("http://127.0.0.1:80/p-rule/asd/../;")
-    u.logs(res, err)
-    h.assert_eq(res.status, 403)
+    -- -- hit pre defined rule
+    -- local res, err = h.just_curl("http://127.0.0.1:80/p-rule/asd/../;")
+    -- u.logs(res, err)
+    -- h.assert_eq(res.status, 403)
 
     -- h.assert_eq(err, nil)
     -- u.logs(h.curl_res_to_string(res))

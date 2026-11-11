@@ -37,6 +37,34 @@ function _M.remove_prefix(s, prefix)
     return s
 end
 
+--- trim prefix space
+--- @param str string
+-- @return string
+function _M.trim_space(str)
+    if type(str) ~= "string" then
+        return str
+    end
+    local startPos = 1
+    local endPos   = #str
+    local whitespace = " \t\n\r\f\v" -- 定义空白字符集合
+
+    -- 从开头查找第一个非空白字符
+    while startPos <= endPos and string.find(whitespace, string.sub(str, startPos, startPos), 1, true) do
+        startPos = startPos + 1
+    end
+
+    -- 从末尾查找第一个非空白字符
+    while endPos >= startPos and string.find(whitespace, string.sub(str, endPos, endPos), 1, true) do
+        endPos = endPos - 1
+    end
+
+    if startPos > endPos then -- 如果字符串为空或只包含空白
+        return ""
+    else
+        return string.sub(str, startPos, endPos)
+    end
+end
+
 --- split string to lines and grep the lines with regex
 --- @param s string
 --- @param regex string

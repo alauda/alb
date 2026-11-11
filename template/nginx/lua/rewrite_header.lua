@@ -8,8 +8,11 @@ local string_len = string.len
 
 local _M = {}
 
-function _M.rewrite_response_header()
-    local matched_policy = ngx.ctx.matched_policy
+function _M.rewrite_response_header(policy)
+    if policy == nil then
+        return
+    end
+    local matched_policy = policy
     if not common.has_key(matched_policy, {"config", "rewrite_response"}) then
         return
     end

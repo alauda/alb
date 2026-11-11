@@ -8,6 +8,9 @@ local ev = require "vendor.events"
 
 local _M = {}
 
+local CACHE_TTL = tonumber(os.getenv("CACHE_TTL")) or 60
+ngx.log(ngx.INFO, "CACHE_TTL: ", CACHE_TTL)
+
 function _M.init_mlcache(name, shared_dict, opt)
     local c, err = mlcache.new(name, shared_dict, opt)
     if not c then
@@ -49,8 +52,10 @@ function _M.init_l4()
         ngx.log(ngx.ERR, "failed to start event system: ", err)
         return
     end
-    cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", { lru_size = 2000, ttl = 30, neg_ttl = 5, ipc = ipc })
-    cache.init_mlcache("config_cache", subsystem .. "_alb_cache", { lru_size = 500, ttl = 60, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("rule_cache", subsystem .. "_alb_cache",
+        { lru_size = 2000, ttl = CACHE_TTL, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("config_cache", subsystem .. "_alb_cache",
+        { lru_size = 500, ttl = CACHE_TTL, neg_ttl = 5, ipc = ipc })
 end
 
 function _M.init_l7()
@@ -68,11 +73,14 @@ function _M.init_l7()
         return
     end
 
-    cache.init_mlcache("rule_cache", subsystem .. "_alb_cache", { lru_size = 2000, ttl = 60, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("rule_cache", subsystem .. "_alb_cache",
+        { lru_size = 2000, ttl = CACHE_TTL, neg_ttl = 5, ipc = ipc })
 
-    cache.init_mlcache("cert_cache", subsystem .. "_alb_cache", { lru_size = 500, ttl = 60, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("cert_cache", subsystem .. "_alb_cache",
+        { lru_size = 500, ttl = CACHE_TTL, neg_ttl = 5, ipc = ipc })
 
-    cache.init_mlcache("config_cache", subsystem .. "_alb_cache", { lru_size = 500, ttl = 60, neg_ttl = 5, ipc = ipc })
+    cache.init_mlcache("config_cache", subsystem .. "_alb_cache",
+        { lru_size = 500, ttl = CACHE_TTL, neg_ttl = 5, ipc = ipc })
 end
 
 ---gen_rule_key

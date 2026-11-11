@@ -16,6 +16,8 @@ local replace = require "replace_prefix_match"
 local e = require "error"
 local pm = require("plugins.core.plugin_manager")
 local cors = require "cors"
+local proxy_header_ctl = require "phase.l7_rewrite.proxy_header"
+local stash_ctx = require "ctx.stash_ctx"
 
 local function set_cors(matched_policy)
     local enable_cors = matched_policy["enable_cors"]
@@ -73,6 +75,7 @@ local function set_rewrite_url(matched_policy)
 end
 
 local function do_l7_rewrite()
+    stash_ctx.stash_ref(ngx.ctx)
     ngx.ctx.alb_ctx = actx.new()
     -- entrypoint of l7 req
     -- ngx_var.protocol is nil in http subsystem
@@ -105,6 +108,7 @@ local function do_l7_rewrite()
     ngx.ctx.matched_policy = matched_policy
     ngx.ctx.upstream = t_upstream
     ngx.ctx.alb_ctx.matched_policy = matched_policy
+    ngx.var.rule_id = actx.gen_rule_id()
 
     -- redirect可以直接阻断后端的配置。比较特殊
     -- 所以需要先执行redirect，在处理其他的plugin
@@ -118,6 +122,7 @@ local function do_l7_rewrite()
     set_backend_protocol(matched_policy)
     set_vhost(matched_policy)
     set_rewrite_url(matched_policy)
+    proxy_header_ctl.set_proxy_header(ngx.ctx.alb_ctx)
     rewrite_header.rewrite_request_header()
     pm.after_rule_match_hook(ngx.ctx.alb_ctx)
 end

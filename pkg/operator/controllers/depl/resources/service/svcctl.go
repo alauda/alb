@@ -13,6 +13,7 @@ import (
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	"alauda.io/alb2/utils"
 	mapset "github.com/deckarep/golang-set/v2"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -309,9 +310,36 @@ func (s *SvcCtl) patchLbSvcDefaultConfig(svc *corev1.Service, alb *a2t.ALB2, alb
 	if albcfg.Vip.AllocateLoadBalancerNodePorts != nil {
 		enable = *albcfg.Vip.AllocateLoadBalancerNodePorts
 	}
-	// svc.Spec.SessionAffinityConfig
 	svc.Spec.AllocateLoadBalancerNodePorts = &enable
+	s.ApplyLbSvcPatch(svc, alb)
 	return !reflect.DeepEqual(origin, svc)
+}
+
+func (s *SvcCtl) ApplyLbSvcPatch(svc *corev1.Service, alb *a2t.ALB2) {
+	label := "alb.cpaas.io/lbsvc-json-patch"
+	if alb.Annotations == nil || alb.Annotations[label] == "" {
+		return
+	}
+	patch_raw := alb.Annotations[label]
+	patch, err := jsonpatch.DecodePatch([]byte(patch_raw))
+	if err != nil {
+		s.log.Error(err, "patch lbsvc fail decode patch")
+		return
+	}
+	original, err := json.Marshal(svc)
+	if err != nil {
+		s.log.Error(err, "patch lbsvc fail marsh")
+		return
+	}
+	modified, err := patch.Apply(original)
+	if err != nil {
+		s.log.Error(err, "patch lbsvc fail apply patch")
+		return
+	}
+	if err := json.Unmarshal(modified, svc); err != nil {
+		s.log.Error(err, "patch lbsvc fail unmarshal")
+		return
+	}
 }
 
 func (s *SvcCtl) findNeedDeleteAnnotation(origin map[string]string, latest map[string]string) []string {

@@ -150,7 +150,7 @@ func (h *HttpProtocolTranslate) generateHttpRule(ctx HttpCtx) (*ctltype.Internal
 	rule.DSLX = dslx
 
 	rule.BackendProtocol = "$http_backend_protocol"
-	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
+	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs), route.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func (h *HttpProtocolTranslate) generateHttpsRule(ctx HttpsCtx) (*ctltype.Intern
 	rule.DSLX = dslx
 
 	rule.BackendProtocol = "$http_backend_protocol"
-	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs))
+	svcs, err := nu.BackendRefsToService(pickHttpBackendRefs(gRule.BackendRefs), route.GetNamespace())
 	if err != nil {
 		return nil, err
 	}

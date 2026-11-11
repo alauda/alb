@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
@@ -12,6 +13,47 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func TestPatchLbsvc(t *testing.T) {
+	alb := &a2t.ALB2{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			Annotations: map[string]string{
+				"b": "1",
+			},
+		},
+	}
+	cf := cfg.Config{
+		ALB: cfg.ALB2Config{},
+		Operator: cfg.OperatorCfg{
+			BaseDomain: "cpaas.io",
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Annotations: map[string]string{},
+		},
+	}
+	svc_ctl := NewSvcCtl(context.TODO(), nil, ConsoleLog(), cf.Operator)
+	origin := svc.DeepCopy()
+	t.Log("case 1")
+	alb.Annotations["alb.cpaas.io/lbsvc-json-patch"] = `[{"op":"replace","path":"/spec/externalTrafficPolicy","value":"Cluster"}]`
+	svc_ctl.ApplyLbSvcPatch(svc, alb)
+	t.Log(PrettyCr(svc))
+	assert.True(t, !reflect.DeepEqual(origin, svc), "case1 fail")
+	case_1 := svc.DeepCopy()
+	t.Log("case 2")
+	alb.Annotations["alb.cpaas.io/lbsvc-json-patch"] = `[{"op":"replace","path":"/spec/externalTrafficPolicy","value":"Cluster"}]`
+	svc_ctl.ApplyLbSvcPatch(svc, alb)
+	t.Log(PrettyCr(svc))
+	assert.True(t, reflect.DeepEqual(case_1, svc))
+	t.Log("case 3")
+	alb.Annotations["alb.cpaas.io/lbsvc-json-patch"] = `[{"op":"replace","path":"/spec/externalTrafficPolicy","value":"Local"},{"op":"replace","path":"/spec/internalTrafficPolicy","value":"Cluster"}]`
+	svc_ctl.ApplyLbSvcPatch(svc, alb)
+	t.Log(PrettyCr(svc))
+	assert.True(t, !reflect.DeepEqual(case_1, svc))
+}
 
 func TestUpdateLbSvcAnnotation(t *testing.T) {
 	tests := []struct {

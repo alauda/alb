@@ -4,9 +4,6 @@ metadata:
   name: "alb-operator-ctl"
   namespace: {{ .Values.global.namespace }}
   annotations:
-    {{- if .Values.defaultAlb }}
-    helm.sh/waitResources: '[{"apiVersion": "apps/v1", "kind": "Deployment", "namespace": "{{ .Values.global.namespace }}", "name": "{{.Values.loadbalancerName}}"}]'
-    {{- end }}
     deploy-mode: "deployment"
 spec:
   strategy:
@@ -14,7 +11,7 @@ spec:
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 1
-  replicas: {{ .Values.operatorReplicas }}
+  replicas: {{ .Values.operator.operatorReplicas }}
   selector:
     matchLabels:
       name: alb-operator
@@ -23,10 +20,19 @@ spec:
       labels:
         name: alb-operator
     spec:
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      automountServiceAccountToken: true
       serviceAccountName: alb-operator
       nodeSelector:
         kubernetes.io/os: linux
-        {{- range $key, $value := .Values.global.nodeSelector }}
+        {{- $nodeSelector := .Values.global.nodeSelector }}
+        {{- if .Values.operator.nodeSelector }}
+        {{- $nodeSelector = .Values.operator.nodeSelector }}
+        {{- end }}
+        {{- range $key, $value := $nodeSelector }}
         {{ $key | quote }}: {{ $value | quote  }}
         {{- end }}
       affinity:
@@ -52,6 +58,8 @@ spec:
               value: "{{ .Values.operator.albImagePullPolicy }}"
             - name: LABEL_BASE_DOMAIN
               value: "{{ .Values.global.labelBaseDomain }}"
+            - name: GATEWAY_ENABLE
+              value: "{{ .Values.operator.gatewayEnable }}"
             - name: MY_POD_NAME
               valueFrom:
                 fieldRef:
@@ -75,23 +83,13 @@ spec:
             runAsNonRoot: true
             runAsUser: 697
             readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false  
+            allowPrivilegeEscalation: false
           resources:
             requests:
               cpu: 200m
               ephemeral-storage: 500Mi
               memory: 256Mi
             limits:
-              cpu: 1 
-              memory: 1Gi 
+              cpu: 1
+              memory: 1Gi
               ephemeral-storage: 500Mi
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/cpaas-system
-          operator: Exists

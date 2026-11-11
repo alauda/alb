@@ -87,6 +87,22 @@ spec:
       proxy_connect_timeout_ms: 3000
       proxy_read_timeout_ms: 3000
 ---
+apiVersion: crd.alauda.io/v1
+kind: Frontend
+metadata:
+  name: alb-t-00082
+  labels:
+    "alb2.cpaas.io/name": "alb-t"
+spec:
+  port: 82
+  protocol: tcp
+  serviceGroup:
+    services:
+    - name: demo
+      namespace: default
+      port: 80
+      weight: 100
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -141,8 +157,7 @@ spec:
 			policy.CertificateMap = nil
 			GinkgoNoErr(err)
 			l.Info("policy", "policy", u.PrettyJson(policy))
-			// policy应该有3个timeout的配置
-			GinkgoAssertTrue(len(policy.SharedConfig) == 3, "")
+			GinkgoAssertTrue(len(policy.SharedConfig) == 0, "")
 			// 81端口(4层)的也有timeout
 			GinkgoAssertTrue(policy.Stream.Tcp[v1.PortNumber(81)][0].Config.Timeout != nil, "")
 		})

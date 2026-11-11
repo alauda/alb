@@ -14,6 +14,7 @@ import (
 	. "alauda.io/alb2/pkg/operator/toolkit"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/openlyinc/pointy"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -156,9 +157,11 @@ func (r *RbacCtl) GenServiceAccount(sa *corev1.ServiceAccount) *corev1.ServiceAc
 				Name:      fmt.Sprintf(FMT_SA, r.cfg.ALB.Name),
 				Namespace: r.cfg.ALB.Ns,
 			},
-			ImagePullSecrets: secrets,
+			ImagePullSecrets:             secrets,
+			AutomountServiceAccountToken: pointy.Bool(false),
 		}
 	}
+	sa.AutomountServiceAccountToken = pointy.Bool(false)
 	refLabel := ALB2ResourceLabel(r.cfg.ALB.Ns, r.cfg.ALB.Name, r.cfg.Operator.Version)
 	sa.Labels = MergeMap(sa.Labels, refLabel)
 	return sa

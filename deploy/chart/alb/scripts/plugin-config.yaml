@@ -13,6 +13,35 @@ valuesTemplates:
     <<- $nodeSelector := (printf "cpaas-system-alb: %s" (quote "")) >>
     <<- $projects := .SystemNamespace >>
 
+    <<- $addressType := index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-address-type" >>
+    <<- $albNetworkMode := index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-networkmode" >>
+    <<- $albNeedVip := index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-need-vip" >>
+
+    <<- $needVip := (or (eq .ProvisionType "Registered") (and (ne .ClusterType "DCS") (ne .ClusterType "Baremetal") (ne .ClusterType "OCP") (ne .ClusterType "Imported"))) >>
+    <<- $networkMode := "container" >>
+
+    <<- if or (eq $addressType "ClusterAddress") (eq $albNetworkMode "host") >>
+      <<- $needVip = false >>
+    <<- end >>
+
+    <<- if eq $albNetworkMode "container" >>
+      <<- $needVip = true >>
+      <<- $networkMode = "container" >>
+    <<- end >>
+
+    <<- if $albNeedVip >>
+      <<- if (eq $albNeedVip "true") >>
+        <<- $needVip = true >>
+      <<- else if (eq $albNeedVip "false") >>
+        <<- $needVip = false >>
+      <<- end >>
+    <<- end >>
+
+
+    <<- $enableLbSvc := (ne .ProvisionType "Registered") >>
+    <<- $needLbSvcAnnotations := (and (ne .ProvisionType "Registered") (eq .ClusterType "HuaweiCloudCCE")) >>
+    <<- $needHuaweiLbSvcAnnotations := (and (ne .ProvisionType "Registered") (eq .ClusterType "HuaweiCloudCCE")) >>
+
     <<- if eq .ClusterName "global" >>
       <<- if (and (eq .ClusterType "Baremetal") (eq .Base.DeployType "ImportedGlobal")) >>
         <<- $nodeSelector = (printf "node-role.kubernetes.io/control-plane: %s" (quote "")) >>
@@ -46,6 +75,12 @@ valuesTemplates:
     <<- end >>
 
     replicas: << $replicas >>
+    <<- if (index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-bind-nic") >>
+    bindNIC: << (printf "'%s'" (index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-bind-nic")) >>
+    <<- end >>
+    <<- if (index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-enable-ipv6") >>
+    enableIPV6: << (printf "%s" (index .Cluster.ObjectMeta.Annotations "cpaas.io/alb-enable-ipv6")) >>
+    <<- end >>
     address: << $address >>
     defaultSSLCert: << $defaultSSLCert >>
     defaultSSLStrategy: << $defaultSSLStrategy >>
@@ -58,16 +93,17 @@ valuesTemplates:
     loadbalancerName: << $loadbalancerName >>
     projects:
       - << $projects >>
-    <<- if (and (ne .ProvisionType "Registered") (or (eq .ClusterType "Baremetal") (eq .ClusterType "OCP") (eq .ClusterType "Imported") ) ) >>
+    <<- if (and (ne .ProvisionType "Registered") (or (eq .ClusterType "DCS") (eq .ClusterType "Baremetal") (eq .ClusterType "OCP") (eq .ClusterType "Imported") ) ) >>
     nodeSelector:
       << $nodeSelector >>
     <<- end >>
-    <<- if (or (eq .ProvisionType "Registered") (and (ne .ClusterType "Baremetal") (ne .ClusterType "OCP") (ne .ClusterType "Imported"))) >>
+    <<- if $needVip >>
     vip:
       allocateLoadBalancerNodePorts: true
-      enableLbSvc: << ne .ProvisionType "Registered" >>
-      <<- if (and (ne .ProvisionType "Registered") (eq .ClusterType "HuaweiCloudCCE")) >>
+      enableLbSvc: << $enableLbSvc >>
+      <<- if $needLbSvcAnnotations >>
       lbSvcAnnotations:
+        <<- if $needHuaweiLbSvcAnnotations >>
         kubernetes.io/elb.class: union
         kubernetes.io/elb.autocreate: '{
           "type": "public",
@@ -80,7 +116,8 @@ valuesTemplates:
         kubernetes.io/elb.lb-algorithm: ROUND_ROBIN
         kubernetes.io/elb.health-check-flag: 'on'
         kubernetes.io/elb.health-check-option: '{"protocol":"TCP","delay":"5","timeout":"10","max_retries":"3"}'
+        <<- end >>
       lbSvcIpFamilyPolicy: SingleStack
       <<- end >>
-    networkMode: container
+    networkMode: << $networkMode >>
     <<- end >>

@@ -7,6 +7,7 @@ import (
 	"alauda.io/alb2/driver"
 	"alauda.io/alb2/gateway"
 	"alauda.io/alb2/gateway/nginx/types"
+	. "alauda.io/alb2/gateway/utils"
 	"alauda.io/alb2/utils"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -98,11 +99,11 @@ func (d *Driver) ListListener(sel config.GatewaySelector) ([]*types.Listener, er
 		statusMap := map[ListenerKey]gv1.RouteParentStatus{}
 		routeKey := client.ObjectKeyFromObject(r.GetObject())
 		for _, status := range GetStatus(r) {
-			statusMap[RefToKey(status.ParentRef)] = status
+			statusMap[ListenerKey(RefToKey(status.ParentRef, r.GetObject().GetNamespace()))] = status
 		}
 		// route refs to ls and this route is ready
 		for _, ref := range r.GetSpec().ParentRefs {
-			key := RefToKey(ref)
+			key := ListenerKey(RefToKey(ref, r.GetObject().GetNamespace()))
 			ls, find := lsMap[key]
 			if !find {
 				// not ref to use
@@ -214,26 +215,7 @@ func listRoutes(kd *driver.KubernetesDriver) ([]gateway.CommonRoute, error) {
 	return ret, nil
 }
 
-func IsRouteReady(status []gv1.RouteParentStatus, key client.ObjectKey, name string, generation int64) (bool, string) {
-	for _, s := range status {
-		if gateway.IsRefToListener(s.ParentRef, key, name) {
-			for _, c := range s.Conditions {
-				if c.ObservedGeneration == generation && c.Type == "Ready" && c.Status == "True" {
-					return true, ""
-				}
-			}
-			return true, ""
-		}
-	}
-	return false, ""
-}
-
 type ListenerKey string
-
-func RefToKey(ref gv1.ParentReference) ListenerKey {
-	key := fmt.Sprintf("%s/%s/%s", *ref.Namespace, ref.Name, *ref.SectionName)
-	return ListenerKey(key)
-}
 
 func ListenerToKey(ls *types.Listener) ListenerKey {
 	key := fmt.Sprintf("%s/%s/%s", ls.Gateway.Namespace, ls.Gateway.Name, ls.Listener.Name)

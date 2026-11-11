@@ -3,6 +3,27 @@
     "caseSensitive": false,
     "words": [
         //proper noun
+        "featuregate",
+        "clusteralaudafeaturegates",
+        "alaudafeaturegates",
+        "nestbool",
+        "Zhang",
+        "apicast",
+        "subrequests",
+        "newindex",
+        "Nagarajan",
+        "exptime",
+        "ewma",
+        "logstream",
+        "bcicen",
+        "jstream",
+        "karlseguin",
+        "ccache",
+        "omitempty",
+        "proxyheadertypes",
+        "Automount",
+        "ccache",
+        "karlseguin",
         "keepalivetypes",
         "KEEPIDLE",
         "timeouttypes",
@@ -713,6 +734,9 @@
         "Etrel",
         "Jhcg",
         "Ympo",
+    ],
+    "ignorePaths": [
+        "test/e2e/plugin-config/**"
     ],
     "ignoreRegExpList": [
         "foo:.*"

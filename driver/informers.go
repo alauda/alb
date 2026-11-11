@@ -22,7 +22,7 @@ import (
 type Informers struct {
 	K8s     K8sInformers
 	Alb     AlbInformers
-	Gateway GatewayInformers
+	Gateway *GatewayInformers
 }
 
 type K8sInformers struct {
@@ -52,10 +52,12 @@ type AlbInformers struct {
 
 type InitInformersOptions struct {
 	ErrorIfWaitSyncFail bool // if errorIfWaitSyncFail set to false, and some error happens, it will ignore this error(just log) and still fill-up Informers
+	IsGatewayEnabled    bool
 }
 
-func initInformerAndLister(driver *KubernetesDriver, ctx context.Context) error {
-	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false})
+func initInformerAndLister(driver *KubernetesDriver, opt DrvOpt) error {
+	ctx := opt.Ctx
+	informers, err := InitInformers(driver, ctx, InitInformersOptions{ErrorIfWaitSyncFail: false, IsGatewayEnabled: opt.Opt.IsGatewayEnabled})
 	if err != nil {
 		return err
 	}
@@ -65,7 +67,9 @@ func initInformerAndLister(driver *KubernetesDriver, ctx context.Context) error 
 	driver.RuleLister = informers.Alb.Rule.Lister()
 	driver.ServiceLister = informers.K8s.Service.Lister()
 	driver.EndpointLister = informers.K8s.Endpoint.Lister()
-	driver.GatewayLister = informers.Gateway.Gateway.Lister()
+	if informers.Gateway != nil {
+		driver.GatewayLister = informers.Gateway.Gateway.Lister()
+	}
 	return nil
 }
 
@@ -106,28 +110,6 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 
 	albInformerFactory.Start(ctx.Done())
 
-	gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
-
-	gatewayClassInformer := gatewayInformerFactory.Gateway().V1().GatewayClasses()
-	gatewayClassSynced := gatewayClassInformer.Informer().HasSynced
-
-	gatewayInformer := gatewayInformerFactory.Gateway().V1().Gateways()
-	gatewaySynced := gatewayInformer.Informer().HasSynced
-
-	httpRouteInformer := gatewayInformerFactory.Gateway().V1().HTTPRoutes()
-	httpRouteSynced := httpRouteInformer.Informer().HasSynced
-
-	tcpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TCPRoutes()
-	tcpRouteSynced := tcpRouteInformer.Informer().HasSynced
-
-	udpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().UDPRoutes()
-	udpRouteSynced := udpRouteInformer.Informer().HasSynced
-
-	tlsRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TLSRoutes()
-	tlsRouteSynced := tlsRouteInformer.Informer().HasSynced
-
-	gatewayInformerFactory.Start(ctx.Done())
-
 	// gateway policyattachment could used in any ns.
 	albGatewayInformerFactory := albinformers.NewSharedInformerFactoryWithOptions(driver.ALBClient, 0)
 
@@ -135,7 +117,6 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 	timeoutPolicySynced := timeoutPolicyInformer.Informer().HasSynced
 
 	albGatewayInformerFactory.Start(ctx.Done())
-
 	if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(),
 		namespaceSynced,
 		ingressSynced,
@@ -146,20 +127,61 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 		alb2Synced,
 		frontendSynced,
 		ruleSynced,
-		gatewayClassSynced,
-		gatewaySynced,
-		httpRouteSynced,
-		tcpRouteSynced,
-		udpRouteSynced,
-		tlsRouteSynced,
 		timeoutPolicySynced,
 	); !ok {
 		if options.ErrorIfWaitSyncFail {
 			return nil, errors.New("wait alb2 informers sync fail")
 		}
 	}
+	var gateway *GatewayInformers
+	if options.IsGatewayEnabled {
+		gatewayInformerFactory := gatewayExternal.NewSharedInformerFactory(driver.GatewayClient, 0)
 
-	return &Informers{
+		gatewayClassInformer := gatewayInformerFactory.Gateway().V1().GatewayClasses()
+		gatewayClassSynced := gatewayClassInformer.Informer().HasSynced
+
+		gatewayInformer := gatewayInformerFactory.Gateway().V1().Gateways()
+		gatewaySynced := gatewayInformer.Informer().HasSynced
+
+		httpRouteInformer := gatewayInformerFactory.Gateway().V1().HTTPRoutes()
+		httpRouteSynced := httpRouteInformer.Informer().HasSynced
+
+		tcpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TCPRoutes()
+		tcpRouteSynced := tcpRouteInformer.Informer().HasSynced
+
+		udpRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().UDPRoutes()
+		udpRouteSynced := udpRouteInformer.Informer().HasSynced
+
+		tlsRouteInformer := gatewayInformerFactory.Gateway().V1alpha2().TLSRoutes()
+		tlsRouteSynced := tlsRouteInformer.Informer().HasSynced
+
+		gatewayInformerFactory.Start(ctx.Done())
+
+		if ok := cache.WaitForNamedCacheSync("alb2", ctx.Done(),
+			gatewayClassSynced,
+			gatewaySynced,
+			httpRouteSynced,
+			tcpRouteSynced,
+			udpRouteSynced,
+			tlsRouteSynced,
+			timeoutPolicySynced,
+		); !ok {
+			if options.ErrorIfWaitSyncFail {
+				return nil, errors.New("wait alb2 informers sync fail")
+			}
+		}
+
+		gateway = &GatewayInformers{
+			GatewayClass: gatewayClassInformer,
+			Gateway:      gatewayInformer,
+			HttpRoute:    httpRouteInformer,
+			TcpRoute:     tcpRouteInformer,
+			UdpRoute:     udpRouteInformer,
+			TlsRoute:     tlsRouteInformer,
+		}
+	}
+
+	informers := &Informers{
 		K8s: K8sInformers{
 			Ingress:       ingressInformer,
 			IngressClass:  ingressClassInformer,
@@ -174,13 +196,9 @@ func InitInformers(driver *KubernetesDriver, ctx context.Context, options InitIn
 			Rule:          ruleInformer,
 			TimeoutPolicy: timeoutPolicyInformer,
 		},
-		Gateway: GatewayInformers{
-			GatewayClass: gatewayClassInformer,
-			Gateway:      gatewayInformer,
-			HttpRoute:    httpRouteInformer,
-			TcpRoute:     tcpRouteInformer,
-			UdpRoute:     udpRouteInformer,
-			TlsRoute:     tlsRouteInformer,
-		},
-	}, nil
+	}
+	if gateway != nil {
+		informers.Gateway = gateway
+	}
+	return informers, nil
 }

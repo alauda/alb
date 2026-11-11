@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -51,22 +52,24 @@ type DeployCfg struct {
 }
 
 type DeploySpec struct {
-	Name           string
-	Ns             string
-	DeployLabel    map[string]string
-	DeplAnnotation map[string]string
-	PodLabel       map[string]string
-	Replica        *int32
-	Owner          []v1.OwnerReference
-	Hostnetwork    bool
-	Dnspolicy      corev1.DNSPolicy
-	Nodeselector   map[string]string
-	PodSelector    map[string]string
-	Affinity       *corev1.Affinity
-	Strategy       appv1.DeploymentStrategy
-	Tolerations    []corev1.Toleration
-	Shareprocess   *bool
-	ServiceAccount string
+	Name                         string
+	Ns                           string
+	DeployLabel                  map[string]string
+	DeplAnnotation               map[string]string
+	PodLabel                     map[string]string
+	PodAnnotation                map[string]string
+	Replica                      *int32
+	Owner                        []v1.OwnerReference
+	Hostnetwork                  bool
+	Dnspolicy                    corev1.DNSPolicy
+	Nodeselector                 map[string]string
+	PodSelector                  map[string]string
+	Affinity                     *corev1.Affinity
+	Strategy                     appv1.DeploymentStrategy
+	Tolerations                  []corev1.Toleration
+	Shareprocess                 *bool
+	ServiceAccount               string
+	AutomountServiceAccountToken *bool
 }
 
 type DeployContainerCfg struct {
@@ -95,8 +98,8 @@ func NewTemplate(alb *a2t.ALB2, cur *appv1.Deployment, albcf *config.ALB2Config,
 }
 
 type VolumeCfg struct {
-	Volumes map[string]corev1.Volume
-	Mounts  map[string]map[string]string
+	Volumes map[string]corev1.Volume     `json:"volumes"`
+	Mounts  map[string]map[string]string `json:"mounts"`
 }
 
 func findContainer(name string, depl *appv1.Deployment) *corev1.Container {
@@ -153,20 +156,22 @@ func pickConfigFromDeploy(dep *appv1.Deployment) *DeployCfg {
 	nginxcfg := fromContainer(findContainer("nginx", dep))
 	return &DeployCfg{
 		Spec: DeploySpec{
-			Name:           dep.Name,
-			Ns:             dep.Namespace,
-			Owner:          dep.OwnerReferences,
-			Replica:        dep.Spec.Replicas,
-			Hostnetwork:    dep.Spec.Template.Spec.HostNetwork,
-			PodLabel:       dep.Spec.Template.Labels,
-			DeployLabel:    dep.Labels,
-			Nodeselector:   dep.Spec.Template.Spec.NodeSelector,
-			PodSelector:    dep.Spec.Template.Labels,
-			Strategy:       dep.Spec.Strategy,
-			Tolerations:    dep.Spec.Template.Spec.Tolerations,
-			Shareprocess:   dep.Spec.Template.Spec.ShareProcessNamespace,
-			Affinity:       dep.Spec.Template.Spec.Affinity,
-			ServiceAccount: dep.Spec.Template.Spec.ServiceAccountName,
+			Name:                         dep.Name,
+			Ns:                           dep.Namespace,
+			Owner:                        dep.OwnerReferences,
+			Replica:                      dep.Spec.Replicas,
+			Hostnetwork:                  dep.Spec.Template.Spec.HostNetwork,
+			PodLabel:                     dep.Spec.Template.Labels,
+			PodAnnotation:                dep.Spec.Template.Annotations,
+			DeployLabel:                  dep.Labels,
+			Nodeselector:                 dep.Spec.Template.Spec.NodeSelector,
+			PodSelector:                  dep.Spec.Template.Labels,
+			Strategy:                     dep.Spec.Strategy,
+			Tolerations:                  dep.Spec.Template.Spec.Tolerations,
+			Shareprocess:                 dep.Spec.Template.Spec.ShareProcessNamespace,
+			Affinity:                     dep.Spec.Template.Spec.Affinity,
+			ServiceAccount:               dep.Spec.Template.Spec.ServiceAccountName,
+			AutomountServiceAccountToken: dep.Spec.Template.Spec.AutomountServiceAccountToken,
 		},
 		Alb:   albcfg,
 		Nginx: nginxcfg,
@@ -214,20 +219,30 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 		}
 	}
+	if custom_toleration, ok := d.alb.Annotations["alb.cpaas.io/toleration"]; ok {
+		tolerations := []corev1.Toleration{}
+		err := json.Unmarshal([]byte(custom_toleration), &tolerations)
+		if err != nil {
+			d.log.Error(err, "Failed to unmarshal custom toleration", "cfg", custom_toleration)
+		} else {
+			defaultTolerations = tolerations
+		}
+	}
 	readonly := conf.Flags.ReadOnlyFs
 
-	return DeployCfg{
+	depl := DeployCfg{
 		Spec: DeploySpec{
-			Name:         d.name,
-			Ns:           d.ns,
-			Owner:        MakeOwnerRefs(d.alb),
-			Replica:      &replicas,
-			Hostnetwork:  hostnetwork,
-			Dnspolicy:    dns,
-			PodLabel:     d.expectPodLabel(),
-			DeployLabel:  ALB2ResourceLabel(d.alb.Namespace, d.alb.Name, d.env.Version),
-			Nodeselector: conf.Deploy.NodeSelector,
-			PodSelector:  d.podSelector(),
+			Name:          d.name,
+			Ns:            d.ns,
+			Owner:         MakeOwnerRefs(d.alb),
+			Replica:       &replicas,
+			Hostnetwork:   hostnetwork,
+			Dnspolicy:     dns,
+			PodLabel:      d.expectPodLabel(),
+			PodAnnotation: d.expectPodAnnotation(),
+			DeployLabel:   ALB2ResourceLabel(d.alb.Namespace, d.alb.Name, d.env.Version),
+			Nodeselector:  conf.Deploy.NodeSelector,
+			PodSelector:   d.podSelector(),
 			Strategy: appv1.DeploymentStrategy{
 				Type: appv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appv1.RollingUpdateDeployment{
@@ -235,10 +250,11 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 					MaxUnavailable: &defaultMaxUnavailable,
 				},
 			},
-			Tolerations:    defaultTolerations,
-			Shareprocess:   pointer.To(true),
-			Affinity:       d.GenExpectAffinity(),
-			ServiceAccount: fmt.Sprintf(FMT_SA, d.alb.Name),
+			Tolerations:                  defaultTolerations,
+			Shareprocess:                 pointer.To(true),
+			Affinity:                     d.GenExpectAffinity(),
+			ServiceAccount:               fmt.Sprintf(FMT_SA, d.alb.Name),
+			AutomountServiceAccountToken: pointer.To(true),
 		},
 		Alb: DeployContainerCfg{
 			Name:  "alb2",
@@ -259,7 +275,7 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 				},
 				AllowPrivilegeEscalation: pointer.To(true),
 			},
-			Env:      conf.GetALBContainerEnvs(),
+			Env:      conf.GetALBContainerEnvs(d.alb.Annotations),
 			Resource: toResource(conf.Deploy.ALbResource),
 		},
 		Nginx: DeployContainerCfg{
@@ -331,6 +347,48 @@ func (d *DeplTemplate) expectConfig() DeployCfg {
 			},
 		},
 	}
+
+	if d.alb.Annotations["volume-overwrite"] != "" {
+		err := patchVolumes(&depl.Vol, d.alb.Annotations["volume-overwrite"])
+		if err != nil {
+			d.log.Error(err, "patch volumes failed")
+		}
+	}
+	return depl
+}
+
+func patchVolumes(vol *VolumeCfg, overwrite string) error {
+	// parse json to volume cfg
+	// volume-overwrite: |
+	//   {
+	//     "volumes":{
+	//         "nginx-log":{"name":"nginx-log","hostPath":{"path":"/var/log/alb/","type":"DirectoryOrCreate"}}
+	//     },
+	//     "mounts":{
+	//         "nginx":{
+	//             "nginx-log":"/var/log/alb/"
+	//          }
+	//     }
+	//   }
+
+	var volCfg VolumeCfg
+	err := json.Unmarshal([]byte(overwrite), &volCfg)
+	if err != nil {
+		return err
+	}
+	// merge with vol
+	for k, v := range volCfg.Volumes {
+		vol.Volumes[k] = v
+	}
+	for container, mounts := range volCfg.Mounts {
+		for volName, path := range mounts {
+			if _, ok := vol.Mounts[container]; !ok {
+				vol.Mounts[container] = map[string]string{}
+			}
+			vol.Mounts[container][volName] = path
+		}
+	}
+	return nil
 }
 
 func toResource(res corev1.ResourceRequirements) a2t.ExternalResource {
@@ -400,6 +458,8 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 	}
 	depl.Spec.Selector = &metav1.LabelSelector{MatchLabels: cfg.Spec.PodSelector}
 	depl.Spec.Template.Labels = cfg.Spec.PodLabel
+	depl.Spec.Template.Annotations = cfg.Spec.PodAnnotation
+	depl.Spec.Template.Spec.AutomountServiceAccountToken = cfg.Spec.AutomountServiceAccountToken
 
 	spec.Affinity = cfg.Spec.Affinity
 	spec.ServiceAccountName = cfg.Spec.ServiceAccount
@@ -424,6 +484,34 @@ func (d *DeplTemplate) Generate() *appv1.Deployment {
 			Name:      name,
 			MountPath: path,
 		})
+	}
+	ctx := &corev1.SecurityContext{}
+	ctx.Privileged = pointer.To(true)
+	ctx.RunAsGroup = pointer.To(int64(0))
+	ctx.RunAsUser = pointer.To(int64(0))
+	ctx.ReadOnlyRootFilesystem = pointer.To(false)
+	spec.InitContainers = []corev1.Container{
+		{
+			Name:  "init",
+			Image: alb.Image,
+			Command: []string{
+				"/alb/ctl/run-init.sh",
+			},
+			ImagePullPolicy: alb.Pullpolicy,
+			SecurityContext: ctx,
+			Resources:       fromResource(alb.Resource),
+			VolumeMounts: []corev1.VolumeMount{
+
+				{
+					MountPath: "/etc/alb2/nginx/",
+					Name:      "share-conf",
+				},
+				{
+					MountPath: "/alb/nginx/run/",
+					Name:      "nginx-run",
+				},
+			},
+		},
 	}
 
 	spec.Containers = []corev1.Container{

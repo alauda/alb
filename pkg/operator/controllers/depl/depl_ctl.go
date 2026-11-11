@@ -6,13 +6,11 @@ import (
 	"reflect"
 
 	c "alauda.io/alb2/config"
-	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	cfg "alauda.io/alb2/pkg/operator/config"
 	patch "alauda.io/alb2/pkg/operator/controllers/depl/patch"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/configmap"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/feature"
-	rg "alauda.io/alb2/pkg/operator/controllers/depl/resources/gateway"
 	ingcls "alauda.io/alb2/pkg/operator/controllers/depl/resources/ingressclass"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/portinfo"
 	"alauda.io/alb2/pkg/operator/controllers/depl/resources/rbac"
@@ -30,47 +28,40 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctlClient "sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // 当前集群上alb相关的cr
 type AlbDeploy struct {
-	Alb                *albv2.ALB2
-	Deploy             *appsv1.Deployment
-	Common             *corev1.ConfigMap
-	PortInfo           *corev1.ConfigMap
-	IngressClass       *netv1.IngressClass
-	SharedGatewayClass *gv1b1t.GatewayClass
-	Svc                service.CurSvc
-	Feature            feature.FeatureCur
-	Rbac               *rbac.CurRbac
-	Lease              *coov1.Lease
+	Alb          *albv2.ALB2
+	Deploy       *appsv1.Deployment
+	Common       *corev1.ConfigMap
+	PortInfo     *corev1.ConfigMap
+	IngressClass *netv1.IngressClass
+	Svc          service.CurSvc
+	Feature      feature.FeatureCur
+	Rbac         *rbac.CurRbac
+	Lease        *coov1.Lease
 }
 
 // 为了完成升级alb所需的一些配置
 type AlbDeployUpdate struct {
-	Alb                *albv2.ALB2
-	Deploy             *appsv1.Deployment
-	Common             *corev1.ConfigMap
-	PortInfo           *corev1.ConfigMap
-	IngressClass       *netv1.IngressClass
-	SharedGatewayClass *gv1b1t.GatewayClass
-	Svc                service.SvcUpdates
-	Feature            feature.FeatureUpdate
-	Rbac               *rbac.RbacUpdate
+	Alb          *albv2.ALB2
+	Deploy       *appsv1.Deployment
+	Common       *corev1.ConfigMap
+	PortInfo     *corev1.ConfigMap
+	IngressClass *netv1.IngressClass
+	Svc          service.SvcUpdates
+	Feature      feature.FeatureUpdate
+	Rbac         *rbac.RbacUpdate
 }
 
-// 这里的gatewayclass是共享型的gatewayclass,他的名字和alb是相同的
-// 独享型的gatewayclass的名字是固定的,是operator部署时直接创建的,和单独的某个alb的部署无关
-
 func (d *AlbDeploy) Show() string {
-	return fmt.Sprintf("alb %v,depl %v,comm %v,port %v,ic %v,gc %v,svc %v",
+	return fmt.Sprintf("alb %v,depl %v,comm %v,port %v,ic %v,svc %v",
 		showCr(d.Alb),
 		showCr(d.Deploy),
 		showCr(d.Common),
 		showCr(d.PortInfo),
 		showCr(d.IngressClass),
-		showCr(d.SharedGatewayClass),
 		d.Svc.Show())
 }
 
@@ -125,11 +116,6 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 		return nil, err
 	}
 
-	gc, err := d.genExpectGatewayClass(cur, cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	depl, err := d.genExpectDeployment(cur, cfg)
 	if err != nil {
 		return nil, err
@@ -140,15 +126,14 @@ func (d *AlbDeployCtl) GenExpectAlbDeploy(ctx context.Context, cur *AlbDeploy) (
 
 	alb.Status = GenExpectStatus(d.Cfg, cur)
 	expect := AlbDeployUpdate{
-		Alb:                alb,
-		Deploy:             depl,
-		Common:             comm,
-		PortInfo:           port,
-		IngressClass:       ic,
-		SharedGatewayClass: gc,
-		Svc:                svcupdate,
-		Feature:            feature,
-		Rbac:               rbac,
+		Alb:          alb,
+		Deploy:       depl,
+		Common:       comm,
+		PortInfo:     port,
+		IngressClass: ic,
+		Svc:          svcupdate,
+		Feature:      feature,
+		Rbac:         rbac,
 	}
 	return &expect, nil
 }
@@ -195,30 +180,6 @@ func (d *AlbDeployCtl) genExpectAlb(cur *AlbDeploy, conf *cfg.ALB2Config) (*albv
 func (d *AlbDeployCtl) genExpectDeployment(cur *AlbDeploy, conf *cfg.ALB2Config) (*appsv1.Deployment, error) {
 	deploy := workload.NewTemplate(cur.Alb, cur.Deploy.DeepCopy(), conf, d.Cfg.Operator, d.Log).Generate()
 	return deploy, nil
-}
-
-// TODO 共享型的gateway如何实现还是待定..所以这么就按照已经实现的逻辑来
-func (d *AlbDeployCtl) genExpectGatewayClass(cur *AlbDeploy, conf *cfg.ALB2Config) (*gv1b1t.GatewayClass, error) {
-	var (
-		alb2            = cur.Alb
-		refLabel        = ALB2ResourceLabel(alb2.Namespace, alb2.Name, d.Cfg.Operator.Version)
-		labelBaseDomain = d.Cfg.Operator.GetLabelBaseDomain()
-	)
-	if !conf.Gateway.Enable {
-		return nil, nil
-	}
-	if conf.Gateway.Mode != a2t.GatewayModeShared {
-		return nil, nil
-	}
-
-	lable := refLabel
-
-	lable[fmt.Sprintf("gatewayclass.%s/deploy", labelBaseDomain)] = labelBaseDomain
-	lable[fmt.Sprintf("gatewayclass.%s/type", labelBaseDomain)] = "shared"
-	gc := rg.NewTemplate(alb2.Namespace, alb2.Name, labelBaseDomain, alb2, cur.SharedGatewayClass, d.Log).Generate(
-		rg.AddLabel(lable),
-	)
-	return gc, nil
 }
 
 func (d *AlbDeployCtl) genExpectConfigmap(ctx context.Context, cur *AlbDeploy, conf *cfg.ALB2Config) (*corev1.ConfigMap, error) {
@@ -274,7 +235,6 @@ func Destroy(ctx context.Context, cli client.Client, log logr.Logger, cur *AlbDe
 	objs = append(objs, cur.Common)
 	objs = append(objs, cur.PortInfo)
 	objs = append(objs, cur.Deploy)
-	objs = append(objs, cur.SharedGatewayClass)
 	objs = append(objs, cur.IngressClass)
 	objs = append(objs, cur.Feature.Raw)
 	objs = append(objs, cur.Svc.GetObjs()...)
@@ -367,15 +327,6 @@ func (d *AlbDeployCtl) DoUpdate(ctx context.Context, cur *AlbDeploy, expect *Alb
 
 	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.IngressClass, expect.IngressClass, func(cur *netv1.IngressClass, expect *netv1.IngressClass) bool {
 		return !(reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Annotations, expect.Annotations) && reflect.DeepEqual(cur.Labels, expect.Labels))
-	})
-	if err != nil {
-		return false, "", err
-	}
-
-	// update gatewayclass
-	err = DeleteOrCreateOrUpdate(ctx, d.Cli, d.Log, cur.SharedGatewayClass, expect.SharedGatewayClass, func(cur, expect *gv1b1t.GatewayClass) bool {
-		same := reflect.DeepEqual(cur.Spec, expect.Spec) && reflect.DeepEqual(cur.Labels, expect.Labels)
-		return !same
 	})
 	if err != nil {
 		return false, "", err

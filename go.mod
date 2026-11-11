@@ -1,10 +1,12 @@
 module alauda.io/alb2
 
-go 1.22.0
+go 1.24.0
 
-toolchain go1.22.5
+toolchain go1.26.1
 
 require (
+	github.com/bcicen/jstream v1.0.1
+	github.com/blang/semver/v4 v4.0.0
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fatih/set v0.2.1
@@ -13,6 +15,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/josephburnett/jd v1.8.1
+	github.com/karlseguin/ccache/v3 v3.0.6
 	github.com/kr/pretty v0.3.1
 	github.com/lithammer/dedent v1.1.0
 	github.com/markkurossi/tabulate v0.0.0-20230223130100-d4965869b123
@@ -24,7 +27,6 @@ require (
 	github.com/pborman/indent v1.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.47.0
-	github.com/satyrius/gonx v1.4.0
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
@@ -34,9 +36,10 @@ require (
 	github.com/wI2L/jsondiff v0.6.1
 	github.com/xorcare/pointer v1.2.2
 	github.com/ztrue/tracerr v0.3.0
-	golang.org/x/crypto v0.32.0
+	golang.org/x/crypto v0.45.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
 	k8s.io/client-go v0.28.5
@@ -84,7 +87,6 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -92,18 +94,16 @@ require (
 	github.com/tidwall/sjson v1.2.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/oauth2 v0.13.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/term v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/term v0.37.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.28.3 // indirect
 	k8s.io/component-base v0.28.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect

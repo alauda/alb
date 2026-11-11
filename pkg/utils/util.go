@@ -49,3 +49,22 @@ func ParseStringToObjectKey(key string) (client.ObjectKey, error) {
 		Name:      parts[1],
 	}, nil
 }
+
+func GetIngressAnnotation(annotations map[string]string, pindex int, rindex int, domain, key string) (string, bool) {
+	prefix := []string{
+		fmt.Sprintf("index.%d-%d.alb.ingress.%s/%s", rindex, pindex, domain, key),
+		fmt.Sprintf("alb.ingress.%s/%s", domain, key),
+		fmt.Sprintf("nginx.ingress.kubernetes.io/%s", key),
+	}
+	for _, p := range prefix {
+		if v, ok := annotations[p]; ok {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func KeyExists[K comparable, V any](m map[K]V, key K) bool {
+	_, ok := m[key]
+	return ok
+}

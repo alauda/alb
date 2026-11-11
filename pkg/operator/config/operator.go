@@ -14,6 +14,7 @@ type OperatorCfg struct {
 	ImagePullSecrets []string
 	BaseDomain       string
 	Version          string
+	Gateway          bool
 }
 
 type Config struct {
@@ -27,6 +28,7 @@ var DEFAULT_OPERATOR_CFG = OperatorCfg{
 	BaseDomain:       "cpaas.io",
 	Version:          "v0.0.1",
 	ImagePullPolicy:  "Always",
+	Gateway:          false,
 	ImagePullSecrets: []string{"mock"},
 }
 
@@ -37,6 +39,7 @@ func OperatorCfgFromEnv() (OperatorCfg, error) {
 	base := os.Getenv("LABEL_BASE_DOMAIN")
 	imagepull := os.Getenv("IMAGE_PULL_POLICY")
 	secrets := utils.SplitAndRemoveEmpty(os.Getenv("IMAGE_PULL_SECRETS"), ",")
+	gateway := os.Getenv("GATEWAY_ENABLE") == "true"
 	if imagepull == "" {
 		imagepull = "IfNotPresent"
 	}
@@ -50,6 +53,7 @@ func OperatorCfgFromEnv() (OperatorCfg, error) {
 		BaseDomain:       base,
 		ImagePullPolicy:  imagepull,
 		ImagePullSecrets: secrets,
+		Gateway:          gateway,
 	}, nil
 }
 

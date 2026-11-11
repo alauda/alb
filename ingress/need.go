@@ -17,6 +17,7 @@ type Need struct {
 
 func getIngressFtTypes(ing *networkingv1.Ingress, c *config.Config) Need {
 	ALBSSLStrategyAnnotation := fmt.Sprintf("alb.networking.%s/enable-https", c.GetDomain())
+	ALBHTTPAnnotation := fmt.Sprintf("alb.networking.%s/enable-http", c.GetDomain())
 	ALBSSLAnnotation := fmt.Sprintf("alb.networking.%s/tls", c.GetDomain())
 	defaultSSLStrategy := c.GetDefaultSSLStrategy()
 	ingSSLStrategy := ing.Annotations[ALBSSLStrategyAnnotation]
@@ -29,6 +30,9 @@ func getIngressFtTypes(ing *networkingv1.Ingress, c *config.Config) Need {
 	}
 
 	needFtTypes := set.New(set.NonThreadSafe)
+	if ing.Annotations[ALBHTTPAnnotation] == "true" {
+		needFtTypes.Add(m.ProtoHTTP)
+	}
 	hasDefaultBackend := HasDefaultBackend(ing)
 	if hasDefaultBackend {
 		needFtTypes.Add(m.ProtoHTTP)

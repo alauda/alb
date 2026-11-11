@@ -47,15 +47,40 @@ function _M.test()
                         config = {
                             timeout = { proxy_read_timeout_ms = 300 }
                         }
+                    },
+                    {
+                        plugins = {},
+                        rule = "2",
+                        internal_dsl = { { "STARTS_WITH", "URL", "/t2" } },
+                        upstream = "u2",
+                        config = {
+                            rewrite_response = {
+                                headers = {
+                                    ["xx-xx"] = "Custom-Header-Value"
+                                }
+                            },
+                        }
                     }
                 }
             }
         },
         backend_group = {
-            { name = "u1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100 } }, } }
+            { name = "u1", mode = "http", backends = { { address = "127.0.0.1", port = 1880, weight = 100 } }, },
+            { name = "u2", mode = "http", backends = { { address = "127.0.0.1", port = 1881, weight = 100 } }, }
+        }
     }
     -- LuaFormatter on
     require("policy_helper").set_policy_lua(policy)
+
+    do
+        u.logs "error from backend connect refuse"
+        local res, err = u.curl("http://127.0.0.1/t2")
+        u.logs(res, err)
+        h.assert_eq(res.status, 502)
+        h.assert_eq(res.body, "X-Error: 502\n")
+        h.assert_eq(res.headers["xx-xx"], "Custom-Header-Value")
+    end
+
     do
         u.logs "error from backend without body"
         local res, err = u.curl("http://127.0.0.1/t1/404-without-body")
@@ -63,13 +88,13 @@ function _M.test()
         h.assert_eq(res.status, 404)
         h.assert_eq(res.body, "")
     end
-
     do
         u.logs "error from alb itself"
         local res, err = u.curl("http://127.0.0.1/xx")
         u.logs(res, err)
         h.assert_eq(res.status, 404)
     end
+
 
     do
         u.logs "error from alb timeout"
@@ -78,6 +103,7 @@ function _M.test()
         h.assert_eq(res.status, 504)
         h.assert_eq(res.body, "X-Error: 504\n")
     end
+
 
     do
         u.logs "error from backend timeout"

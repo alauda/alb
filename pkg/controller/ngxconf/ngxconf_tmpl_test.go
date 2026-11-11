@@ -14,7 +14,7 @@ import (
 )
 
 func TestGetCurrentNetwork(t *testing.T) {
-	_, err := GetCurrentNetwork()
+	_, err := GetCurrentNetwork([]string{"eth0"})
 	assert.NoError(t, err)
 }
 
@@ -136,7 +136,18 @@ func TestNginxConf(t *testing.T) {
 		NginxBase: "/alb/nginx",
 		RestyBase: "/usr/local/openresty",
 		ShareBase: "/etc/alb2/nginx",
-		Frontends: map[string]FtConfig{},
+		Frontends: map[string]FtConfig{
+			"xx": {
+				IpV4BindAddress: []string{"127.0.0.1"},
+				Listen:          "so_keepalive=on",
+				Location: `
+				xxxx;
+				xxx;
+				`,
+				Port:     1000,
+				Protocol: v1.FtProtocolTCP,
+			},
+		},
 		Resolver:  "127.0.0.1",
 		TweakHash: "",
 		Phase:     "running",
@@ -145,13 +156,17 @@ func TestNginxConf(t *testing.T) {
 			IpV4BindAddress: []string{},
 			IpV6BindAddress: []string{},
 		},
-		NginxParam: NginxParam{EnableIPV6: true},
-		Flags:      DefaulNgxTmplFlags(),
+		NginxParam: NginxParam{},
+		AllVar: `
+        set $svc_ns "_";
+		`,
+		Flags: DefaulNgxTmplFlags(),
 	}
 	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)
 	assert.NoError(t, err)
 	fmt.Println(ngx_cfg)
 	assert.True(t, strings.Contains(ngx_cfg, "resolver 127.0.0.1;"))
+	assert.True(t, strings.Contains(ngx_cfg, "set $svc_ns"))
 }
 
 func TestResolve(t *testing.T) {
@@ -195,7 +210,7 @@ func TestFtSpecialConfig(t *testing.T) {
 			IpV4BindAddress: []string{},
 			IpV6BindAddress: []string{},
 		},
-		NginxParam: NginxParam{EnableIPV6: true},
+		NginxParam: NginxParam{},
 		Flags:      DefaulNgxTmplFlags(),
 	}
 	ngx_cfg, err := RenderNginxConfigEmbed(tmpl_cfg)

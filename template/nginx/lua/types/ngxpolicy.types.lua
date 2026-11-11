@@ -34,6 +34,7 @@
 --- @field type string
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field proxy_header ProxyHeader?
 --- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
@@ -43,6 +44,7 @@
 --- @class PolicyExt
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field proxy_header ProxyHeader?
 --- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
@@ -107,10 +109,15 @@
 --- @field refs table<string, string>
 --- @field auth AuthPolicy?
 --- @field otel OtelConf?
+--- @field proxy_header ProxyHeader?
 --- @field redirect RedirectCr?
 --- @field rewrite_request RewriteRequestConfig?
 --- @field rewrite_response RewriteResponseConfig?
 --- @field timeout TimeoutCr?
+
+
+--- @class ProxyHeader
+--- @field use_forwarded_headers boolean
 
 
 --- @class RedirectCr

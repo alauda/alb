@@ -3,10 +3,12 @@ package driver
 import (
 	"context"
 	"fmt"
+	"time"
 
 	m "alauda.io/alb2/controller/modules"
 	alb2v1 "alauda.io/alb2/pkg/apis/alauda/v1"
 	albv2 "alauda.io/alb2/pkg/apis/alauda/v2beta1"
+	pm "alauda.io/alb2/pkg/utils/metrics"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -94,11 +96,14 @@ func (kd *KubernetesDriver) LoadALBbyName(namespace, name string) (*m.AlaudaLoad
 			Rules:    []*m.Rule{},
 			LB:       &alb2,
 		}
+
+		startTime := time.Now()
 		ruleList, err := kd.LoadRules(namespace, name, res.Name)
 		if err != nil {
 			klog.Error(err)
 			return nil, err
 		}
+		pm.Write(res.Name+"_load_rules_time", float64(time.Since(startTime).Milliseconds()))
 
 		for _, r := range ruleList {
 			if r.Spec.Config == nil {

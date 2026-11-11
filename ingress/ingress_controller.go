@@ -206,11 +206,14 @@ func (c *Controller) setUpEventHandler() error {
 			if oldAlb2.ResourceVersion == newAlb2.ResourceVersion {
 				return
 			}
-			if reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels) && reflect.DeepEqual(oldAlb2.Spec, newAlb2.Spec) {
-				return
-			}
 			ns, name := c.GetAlbNsAndName()
 			if newAlb2.Name != name || newAlb2.Namespace != ns {
+				return
+			}
+			label_eq := reflect.DeepEqual(oldAlb2.Labels, newAlb2.Labels)
+			spec_eq := reflect.DeepEqual(oldAlb2.Spec, newAlb2.Spec)
+			address_status_eq := reflect.DeepEqual(oldAlb2.Status.Detail.AddressStatus, newAlb2.Status.Detail.AddressStatus)
+			if label_eq && spec_eq && address_status_eq {
 				return
 			}
 			c.log.Info("find alb changed", "diff", cmp.Diff(oldAlb2, newAlb2))

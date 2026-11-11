@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"time"
 
 	"alauda.io/alb2/config"
@@ -46,12 +47,14 @@ func (a *Alb) Start() error {
 
 	state.GetState().SetPhase(modules.PhaseStarting)
 
-	go func() {
-		l.Info("start leaderelection")
-		if err := a.le.StartLeaderElectionLoop(); err != nil {
-			l.Error(err, "leader election fail")
-		}
-	}()
+	if os.Getenv("SKIP_LEADER") != "true" {
+		go func() {
+			l.Info("start leaderelection")
+			if err := a.le.StartLeaderElectionLoop(); err != nil {
+				l.Error(err, "leader election fail")
+			}
+		}()
+	}
 
 	drv, err := driver.NewDriver(driver.DrvOpt{
 		Ctx: a.ctx,
@@ -159,13 +162,17 @@ func (a *Alb) StartReloadLoadBalancerLoop(drv *driver.KubernetesDriver, ctx cont
 			l.Error(err, "generate conf failed")
 			return
 		}
-		l.Info("time", "policy-gen", pm.Read())
 
 		if err := nctl.ReloadLoadBalancer(); err != nil {
 			l.Error(err, "reload load balancer failed")
 		}
 
-		l.Info("reload: End update reload loop", "cost", time.Since(startTime))
+		if err := nctl.WriteAlbLoopTime(time.Since(startTime)); err != nil {
+			l.Error(err, "write alb loop time failed")
+		}
+
+		l.Info("reload: End update reload loop", "cost", time.Since(startTime), "metrics", pm.Read())
+		pm.Reset()
 	}, reloadTimeout, interval)
 
 	// TODO did we ready need this?

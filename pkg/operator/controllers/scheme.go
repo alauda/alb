@@ -20,9 +20,9 @@ func InitScheme(scheme *runtime.Scheme) *runtime.Scheme {
 	_ = albv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = netv1.AddToScheme(scheme)
-	_ = gv1.AddToScheme(scheme)
-	_ = gv1a2t.AddToScheme(scheme)
 	_ = rbacv1.AddToScheme(scheme)
 	_ = coov1.AddToScheme(scheme)
+	_ = gv1.AddToScheme(scheme)
+	_ = gv1a2t.AddToScheme(scheme)
 	return scheme
 }

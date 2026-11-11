@@ -234,5 +234,23 @@ function _M.dump(o)
     end
 end
 
+--- convert a file path to it string content.
+--- if error, return [nil,string(an error message)].
+--- if success, return [string(file content),nil]
+---@param path string
+---@return string|nil,string|nil
+function _M.file_read_to_string(path)
+    local f, err = io.open(path, "r")
+    if err or f == nil then
+        return nil, err
+    end
+    local raw = f:read("*a")
+    f:close()
+    if raw == nil then
+        return nil, "could not read file content"
+    end
+    return raw, nil
+end
+
 
 return _M

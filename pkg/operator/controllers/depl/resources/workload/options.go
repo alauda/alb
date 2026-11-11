@@ -1,6 +1,10 @@
 package workload
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+
 	a2t "alauda.io/alb2/pkg/apis/alauda/v2beta1"
 	. "alauda.io/alb2/pkg/operator/controllers/depl/util"
 	"alauda.io/alb2/pkg/operator/toolkit"
@@ -26,6 +30,31 @@ func (d *DeplTemplate) podSelector() map[string]string {
 	return labels
 }
 
+func (d *DeplTemplate) expectPodAnnotation() map[string]string {
+	key := fmt.Sprintf("alb.%s/pod-annotations", d.baseDomain)
+	m, _ := d._getExtraMapFromAlbAnnotation(key)
+	return m
+}
+
+func (d *DeplTemplate) getExtraPodLabels() (map[string]string, error) {
+	key := fmt.Sprintf("alb.%s/pod-labels", d.baseDomain)
+	return d._getExtraMapFromAlbAnnotation(key)
+
+}
+
+func (d *DeplTemplate) _getExtraMapFromAlbAnnotation(key string) (map[string]string, error) {
+	val, ok := d.alb.Annotations[key]
+	if !ok {
+		return nil, errors.New("annotation not found for " + key)
+	}
+	m := map[string]string{}
+	err := json.Unmarshal([]byte(val), &m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (d *DeplTemplate) expectPodLabel() map[string]string {
 	baseDomain := d.baseDomain
 	name := d.name
@@ -45,6 +74,11 @@ func (d *DeplTemplate) expectPodLabel() map[string]string {
 		commonlabel["alb2."+baseDomain+"/type"] = antiaffinitykey
 	}
 	labels = MergeMap(labels, commonlabel)
+	extra_labels, err := d.getExtraPodLabels()
+	if err != nil {
+		return labels
+	}
+	labels = MergeMap(labels, extra_labels)
 	return labels
 }
 

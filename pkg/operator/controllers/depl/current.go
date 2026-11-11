@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crcli "sigs.k8s.io/controller-runtime/pkg/client"
-	gv1b1t "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/go-logr/logr"
 	perr "github.com/pkg/errors"
@@ -31,7 +30,6 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 	commoncfg := &corev1.ConfigMap{}
 	portinfo := &corev1.ConfigMap{}
 	ic := &netv1.IngressClass{}
-	gc := &gv1b1t.GatewayClass{}
 	lease := &coov1.Lease{}
 	var err error
 
@@ -75,10 +73,6 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		return nil, err
 	}
 
-	err = cli.Get(ctx, req, gc)
-	if errors.IsNotFound(err) {
-		gc = nil
-	}
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -106,15 +100,14 @@ func LoadAlbDeploy(ctx context.Context, cli client.Client, l logr.Logger, req ty
 		return nil, err
 	}
 	return &AlbDeploy{
-		Alb:                alb,
-		Deploy:             depl,
-		Common:             commoncfg,
-		PortInfo:           portinfo,
-		IngressClass:       ic,
-		SharedGatewayClass: gc,
-		Feature:            fcur,
-		Svc:                svc,
-		Rbac:               rbac,
-		Lease:              lease,
+		Alb:          alb,
+		Deploy:       depl,
+		Common:       commoncfg,
+		PortInfo:     portinfo,
+		IngressClass: ic,
+		Feature:      fcur,
+		Svc:          svc,
+		Rbac:         rbac,
+		Lease:        lease,
 	}, nil
 }

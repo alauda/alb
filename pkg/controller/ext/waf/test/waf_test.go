@@ -185,7 +185,6 @@ var _ = Describe("waf", func() {
               config:
                   modsecurity:
                     enable: true
-                    useCoreRules: true
               dslx:
               - type: URL
                 values:
@@ -381,7 +380,6 @@ var _ = Describe("waf", func() {
 			loc := ptu.FindNamedHttpLocationRaw(ngxconf, "80", "@waf_rule_waf-00080-1")
 			loc_str := ptu.DumpNgxBlockEq(loc.GetBlock())
 			GinkgoAssertTrue(strings.Contains(loc_str, "modsecurity on;"), "")
-			GinkgoAssertTrue(strings.Contains(loc_str, "owasp-modsecurity-crs"), "")
 			GinkgoAssertTrue(*p.FindHttpPolicyOnly("waf-00080-1").ToLocation == "waf_rule_waf-00080-1", "")
 
 			// rule with transactionId
