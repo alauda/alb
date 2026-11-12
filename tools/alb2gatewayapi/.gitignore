@@ -1,0 +1,15 @@
+# Customer exports and generated output are never public artifacts.
+input/*
+output/*
+!input/README.md
+!input/.gitignore
+!output/README.md
+!output/.gitignore
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.kubeconfig
+*.log
+.pytest_cache/

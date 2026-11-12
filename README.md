@@ -6,6 +6,8 @@ ALB (Another Load Balancer) is a Kubernetes Gateway powered by [OpenResty](https
 
 > *Note*: We are in the process of preparing the necessary documentation and refactoring the code for open source. More information and detailed usage will be made available soon.
 
+For ALB2/Frontend/Rule to Gateway API migration, see [tools/alb2gatewayapi/README.md](tools/alb2gatewayapi/README.md).
+
 ## Advantages
 
 - **Isolation and Multi-Tenant**: With ALB operator, multiple ALB instances can be created and managed in one cluster. Each tenant can has a group of dedicated ALB instances.

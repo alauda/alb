@@ -1,0 +1,7 @@
+[project]
+name = "alb2gatewayapi"
+version = "0.1.0"
+description = "Offline ALB2/Frontend/Rule to Gateway API conversion and review helper"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0"]
+
