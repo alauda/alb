@@ -1,0 +1,29 @@
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+  name: demo-tcp
+  namespace: demo
+spec:
+  type: nginx
+  config:
+    networkMode: container
+    loadbalancerName: demo-tcp
+    replicas: 1
+---
+apiVersion: crd.alauda.io/v1
+kind: Frontend
+metadata:
+  name: demo-tcp-9000
+  namespace: demo
+  labels:
+    alb2.cpaas.io/name: demo-tcp
+spec:
+  port: 9000
+  protocol: tcp
+  serviceGroup:
+    services:
+      - name: tcp-echo
+        namespace: demo
+        port: 9000
+        weight: 100
+    session_affinity_policy: sip-hash

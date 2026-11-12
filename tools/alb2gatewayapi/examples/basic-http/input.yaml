@@ -1,0 +1,85 @@
+apiVersion: crd.alauda.io/v2beta1
+kind: ALB2
+metadata:
+  name: demo-alb
+  namespace: demo
+  annotations:
+    cpaas.io/display-name: Demo ALB
+    cpaas.io/description: Example ALB migration input
+    cpaas.io/creator: demo@example.com
+spec:
+  type: nginx
+  config:
+    networkMode: container
+    loadbalancerName: demo-alb
+    replicas: 1
+---
+apiVersion: crd.alauda.io/v1
+kind: Frontend
+metadata:
+  name: demo-http
+  namespace: demo
+  labels:
+    alb2.cpaas.io/name: demo-alb
+spec:
+  port: 80
+  protocol: http
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  name: demo-root
+  namespace: demo
+  labels:
+    alb2.cpaas.io/name: demo-alb
+    alb2.cpaas.io/frontend: demo-http
+spec:
+  source:
+    name: demo-ingress
+    namespace: demo
+    type: ingress
+  dslx:
+    - type: HOST
+      values:
+        - [EQ, app.example.com]
+    - type: URL
+      values:
+        - [STARTS_WITH, /]
+  vhost: hello.demo.svc.cluster.local
+  enableCORS: true
+  corsAllowOrigin: https://app.example.com
+  corsAllowHeaders: Content-Type,Authorization
+  serviceGroup:
+    services:
+      - name: hello
+        namespace: demo
+        port: 8080
+        weight: 100
+---
+apiVersion: crd.alauda.io/v1
+kind: Rule
+metadata:
+  name: demo-redirect
+  namespace: demo
+  labels:
+    alb2.cpaas.io/name: demo-alb
+    alb2.cpaas.io/frontend: demo-http
+spec:
+  source:
+    name: demo-ingress
+    namespace: demo
+    type: ingress
+  dslx:
+    - type: HOST
+      values:
+        - [EQ, old.example.com]
+  config:
+    redirect:
+      url: https://app.example.com$request_uri
+      code: 301
+  serviceGroup:
+    services:
+      - name: hello
+        namespace: demo
+        port: 8080
+        weight: 100
